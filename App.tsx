@@ -21,7 +21,12 @@ export default function App() {
       style={{ flex: 1, backgroundColor: colors.grey900 }}
     >
       <GenerationOptionsProvider>
-        <NavigationContainer theme={{ ...DarkTheme }}>
+        <NavigationContainer
+          theme={{
+            ...DarkTheme,
+            colors: { ...DarkTheme.colors, background: colors.grey900 },
+          }}
+        >
           <Stack.Navigator
             screenOptions={{
               headerShown: false,

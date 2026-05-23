@@ -30,6 +30,8 @@ import { MODELS, SAMPLERS, type AspectRatio } from "../constants/generation";
 import { colors } from "../styles/colors";
 import type { OptionScreenNavigationProp } from "../navigation/types";
 
+import { useWindowDimensions } from "react-native";
+
 type SelectionSheetKey = "model" | "sampler" | null;
 
 function getOptionLabel(
@@ -40,6 +42,8 @@ function getOptionLabel(
 }
 
 export function OptionScreen() {
+  const layout = useWindowDimensions();
+
   const navigation = useNavigation<OptionScreenNavigationProp>();
   const {
     prompt,
@@ -248,6 +252,7 @@ export function OptionScreen() {
 
       <TabView
         style={styles.tabView}
+        initialLayout={{ width: layout.width }}
         navigationState={{ index: tabIndex, routes: tabRoutes }}
         onIndexChange={setTabIndex}
         renderTabBar={(props) => (
