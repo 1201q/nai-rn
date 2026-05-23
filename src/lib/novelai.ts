@@ -2,23 +2,180 @@ import JSZip from "jszip";
 import { fromByteArray } from "base64-js";
 
 const NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
-const MODEL = "nai-diffusion-3";
-
 export type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
+  negativePrompt: string;
+  model: string;
+  width: number;
+  height: number;
+  steps: number;
+  scale: number;
+  sampler: string;
+  seed?: number;
+  nSamples?: number;
 };
 
 export type GenerateNovelAiImageResult = {
   imageDataUri: string;
   seed: number;
+  metadata: Record<string, string>;
 };
+
+function readUInt32BE(bytes: Uint8Array, offset: number): number {
+  return (
+    bytes[offset] * 0x1000000 +
+    ((bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3])
+  );
+}
+
+function decodeBytes(bytes: Uint8Array): string {
+  if (typeof TextDecoder !== "undefined") {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
+  let text = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    text += String.fromCharCode(bytes[index]);
+  }
+  return text;
+}
+
+function decodeAscii(bytes: Uint8Array): string {
+  let text = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    text += String.fromCharCode(bytes[index]);
+  }
+  return text;
+}
+
+function findNullByte(bytes: Uint8Array, start = 0): number {
+  for (let index = start; index < bytes.length; index += 1) {
+    if (bytes[index] === 0) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function addMetadataEntry(
+  metadata: Record<string, string>,
+  key: string,
+  value: string,
+) {
+  if (!metadata[key]) {
+    metadata[key] = value;
+    return;
+  }
+
+  let duplicateIndex = 2;
+  while (metadata[`${key}#${duplicateIndex}`]) {
+    duplicateIndex += 1;
+  }
+  metadata[`${key}#${duplicateIndex}`] = value;
+}
+
+function extractPngTextMetadata(bytes: Uint8Array): Record<string, string> {
+  const metadata: Record<string, string> = {};
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+
+  if (!pngSignature.every((value, index) => bytes[index] === value)) {
+    return metadata;
+  }
+
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = readUInt32BE(bytes, offset);
+    const type = decodeAscii(bytes.subarray(offset + 4, offset + 8));
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+
+    if (dataEnd + 4 > bytes.length) {
+      break;
+    }
+
+    const data = bytes.subarray(dataStart, dataEnd);
+
+    if (type === "tEXt") {
+      const separatorIndex = findNullByte(data);
+      if (separatorIndex > 0) {
+        const key = decodeBytes(data.subarray(0, separatorIndex));
+        const value = decodeBytes(data.subarray(separatorIndex + 1));
+        addMetadataEntry(metadata, key, value);
+      }
+    }
+
+    if (type === "iTXt") {
+      const keywordEnd = findNullByte(data);
+      if (keywordEnd > 0 && data[keywordEnd + 1] === 0) {
+        const languageEnd = findNullByte(data, keywordEnd + 3);
+        const translatedKeywordEnd = findNullByte(data, languageEnd + 1);
+
+        if (languageEnd !== -1 && translatedKeywordEnd !== -1) {
+          const key = decodeBytes(data.subarray(0, keywordEnd));
+          const value = decodeBytes(data.subarray(translatedKeywordEnd + 1));
+          addMetadataEntry(metadata, key, value);
+        }
+      }
+    }
+
+    offset = dataEnd + 4;
+  }
+
+  return metadata;
+}
+
+function isV4Model(model: string): boolean {
+  return model.startsWith("nai-diffusion-4");
+}
+
+function createV4Prompt(prompt: string, useOrder: boolean) {
+  return {
+    caption: {
+      base_caption: prompt,
+      char_captions: [],
+    },
+    use_coords: false,
+    use_order: useOrder,
+    legacy_uc: false,
+  };
+}
 
 export async function generateNovelAiImage({
   token,
   prompt,
+  negativePrompt,
+  model,
+  width,
+  height,
+  steps,
+  scale,
+  sampler,
+  seed: inputSeed,
+  nSamples = 1,
 }: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
-  const seed = Math.floor(Math.random() * 4_294_967_296);
+  const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
+  const shouldUseV4Prompt = isV4Model(model);
+  const parameters = {
+    width,
+    height,
+    scale,
+    sampler,
+    steps,
+    n_samples: nSamples,
+    seed,
+    negative_prompt: negativePrompt,
+    uc: negativePrompt,
+    qualityToggle: true,
+    ...(shouldUseV4Prompt
+      ? {
+          legacy_v3_extend: false,
+          v4_prompt: createV4Prompt(prompt, true),
+          v4_negative_prompt: createV4Prompt(negativePrompt, false),
+        }
+      : {}),
+  };
+
   const response = await fetch(NOVELAI_IMAGE_API_URL, {
     method: "POST",
     headers: {
@@ -28,19 +185,9 @@ export async function generateNovelAiImage({
     },
     body: JSON.stringify({
       input: prompt,
-      model: MODEL,
+      model,
       action: "generate",
-      parameters: {
-        width: 832,
-        height: 1216,
-        scale: 5,
-        sampler: "k_euler_ancestral",
-        steps: 28,
-        n_samples: 1,
-        seed,
-        uc: "low quality, bad anatomy, bad hands, text, watermark",
-        qualityToggle: true,
-      },
+      parameters,
     }),
   });
 
@@ -61,10 +208,12 @@ export async function generateNovelAiImage({
   }
 
   const imageBytes = await imageFile.async("uint8array");
+  const metadata = extractPngTextMetadata(imageBytes);
   const base64 = fromByteArray(imageBytes);
 
   return {
     imageDataUri: `data:image/png;base64,${base64}`,
     seed,
+    metadata,
   };
 }
