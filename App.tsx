@@ -94,6 +94,10 @@ export default function App() {
   const [sampler, setSampler] = useState("k_euler_ancestral");
   const [outputCount, setOutputCount] = useState(1);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+  const [generatedDimensions, setGeneratedDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -220,6 +224,7 @@ export default function App() {
       });
 
       setImageDataUri(result.imageDataUri);
+      setGeneratedDimensions(dimensions);
       if (navigateAfterSuccess) {
         setScreen("generation");
       }
@@ -397,11 +402,17 @@ export default function App() {
           <>
             <Header title="Generation" onBack={() => {}} />
             <View style={styles.imageStage}>
-              {imageDataUri ? (
+              {imageDataUri && generatedDimensions ? (
                 <TouchableOpacity
                   activeOpacity={0.92}
                   onPress={openImagePreview}
-                  style={styles.generatedImageWrap}
+                  style={[
+                    styles.generatedImageWrap,
+                    {
+                      aspectRatio:
+                        generatedDimensions.width / generatedDimensions.height,
+                    },
+                  ]}
                 >
                   <Image
                     source={{ uri: imageDataUri }}
@@ -409,14 +420,7 @@ export default function App() {
                     style={styles.generatedImage}
                   />
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.emptyImage}>
-                  <Text style={styles.emptyTitle}>No image yet</Text>
-                  <Text style={styles.emptyText}>
-                    Generate 버튼을 눌러 이미지를 생성하세요.
-                  </Text>
-                </View>
-              )}
+              ) : null}
             </View>
 
             {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -809,7 +813,6 @@ const styles = StyleSheet.create({
   },
   generatedImageWrap: {
     width: "100%",
-    aspectRatio: 832 / 1216,
     overflow: "hidden",
     borderRadius: 14,
     backgroundColor: colors.grey800,
@@ -817,26 +820,6 @@ const styles = StyleSheet.create({
   generatedImage: {
     width: "100%",
     height: "100%",
-  },
-  emptyImage: {
-    width: "100%",
-    aspectRatio: 832 / 1216,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.greyOpacity500,
-    borderRadius: 14,
-    backgroundColor: colors.greyOpacity700,
-  },
-  emptyTitle: {
-    marginBottom: 8,
-    color: colors.grey100,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  emptyText: {
-    color: colors.grey500,
-    fontSize: 14,
   },
   message: {
     marginHorizontal: 16,
@@ -910,7 +893,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.blue500,
   },
   fullGenerateButton: {
-    height: 64,
+    height: 60,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
