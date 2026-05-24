@@ -36,21 +36,27 @@ import { Header } from "../components/Header";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
 import {
   MODELS,
+  NAI_RESOLUTIONS,
   NOISE_SCHEDULES,
   SAMPLERS,
-  type AspectRatio,
 } from "../constants/generation";
 import { colors } from "../styles/colors";
 import type { OptionScreenNavigationProp } from "../navigation/types";
 
 import { useWindowDimensions } from "react-native";
 
-type SelectionSheetKey = "model" | "sampler" | "noiseSchedule" | null;
+type SelectionSheetKey =
+  | "model"
+  | "resolution"
+  | "sampler"
+  | "noiseSchedule"
+  | null;
 
 const SEEK_THUMB_WIDTH = 8;
 const SEEK_THUMB_HEIGHT = 20;
 const SEEK_THUMB_TOUCH_SIZE = 38;
 const MIN_HAPTIC_INTERVAL_MS = 35;
+const RESOLUTION_STEP = 64;
 
 function triggerSelectionHaptic() {
   Haptics.selectionAsync().catch(() => {});
@@ -61,6 +67,45 @@ function getOptionLabel(
   value: string,
 ) {
   return options.find((o) => o.value === value)?.label ?? value;
+}
+
+function formatResolutionValue({
+  width,
+  height,
+}: {
+  width: number;
+  height: number;
+}) {
+  const preset = findResolutionPreset(width, height);
+  if (preset) {
+    const [orientation] = preset.option.label.split(" ");
+    return `${preset.group} ${orientation}`;
+  }
+  return "Custom";
+}
+
+function findResolutionPreset(width: number, height: number) {
+  for (const group of NAI_RESOLUTIONS) {
+    const option = group.options.find(
+      (item) => item.width === width && item.height === height,
+    );
+    if (option) {
+      return { group: group.group, option };
+    }
+  }
+  return null;
+}
+
+function resolveResolution(width: number, height: number) {
+  const preset = findResolutionPreset(width, height);
+  return preset?.option ?? { label: "Custom Resolution", width, height };
+}
+
+function snapResolutionValue(text: string, fallback: number) {
+  const numericText = text.replace(/\D/g, "");
+  const parsed = Number.parseInt(numericText, 10);
+  const value = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(RESOLUTION_STEP, Math.round(value / RESOLUTION_STEP) * RESOLUTION_STEP);
 }
 
 export function OptionScreen() {
@@ -74,8 +119,8 @@ export function OptionScreen() {
     setNegativePrompt,
     model,
     setModel,
-    aspectRatio,
-    setAspectRatio,
+    resolution,
+    setResolution,
     steps,
     setSteps,
     promptGuidance,
@@ -93,15 +138,27 @@ export function OptionScreen() {
   } = useGenerationOptions();
 
   const modelSheetRef = useRef<BottomSheet>(null);
+  const resolutionSheetRef = useRef<BottomSheet>(null);
   const samplerSheetRef = useRef<BottomSheet>(null);
   const noiseScheduleSheetRef = useRef<BottomSheet>(null);
   const activeSheetRef = useRef<SelectionSheetKey>(null);
+  const [resolutionWidthText, setResolutionWidthText] = useState(
+    String(resolution.width),
+  );
+  const [resolutionHeightText, setResolutionHeightText] = useState(
+    String(resolution.height),
+  );
 
   const [tabIndex, setTabIndex] = useState(1);
   const [tabRoutes] = useState([
     { key: "prompt", title: "Prompt" },
     { key: "options", title: "Options" },
   ]);
+
+  useEffect(() => {
+    setResolutionWidthText(String(resolution.width));
+    setResolutionHeightText(String(resolution.height));
+  }, [resolution.width, resolution.height]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -131,6 +188,7 @@ export function OptionScreen() {
 
   function openSelectionSheet(next: Exclude<SelectionSheetKey, null>) {
     if (next === "model") {
+      resolutionSheetRef.current?.close();
       samplerSheetRef.current?.close();
       noiseScheduleSheetRef.current?.close();
       activeSheetRef.current = "model";
@@ -138,8 +196,18 @@ export function OptionScreen() {
       return;
     }
 
+    if (next === "resolution") {
+      modelSheetRef.current?.close();
+      samplerSheetRef.current?.close();
+      noiseScheduleSheetRef.current?.close();
+      activeSheetRef.current = "resolution";
+      requestAnimationFrame(() => resolutionSheetRef.current?.snapToIndex(0));
+      return;
+    }
+
     if (next === "sampler") {
       modelSheetRef.current?.close();
+      resolutionSheetRef.current?.close();
       noiseScheduleSheetRef.current?.close();
       activeSheetRef.current = "sampler";
       requestAnimationFrame(() => samplerSheetRef.current?.snapToIndex(0));
@@ -147,6 +215,7 @@ export function OptionScreen() {
     }
 
     modelSheetRef.current?.close();
+    resolutionSheetRef.current?.close();
     samplerSheetRef.current?.close();
     activeSheetRef.current = "noiseSchedule";
     requestAnimationFrame(() => noiseScheduleSheetRef.current?.snapToIndex(0));
@@ -155,6 +224,10 @@ export function OptionScreen() {
   function closeSelectionSheet() {
     if (activeSheetRef.current === "model") {
       modelSheetRef.current?.close();
+      return;
+    }
+    if (activeSheetRef.current === "resolution") {
+      resolutionSheetRef.current?.close();
       return;
     }
     if (activeSheetRef.current === "sampler") {
@@ -196,6 +269,26 @@ export function OptionScreen() {
     return value.toFixed(precision).replace(/\.?0+$/, "");
   }
 
+  function commitResolutionInput(
+    widthText = resolutionWidthText,
+    heightText = resolutionHeightText,
+  ) {
+    const width = snapResolutionValue(widthText, resolution.width);
+    const height = snapResolutionValue(heightText, resolution.height);
+    setResolution(resolveResolution(width, height));
+    setResolutionWidthText(String(width));
+    setResolutionHeightText(String(height));
+  }
+
+  function swapResolutionInput() {
+    const width = snapResolutionValue(resolutionWidthText, resolution.width);
+    const height = snapResolutionValue(resolutionHeightText, resolution.height);
+    setResolution(resolveResolution(height, width));
+    setResolutionWidthText(String(height));
+    setResolutionHeightText(String(width));
+    triggerSelectionHaptic();
+  }
+
   function renderScene({ route }: { route: { key: string } }) {
     if (route.key === "prompt") {
       return (
@@ -232,18 +325,44 @@ export function OptionScreen() {
           onPress={() => openSelectionSheet("model")}
         />
         <CollapsibleSection title="Image Settings">
-          <OptionBlock label="Aspect Ratio">
-            <View style={styles.segmentRow}>
-              {(["1:1", "3:4", "16:9"] as AspectRatio[]).map((ratio) => (
-                <SegmentButton
-                  key={ratio}
-                  label={ratio}
-                  active={aspectRatio === ratio}
-                  onPress={() => setAspectRatio(ratio)}
-                />
-              ))}
-            </View>
-          </OptionBlock>
+          <SelectOption
+            label="Resolution"
+            value={formatResolutionValue(resolution)}
+            onPress={() => openSelectionSheet("resolution")}
+          />
+          <View style={styles.resolutionInputRow}>
+            <TextInput
+              value={resolutionWidthText}
+              onChangeText={(text) =>
+                setResolutionWidthText(text.replace(/\D/g, ""))
+              }
+              onBlur={() => commitResolutionInput()}
+              onSubmitEditing={() => commitResolutionInput()}
+              keyboardType="number-pad"
+              placeholder="Width"
+              placeholderTextColor={colors.grey500}
+              style={styles.resolutionInput}
+            />
+            <TouchableOpacity
+              style={styles.resolutionSwapButton}
+              activeOpacity={0.78}
+              onPress={swapResolutionInput}
+            >
+              <Text style={styles.resolutionSwapText}>x</Text>
+            </TouchableOpacity>
+            <TextInput
+              value={resolutionHeightText}
+              onChangeText={(text) =>
+                setResolutionHeightText(text.replace(/\D/g, ""))
+              }
+              onBlur={() => commitResolutionInput()}
+              onSubmitEditing={() => commitResolutionInput()}
+              keyboardType="number-pad"
+              placeholder="Height"
+              placeholderTextColor={colors.grey500}
+              style={styles.resolutionInput}
+            />
+          </View>
         </CollapsibleSection>
         <CollapsibleSection title="AI Settings">
           <StepperRow
@@ -428,6 +547,57 @@ export function OptionScreen() {
       </BottomSheet>
 
       <BottomSheet
+        ref={resolutionSheetRef}
+        index={-1}
+        snapPoints={[560]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        detached
+        bottomInset={14}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        onChange={(index) => handleSheetChange("resolution", index)}
+      >
+        <Text style={[styles.sheetTitle, styles.fixedSheetTitle]}>
+          Select Resolution
+        </Text>
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollableContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {NAI_RESOLUTIONS.map((group) => (
+            <View key={group.group} style={styles.sheetGroup}>
+              <Text style={styles.sheetGroupTitle}>{group.group}</Text>
+              {group.options.map((item) => (
+                <SelectionSheetItem
+                  key={`${item.width}x${item.height}`}
+                  label={item.label}
+                  active={
+                    resolution.width === item.width &&
+                    resolution.height === item.height
+                  }
+                  onPress={() => {
+                    setResolution(item);
+                    closeSelectionSheet();
+                  }}
+                />
+              ))}
+            </View>
+          ))}
+          <View style={styles.sheetGroup}>
+            <Text style={styles.sheetGroupTitle}>Custom</Text>
+            <SelectionSheetItem
+              label="Custom Resolution"
+              active={!findResolutionPreset(resolution.width, resolution.height)}
+              onPress={closeSelectionSheet}
+            />
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
         ref={samplerSheetRef}
         index={-1}
         snapPoints={[500]}
@@ -525,19 +695,30 @@ function SelectionSheetItem({
   label,
   active,
   onPress,
+  disabled,
 }: {
   label: string;
-  active: boolean;
-  onPress: () => void;
+  active?: boolean;
+  onPress?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.sheetItem, active && styles.sheetItemActive]}
+      style={[
+        styles.sheetItem,
+        active && styles.sheetItemActive,
+        disabled && styles.sheetItemDisabled,
+      ]}
       activeOpacity={0.78}
+      disabled={disabled}
       onPress={onPress}
     >
       <Text
-        style={[styles.sheetItemText, active && styles.sheetItemTextActive]}
+        style={[
+          styles.sheetItemText,
+          active && styles.sheetItemTextActive,
+          disabled && styles.sheetItemTextDisabled,
+        ]}
       >
         {label}
       </Text>
@@ -941,6 +1122,46 @@ const styles = StyleSheet.create({
   optionBody: {
     marginTop: 12,
   },
+  resolutionInputRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.greyOpacity300,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.grey800,
+  },
+  resolutionInput: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderColor: colors.greyOpacity500,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+    backgroundColor: colors.greyOpacity200,
+    color: colors.background,
+    fontWeight: "800",
+    includeFontPadding: false,
+    textAlign: "center",
+    textAlignVertical: "center",
+  },
+  resolutionSwapButton: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: colors.greyOpacity300,
+  },
+  resolutionSwapText: {
+    color: colors.background,
+    fontSize: 16,
+    fontWeight: "800",
+  },
   section: {
     marginBottom: 10,
   },
@@ -1147,12 +1368,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
+  sheetScrollableContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
   sheetTitle: {
     marginBottom: 16,
     paddingLeft: 6,
     paddingTop: 6,
     color: colors.background,
     fontSize: 20,
+    fontWeight: "800",
+  },
+  fixedSheetTitle: {
+    marginHorizontal: 16,
+  },
+  sheetGroup: {
+    marginBottom: 12,
+  },
+  sheetGroupTitle: {
+    marginBottom: 8,
+    paddingLeft: 6,
+    color: colors.grey400,
+    fontSize: 13,
     fontWeight: "800",
   },
   sheetItem: {
@@ -1165,6 +1403,9 @@ const styles = StyleSheet.create({
   sheetItemActive: {
     backgroundColor: colors.greyOpacity300,
   },
+  sheetItemDisabled: {
+    opacity: 0.45,
+  },
   sheetItemText: {
     color: colors.grey300,
     fontSize: 16,
@@ -1172,5 +1413,8 @@ const styles = StyleSheet.create({
   },
   sheetItemTextActive: {
     color: colors.background,
+  },
+  sheetItemTextDisabled: {
+    color: colors.grey500,
   },
 });

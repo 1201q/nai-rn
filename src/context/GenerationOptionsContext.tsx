@@ -3,8 +3,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { generateNovelAiImage } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
-  ASPECT_DIMENSIONS,
-  type AspectRatio,
+  DEFAULT_NAI_RESOLUTION,
+  type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
 
@@ -18,8 +18,8 @@ type GenerationOptionsContextValue = {
   // 옵션
   model: string;
   setModel: (v: string) => void;
-  aspectRatio: AspectRatio;
-  setAspectRatio: (v: AspectRatio) => void;
+  resolution: NaiResolution;
+  setResolution: (v: NaiResolution) => void;
   steps: number;
   setSteps: (v: number) => void;
   promptGuidance: number;
@@ -61,7 +61,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     "low quality, blurry, watermark, text",
   );
   const [model, setModel] = useState("nai-diffusion-4-5-full");
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [resolution, setResolution] = useState<NaiResolution>(
+    DEFAULT_NAI_RESOLUTION,
+  );
   const [steps, setSteps] = useState(28);
   const [promptGuidance, setPromptGuidance] = useState(5);
   const [promptGuidanceRescale, setPromptGuidanceRescale] = useState(0);
@@ -104,7 +106,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     }
 
     const fixedSeed = Number.parseInt(seedText.trim(), 10);
-    const dimensions = ASPECT_DIMENSIONS[aspectRatio];
 
     setIsLoading(true);
     setMessage(null);
@@ -115,8 +116,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         prompt: prompt.trim(),
         negativePrompt: negativePrompt.trim(),
         model,
-        width: dimensions.width,
-        height: dimensions.height,
+        width: resolution.width,
+        height: resolution.height,
         steps,
         promptGuidance,
         promptGuidanceRescale,
@@ -127,7 +128,10 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       });
 
       setImageDataUri(result.imageDataUri);
-      setGeneratedDimensions(dimensions);
+      setGeneratedDimensions({
+        width: resolution.width,
+        height: resolution.height,
+      });
       onSuccess?.();
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -145,8 +149,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setNegativePrompt,
         model,
         setModel,
-        aspectRatio,
-        setAspectRatio,
+        resolution,
+        setResolution,
         steps,
         setSteps,
         promptGuidance,
