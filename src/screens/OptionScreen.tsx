@@ -133,6 +133,11 @@ export function OptionScreen() {
     setSampler,
     seedText,
     setSeedText,
+    optionTabIndex,
+    setOptionTabIndex,
+    optionSectionExpanded,
+    setOptionSectionExpanded,
+    hasLoadedOptions,
     isLoading,
     generateImage,
   } = useGenerationOptions();
@@ -149,7 +154,6 @@ export function OptionScreen() {
     String(resolution.height),
   );
 
-  const [tabIndex, setTabIndex] = useState(1);
   const [tabRoutes] = useState([
     { key: "prompt", title: "Prompt" },
     { key: "options", title: "Options" },
@@ -290,6 +294,14 @@ export function OptionScreen() {
   }
 
   function renderScene({ route }: { route: { key: string } }) {
+    if (!hasLoadedOptions) {
+      return (
+        <View style={styles.loadingOptions}>
+          <ActivityIndicator color={colors.background} />
+        </View>
+      );
+    }
+
     if (route.key === "prompt") {
       return (
         <ScrollView
@@ -324,7 +336,16 @@ export function OptionScreen() {
           value={getOptionLabel(MODELS, model)}
           onPress={() => openSelectionSheet("model")}
         />
-        <CollapsibleSection title="Image Settings">
+        <CollapsibleSection
+          title="Image Settings"
+          expanded={optionSectionExpanded.image}
+          onExpandedChange={(expanded) =>
+            setOptionSectionExpanded({
+              ...optionSectionExpanded,
+              image: expanded,
+            })
+          }
+        >
           <SelectOption
             label="Resolution"
             value={formatResolutionValue(resolution)}
@@ -364,7 +385,16 @@ export function OptionScreen() {
             />
           </View>
         </CollapsibleSection>
-        <CollapsibleSection title="AI Settings">
+        <CollapsibleSection
+          title="AI Settings"
+          expanded={optionSectionExpanded.ai}
+          onExpandedChange={(expanded) =>
+            setOptionSectionExpanded({
+              ...optionSectionExpanded,
+              ai: expanded,
+            })
+          }
+        >
           <StepperRow
             label="Steps"
             value={steps}
@@ -430,7 +460,16 @@ export function OptionScreen() {
             onPress={() => openSelectionSheet("sampler")}
           />
         </CollapsibleSection>
-        <CollapsibleSection title="Advanced Settings">
+        <CollapsibleSection
+          title="Advanced Settings"
+          expanded={optionSectionExpanded.advanced}
+          onExpandedChange={(expanded) =>
+            setOptionSectionExpanded({
+              ...optionSectionExpanded,
+              advanced: expanded,
+            })
+          }
+        >
           <StepperRow
             label="Prompt Guidance Rescale"
             value={promptGuidanceRescale}
@@ -484,8 +523,8 @@ export function OptionScreen() {
       <TabView
         style={styles.tabView}
         initialLayout={{ width: layout.width }}
-        navigationState={{ index: tabIndex, routes: tabRoutes }}
-        onIndexChange={setTabIndex}
+        navigationState={{ index: optionTabIndex, routes: tabRoutes }}
+        onIndexChange={setOptionTabIndex}
         renderTabBar={(props) => (
           <TabBar
             {...props}
@@ -774,14 +813,17 @@ function OptionBlock({
 
 function CollapsibleSection({
   title,
+  expanded,
+  onExpandedChange,
   children,
 }: {
   title: string;
+  expanded: boolean;
+  onExpandedChange: (v: boolean) => void;
   children: ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const [contentHeight, setContentHeight] = useState(0);
-  const progress = useSharedValue(1);
+  const progress = useSharedValue(expanded ? 1 : 0);
 
   useEffect(() => {
     progress.value = withTiming(expanded ? 1 : 0, { duration: 180 });
@@ -797,16 +839,13 @@ function CollapsibleSection({
       <TouchableOpacity
         style={styles.sectionHeader}
         activeOpacity={0.78}
-        onPress={() => setExpanded((current) => !current)}
+        onPress={() => onExpandedChange(!expanded)}
       >
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.sectionChevron}>{expanded ? "−" : "+"}</Text>
       </TouchableOpacity>
       <Animated.View
-        style={[
-          styles.sectionBody,
-          contentHeight > 0 ? animatedBodyStyle : undefined,
-        ]}
+        style={[styles.sectionBody, animatedBodyStyle]}
       >
         <View
           style={styles.sectionContent}
@@ -924,11 +963,17 @@ function SteppedSeekBar({
   onChange: (v: number) => void;
 }) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const progress = useSharedValue(0);
-  const dragStartProgress = useSharedValue(0);
-  const lastIndex = useSharedValue(0);
-  const hapticAtRef = useRef(0);
   const stepCount = Math.round((max - min) / step);
+  const initialIndex = Math.min(
+    stepCount,
+    Math.max(0, Math.round((value - min) / step)),
+  );
+  const initialProgress = stepCount > 0 ? initialIndex / stepCount : 0;
+  const progress = useSharedValue(initialProgress);
+  const dragStartProgress = useSharedValue(initialProgress);
+  const lastIndex = useSharedValue(initialIndex);
+  const hasSyncedInitialValue = useRef(false);
+  const hapticAtRef = useRef(0);
 
   const valueToIndex = useCallback(
     (nextValue: number) =>
@@ -960,6 +1005,11 @@ function SteppedSeekBar({
     const nextIndex = valueToIndex(value);
     const nextProgress = stepCount > 0 ? nextIndex / stepCount : 0;
     lastIndex.value = nextIndex;
+    if (!hasSyncedInitialValue.current) {
+      hasSyncedInitialValue.current = true;
+      progress.value = nextProgress;
+      return;
+    }
     progress.value = withTiming(nextProgress, { duration: 120 });
   }, [lastIndex, progress, stepCount, value, valueToIndex]);
 
@@ -1047,6 +1097,11 @@ const styles = StyleSheet.create({
   tabContent: {
     padding: 16,
     paddingBottom: 24,
+  },
+  loadingOptions: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   footer: {
     paddingHorizontal: 16,

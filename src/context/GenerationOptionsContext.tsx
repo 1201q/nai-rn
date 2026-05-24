@@ -1,12 +1,102 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { generateNovelAiImage } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
   DEFAULT_NAI_RESOLUTION,
+  NAI_RESOLUTIONS,
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
+
+const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
+
+export type OptionSectionKey = "image" | "ai" | "advanced";
+export type OptionSectionExpandedState = Record<OptionSectionKey, boolean>;
+
+type PersistedGenerationOptions = Partial<{
+  prompt: string;
+  negativePrompt: string;
+  model: string;
+  resolution: NaiResolution;
+  steps: number;
+  promptGuidance: number;
+  promptGuidanceRescale: number;
+  noiseSchedule: NoiseSchedule;
+  sampler: string;
+  seedText: string;
+  outputCount: number;
+  optionTabIndex: number;
+  optionSectionExpanded: OptionSectionExpandedState;
+}>;
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isNoiseSchedule(value: unknown): value is NoiseSchedule {
+  return (
+    value === "native" ||
+    value === "karras" ||
+    value === "exponential" ||
+    value === "polyexponential"
+  );
+}
+
+function resolveStoredResolution(value: unknown): NaiResolution | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<NaiResolution>;
+  if (!isNumber(candidate.width) || !isNumber(candidate.height)) {
+    return null;
+  }
+
+  for (const group of NAI_RESOLUTIONS) {
+    const preset = group.options.find(
+      (item) =>
+        item.width === candidate.width && item.height === candidate.height,
+    );
+    if (preset) {
+      return preset;
+    }
+  }
+
+  return {
+    label: isString(candidate.label) ? candidate.label : "Custom Resolution",
+    width: candidate.width,
+    height: candidate.height,
+  };
+}
+
+function resolveStoredSectionExpanded(
+  value: unknown,
+): OptionSectionExpandedState | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<OptionSectionExpandedState>;
+  if (
+    typeof candidate.image !== "boolean" ||
+    typeof candidate.ai !== "boolean" ||
+    typeof candidate.advanced !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    image: candidate.image,
+    ai: candidate.ai,
+    advanced: candidate.advanced,
+  };
+}
 
 type GenerationOptionsContextValue = {
   // 프롬프트
@@ -34,6 +124,11 @@ type GenerationOptionsContextValue = {
   setSeedText: (v: string) => void;
   outputCount: number;
   setOutputCount: (v: number) => void;
+  optionTabIndex: number;
+  setOptionTabIndex: (v: number) => void;
+  optionSectionExpanded: OptionSectionExpandedState;
+  setOptionSectionExpanded: (v: OptionSectionExpandedState) => void;
+  hasLoadedOptions: boolean;
 
   // 토큰
   storedToken: string | null;
@@ -71,6 +166,13 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [sampler, setSampler] = useState("k_euler_ancestral");
   const [seedText, setSeedText] = useState("");
   const [outputCount, setOutputCount] = useState(1);
+  const [optionTabIndex, setOptionTabIndex] = useState(1);
+  const [optionSectionExpanded, setOptionSectionExpanded] =
+    useState<OptionSectionExpandedState>({
+      image: true,
+      ai: true,
+      advanced: true,
+    });
 
   const [storedToken, setStoredToken] = useState<string | null>(null);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
@@ -80,6 +182,97 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [hasLoadedOptions, setHasLoadedOptions] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(GENERATION_OPTIONS_STORAGE_KEY)
+      .then((storedOptions) => {
+        if (!storedOptions) return;
+
+        const parsed = JSON.parse(storedOptions) as PersistedGenerationOptions;
+        if (isString(parsed.prompt)) setPrompt(parsed.prompt);
+        if (isString(parsed.negativePrompt)) {
+          setNegativePrompt(parsed.negativePrompt);
+        }
+        if (isString(parsed.model)) setModel(parsed.model);
+
+        const storedResolution = resolveStoredResolution(parsed.resolution);
+        if (storedResolution) setResolution(storedResolution);
+
+        if (isNumber(parsed.steps)) setSteps(parsed.steps);
+        if (isNumber(parsed.promptGuidance)) {
+          setPromptGuidance(parsed.promptGuidance);
+        }
+        if (isNumber(parsed.promptGuidanceRescale)) {
+          setPromptGuidanceRescale(parsed.promptGuidanceRescale);
+        }
+        if (isNoiseSchedule(parsed.noiseSchedule)) {
+          setNoiseSchedule(parsed.noiseSchedule);
+        }
+        if (isString(parsed.sampler)) setSampler(parsed.sampler);
+        if (isString(parsed.seedText)) setSeedText(parsed.seedText);
+        if (isNumber(parsed.outputCount)) setOutputCount(parsed.outputCount);
+        if (
+          isNumber(parsed.optionTabIndex) &&
+          (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
+        ) {
+          setOptionTabIndex(parsed.optionTabIndex);
+        }
+
+        const storedSectionExpanded = resolveStoredSectionExpanded(
+          parsed.optionSectionExpanded,
+        );
+        if (storedSectionExpanded) {
+          setOptionSectionExpanded(storedSectionExpanded);
+        }
+      })
+      .catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => setHasLoadedOptions(true));
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedOptions) return;
+
+    const nextOptions: PersistedGenerationOptions = {
+      prompt,
+      negativePrompt,
+      model,
+      resolution,
+      steps,
+      promptGuidance,
+      promptGuidanceRescale,
+      noiseSchedule,
+      sampler,
+      seedText,
+      outputCount,
+      optionTabIndex,
+      optionSectionExpanded,
+    };
+
+    AsyncStorage.setItem(
+      GENERATION_OPTIONS_STORAGE_KEY,
+      JSON.stringify(nextOptions),
+    ).catch((error: unknown) => {
+      setMessage(error instanceof Error ? error.message : String(error));
+    });
+  }, [
+    hasLoadedOptions,
+    prompt,
+    negativePrompt,
+    model,
+    resolution,
+    steps,
+    promptGuidance,
+    promptGuidanceRescale,
+    noiseSchedule,
+    sampler,
+    seedText,
+    outputCount,
+    optionTabIndex,
+    optionSectionExpanded,
+  ]);
 
   useEffect(() => {
     getNovelAiToken()
@@ -165,6 +358,11 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setSeedText,
         outputCount,
         setOutputCount,
+        optionTabIndex,
+        setOptionTabIndex,
+        optionSectionExpanded,
+        setOptionSectionExpanded,
+        hasLoadedOptions,
         storedToken,
         saveToken,
         imageDataUri,
