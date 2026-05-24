@@ -16,23 +16,45 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useNavigation } from "@react-navigation/native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { TabBar, TabView } from "react-native-tab-view";
 
 import { Header } from "../components/Header";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
-import { MODELS, SAMPLERS, type AspectRatio } from "../constants/generation";
+import {
+  MODELS,
+  NOISE_SCHEDULES,
+  SAMPLERS,
+  type AspectRatio,
+} from "../constants/generation";
 import { colors } from "../styles/colors";
 import type { OptionScreenNavigationProp } from "../navigation/types";
 
 import { useWindowDimensions } from "react-native";
 
-type SelectionSheetKey = "model" | "sampler" | null;
+type SelectionSheetKey = "model" | "sampler" | "noiseSchedule" | null;
+
+const SEEK_THUMB_WIDTH = 8;
+const SEEK_THUMB_HEIGHT = 20;
+const SEEK_THUMB_TOUCH_SIZE = 38;
+const MIN_HAPTIC_INTERVAL_MS = 35;
+
+function triggerSelectionHaptic() {
+  Haptics.selectionAsync().catch(() => {});
+}
 
 function getOptionLabel(
   options: Array<{ label: string; value: string }>,
@@ -56,20 +78,23 @@ export function OptionScreen() {
     setAspectRatio,
     steps,
     setSteps,
-    scale,
-    setScale,
+    promptGuidance,
+    setPromptGuidance,
+    promptGuidanceRescale,
+    setPromptGuidanceRescale,
+    noiseSchedule,
+    setNoiseSchedule,
     sampler,
     setSampler,
     seedText,
     setSeedText,
-    outputCount,
-    setOutputCount,
     isLoading,
     generateImage,
   } = useGenerationOptions();
 
   const modelSheetRef = useRef<BottomSheet>(null);
   const samplerSheetRef = useRef<BottomSheet>(null);
+  const noiseScheduleSheetRef = useRef<BottomSheet>(null);
   const activeSheetRef = useRef<SelectionSheetKey>(null);
 
   const [tabIndex, setTabIndex] = useState(1);
@@ -107,13 +132,24 @@ export function OptionScreen() {
   function openSelectionSheet(next: Exclude<SelectionSheetKey, null>) {
     if (next === "model") {
       samplerSheetRef.current?.close();
+      noiseScheduleSheetRef.current?.close();
       activeSheetRef.current = "model";
       requestAnimationFrame(() => modelSheetRef.current?.snapToIndex(0));
       return;
     }
+
+    if (next === "sampler") {
+      modelSheetRef.current?.close();
+      noiseScheduleSheetRef.current?.close();
+      activeSheetRef.current = "sampler";
+      requestAnimationFrame(() => samplerSheetRef.current?.snapToIndex(0));
+      return;
+    }
+
     modelSheetRef.current?.close();
-    activeSheetRef.current = "sampler";
-    requestAnimationFrame(() => samplerSheetRef.current?.snapToIndex(0));
+    samplerSheetRef.current?.close();
+    activeSheetRef.current = "noiseSchedule";
+    requestAnimationFrame(() => noiseScheduleSheetRef.current?.snapToIndex(0));
   }
 
   function closeSelectionSheet() {
@@ -123,6 +159,10 @@ export function OptionScreen() {
     }
     if (activeSheetRef.current === "sampler") {
       samplerSheetRef.current?.close();
+      return;
+    }
+    if (activeSheetRef.current === "noiseSchedule") {
+      noiseScheduleSheetRef.current?.close();
     }
   }
 
@@ -139,8 +179,21 @@ export function OptionScreen() {
     }
   }
 
-  function randomizeSeed() {
-    setSeedText(String(Math.floor(Math.random() * 4_294_967_296)));
+  function adjustDecimal(
+    value: number,
+    delta: number,
+    min: number,
+    max: number,
+    precision = 1,
+  ) {
+    return Math.min(
+      max,
+      Math.max(min, Number((value + delta).toFixed(precision))),
+    );
+  }
+
+  function formatDecimal(value: number, precision = 1) {
+    return value.toFixed(precision).replace(/\.?0+$/, "");
   }
 
   function renderScene({ route }: { route: { key: string } }) {
@@ -178,70 +231,129 @@ export function OptionScreen() {
           value={getOptionLabel(MODELS, model)}
           onPress={() => openSelectionSheet("model")}
         />
-        <OptionBlock label="Aspect Ratio">
-          <View style={styles.segmentRow}>
-            {(["1:1", "3:4", "16:9"] as AspectRatio[]).map((ratio) => (
-              <SegmentButton
-                key={ratio}
-                label={ratio}
-                active={aspectRatio === ratio}
-                onPress={() => setAspectRatio(ratio)}
+        <CollapsibleSection title="Image Settings">
+          <OptionBlock label="Aspect Ratio">
+            <View style={styles.segmentRow}>
+              {(["1:1", "3:4", "16:9"] as AspectRatio[]).map((ratio) => (
+                <SegmentButton
+                  key={ratio}
+                  label={ratio}
+                  active={aspectRatio === ratio}
+                  onPress={() => setAspectRatio(ratio)}
+                />
+              ))}
+            </View>
+          </OptionBlock>
+        </CollapsibleSection>
+        <CollapsibleSection title="AI Settings">
+          <StepperRow
+            label="Steps"
+            value={steps}
+            onMinus={() => {
+              const nextValue = Math.max(1, steps - 1);
+              if (nextValue !== steps) {
+                setSteps(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            onPlus={() => {
+              const nextValue = Math.min(50, steps + 1);
+              if (nextValue !== steps) {
+                setSteps(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            seekMin={1}
+            seekMax={50}
+            seekStep={1}
+            onSeekChange={setSteps}
+          />
+          <StepperRow
+            label="Prompt Guidance"
+            value={promptGuidance}
+            valueText={formatDecimal(promptGuidance)}
+            onMinus={() => {
+              const nextValue = adjustDecimal(promptGuidance, -0.1, 0, 10);
+              if (nextValue !== promptGuidance) {
+                setPromptGuidance(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            onPlus={() => {
+              const nextValue = adjustDecimal(promptGuidance, 0.1, 0, 10);
+              if (nextValue !== promptGuidance) {
+                setPromptGuidance(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            seekMin={0}
+            seekMax={10}
+            seekStep={0.1}
+            seekPrecision={1}
+            onSeekChange={setPromptGuidance}
+          />
+          <View style={styles.seedOptionRow}>
+            <Text style={styles.optionLabel}>Seed</Text>
+            <View style={styles.seedRow}>
+              <TextInput
+                value={seedText}
+                onChangeText={setSeedText}
+                keyboardType="number-pad"
+                placeholder="Random"
+                placeholderTextColor={colors.grey500}
+                style={styles.seedInput}
               />
-            ))}
+            </View>
           </View>
-        </OptionBlock>
-        <StepperRow
-          label="Steps"
-          value={steps}
-          onMinus={() => setSteps(Math.max(1, steps - 1))}
-          onPlus={() => setSteps(Math.min(50, steps + 1))}
-        />
-        <StepperRow
-          label="Guidance Scale"
-          value={scale}
-          onMinus={() =>
-            setScale(Math.max(1, Number((scale - 0.5).toFixed(1))))
-          }
-          onPlus={() =>
-            setScale(Math.min(15, Number((scale + 0.5).toFixed(1))))
-          }
-        />
-        <OptionBlock label="Seed">
-          <View style={styles.seedRow}>
-            <TextInput
-              value={seedText}
-              onChangeText={setSeedText}
-              keyboardType="number-pad"
-              placeholder="Random"
-              placeholderTextColor={colors.grey500}
-              style={styles.seedInput}
-            />
-            <TouchableOpacity
-              style={styles.randomButton}
-              activeOpacity={0.78}
-              onPress={randomizeSeed}
-            >
-              <Text style={styles.randomButtonText}>↻</Text>
-            </TouchableOpacity>
-          </View>
-        </OptionBlock>
-        <SelectOption
-          label="Sampler"
-          value={getOptionLabel(SAMPLERS, sampler)}
-          onPress={() => openSelectionSheet("sampler")}
-        />
-        <OptionBlock label="Output Count">
-          <View style={styles.segmentRow}>
-            {[1, 2, 3, 4].map((count) => (
-              <SegmentButton
-                key={count}
-                label={String(count)}
-                active={outputCount === count}
-                onPress={() => setOutputCount(count)}
-              />
-            ))}
-          </View>
-        </OptionBlock>
+          <SelectOption
+            label="Sampler"
+            value={getOptionLabel(SAMPLERS, sampler)}
+            onPress={() => openSelectionSheet("sampler")}
+          />
+        </CollapsibleSection>
+        <CollapsibleSection title="Advanced Settings">
+          <StepperRow
+            label="Prompt Guidance Rescale"
+            value={promptGuidanceRescale}
+            valueText={formatDecimal(promptGuidanceRescale, 2)}
+            onMinus={() => {
+              const nextValue = adjustDecimal(
+                promptGuidanceRescale,
+                -0.02,
+                0,
+                1,
+                2,
+              );
+              if (nextValue !== promptGuidanceRescale) {
+                setPromptGuidanceRescale(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            onPlus={() => {
+              const nextValue = adjustDecimal(
+                promptGuidanceRescale,
+                0.02,
+                0,
+                1,
+                2,
+              );
+              if (nextValue !== promptGuidanceRescale) {
+                setPromptGuidanceRescale(nextValue);
+                triggerSelectionHaptic();
+              }
+            }}
+            seekMin={0}
+            seekMax={1}
+            seekStep={0.02}
+            seekPrecision={2}
+            onSeekChange={setPromptGuidanceRescale}
+          />
+          <SelectOption
+            label="Noise Schedule"
+            value={getOptionLabel(NOISE_SCHEDULES, noiseSchedule)}
+            onPress={() => openSelectionSheet("noiseSchedule")}
+          />
+        </CollapsibleSection>
       </ScrollView>
     );
   }
@@ -347,6 +459,36 @@ export function OptionScreen() {
           ))}
         </BottomSheetScrollView>
       </BottomSheet>
+
+      <BottomSheet
+        ref={noiseScheduleSheetRef}
+        index={-1}
+        snapPoints={[300]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        detached
+        bottomInset={14}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        onChange={(index) => handleSheetChange("noiseSchedule", index)}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Select Noise Schedule</Text>
+          {NOISE_SCHEDULES.map((item) => (
+            <SelectionSheetItem
+              key={item.value}
+              label={item.label}
+              active={noiseSchedule === item.value}
+              onPress={() => {
+                setNoiseSchedule(item.value);
+                closeSelectionSheet();
+              }}
+            />
+          ))}
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -449,6 +591,55 @@ function OptionBlock({
   );
 }
 
+function CollapsibleSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [contentHeight, setContentHeight] = useState(0);
+  const progress = useSharedValue(1);
+
+  useEffect(() => {
+    progress.value = withTiming(expanded ? 1 : 0, { duration: 180 });
+  }, [expanded, progress]);
+
+  const animatedBodyStyle = useAnimatedStyle(() => ({
+    height: contentHeight * progress.value,
+    opacity: progress.value,
+  }));
+
+  return (
+    <View style={styles.section}>
+      <TouchableOpacity
+        style={styles.sectionHeader}
+        activeOpacity={0.78}
+        onPress={() => setExpanded((current) => !current)}
+      >
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionChevron}>{expanded ? "−" : "+"}</Text>
+      </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.sectionBody,
+          contentHeight > 0 ? animatedBodyStyle : undefined,
+        ]}
+      >
+        <View
+          style={styles.sectionContent}
+          onLayout={(event) => {
+            setContentHeight(event.nativeEvent.layout.height);
+          }}
+        >
+          {children}
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 function SegmentButton({
   label,
   active,
@@ -474,33 +665,175 @@ function SegmentButton({
 function StepperRow({
   label,
   value,
+  valueText,
   onMinus,
   onPlus,
+  seekMin,
+  seekMax,
+  seekStep,
+  seekPrecision,
+  onSeekChange,
 }: {
   label: string;
   value: number;
+  valueText?: string;
   onMinus: () => void;
   onPlus: () => void;
+  seekMin?: number;
+  seekMax?: number;
+  seekStep?: number;
+  seekPrecision?: number;
+  onSeekChange?: (v: number) => void;
 }) {
+  const shouldShowSeekBar =
+    seekMin !== undefined &&
+    seekMax !== undefined &&
+    seekStep !== undefined &&
+    onSeekChange !== undefined;
+
   return (
     <View style={styles.stepperRow}>
-      <Text style={styles.optionLabel}>{label}</Text>
-      <View style={styles.stepper}>
-        <TouchableOpacity
-          style={styles.stepButton}
-          activeOpacity={0.78}
-          onPress={onMinus}
-        >
-          <Text style={styles.stepButtonText}>−</Text>
-        </TouchableOpacity>
-        <Text style={styles.stepValue}>{value}</Text>
-        <TouchableOpacity
-          style={styles.stepButton}
-          activeOpacity={0.78}
-          onPress={onPlus}
-        >
-          <Text style={styles.stepButtonText}>+</Text>
-        </TouchableOpacity>
+      <View style={styles.stepperTopRow}>
+        <Text style={[styles.optionLabel, styles.stepperLabel]}>{label}</Text>
+        <View style={styles.stepper}>
+          <TouchableOpacity
+            style={styles.stepButton}
+            activeOpacity={0.78}
+            onPress={onMinus}
+          >
+            <Text style={styles.stepButtonText}>−</Text>
+          </TouchableOpacity>
+          <Text style={styles.stepValue}>{valueText ?? value}</Text>
+          <TouchableOpacity
+            style={styles.stepButton}
+            activeOpacity={0.78}
+            onPress={onPlus}
+          >
+            <Text style={styles.stepButtonText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      {shouldShowSeekBar ? (
+        <SteppedSeekBar
+          value={value}
+          min={seekMin}
+          max={seekMax}
+          step={seekStep}
+          precision={seekPrecision ?? 0}
+          onChange={onSeekChange}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+function SteppedSeekBar({
+  value,
+  min,
+  max,
+  step,
+  precision,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  precision: number;
+  onChange: (v: number) => void;
+}) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const progress = useSharedValue(0);
+  const dragStartProgress = useSharedValue(0);
+  const lastIndex = useSharedValue(0);
+  const hapticAtRef = useRef(0);
+  const stepCount = Math.round((max - min) / step);
+
+  const valueToIndex = useCallback(
+    (nextValue: number) =>
+      Math.min(stepCount, Math.max(0, Math.round((nextValue - min) / step))),
+    [min, step, stepCount],
+  );
+
+  const indexToValue = useCallback(
+    (index: number) => Number((min + index * step).toFixed(precision)),
+    [min, precision, step],
+  );
+
+  const commitIndex = useCallback(
+    (index: number) => {
+      const nextValue = indexToValue(index);
+      onChange(nextValue);
+
+      const now = Date.now();
+      if (now - hapticAtRef.current < MIN_HAPTIC_INTERVAL_MS) {
+        return;
+      }
+      hapticAtRef.current = now;
+      Haptics.selectionAsync().catch(() => {});
+    },
+    [indexToValue, onChange],
+  );
+
+  useEffect(() => {
+    const nextIndex = valueToIndex(value);
+    const nextProgress = stepCount > 0 ? nextIndex / stepCount : 0;
+    lastIndex.value = nextIndex;
+    progress.value = withTiming(nextProgress, { duration: 120 });
+  }, [lastIndex, progress, stepCount, value, valueToIndex]);
+
+  const panGesture = Gesture.Pan()
+    .minDistance(0)
+    .onBegin(() => {
+      dragStartProgress.value = progress.value;
+      lastIndex.value = Math.round(progress.value * stepCount);
+    })
+    .onUpdate((event) => {
+      if (trackWidth <= SEEK_THUMB_WIDTH || stepCount <= 0) {
+        return;
+      }
+
+      const usableWidth = trackWidth - SEEK_THUMB_WIDTH;
+      const nextProgress = Math.min(
+        1,
+        Math.max(0, dragStartProgress.value + event.translationX / usableWidth),
+      );
+      const nextIndex = Math.min(
+        stepCount,
+        Math.max(0, Math.round(nextProgress * stepCount)),
+      );
+
+      progress.value = nextIndex / stepCount;
+      if (nextIndex !== lastIndex.value) {
+        lastIndex.value = nextIndex;
+        runOnJS(commitIndex)(nextIndex);
+      }
+    });
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          progress.value * Math.max(0, trackWidth - SEEK_THUMB_WIDTH) -
+          (SEEK_THUMB_TOUCH_SIZE - SEEK_THUMB_WIDTH) / 2,
+      },
+    ],
+  }));
+
+  return (
+    <View style={styles.seekContainer}>
+      <View
+        style={styles.seekTrackWrap}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      >
+        <View pointerEvents="none" style={styles.seekTrack} />
+        {trackWidth > 0 ? (
+          <GestureDetector gesture={panGesture}>
+            <Animated.View style={[styles.seekThumbTouch, thumbStyle]}>
+              <View style={styles.seekThumb} />
+            </Animated.View>
+          </GestureDetector>
+        ) : null}
       </View>
     </View>
   );
@@ -608,6 +941,35 @@ const styles = StyleSheet.create({
   optionBody: {
     marginTop: 12,
   },
+  section: {
+    marginBottom: 10,
+  },
+  sectionHeader: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    paddingLeft: 3,
+    color: colors.background,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  sectionChevron: {
+    width: 28,
+    color: colors.grey300,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+    marginRight: -3,
+  },
+  sectionBody: {
+    overflow: "hidden",
+  },
+  sectionContent: {
+    paddingTop: 10,
+  },
   // SelectOption
   selectOption: {
     marginBottom: 10,
@@ -662,21 +1024,29 @@ const styles = StyleSheet.create({
   },
   // Stepper
   stepperRow: {
-    minHeight: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.greyOpacity300,
     borderRadius: 14,
     paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 2,
     backgroundColor: colors.grey800,
+  },
+  stepperTopRow: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  stepperLabel: {
+    flex: 1,
+    marginRight: 12,
   },
   stepButton: {
     width: 34,
@@ -698,33 +1068,65 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
   },
+  seekContainer: {
+    marginTop: 0,
+  },
+  seekTrackWrap: {
+    height: SEEK_THUMB_TOUCH_SIZE,
+    justifyContent: "center",
+  },
+  seekTrack: {
+    height: 12,
+    overflow: "hidden",
+    borderRadius: 6,
+    backgroundColor: colors.greyOpacity400,
+  },
+  seekThumbTouch: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: SEEK_THUMB_TOUCH_SIZE,
+    height: SEEK_THUMB_TOUCH_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  seekThumb: {
+    width: SEEK_THUMB_WIDTH,
+    height: SEEK_THUMB_HEIGHT,
+    borderRadius: 4,
+    backgroundColor: colors.background,
+  },
   // Seed
+  seedOptionRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.greyOpacity300,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.grey800,
+  },
   seedRow: {
+    width: 136,
     flexDirection: "row",
     gap: 10,
+    marginLeft: 16,
   },
   seedInput: {
     flex: 1,
-    height: 42,
+    height: 38,
     borderWidth: 1,
     borderColor: colors.greyOpacity500,
     borderRadius: 10,
     paddingHorizontal: 12,
+    paddingVertical: 0,
     backgroundColor: colors.greyOpacity200,
     color: colors.background,
-  },
-  randomButton: {
-    width: 46,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-    backgroundColor: colors.greyOpacity300,
-  },
-  randomButtonText: {
-    color: colors.background,
-    fontSize: 20,
-    fontWeight: "800",
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   // BottomSheet
   sheetContainer: {

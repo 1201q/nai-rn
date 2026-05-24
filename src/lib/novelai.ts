@@ -1,6 +1,8 @@
 import JSZip from "jszip";
 import { fromByteArray } from "base64-js";
 
+import type { NoiseSchedule } from "../constants/generation";
+
 const NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
 export type GenerateNovelAiImageInput = {
   token: string;
@@ -10,7 +12,9 @@ export type GenerateNovelAiImageInput = {
   width: number;
   height: number;
   steps: number;
-  scale: number;
+  promptGuidance: number;
+  promptGuidanceRescale: number;
+  noiseSchedule: NoiseSchedule;
   sampler: string;
   seed?: number;
   nSamples?: number;
@@ -149,7 +153,9 @@ export async function generateNovelAiImage({
   width,
   height,
   steps,
-  scale,
+  promptGuidance,
+  promptGuidanceRescale,
+  noiseSchedule,
   sampler,
   seed: inputSeed,
   nSamples = 1,
@@ -159,7 +165,9 @@ export async function generateNovelAiImage({
   const parameters = {
     width,
     height,
-    scale,
+    scale: promptGuidance,
+    cfg_rescale: promptGuidanceRescale,
+    noise_schedule: noiseSchedule,
     sampler,
     steps,
     n_samples: nSamples,

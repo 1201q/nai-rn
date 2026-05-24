@@ -5,6 +5,7 @@ import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
   ASPECT_DIMENSIONS,
   type AspectRatio,
+  type NoiseSchedule,
 } from "../constants/generation";
 
 type GenerationOptionsContextValue = {
@@ -21,8 +22,12 @@ type GenerationOptionsContextValue = {
   setAspectRatio: (v: AspectRatio) => void;
   steps: number;
   setSteps: (v: number) => void;
-  scale: number;
-  setScale: (v: number) => void;
+  promptGuidance: number;
+  setPromptGuidance: (v: number) => void;
+  promptGuidanceRescale: number;
+  setPromptGuidanceRescale: (v: number) => void;
+  noiseSchedule: NoiseSchedule;
+  setNoiseSchedule: (v: NoiseSchedule) => void;
   sampler: string;
   setSampler: (v: string) => void;
   seedText: string;
@@ -58,7 +63,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [model, setModel] = useState("nai-diffusion-4-5-full");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [steps, setSteps] = useState(28);
-  const [scale, setScale] = useState(5);
+  const [promptGuidance, setPromptGuidance] = useState(5);
+  const [promptGuidanceRescale, setPromptGuidanceRescale] = useState(0);
+  const [noiseSchedule, setNoiseSchedule] = useState<NoiseSchedule>("karras");
   const [sampler, setSampler] = useState("k_euler_ancestral");
   const [seedText, setSeedText] = useState("");
   const [outputCount, setOutputCount] = useState(1);
@@ -111,7 +118,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         width: dimensions.width,
         height: dimensions.height,
         steps,
-        scale,
+        promptGuidance,
+        promptGuidanceRescale,
+        noiseSchedule,
         sampler,
         seed: Number.isFinite(fixedSeed) ? fixedSeed : undefined,
         nSamples: outputCount,
@@ -140,8 +149,12 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setAspectRatio,
         steps,
         setSteps,
-        scale,
-        setScale,
+        promptGuidance,
+        setPromptGuidance,
+        promptGuidanceRescale,
+        setPromptGuidanceRescale,
+        noiseSchedule,
+        setNoiseSchedule,
         sampler,
         setSampler,
         seedText,

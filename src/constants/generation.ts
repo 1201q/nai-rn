@@ -1,4 +1,9 @@
 export type AspectRatio = "1:1" | "3:4" | "16:9";
+export type NoiseSchedule =
+  | "native"
+  | "karras"
+  | "exponential"
+  | "polyexponential";
 
 export const ASPECT_DIMENSIONS: Record<
   AspectRatio,
@@ -25,4 +30,14 @@ export const SAMPLERS = [
   { label: "DPM++ 2M", value: "k_dpmpp_2m" },
   { label: "DPM++ SDE", value: "k_dpmpp_sde" },
   { label: "DDIM", value: "ddim_v3" },
+];
+
+export const NOISE_SCHEDULES: Array<{
+  label: string;
+  value: NoiseSchedule;
+}> = [
+  { label: "Native", value: "native" },
+  { label: "Karras", value: "karras" },
+  { label: "Exponential", value: "exponential" },
+  { label: "Polyexponential", value: "polyexponential" },
 ];
