@@ -8,7 +8,7 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { GenerationOptionsProvider } from "./src/context/GenerationOptionsContext";
-import { CreateScreen } from "./src/screens/CreateScreen";
+import { MainScreen } from "./src/screens/MainScreen";
 import { OptionScreen } from "./src/screens/OptionScreen";
 import type { RootStackParamList } from "./src/navigation/types";
 import { colors } from "./src/styles/colors";
@@ -34,7 +34,7 @@ export default function App() {
               ...TransitionPresets.SlideFromRightIOS,
             }}
           >
-            <Stack.Screen name="Create" component={CreateScreen} />
+            <Stack.Screen name="Main" component={MainScreen} />
             <Stack.Screen name="Option" component={OptionScreen} />
           </Stack.Navigator>
         </NavigationContainer>

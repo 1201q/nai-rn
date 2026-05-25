@@ -1,13 +1,13 @@
 import type { StackNavigationProp } from "@react-navigation/stack";
 
 export type RootStackParamList = {
-  Create: undefined;
+  Main: undefined;
   Option: undefined;
 };
 
-export type CreateScreenNavigationProp = StackNavigationProp<
+export type MainScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  "Create"
+  "Main"
 >;
 
 export type OptionScreenNavigationProp = StackNavigationProp<
