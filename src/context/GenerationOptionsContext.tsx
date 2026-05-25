@@ -1,6 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import {
+  type GenerationRecord,
+  initGenerationHistoryStorage,
+  listGenerations,
+  resolveGenerationImageUri,
+  resolveGenerationThumbnailUri,
+  saveGenerationImage,
+} from "../lib/generationHistory";
 import { generateNovelAiImage } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
@@ -135,8 +143,11 @@ type GenerationOptionsContextValue = {
   saveToken: (token: string) => Promise<void>;
 
   // 생성 결과
-  imageDataUri: string | null;
-  generatedDimensions: { width: number; height: number } | null;
+  currentGeneration: GenerationRecord | null;
+  currentImageUri: string | null;
+  generationHistory: GenerationRecord[];
+  resolveGenerationImageUri: (record: GenerationRecord) => string;
+  resolveGenerationThumbnailUri: (record: GenerationRecord) => string | null;
 
   // 생성 상태
   isLoading: boolean;
@@ -175,11 +186,11 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     });
 
   const [storedToken, setStoredToken] = useState<string | null>(null);
-  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-  const [generatedDimensions, setGeneratedDimensions] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
+  const [currentGeneration, setCurrentGeneration] =
+    useState<GenerationRecord | null>(null);
+  const [generationHistory, setGenerationHistory] = useState<
+    GenerationRecord[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasLoadedOptions, setHasLoadedOptions] = useState(false);
@@ -282,6 +293,18 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       });
   }, []);
 
+  useEffect(() => {
+    initGenerationHistoryStorage()
+      .then(listGenerations)
+      .then((records) => {
+        setGenerationHistory(records);
+        setCurrentGeneration((current) => current ?? records[0] ?? null);
+      })
+      .catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : String(error));
+      });
+  }, []);
+
   async function saveToken(token: string) {
     await saveNovelAiToken(token);
     setStoredToken(token);
@@ -320,11 +343,24 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         nSamples: outputCount,
       });
 
-      setImageDataUri(result.imageDataUri);
-      setGeneratedDimensions({
+      const generation = await saveGenerationImage({
+        imageBytes: result.imageBytes,
+        prompt: prompt.trim(),
+        negativePrompt: negativePrompt.trim(),
+        model,
         width: resolution.width,
         height: resolution.height,
+        steps,
+        scale: promptGuidance,
+        cfgRescale: promptGuidanceRescale,
+        noiseSchedule,
+        sampler,
+        seed: result.seed,
+        metadata: result.metadata,
       });
+
+      setCurrentGeneration(generation);
+      setGenerationHistory((records) => [generation, ...records]);
       onSuccess?.();
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -365,8 +401,13 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         hasLoadedOptions,
         storedToken,
         saveToken,
-        imageDataUri,
-        generatedDimensions,
+        currentGeneration,
+        currentImageUri: currentGeneration
+          ? resolveGenerationImageUri(currentGeneration)
+          : null,
+        generationHistory,
+        resolveGenerationImageUri,
+        resolveGenerationThumbnailUri,
         isLoading,
         message,
         setMessage,

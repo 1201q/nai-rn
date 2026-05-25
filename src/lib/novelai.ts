@@ -1,5 +1,4 @@
 import JSZip from "jszip";
-import { fromByteArray } from "base64-js";
 
 import type { NoiseSchedule } from "../constants/generation";
 
@@ -21,7 +20,7 @@ export type GenerateNovelAiImageInput = {
 };
 
 export type GenerateNovelAiImageResult = {
-  imageDataUri: string;
+  imageBytes: Uint8Array;
   seed: number;
   metadata: Record<string, string>;
 };
@@ -217,10 +216,9 @@ export async function generateNovelAiImage({
 
   const imageBytes = await imageFile.async("uint8array");
   const metadata = extractPngTextMetadata(imageBytes);
-  const base64 = fromByteArray(imageBytes);
 
   return {
-    imageDataUri: `data:image/png;base64,${base64}`,
+    imageBytes,
     seed,
     metadata,
   };

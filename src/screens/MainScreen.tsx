@@ -1,39 +1,39 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   BackHandler,
   FlatList,
-  Image,
   Modal,
   Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useNavigation } from "@react-navigation/native";
+import { Image as ExpoImage } from "expo-image";
 import PagerView from "react-native-pager-view";
 
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
+import type { GenerationRecord } from "../lib/generationHistory";
 import { colors } from "../styles/colors";
 import type { MainScreenNavigationProp } from "../navigation/types";
 
 type MainPageIndex = 0 | 1;
 
-type HistoryImageItem = {
-  id: string;
-  imageDataUri: string;
-};
-
 export function MainScreen() {
   const navigation = useNavigation<MainScreenNavigationProp>();
   const {
     prompt,
-    imageDataUri,
-    generatedDimensions,
+    currentGeneration,
+    currentImageUri,
+    generationHistory,
+    resolveGenerationImageUri,
+    resolveGenerationThumbnailUri,
     isLoading,
     message,
     setMessage,
@@ -47,13 +47,6 @@ export function MainScreen() {
   const [mainPageIndex, setMainPageIndex] = useState<MainPageIndex>(0);
   const [tokenInput, setTokenInput] = useState("");
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
-
-  const historyImages = useMemo<HistoryImageItem[]>(() => {
-    if (!imageDataUri) {
-      return [];
-    }
-    return [{ id: imageDataUri, imageDataUri }];
-  }, [imageDataUri]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -70,7 +63,7 @@ export function MainScreen() {
   }, [isImagePreviewOpen]);
 
   function openImagePreview() {
-    if (!imageDataUri) return;
+    if (!currentImageUri) return;
     setIsImagePreviewOpen(true);
     previewAnimation.setValue(0);
     Animated.timing(previewAnimation, {
@@ -129,7 +122,7 @@ export function MainScreen() {
       >
         <View key="create" style={styles.page}>
           <View style={styles.imageStage}>
-            {imageDataUri && generatedDimensions ? (
+            {currentImageUri && currentGeneration ? (
               <TouchableOpacity
                 activeOpacity={0.92}
                 onPress={openImagePreview}
@@ -137,13 +130,14 @@ export function MainScreen() {
                   styles.generatedImageWrap,
                   {
                     aspectRatio:
-                      generatedDimensions.width / generatedDimensions.height,
+                      currentGeneration.width / currentGeneration.height,
                   },
                 ]}
               >
-                <Image
-                  source={{ uri: imageDataUri }}
-                  resizeMode="cover"
+                <ExpoImage
+                  source={{ uri: currentImageUri }}
+                  contentFit="cover"
+                  transition={120}
                   style={styles.generatedImage}
                 />
               </TouchableOpacity>
@@ -205,7 +199,11 @@ export function MainScreen() {
         </View>
 
         <View key="history" style={styles.page}>
-          <HistoryPage images={historyImages} />
+          <HistoryPage
+            images={generationHistory}
+            resolveImageUri={resolveGenerationImageUri}
+            resolveThumbnailUri={resolveGenerationThumbnailUri}
+          />
         </View>
       </PagerView>
 
@@ -223,9 +221,9 @@ export function MainScreen() {
             style={styles.previewPressArea}
             onPress={closeImagePreview}
           >
-            {imageDataUri ? (
+            {currentImageUri ? (
               <Animated.Image
-                source={{ uri: imageDataUri }}
+                source={{ uri: currentImageUri }}
                 resizeMode="contain"
                 style={[
                   styles.previewImage,
@@ -303,7 +301,20 @@ function SegmentButton({
   );
 }
 
-function HistoryPage({ images }: { images: HistoryImageItem[] }) {
+function HistoryPage({
+  images,
+  resolveImageUri,
+  resolveThumbnailUri,
+}: {
+  images: GenerationRecord[];
+  resolveImageUri: (record: GenerationRecord) => string;
+  resolveThumbnailUri: (record: GenerationRecord) => string | null;
+}) {
+  const { width } = useWindowDimensions();
+  const padding = 2;
+  const gap = 2;
+  const itemSize = (width - padding * 2 - gap * 2) / 3;
+
   return (
     <FlatList
       data={images}
@@ -323,11 +334,26 @@ function HistoryPage({ images }: { images: HistoryImageItem[] }) {
           </Text>
         </View>
       }
-      renderItem={({ item }) => (
-        <TouchableOpacity activeOpacity={0.86} style={styles.historyTile}>
-          <Image
-            source={{ uri: item.imageDataUri }}
-            resizeMode="cover"
+      renderItem={({ item, index }) => (
+        <TouchableOpacity
+          activeOpacity={0.86}
+          style={[
+            styles.historyTile,
+            {
+              width: itemSize,
+              height: itemSize,
+              marginRight: index % 3 === 2 ? 0 : gap,
+              marginBottom: gap,
+            },
+          ]}
+        >
+          <ExpoImage
+            source={{
+              uri: resolveThumbnailUri(item) ?? resolveImageUri(item),
+            }}
+            contentFit="cover"
+            recyclingKey={item.id}
+            transition={120}
             style={styles.historyImage}
           />
         </TouchableOpacity>
@@ -497,9 +523,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   historyTile: {
-    flex: 1,
-    aspectRatio: 1,
-    margin: 1,
     overflow: "hidden",
     backgroundColor: colors.grey800,
   },
