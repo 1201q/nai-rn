@@ -1,6 +1,7 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, TouchableOpacity, View } from "react-native";
 
-import { styles } from "./styles";
+import { MAIN_SEGMENT_BUTTON_WIDTH, styles } from "./styles";
 
 export type MainPageIndex = 0 | 1;
 
@@ -11,17 +12,38 @@ export function MainScreenHeader({
   activeIndex: MainPageIndex;
   onSelect: (index: MainPageIndex) => void;
 }) {
+  const indicatorX = useRef(
+    new Animated.Value(activeIndex * MAIN_SEGMENT_BUTTON_WIDTH),
+  ).current;
+
+  useEffect(() => {
+    Animated.timing(indicatorX, {
+      toValue: activeIndex * MAIN_SEGMENT_BUTTON_WIDTH,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex, indicatorX]);
+
   return (
     <View style={styles.header}>
       <View style={styles.headerSide} />
       <View style={styles.segmentedControl}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.segmentIndicator,
+            { transform: [{ translateX: indicatorX }] },
+          ]}
+        />
         <SegmentButton
-          label="Create"
+          icon="create"
+          accessibilityLabel="Create"
           active={activeIndex === 0}
           onPress={() => onSelect(0)}
         />
         <SegmentButton
-          label="History"
+          icon="history"
+          accessibilityLabel="History"
           active={activeIndex === 1}
           onPress={() => onSelect(1)}
         />
@@ -32,23 +54,64 @@ export function MainScreenHeader({
 }
 
 function SegmentButton({
-  label,
+  icon,
+  accessibilityLabel,
   active,
   onPress,
 }: {
-  label: string;
+  icon: "create" | "history";
+  accessibilityLabel: string;
   active: boolean;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.segmentButton, active && styles.segmentButtonActive]}
+      style={styles.segmentButton}
       activeOpacity={0.78}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
     >
-      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-        {label}
-      </Text>
+      {icon === "create" ? <CreateIcon active={active} /> : null}
+      {icon === "history" ? <HistoryIcon active={active} /> : null}
     </TouchableOpacity>
+  );
+}
+
+function CreateIcon({ active }: { active: boolean }) {
+  return (
+    <View style={styles.createIcon}>
+      <View
+        style={[
+          styles.createIconBody,
+          active && styles.segmentIconActive,
+        ]}
+      />
+      <View
+        style={[
+          styles.createIconTip,
+          active && styles.segmentIconActive,
+        ]}
+      />
+    </View>
+  );
+}
+
+function HistoryIcon({ active }: { active: boolean }) {
+  return (
+    <View style={[styles.historyIcon, active && styles.historyIconActive]}>
+      <View
+        style={[
+          styles.historyIconHourHand,
+          active && styles.segmentIconActive,
+        ]}
+      />
+      <View
+        style={[
+          styles.historyIconMinuteHand,
+          active && styles.segmentIconActive,
+        ]}
+      />
+    </View>
   );
 }

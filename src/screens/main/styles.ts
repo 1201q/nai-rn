@@ -2,6 +2,12 @@ import { Platform, StyleSheet } from "react-native";
 
 import { colors } from "../../styles/colors";
 
+export const MAIN_SEGMENT_WIDTH = 100;
+export const MAIN_SEGMENT_HEIGHT = 36;
+export const MAIN_SEGMENT_PADDING = 3;
+export const MAIN_SEGMENT_BUTTON_WIDTH =
+  (MAIN_SEGMENT_WIDTH - MAIN_SEGMENT_PADDING * 2) / 2;
+
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -19,31 +25,82 @@ export const styles = StyleSheet.create({
     width: 44,
   },
   segmentedControl: {
-    width: 220,
-    height: 38,
+    width: MAIN_SEGMENT_WIDTH,
+    height: MAIN_SEGMENT_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
-    padding: 3,
+    position: "relative",
+    borderRadius: 999,
+    padding: MAIN_SEGMENT_PADDING,
     backgroundColor: colors.grey800,
+  },
+  segmentIndicator: {
+    position: "absolute",
+    top: MAIN_SEGMENT_PADDING,
+    left: MAIN_SEGMENT_PADDING,
+    width: MAIN_SEGMENT_BUTTON_WIDTH,
+    height: MAIN_SEGMENT_HEIGHT - MAIN_SEGMENT_PADDING * 2,
+    borderRadius: 999,
+    backgroundColor: colors.greyOpacity300,
   },
   segmentButton: {
     flex: 1,
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 999,
+    zIndex: 1,
+  },
+  segmentIconActive: {
+    backgroundColor: colors.background,
+  },
+  createIcon: {
+    width: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-35deg" }],
+  },
+  createIconBody: {
+    width: 4,
+    height: 13,
+    borderRadius: 3,
+    backgroundColor: colors.grey400,
+  },
+  createIconTip: {
+    width: 4,
+    height: 4,
+    marginTop: 2,
+    borderRadius: 2,
+    backgroundColor: colors.grey400,
+  },
+  historyIcon: {
+    width: 18,
+    height: 18,
+    borderWidth: 2,
+    borderColor: colors.grey400,
     borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  segmentButtonActive: {
-    backgroundColor: colors.greyOpacity300,
+  historyIconActive: {
+    borderColor: colors.background,
   },
-  segmentText: {
-    color: colors.grey400,
-    fontSize: 14,
-    fontWeight: "800",
+  historyIconHourHand: {
+    position: "absolute",
+    width: 2,
+    height: 6,
+    borderRadius: 1,
+    backgroundColor: colors.grey400,
+    transform: [{ translateY: -3 }],
   },
-  segmentTextActive: {
-    color: colors.background,
+  historyIconMinuteHand: {
+    position: "absolute",
+    width: 6,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.grey400,
+    transform: [{ translateX: 3 }],
   },
   pager: {
     flex: 1,
