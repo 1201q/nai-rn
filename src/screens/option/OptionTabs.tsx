@@ -118,7 +118,7 @@ export function OptionTabScene({
   if (!hasLoadedOptions) {
     return (
       <View style={styles.loadingOptions}>
-        <ActivityIndicator color={colors.background} />
+        <ActivityIndicator color={colors.colorTextPrimary} />
       </View>
     );
   }
@@ -182,7 +182,7 @@ export function OptionTabScene({
             onSubmitEditing={() => commitResolutionInput()}
             keyboardType="number-pad"
             placeholder="Width"
-            placeholderTextColor={colors.grey500}
+            placeholderTextColor={colors.colorTextTertiary}
             style={styles.resolutionInput}
           />
           <TouchableOpacity
@@ -201,7 +201,7 @@ export function OptionTabScene({
             onSubmitEditing={() => commitResolutionInput()}
             keyboardType="number-pad"
             placeholder="Height"
-            placeholderTextColor={colors.grey500}
+            placeholderTextColor={colors.colorTextTertiary}
             style={styles.resolutionInput}
           />
         </View>
@@ -270,7 +270,7 @@ export function OptionTabScene({
               onChangeText={setSeedText}
               keyboardType="number-pad"
               placeholder="Random"
-              placeholderTextColor={colors.grey500}
+              placeholderTextColor={colors.colorTextTertiary}
               style={styles.seedInput}
             />
           </View>

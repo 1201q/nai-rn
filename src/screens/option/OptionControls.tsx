@@ -101,7 +101,7 @@ export function LabeledInput({
           onChangeText={onChangeText}
           multiline
           textAlignVertical="top"
-          placeholderTextColor={colors.grey500}
+          placeholderTextColor={colors.colorTextTertiary}
           style={styles.textArea}
         />
         <Text style={styles.countText}>{count}</Text>

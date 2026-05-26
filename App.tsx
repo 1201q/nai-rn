@@ -23,20 +23,20 @@ const Stack = createStackNavigator<RootStackParamList>();
 export default function App() {
   return (
     <GestureHandlerRootView
-      style={{ flex: 1, backgroundColor: colors.grey900 }}
+      style={{ flex: 1, backgroundColor: colors.appBackground }}
     >
       <GenerationOptionsProvider>
         <NavigationContainer
           theme={{
             ...DarkTheme,
-            colors: { ...DarkTheme.colors, background: colors.grey900 },
+            colors: { ...DarkTheme.colors, background: colors.appBackground },
           }}
         >
           <Stack.Navigator
             screenOptions={{
               // animation: "none",
               headerShown: false,
-              cardStyle: { backgroundColor: colors.grey900 },
+              cardStyle: { backgroundColor: colors.appBackground },
               ...TransitionPresets.SlideFromRightIOS,
             }}
           >

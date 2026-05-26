@@ -72,7 +72,7 @@ export function CreatePage({
             value={tokenInput}
             onChangeText={setTokenInput}
             placeholder="NovelAI API Token"
-            placeholderTextColor={colors.grey500}
+            placeholderTextColor={colors.colorTextTertiary}
             autoCapitalize="none"
             autoCorrect={false}
             secureTextEntry
@@ -104,7 +104,7 @@ export function CreatePage({
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.background} />
+            <ActivityIndicator color={colors.colorTextInverse} />
           ) : (
             <Text style={styles.generateText}>Generate</Text>
           )}

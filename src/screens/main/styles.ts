@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
   screen: {
     flex: 1,
     paddingTop: Platform.OS === "android" ? 28 : 0,
-    backgroundColor: colors.grey900,
+    backgroundColor: colors.appBackground,
   },
   header: {
     height: 56,
@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 999,
     padding: MAIN_SEGMENT_PADDING,
-    backgroundColor: colors.grey800,
+    backgroundColor: colors.colorBackgroundSecondary,
   },
   segmentIndicator: {
     position: "absolute",
@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
     width: MAIN_SEGMENT_BUTTON_WIDTH,
     height: MAIN_SEGMENT_HEIGHT - MAIN_SEGMENT_PADDING * 2,
     borderRadius: 999,
-    backgroundColor: colors.greyOpacity300,
+    backgroundColor: colors.colorBackgroundTertiary,
   },
   segmentButton: {
     flex: 1,
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
     zIndex: 1,
   },
   segmentIconActive: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.colorBackgroundInverse,
   },
   createIcon: {
     width: 18,
@@ -65,33 +65,33 @@ export const styles = StyleSheet.create({
     width: 4,
     height: 13,
     borderRadius: 3,
-    backgroundColor: colors.grey400,
+    backgroundColor: colors.colorTextTertiary,
   },
   createIconTip: {
     width: 4,
     height: 4,
     marginTop: 2,
     borderRadius: 2,
-    backgroundColor: colors.grey400,
+    backgroundColor: colors.colorTextTertiary,
   },
   historyIcon: {
     width: 18,
     height: 18,
     borderWidth: 2,
-    borderColor: colors.grey400,
+    borderColor: colors.colorTextTertiary,
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
   historyIconActive: {
-    borderColor: colors.background,
+    borderColor: colors.colorTextPrimary,
   },
   historyIconHourHand: {
     position: "absolute",
     width: 2,
     height: 6,
     borderRadius: 1,
-    backgroundColor: colors.grey400,
+    backgroundColor: colors.colorTextTertiary,
     transform: [{ translateY: -3 }],
   },
   historyIconMinuteHand: {
@@ -99,7 +99,7 @@ export const styles = StyleSheet.create({
     width: 6,
     height: 2,
     borderRadius: 1,
-    backgroundColor: colors.grey400,
+    backgroundColor: colors.colorTextTertiary,
     transform: [{ translateX: 3 }],
   },
   pager: {
@@ -107,7 +107,7 @@ export const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
-    backgroundColor: colors.grey900,
+    backgroundColor: colors.appBackground,
   },
   imageStage: {
     flex: 1,
@@ -119,7 +119,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     overflow: "hidden",
     borderRadius: 14,
-    backgroundColor: colors.grey800,
+    backgroundColor: colors.colorBackgroundSecondary,
   },
   generatedImage: {
     width: "100%",
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
   message: {
     marginHorizontal: 16,
     marginBottom: 10,
-    color: colors.red300,
+    color: colors.colorTextDanger,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
   },
   temporaryTokenLabel: {
     marginBottom: 6,
-    color: colors.grey400,
+    color: colors.colorTextTertiary,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -150,11 +150,11 @@ export const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderWidth: 1,
-    borderColor: colors.greyOpacity500,
+    borderColor: colors.colorBorderSecondary,
     borderRadius: 14,
     paddingHorizontal: 12,
-    backgroundColor: colors.grey800,
-    color: colors.background,
+    backgroundColor: colors.colorBackgroundSecondary,
+    color: colors.colorTextPrimary,
   },
   temporaryTokenButton: {
     width: 74,
@@ -162,10 +162,10 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: colors.blue600,
+    backgroundColor: colors.colorBackgroundInverse,
   },
   temporaryTokenButtonText: {
-    color: colors.background,
+    color: colors.colorTextInverse,
     fontWeight: "800",
   },
   bottomBar: {
@@ -182,10 +182,10 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: colors.grey800,
+    backgroundColor: colors.colorBackgroundSecondary,
   },
   optionsIcon: {
-    color: colors.purple300,
+    color: colors.colorTextInfo,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -195,13 +195,13 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: colors.blue500,
+    backgroundColor: colors.colorBackgroundInverse,
   },
   disabledButton: {
     opacity: 0.62,
   },
   generateText: {
-    color: colors.background,
+    color: colors.colorTextInverse,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -221,7 +221,7 @@ export const styles = StyleSheet.create({
   },
   historyTile: {
     overflow: "hidden",
-    backgroundColor: colors.grey800,
+    backgroundColor: colors.colorBackgroundSecondary,
   },
   historyImage: {
     width: "100%",
@@ -232,12 +232,12 @@ export const styles = StyleSheet.create({
   },
   historyEmptyTitle: {
     marginBottom: 6,
-    color: colors.background,
+    color: colors.colorTextPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
   historyEmptyText: {
-    color: colors.grey400,
+    color: colors.colorTextTertiary,
     fontSize: 13,
   },
   previewBackdrop: {
@@ -256,7 +256,7 @@ export const styles = StyleSheet.create({
   },
   previewHint: {
     marginTop: 14,
-    color: colors.background,
+    color: colors.colorTextPrimary,
     fontSize: 14,
     opacity: 0.75,
   },

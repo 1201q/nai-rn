@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitle: {
-    color: colors.background,
+    color: colors.colorTextPrimary,
     fontSize: 18,
     fontWeight: "700",
   },
@@ -46,12 +46,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconText: {
-    color: colors.background,
+    color: colors.colorTextPrimary,
     fontSize: 34,
     lineHeight: 36,
   },
   moreText: {
-    color: colors.background,
+    color: colors.colorTextPrimary,
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: 0,

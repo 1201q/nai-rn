@@ -186,8 +186,8 @@ export function OptionScreen() {
             {...props}
             style={styles.tabBar}
             indicatorStyle={styles.tabIndicator}
-            activeColor={colors.background}
-            inactiveColor={colors.grey500}
+            activeColor={colors.colorTextPrimary}
+            inactiveColor={colors.colorTextTertiary}
           />
         )}
         renderScene={({ route }) => (
@@ -230,7 +230,7 @@ export function OptionScreen() {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.background} />
+            <ActivityIndicator color={colors.colorTextInverse} />
           ) : (
             <Text style={styles.generateText}>Generate</Text>
           )}
