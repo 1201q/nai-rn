@@ -199,7 +199,7 @@ export async function saveGenerationImage({
     );
     const thumbnailFile = new File(getThumbnailsDirectory(), thumbnailFileName);
     const temporaryThumbnailFile = new File(thumbnail.uri);
-    temporaryThumbnailFile.copy(thumbnailFile);
+    await temporaryThumbnailFile.copy(thumbnailFile);
     try {
       temporaryThumbnailFile.delete();
     } catch {
