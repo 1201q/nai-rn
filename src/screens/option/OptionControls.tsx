@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -38,7 +39,7 @@ export function SelectOption({
         <Text style={styles.optionValue} numberOfLines={1} ellipsizeMode="tail">
           {value}
         </Text>
-        <Text style={styles.selectChevron}>›</Text>
+        <Ionicons name="chevron-forward" size={20} color={colors.colorTextTertiary} />
       </View>
     </TouchableOpacity>
   );

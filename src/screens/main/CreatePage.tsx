@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 
 import type { GenerationRecord } from "../../lib/generationHistory";
@@ -94,7 +95,7 @@ export function CreatePage({
           activeOpacity={0.78}
           onPress={onOpenOptions}
         >
-          <Text style={styles.optionsIcon}>Options</Text>
+          <Ionicons name="options-outline" size={20} color={colors.colorTextInfo} />
         </TouchableOpacity>
 
         <TouchableOpacity

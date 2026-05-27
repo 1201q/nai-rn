@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import {
@@ -178,7 +179,7 @@ export function OptionTabScene({
               activeOpacity={0.78}
               onPress={swapResolutionInput}
             >
-              <Text style={styles.resolutionSeparator}>x</Text>
+              <Ionicons name="swap-horizontal-outline" size={18} color={colors.colorTextPrimary} />
             </TouchableOpacity>
             <View style={styles.resolutionInputBox}>
               <Text style={styles.resolutionInlineLabel}>Height</Text>

@@ -158,11 +158,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  resolutionSeparator: {
-    color: colors.colorTextPrimary,
-    fontSize: 16,
-    fontWeight: "800",
-  },
   section: {
     marginBottom: 10,
   },
@@ -195,11 +190,6 @@ export const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "flex-end",
     marginLeft: 16,
-  },
-  selectChevron: {
-    color: colors.colorTextTertiary,
-    fontSize: 22,
-    fontWeight: "800",
   },
   segmentRow: {
     flexDirection: "row",

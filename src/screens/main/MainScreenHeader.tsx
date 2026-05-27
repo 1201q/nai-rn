@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Animated, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
+import { colors } from "../../styles/colors";
 import { MAIN_SEGMENT_BUTTON_WIDTH, styles } from "./styles";
 
 export type MainPageIndex = 0 | 1;
@@ -72,46 +74,11 @@ function SegmentButton({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
     >
-      {icon === "create" ? <CreateIcon active={active} /> : null}
-      {icon === "history" ? <HistoryIcon active={active} /> : null}
+      <Ionicons
+        name={icon === "create" ? "create-outline" : "time-outline"}
+        size={20}
+        color={active ? colors.colorTextPrimary : colors.colorTextTertiary}
+      />
     </TouchableOpacity>
-  );
-}
-
-function CreateIcon({ active }: { active: boolean }) {
-  return (
-    <View style={styles.createIcon}>
-      <View
-        style={[
-          styles.createIconBody,
-          active && styles.segmentIconActive,
-        ]}
-      />
-      <View
-        style={[
-          styles.createIconTip,
-          active && styles.segmentIconActive,
-        ]}
-      />
-    </View>
-  );
-}
-
-function HistoryIcon({ active }: { active: boolean }) {
-  return (
-    <View style={[styles.historyIcon, active && styles.historyIconActive]}>
-      <View
-        style={[
-          styles.historyIconHourHand,
-          active && styles.segmentIconActive,
-        ]}
-      />
-      <View
-        style={[
-          styles.historyIconMinuteHand,
-          active && styles.segmentIconActive,
-        ]}
-      />
-    </View>
   );
 }
