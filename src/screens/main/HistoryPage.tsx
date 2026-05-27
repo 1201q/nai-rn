@@ -14,10 +14,12 @@ export function HistoryPage({
   images,
   resolveImageUri,
   resolveThumbnailUri,
+  onImagePress,
 }: {
   images: GenerationRecord[];
   resolveImageUri: (record: GenerationRecord) => string;
   resolveThumbnailUri: (record: GenerationRecord) => string | null;
+  onImagePress: (index: number) => void;
 }) {
   const { width } = useWindowDimensions();
   const padding = 2;
@@ -46,6 +48,7 @@ export function HistoryPage({
       renderItem={({ item, index }) => (
         <TouchableOpacity
           activeOpacity={0.86}
+          onPress={() => onImagePress(index)}
           style={[
             styles.historyTile,
             {

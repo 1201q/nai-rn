@@ -242,22 +242,17 @@ export const styles = StyleSheet.create({
   },
   previewBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.94)",
+    backgroundColor: "#000",
   },
-  previewPressArea: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
+  previewCloseButton: {
+    position: "absolute",
+    top: 48,
+    right: 16,
+    padding: 10,
   },
-  previewImage: {
-    width: "100%",
-    height: "88%",
-  },
-  previewHint: {
-    marginTop: 14,
+  previewCloseText: {
     color: colors.colorTextPrimary,
-    fontSize: 14,
-    opacity: 0.75,
+    fontSize: 20,
+    opacity: 0.85,
   },
 });

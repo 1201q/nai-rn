@@ -34,6 +34,8 @@ export function MainScreen() {
   const [mainPageIndex, setMainPageIndex] = useState<MainPageIndex>(0);
   const [tokenInput, setTokenInput] = useState("");
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -51,6 +53,20 @@ export function MainScreen() {
 
   function openImagePreview() {
     if (!currentImageUri) return;
+    setPreviewImages([currentImageUri]);
+    setPreviewInitialIndex(0);
+    setIsImagePreviewOpen(true);
+    previewAnimation.setValue(0);
+    Animated.timing(previewAnimation, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function openHistoryImagePreview(index: number) {
+    setPreviewImages(generationHistory.map(resolveGenerationImageUri));
+    setPreviewInitialIndex(index);
     setIsImagePreviewOpen(true);
     previewAnimation.setValue(0);
     Animated.timing(previewAnimation, {
@@ -128,13 +144,15 @@ export function MainScreen() {
             images={generationHistory}
             resolveImageUri={resolveGenerationImageUri}
             resolveThumbnailUri={resolveGenerationThumbnailUri}
+            onImagePress={openHistoryImagePreview}
           />
         </View>
       </PagerView>
 
       <ImagePreviewModal
         visible={isImagePreviewOpen}
-        imageUri={currentImageUri}
+        images={previewImages}
+        initialIndex={previewInitialIndex}
         animation={previewAnimation}
         onClose={closeImagePreview}
       />
