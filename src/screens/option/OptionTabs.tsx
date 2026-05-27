@@ -1,11 +1,11 @@
 import {
   ActivityIndicator,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import {
   MODELS,
@@ -14,10 +14,8 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "../../constants/generation";
-import type { OptionSectionExpandedState } from "../../context/GenerationOptionsContext";
 import { colors } from "../../styles/colors";
 import {
-  adjustDecimal,
   formatDecimal,
   formatResolutionValue,
   getOptionLabel,
@@ -25,12 +23,7 @@ import {
   snapResolutionValue,
   triggerSelectionHaptic,
 } from "./helpers";
-import {
-  CollapsibleSection,
-  LabeledInput,
-  SelectOption,
-  StepperRow,
-} from "./OptionControls";
+import { LabeledInput, SelectOption, StepperRow } from "./OptionControls";
 import { styles } from "./styles";
 
 type SelectionSheetName = "model" | "resolution" | "sampler" | "noiseSchedule";
@@ -60,8 +53,6 @@ export function OptionTabScene({
   sampler,
   seedText,
   setSeedText,
-  optionSectionExpanded,
-  setOptionSectionExpanded,
   resolutionWidthText,
   setResolutionWidthText,
   resolutionHeightText,
@@ -87,8 +78,6 @@ export function OptionTabScene({
   sampler: string;
   seedText: string;
   setSeedText: (v: string) => void;
-  optionSectionExpanded: OptionSectionExpandedState;
-  setOptionSectionExpanded: (v: OptionSectionExpandedState) => void;
   resolutionWidthText: string;
   setResolutionWidthText: (v: string) => void;
   resolutionHeightText: string;
@@ -125,7 +114,8 @@ export function OptionTabScene({
 
   if (route.key === "prompt") {
     return (
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={16}
         contentContainerStyle={styles.tabContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -143,12 +133,13 @@ export function OptionTabScene({
           minHeight={96}
           count={`${negativePrompt.length}/1000`}
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     );
   }
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
+      bottomOffset={16}
       contentContainerStyle={styles.tabContent}
       keyboardShouldPersistTaps="handled"
     >
@@ -157,182 +148,118 @@ export function OptionTabScene({
         value={getOptionLabel(MODELS, model)}
         onPress={() => openSelectionSheet("model")}
       />
-      <CollapsibleSection
-        title="Image Settings"
-        expanded={optionSectionExpanded.image}
-        onExpandedChange={(expanded) =>
-          setOptionSectionExpanded({
-            ...optionSectionExpanded,
-            image: expanded,
-          })
-        }
-      >
-        <SelectOption
-          label="Resolution"
-          value={formatResolutionValue(resolution)}
-          onPress={() => openSelectionSheet("resolution")}
-        />
-        <View style={styles.resolutionInputRow}>
-          <TextInput
-            value={resolutionWidthText}
-            onChangeText={(text) =>
-              setResolutionWidthText(text.replace(/\D/g, ""))
-            }
-            onBlur={() => commitResolutionInput()}
-            onSubmitEditing={() => commitResolutionInput()}
-            keyboardType="number-pad"
-            placeholder="Width"
-            placeholderTextColor={colors.colorTextTertiary}
-            style={styles.resolutionInput}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Image Settings</Text>
+        <View style={styles.sectionContent}>
+          <SelectOption
+            label="Resolution"
+            value={formatResolutionValue(resolution)}
+            onPress={() => openSelectionSheet("resolution")}
           />
-          <TouchableOpacity
-            style={styles.resolutionSwapButton}
-            activeOpacity={0.78}
-            onPress={swapResolutionInput}
-          >
-            <Text style={styles.resolutionSwapText}>x</Text>
-          </TouchableOpacity>
-          <TextInput
-            value={resolutionHeightText}
-            onChangeText={(text) =>
-              setResolutionHeightText(text.replace(/\D/g, ""))
-            }
-            onBlur={() => commitResolutionInput()}
-            onSubmitEditing={() => commitResolutionInput()}
-            keyboardType="number-pad"
-            placeholder="Height"
-            placeholderTextColor={colors.colorTextTertiary}
-            style={styles.resolutionInput}
-          />
-        </View>
-      </CollapsibleSection>
-      <CollapsibleSection
-        title="AI Settings"
-        expanded={optionSectionExpanded.ai}
-        onExpandedChange={(expanded) =>
-          setOptionSectionExpanded({
-            ...optionSectionExpanded,
-            ai: expanded,
-          })
-        }
-      >
-        <StepperRow
-          label="Steps"
-          value={steps}
-          onMinus={() => {
-            const nextValue = Math.max(1, steps - 1);
-            if (nextValue !== steps) {
-              setSteps(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          onPlus={() => {
-            const nextValue = Math.min(50, steps + 1);
-            if (nextValue !== steps) {
-              setSteps(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          seekMin={1}
-          seekMax={50}
-          seekStep={1}
-          onSeekChange={setSteps}
-        />
-        <StepperRow
-          label="Prompt Guidance"
-          value={promptGuidance}
-          valueText={formatDecimal(promptGuidance)}
-          onMinus={() => {
-            const nextValue = adjustDecimal(promptGuidance, -0.1, 0, 10);
-            if (nextValue !== promptGuidance) {
-              setPromptGuidance(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          onPlus={() => {
-            const nextValue = adjustDecimal(promptGuidance, 0.1, 0, 10);
-            if (nextValue !== promptGuidance) {
-              setPromptGuidance(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          seekMin={0}
-          seekMax={10}
-          seekStep={0.1}
-          seekPrecision={1}
-          onSeekChange={setPromptGuidance}
-        />
-        <View style={styles.seedOptionRow}>
-          <Text style={styles.optionLabel}>Seed</Text>
-          <View style={styles.seedRow}>
-            <TextInput
-              value={seedText}
-              onChangeText={setSeedText}
-              keyboardType="number-pad"
-              placeholder="Random"
-              placeholderTextColor={colors.colorTextTertiary}
-              style={styles.seedInput}
-            />
+          <View style={styles.resolutionInputRow}>
+            <View style={styles.resolutionInputBox}>
+              <Text style={styles.resolutionInlineLabel}>Width</Text>
+              <View style={styles.resolutionDivider} />
+              <TextInput
+                value={resolutionWidthText}
+                onChangeText={(text) =>
+                  setResolutionWidthText(text.replace(/\D/g, ""))
+                }
+                onBlur={() => commitResolutionInput()}
+                onSubmitEditing={() => commitResolutionInput()}
+                keyboardType="number-pad"
+                placeholder="832"
+                placeholderTextColor={colors.colorTextTertiary}
+                style={styles.resolutionInput}
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.resolutionSwapButton}
+              activeOpacity={0.78}
+              onPress={swapResolutionInput}
+            >
+              <Text style={styles.resolutionSeparator}>x</Text>
+            </TouchableOpacity>
+            <View style={styles.resolutionInputBox}>
+              <Text style={styles.resolutionInlineLabel}>Height</Text>
+              <View style={styles.resolutionDivider} />
+              <TextInput
+                value={resolutionHeightText}
+                onChangeText={(text) =>
+                  setResolutionHeightText(text.replace(/\D/g, ""))
+                }
+                onBlur={() => commitResolutionInput()}
+                onSubmitEditing={() => commitResolutionInput()}
+                keyboardType="number-pad"
+                placeholder="1216"
+                placeholderTextColor={colors.colorTextTertiary}
+                style={styles.resolutionInput}
+              />
+            </View>
           </View>
         </View>
-        <SelectOption
-          label="Sampler"
-          value={getOptionLabel(SAMPLERS, sampler)}
-          onPress={() => openSelectionSheet("sampler")}
-        />
-      </CollapsibleSection>
-      <CollapsibleSection
-        title="Advanced Settings"
-        expanded={optionSectionExpanded.advanced}
-        onExpandedChange={(expanded) =>
-          setOptionSectionExpanded({
-            ...optionSectionExpanded,
-            advanced: expanded,
-          })
-        }
-      >
-        <StepperRow
-          label="Prompt Guidance Rescale"
-          value={promptGuidanceRescale}
-          valueText={formatDecimal(promptGuidanceRescale, 2)}
-          onMinus={() => {
-            const nextValue = adjustDecimal(
-              promptGuidanceRescale,
-              -0.02,
-              0,
-              1,
-              2,
-            );
-            if (nextValue !== promptGuidanceRescale) {
-              setPromptGuidanceRescale(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          onPlus={() => {
-            const nextValue = adjustDecimal(
-              promptGuidanceRescale,
-              0.02,
-              0,
-              1,
-              2,
-            );
-            if (nextValue !== promptGuidanceRescale) {
-              setPromptGuidanceRescale(nextValue);
-              triggerSelectionHaptic();
-            }
-          }}
-          seekMin={0}
-          seekMax={1}
-          seekStep={0.02}
-          seekPrecision={2}
-          onSeekChange={setPromptGuidanceRescale}
-        />
-        <SelectOption
-          label="Noise Schedule"
-          value={getOptionLabel(NOISE_SCHEDULES, noiseSchedule)}
-          onPress={() => openSelectionSheet("noiseSchedule")}
-        />
-      </CollapsibleSection>
-    </ScrollView>
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>AI Settings</Text>
+        <View style={styles.sectionContent}>
+          <StepperRow
+            label="Steps"
+            value={steps}
+            seekMin={1}
+            seekMax={50}
+            seekStep={1}
+            onSeekChange={setSteps}
+          />
+          <StepperRow
+            label="Prompt Guidance"
+            value={promptGuidance}
+            valueText={formatDecimal(promptGuidance)}
+            seekMin={0}
+            seekMax={10}
+            seekStep={0.1}
+            seekPrecision={1}
+            onSeekChange={setPromptGuidance}
+          />
+          <View style={styles.seedOptionRow}>
+            <Text style={styles.optionLabel}>Seed</Text>
+            <View style={styles.seedRow}>
+              <TextInput
+                value={seedText}
+                onChangeText={setSeedText}
+                keyboardType="number-pad"
+                placeholder="Random"
+                placeholderTextColor={colors.colorTextTertiary}
+                style={styles.seedInput}
+              />
+            </View>
+          </View>
+          <SelectOption
+            label="Sampler"
+            value={getOptionLabel(SAMPLERS, sampler)}
+            onPress={() => openSelectionSheet("sampler")}
+          />
+        </View>
+      </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Advanced Settings</Text>
+        <View style={styles.sectionContent}>
+          <StepperRow
+            label="Prompt Guidance Rescale"
+            value={promptGuidanceRescale}
+            valueText={formatDecimal(promptGuidanceRescale, 2)}
+            seekMin={0}
+            seekMax={1}
+            seekStep={0.02}
+            seekPrecision={2}
+            onSeekChange={setPromptGuidanceRescale}
+          />
+          <SelectOption
+            label="Noise Schedule"
+            value={getOptionLabel(NOISE_SCHEDULES, noiseSchedule)}
+            onPress={() => openSelectionSheet("noiseSchedule")}
+          />
+        </View>
+      </View>
+    </KeyboardAwareScrollView>
   );
 }

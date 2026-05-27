@@ -20,9 +20,6 @@ import {
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 
-export type OptionSectionKey = "image" | "ai" | "advanced";
-export type OptionSectionExpandedState = Record<OptionSectionKey, boolean>;
-
 type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
@@ -36,7 +33,6 @@ type PersistedGenerationOptions = Partial<{
   seedText: string;
   outputCount: number;
   optionTabIndex: number;
-  optionSectionExpanded: OptionSectionExpandedState;
 }>;
 
 function isNumber(value: unknown): value is number {
@@ -83,29 +79,6 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
   };
 }
 
-function resolveStoredSectionExpanded(
-  value: unknown,
-): OptionSectionExpandedState | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const candidate = value as Partial<OptionSectionExpandedState>;
-  if (
-    typeof candidate.image !== "boolean" ||
-    typeof candidate.ai !== "boolean" ||
-    typeof candidate.advanced !== "boolean"
-  ) {
-    return null;
-  }
-
-  return {
-    image: candidate.image,
-    ai: candidate.ai,
-    advanced: candidate.advanced,
-  };
-}
-
 type GenerationOptionsContextValue = {
   // 프롬프트
   prompt: string;
@@ -134,8 +107,6 @@ type GenerationOptionsContextValue = {
   setOutputCount: (v: number) => void;
   optionTabIndex: number;
   setOptionTabIndex: (v: number) => void;
-  optionSectionExpanded: OptionSectionExpandedState;
-  setOptionSectionExpanded: (v: OptionSectionExpandedState) => void;
   hasLoadedOptions: boolean;
 
   // 토큰
@@ -178,12 +149,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [seedText, setSeedText] = useState("");
   const [outputCount, setOutputCount] = useState(1);
   const [optionTabIndex, setOptionTabIndex] = useState(1);
-  const [optionSectionExpanded, setOptionSectionExpanded] =
-    useState<OptionSectionExpandedState>({
-      image: true,
-      ai: true,
-      advanced: true,
-    });
 
   const [storedToken, setStoredToken] = useState<string | null>(null);
   const [currentGeneration, setCurrentGeneration] =
@@ -229,13 +194,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         ) {
           setOptionTabIndex(parsed.optionTabIndex);
         }
-
-        const storedSectionExpanded = resolveStoredSectionExpanded(
-          parsed.optionSectionExpanded,
-        );
-        if (storedSectionExpanded) {
-          setOptionSectionExpanded(storedSectionExpanded);
-        }
       })
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : String(error));
@@ -259,7 +217,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       seedText,
       outputCount,
       optionTabIndex,
-      optionSectionExpanded,
     };
 
     AsyncStorage.setItem(
@@ -282,7 +239,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     seedText,
     outputCount,
     optionTabIndex,
-    optionSectionExpanded,
   ]);
 
   useEffect(() => {
@@ -396,8 +352,6 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setOutputCount,
         optionTabIndex,
         setOptionTabIndex,
-        optionSectionExpanded,
-        setOptionSectionExpanded,
         hasLoadedOptions,
         storedToken,
         saveToken,

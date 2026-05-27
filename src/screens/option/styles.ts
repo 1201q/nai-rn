@@ -4,7 +4,7 @@ import { colors } from "../../styles/colors";
 
 export const SEEK_THUMB_WIDTH = 8;
 export const SEEK_THUMB_HEIGHT = 20;
-export const SEEK_THUMB_TOUCH_SIZE = 38;
+export const SEEK_THUMB_TOUCH_SIZE = 28;
 
 export const styles = StyleSheet.create({
   screen: {
@@ -31,6 +31,7 @@ export const styles = StyleSheet.create({
   tabContent: {
     padding: 16,
     paddingBottom: 24,
+    rowGap: 24,
   },
   loadingOptions: {
     flex: 1,
@@ -89,8 +90,9 @@ export const styles = StyleSheet.create({
   },
   optionLabel: {
     color: colors.colorTextPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
+    marginLeft: 1,
   },
   optionValue: {
     maxWidth: "58%",
@@ -110,41 +112,53 @@ export const styles = StyleSheet.create({
     marginTop: 12,
   },
   resolutionInputRow: {
-    minHeight: 58,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    backgroundColor: colors.colorBackgroundSecondary,
+    gap: 8,
+    marginBottom: 14,
   },
-  resolutionInput: {
+  resolutionInputBox: {
     flex: 1,
-    height: 38,
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: colors.colorBorderSecondary,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 0,
     backgroundColor: colors.colorBackgroundTertiary,
+  },
+  resolutionInlineLabel: {
+    color: colors.colorTextTertiary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  resolutionDivider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 10,
+    backgroundColor: colors.colorBorderTertiary,
+  },
+  resolutionInput: {
+    flex: 1,
+    height: "100%",
+    minWidth: 48,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: "transparent",
     color: colors.colorTextPrimary,
     fontWeight: "800",
     includeFontPadding: false,
-    textAlign: "center",
+    textAlign: "right",
     textAlignVertical: "center",
   },
   resolutionSwapButton: {
     width: 34,
-    height: 34,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 10,
-    backgroundColor: colors.colorBackgroundTertiary,
   },
-  resolutionSwapText: {
+  resolutionSeparator: {
     color: colors.colorTextPrimary,
     fontSize: 16,
     fontWeight: "800",
@@ -152,31 +166,15 @@ export const styles = StyleSheet.create({
   section: {
     marginBottom: 10,
   },
-  sectionHeader: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
   sectionTitle: {
-    paddingLeft: 3,
+    paddingLeft: 2,
+    marginBottom: 10,
     color: colors.colorTextPrimary,
     fontSize: 15,
     fontWeight: "800",
   },
-  sectionChevron: {
-    width: 28,
-    color: colors.colorTextSecondary,
-    fontSize: 22,
-    fontWeight: "800",
-    textAlign: "center",
-    marginRight: -3,
-  },
-  sectionBody: {
-    overflow: "hidden",
-  },
   sectionContent: {
-    paddingTop: 10,
+    marginBottom: 0,
   },
   selectOption: {
     marginBottom: 10,
@@ -228,50 +226,37 @@ export const styles = StyleSheet.create({
   segmentTextActive: {
     color: colors.colorTextPrimary,
   },
-  stepperRow: {
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 2,
-    backgroundColor: colors.colorBackgroundSecondary,
-  },
-  stepperTopRow: {
-    minHeight: 34,
+  seekOptionRow: {
+    minHeight: 70,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 14,
+    // marginBottom: 14,
+    marginLeft: 1,
   },
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  seekOptionMain: {
+    flex: 1,
   },
   stepperLabel: {
-    flex: 1,
-    marginRight: 12,
+    marginBottom: 0,
+    fontSize: 14,
+    marginLeft: 0,
   },
-  stepButton: {
-    width: 34,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
+  seekValueInput: {
+    width: 72,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.colorBorderSecondary,
     borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     backgroundColor: colors.colorBackgroundTertiary,
-  },
-  stepButtonText: {
-    color: colors.colorTextPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  stepValue: {
-    width: 48,
     color: colors.colorTextPrimary,
     fontSize: 15,
     fontWeight: "800",
+    includeFontPadding: false,
     textAlign: "center",
+    textAlignVertical: "center",
   },
   seekContainer: {
     marginTop: 0,
@@ -302,16 +287,10 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.colorBackgroundInverse,
   },
   seedOptionRow: {
-    minHeight: 58,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    backgroundColor: colors.colorBackgroundSecondary,
+    marginBottom: 14,
   },
   seedRow: {
     width: 136,

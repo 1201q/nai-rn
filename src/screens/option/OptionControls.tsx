@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -110,59 +110,10 @@ export function LabeledInput({
   );
 }
 
-export function CollapsibleSection({
-  title,
-  expanded,
-  onExpandedChange,
-  children,
-}: {
-  title: string;
-  expanded: boolean;
-  onExpandedChange: (v: boolean) => void;
-  children: ReactNode;
-}) {
-  const [contentHeight, setContentHeight] = useState(0);
-  const progress = useSharedValue(expanded ? 1 : 0);
-
-  useEffect(() => {
-    progress.value = withTiming(expanded ? 1 : 0, { duration: 180 });
-  }, [expanded, progress]);
-
-  const animatedBodyStyle = useAnimatedStyle(() => ({
-    height: contentHeight * progress.value,
-    opacity: progress.value,
-  }));
-
-  return (
-    <View style={styles.section}>
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        activeOpacity={0.78}
-        onPress={() => onExpandedChange(!expanded)}
-      >
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <Text style={styles.sectionChevron}>{expanded ? "−" : "+"}</Text>
-      </TouchableOpacity>
-      <Animated.View style={[styles.sectionBody, animatedBodyStyle]}>
-        <View
-          style={styles.sectionContent}
-          onLayout={(event) => {
-            setContentHeight(event.nativeEvent.layout.height);
-          }}
-        >
-          {children}
-        </View>
-      </Animated.View>
-    </View>
-  );
-}
-
 export function StepperRow({
   label,
   value,
   valueText,
-  onMinus,
-  onPlus,
   seekMin,
   seekMax,
   seekStep,
@@ -172,54 +123,66 @@ export function StepperRow({
   label: string;
   value: number;
   valueText?: string;
-  onMinus: () => void;
-  onPlus: () => void;
-  seekMin?: number;
-  seekMax?: number;
-  seekStep?: number;
+  seekMin: number;
+  seekMax: number;
+  seekStep: number;
   seekPrecision?: number;
-  onSeekChange?: (v: number) => void;
+  onSeekChange: (v: number) => void;
 }) {
-  const shouldShowSeekBar =
-    seekMin !== undefined &&
-    seekMax !== undefined &&
-    seekStep !== undefined &&
-    onSeekChange !== undefined;
+  const precision = seekPrecision ?? 0;
+  const [inputText, setInputText] = useState(valueText ?? String(value));
+
+  useEffect(() => {
+    setInputText(valueText ?? String(value));
+  }, [value, valueText]);
+
+  function commitInput() {
+    const parsedValue = Number(inputText);
+    if (!Number.isFinite(parsedValue)) {
+      setInputText(valueText ?? String(value));
+      return;
+    }
+
+    const stepIndex = Math.round((parsedValue - seekMin) / seekStep);
+    const steppedValue = seekMin + stepIndex * seekStep;
+    const nextValue = Number(
+      Math.min(seekMax, Math.max(seekMin, steppedValue)).toFixed(precision),
+    );
+
+    onSeekChange(nextValue);
+    setInputText(formatStepperInput(nextValue, precision));
+  }
 
   return (
-    <View style={styles.stepperRow}>
-      <View style={styles.stepperTopRow}>
+    <View style={styles.seekOptionRow}>
+      <View style={styles.seekOptionMain}>
         <Text style={[styles.optionLabel, styles.stepperLabel]}>{label}</Text>
-        <View style={styles.stepper}>
-          <TouchableOpacity
-            style={styles.stepButton}
-            activeOpacity={0.78}
-            onPress={onMinus}
-          >
-            <Text style={styles.stepButtonText}>−</Text>
-          </TouchableOpacity>
-          <Text style={styles.stepValue}>{valueText ?? value}</Text>
-          <TouchableOpacity
-            style={styles.stepButton}
-            activeOpacity={0.78}
-            onPress={onPlus}
-          >
-            <Text style={styles.stepButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      {shouldShowSeekBar ? (
         <SteppedSeekBar
           value={value}
           min={seekMin}
           max={seekMax}
           step={seekStep}
-          precision={seekPrecision ?? 0}
+          precision={precision}
           onChange={onSeekChange}
         />
-      ) : null}
+      </View>
+      <TextInput
+        value={inputText}
+        onChangeText={(text) => setInputText(text.replace(/[^0-9.]/g, ""))}
+        onBlur={commitInput}
+        onSubmitEditing={commitInput}
+        keyboardType={precision > 0 ? "decimal-pad" : "number-pad"}
+        style={styles.seekValueInput}
+      />
     </View>
   );
+}
+
+function formatStepperInput(value: number, precision: number) {
+  if (precision <= 0) {
+    return String(value);
+  }
+  return value.toFixed(precision).replace(/\.?0+$/, "");
 }
 
 function SteppedSeekBar({

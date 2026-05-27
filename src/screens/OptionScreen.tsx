@@ -56,8 +56,6 @@ export function OptionScreen() {
     setSeedText,
     optionTabIndex,
     setOptionTabIndex,
-    optionSectionExpanded,
-    setOptionSectionExpanded,
     hasLoadedOptions,
     isLoading,
     generateImage,
@@ -211,8 +209,6 @@ export function OptionScreen() {
             sampler={sampler}
             seedText={seedText}
             setSeedText={setSeedText}
-            optionSectionExpanded={optionSectionExpanded}
-            setOptionSectionExpanded={setOptionSectionExpanded}
             resolutionWidthText={resolutionWidthText}
             setResolutionWidthText={setResolutionWidthText}
             resolutionHeightText={resolutionHeightText}
