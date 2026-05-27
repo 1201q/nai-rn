@@ -1,6 +1,5 @@
 import {
   Animated,
-  FlatList,
   Image,
   Modal,
   Text,
@@ -8,6 +7,8 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Gallery } from "react-native-zoom-toolkit";
 
 import { styles } from "./styles";
 
@@ -34,48 +35,45 @@ export function ImagePreviewModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Animated.View
-        style={[
-          styles.previewBackdrop,
-          {
-            opacity: animation,
-            transform: [
-              {
-                scale: animation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.94, 1],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <FlatList
-          data={images}
-          keyExtractor={(_, i) => String(i)}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          initialScrollIndex={initialIndex}
-          getItemLayout={(_, index) => ({
-            length: width,
-            offset: width * index,
-            index,
-          })}
-          renderItem={({ item }) => (
-            <View style={{ width, height }}>
-              <Image
-                source={{ uri: item }}
-                resizeMode="contain"
-                style={{ width, height }}
-              />
-            </View>
-          )}
-        />
-        <TouchableOpacity style={styles.previewCloseButton} onPress={onClose}>
-          <Text style={styles.previewCloseText}>✕</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      <GestureHandlerRootView style={styles.previewGestureRoot}>
+        <Animated.View
+          style={[
+            styles.previewBackdrop,
+            {
+              opacity: animation,
+              transform: [
+                {
+                  scale: animation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.94, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {visible ? (
+            <Gallery
+              data={images}
+              initialIndex={initialIndex}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              maxScale={4}
+              renderItem={(item) => (
+                <View style={{ width, height }}>
+                  <Image
+                    source={{ uri: item }}
+                    resizeMode="contain"
+                    style={{ width, height }}
+                  />
+                </View>
+              )}
+            />
+          ) : null}
+          <TouchableOpacity style={styles.previewCloseButton} onPress={onClose}>
+            <Text style={styles.previewCloseText}>✕</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

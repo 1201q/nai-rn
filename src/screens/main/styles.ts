@@ -188,6 +188,9 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
   },
+  previewGestureRoot: {
+    flex: 1,
+  },
   previewCloseButton: {
     position: "absolute",
     top: 48,
