@@ -57,16 +57,6 @@ export function snapResolutionValue(text: string, fallback: number) {
   );
 }
 
-export function adjustDecimal(
-  value: number,
-  delta: number,
-  min: number,
-  max: number,
-  precision = 1,
-) {
-  return Math.min(max, Math.max(min, Number((value + delta).toFixed(precision))));
-}
-
 export function formatDecimal(value: number, precision = 1) {
   return value.toFixed(precision).replace(/\.?0+$/, "");
 }

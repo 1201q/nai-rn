@@ -7,6 +7,7 @@ import {
 } from "@react-navigation/stack";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { GenerationOptionsProvider } from "./src/context/GenerationOptionsContext";
 import { MainScreen } from "./src/screens/MainScreen";
@@ -25,26 +26,28 @@ export default function App() {
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: colors.appBackground }}
     >
-      <GenerationOptionsProvider>
-        <NavigationContainer
-          theme={{
-            ...DarkTheme,
-            colors: { ...DarkTheme.colors, background: colors.appBackground },
-          }}
-        >
-          <Stack.Navigator
-            screenOptions={{
-              // animation: "none",
-              headerShown: false,
-              cardStyle: { backgroundColor: colors.appBackground },
-              ...TransitionPresets.SlideFromRightIOS,
+      <KeyboardProvider>
+        <GenerationOptionsProvider>
+          <NavigationContainer
+            theme={{
+              ...DarkTheme,
+              colors: { ...DarkTheme.colors, background: colors.appBackground },
             }}
           >
-            <Stack.Screen name="Main" component={MainScreen} />
-            <Stack.Screen name="Option" component={OptionScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </GenerationOptionsProvider>
+            <Stack.Navigator
+              screenOptions={{
+                // animation: "none",
+                headerShown: false,
+                cardStyle: { backgroundColor: colors.appBackground },
+                ...TransitionPresets.SlideFromRightIOS,
+              }}
+            >
+              <Stack.Screen name="Main" component={MainScreen} />
+              <Stack.Screen name="Option" component={OptionScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </GenerationOptionsProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
