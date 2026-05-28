@@ -23,16 +23,12 @@ export function MainScreen() {
     resolveGenerationThumbnailUri,
     isLoading,
     message,
-    setMessage,
     generateImage,
-    storedToken,
-    saveToken,
   } = useGenerationOptions();
 
   const mainPagerRef = useRef<PagerView>(null);
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const [mainPageIndex, setMainPageIndex] = useState<MainPageIndex>(0);
-  const [tokenInput, setTokenInput] = useState("");
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
@@ -86,17 +82,6 @@ export function MainScreen() {
     });
   }
 
-  async function handleSaveToken() {
-    const token = tokenInput.trim();
-    if (!token) {
-      setMessage("Enter a token.");
-      return;
-    }
-    await saveToken(token);
-    setTokenInput("");
-    setMessage("Token saved.");
-  }
-
   function handleGenerate() {
     if (!prompt.trim()) {
       navigation.navigate("Option");
@@ -113,7 +98,11 @@ export function MainScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <MainScreenHeader activeIndex={mainPageIndex} onSelect={selectMainPage} />
+      <MainScreenHeader
+        activeIndex={mainPageIndex}
+        onSelect={selectMainPage}
+        onOpenSettings={() => navigation.navigate("Settings")}
+      />
 
       <PagerView
         ref={mainPagerRef}
@@ -128,12 +117,8 @@ export function MainScreen() {
             currentGeneration={currentGeneration}
             currentImageUri={currentImageUri}
             message={message}
-            storedToken={storedToken}
-            tokenInput={tokenInput}
-            setTokenInput={setTokenInput}
             isLoading={isLoading}
             onOpenImagePreview={openImagePreview}
-            onSaveToken={handleSaveToken}
             onOpenOptions={() => navigation.navigate("Option")}
             onGenerate={handleGenerate}
           />

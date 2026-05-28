@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -16,24 +15,16 @@ export function CreatePage({
   currentGeneration,
   currentImageUri,
   message,
-  storedToken,
-  tokenInput,
-  setTokenInput,
   isLoading,
   onOpenImagePreview,
-  onSaveToken,
   onOpenOptions,
   onGenerate,
 }: {
   currentGeneration: GenerationRecord | null;
   currentImageUri: string | null;
   message: string | null;
-  storedToken: string | null;
-  tokenInput: string;
-  setTokenInput: (v: string) => void;
   isLoading: boolean;
   onOpenImagePreview: () => void;
-  onSaveToken: () => void;
   onOpenOptions: () => void;
   onGenerate: () => void;
 }) {
@@ -63,31 +54,6 @@ export function CreatePage({
       </View>
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
-
-      <View style={styles.temporaryTokenBox}>
-        <Text style={styles.temporaryTokenLabel}>
-          {storedToken ? "Token saved" : "Temporary token"}
-        </Text>
-        <View style={styles.temporaryTokenRow}>
-          <TextInput
-            value={tokenInput}
-            onChangeText={setTokenInput}
-            placeholder="NovelAI API Token"
-            placeholderTextColor={colors.colorTextTertiary}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            style={styles.temporaryTokenInput}
-          />
-          <TouchableOpacity
-            style={styles.temporaryTokenButton}
-            activeOpacity={0.78}
-            onPress={onSaveToken}
-          >
-            <Text style={styles.temporaryTokenButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.bottomBar}>
         <TouchableOpacity

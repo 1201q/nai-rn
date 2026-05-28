@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { colors } from "../styles/colors";
 
@@ -14,14 +15,18 @@ export function Header({
       <TouchableOpacity
         style={styles.iconButton}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
         onPress={onBack}
       >
-        <Text style={styles.iconText}>‹</Text>
+        <Ionicons
+          name="chevron-back"
+          size={28}
+          color={colors.colorTextPrimary}
+        />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
-      <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-        <Text style={styles.moreText}>•••</Text>
-      </TouchableOpacity>
+      <View style={styles.iconButton} />
     </View>
   );
 }
@@ -44,16 +49,5 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
-  },
-  iconText: {
-    color: colors.colorTextPrimary,
-    fontSize: 34,
-    lineHeight: 36,
-  },
-  moreText: {
-    color: colors.colorTextPrimary,
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0,
   },
 });

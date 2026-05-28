@@ -24,6 +24,12 @@ export const styles = StyleSheet.create({
   headerSide: {
     width: 44,
   },
+  headerIconButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   segmentedControl: {
     width: MAIN_SEGMENT_WIDTH,
     height: MAIN_SEGMENT_HEIGHT,
@@ -80,42 +86,6 @@ export const styles = StyleSheet.create({
     color: colors.colorTextDanger,
     fontSize: 13,
     lineHeight: 18,
-  },
-  temporaryTokenBox: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-  },
-  temporaryTokenLabel: {
-    marginBottom: 6,
-    color: colors.colorTextTertiary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  temporaryTokenRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  temporaryTokenInput: {
-    flex: 1,
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.colorBorderSecondary,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    backgroundColor: colors.colorBackgroundSecondary,
-    color: colors.colorTextPrimary,
-  },
-  temporaryTokenButton: {
-    width: 74,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: colors.colorBackgroundInverse,
-  },
-  temporaryTokenButtonText: {
-    color: colors.colorTextInverse,
-    fontWeight: "800",
   },
   bottomBar: {
     flexDirection: "row",
