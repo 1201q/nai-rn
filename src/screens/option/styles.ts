@@ -60,19 +60,15 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
   inputGroup: {
-    marginBottom: 22,
-  },
-  inputLabel: {
-    marginBottom: 10,
-    color: colors.colorTextPrimary,
-    fontSize: 15,
-    fontWeight: "700",
+    marginBottom: 0,
   },
   textAreaWrap: {
     borderWidth: 1,
     borderColor: colors.colorBorderTertiary,
     borderRadius: 14,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: colors.colorBackgroundTertiary,
   },
   textArea: {
@@ -191,30 +187,86 @@ export const styles = StyleSheet.create({
     justifyContent: "flex-end",
     marginLeft: 16,
   },
-  segmentRow: {
+  promptSwitchRow: {
     flexDirection: "row",
-    gap: 10,
+    alignSelf: "flex-start",
+    alignItems: "center",
+    gap: 8,
   },
-  segmentButton: {
-    flex: 1,
-    minHeight: 38,
+  promptHeaderRow: {
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 8,
+  },
+  promptTextAreaWrap: {
+    minHeight: 220,
+  },
+  addCharacterButton: {
+    minHeight: 46,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
     borderWidth: 1,
-    borderColor: colors.colorBorderSecondary,
-    borderRadius: 10,
-    backgroundColor: colors.colorBackgroundTertiary,
+    borderColor: colors.colorBorderTertiary,
+    borderRadius: 14,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  addCharacterText: {
+    color: colors.colorTextPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  characterPromptGroup: {
+    // marginTop: 5,
+    // backgroundColor: "red",
+  },
+  characterPromptGroupDisabled: {
+    opacity: 0.48,
+  },
+  characterPromptTitle: {
+    marginBottom: 8,
+    paddingLeft: 2,
+    color: colors.colorTextPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  characterPromptActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  characterPromptIconButton: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  characterPromptIconButtonActive: {
+    backgroundColor: "#fff",
+  },
+  segmentButton: {
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "transparent",
   },
   segmentButtonActive: {
-    borderColor: colors.colorBorderInfo,
-    backgroundColor: colors.colorBackgroundInfo,
+    backgroundColor: "#fff",
   },
   segmentText: {
     color: colors.colorTextTertiary,
     fontWeight: "700",
   },
   segmentTextActive: {
-    color: colors.colorTextPrimary,
+    color: colors.appBackground,
   },
   seekOptionRow: {
     minHeight: 70,

@@ -38,6 +38,8 @@ export function OptionScreen() {
     setPrompt,
     negativePrompt,
     setNegativePrompt,
+    characterPrompts,
+    setCharacterPrompts,
     model,
     setModel,
     resolution,
@@ -196,6 +198,8 @@ export function OptionScreen() {
             setPrompt={setPrompt}
             negativePrompt={negativePrompt}
             setNegativePrompt={setNegativePrompt}
+            characterPrompts={characterPrompts}
+            setCharacterPrompts={setCharacterPrompts}
             model={model}
             resolution={resolution}
             setResolution={setResolution}

@@ -80,37 +80,6 @@ export function SelectionSheetItem({
   );
 }
 
-export function LabeledInput({
-  label,
-  value,
-  onChangeText,
-  minHeight,
-  count,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  minHeight: number;
-  count: string;
-}) {
-  return (
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={[styles.textAreaWrap, { minHeight }]}>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          multiline
-          textAlignVertical="top"
-          placeholderTextColor={colors.colorTextTertiary}
-          style={styles.textArea}
-        />
-        <Text style={styles.countText}>{count}</Text>
-      </View>
-    </View>
-  );
-}
-
 export function StepperRow({
   label,
   value,

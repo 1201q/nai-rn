@@ -9,7 +9,10 @@ import {
   resolveGenerationThumbnailUri,
   saveGenerationImage,
 } from "../lib/generationHistory";
-import { generateNovelAiImage } from "../lib/novelai";
+import {
+  type GenerateNovelAiCharacterPrompt,
+  generateNovelAiImage,
+} from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
   DEFAULT_NAI_RESOLUTION,
@@ -19,10 +22,19 @@ import {
 } from "../constants/generation";
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
+const MAX_CHARACTER_PROMPTS = 6;
+
+export type CharacterPrompt = {
+  id: string;
+  prompt: string;
+  negativePrompt: string;
+  enabled: boolean;
+};
 
 type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
+  characterPrompts: CharacterPrompt[];
   model: string;
   resolution: NaiResolution;
   steps: number;
@@ -41,6 +53,10 @@ function isNumber(value: unknown): value is number {
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 function isNoiseSchedule(value: unknown): value is NoiseSchedule {
@@ -79,12 +95,58 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
   };
 }
 
+function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, MAX_CHARACTER_PROMPTS).flatMap((item, index) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const candidate = item as Partial<CharacterPrompt>;
+    return [
+      {
+        id: isString(candidate.id)
+          ? candidate.id
+          : `stored-character-${index}`,
+        prompt: isString(candidate.prompt) ? candidate.prompt : "",
+        negativePrompt: isString(candidate.negativePrompt)
+          ? candidate.negativePrompt
+          : "",
+        enabled: isBoolean(candidate.enabled) ? candidate.enabled : true,
+      },
+    ];
+  });
+}
+
+function resolveActiveCharacterPrompts(
+  characterPrompts: CharacterPrompt[],
+): GenerateNovelAiCharacterPrompt[] {
+  return characterPrompts.flatMap((item) => {
+    if (!item.enabled) {
+      return [];
+    }
+
+    const prompt = item.prompt.trim();
+    const negativePrompt = item.negativePrompt.trim();
+    if (!prompt && !negativePrompt) {
+      return [];
+    }
+
+    return [{ prompt, negativePrompt }];
+  });
+}
+
 type GenerationOptionsContextValue = {
   // 프롬프트
   prompt: string;
   setPrompt: (v: string) => void;
   negativePrompt: string;
   setNegativePrompt: (v: string) => void;
+  characterPrompts: CharacterPrompt[];
+  setCharacterPrompts: (v: CharacterPrompt[]) => void;
 
   // 옵션
   model: string;
@@ -137,6 +199,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [negativePrompt, setNegativePrompt] = useState(
     "low quality, blurry, watermark, text",
   );
+  const [characterPrompts, setCharacterPrompts] = useState<CharacterPrompt[]>(
+    [],
+  );
   const [model, setModel] = useState("nai-diffusion-4-5-full");
   const [resolution, setResolution] = useState<NaiResolution>(
     DEFAULT_NAI_RESOLUTION,
@@ -170,6 +235,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         if (isString(parsed.negativePrompt)) {
           setNegativePrompt(parsed.negativePrompt);
         }
+        setCharacterPrompts(
+          resolveStoredCharacterPrompts(parsed.characterPrompts),
+        );
         if (isString(parsed.model)) setModel(parsed.model);
 
         const storedResolution = resolveStoredResolution(parsed.resolution);
@@ -207,6 +275,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     const nextOptions: PersistedGenerationOptions = {
       prompt,
       negativePrompt,
+      characterPrompts,
       model,
       resolution,
       steps,
@@ -229,6 +298,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     hasLoadedOptions,
     prompt,
     negativePrompt,
+    characterPrompts,
     model,
     resolution,
     steps,
@@ -283,10 +353,13 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     setMessage(null);
 
     try {
+      const activeCharacterPrompts =
+        resolveActiveCharacterPrompts(characterPrompts);
       const result = await generateNovelAiImage({
         token: storedToken,
         prompt: prompt.trim(),
         negativePrompt: negativePrompt.trim(),
+        characterPrompts: activeCharacterPrompts,
         model,
         width: resolution.width,
         height: resolution.height,
@@ -332,6 +405,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setPrompt,
         negativePrompt,
         setNegativePrompt,
+        characterPrompts,
+        setCharacterPrompts,
         model,
         setModel,
         resolution,

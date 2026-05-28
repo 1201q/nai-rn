@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Text,
@@ -15,6 +16,7 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "../../constants/generation";
+import type { CharacterPrompt } from "../../context/GenerationOptionsContext";
 import { colors } from "../../styles/colors";
 import {
   formatDecimal,
@@ -24,15 +26,102 @@ import {
   snapResolutionValue,
   triggerSelectionHaptic,
 } from "./helpers";
-import { LabeledInput, SelectOption, StepperRow } from "./OptionControls";
+import { SelectOption, StepperRow } from "./OptionControls";
 import { styles } from "./styles";
 
 type SelectionSheetName = "model" | "resolution" | "sampler" | "noiseSchedule";
+type PromptInputMode = "base" | "negative";
+const MAX_CHARACTER_PROMPTS = 6;
 
 export const optionTabRoutes = [
   { key: "prompt", title: "Prompt" },
   { key: "options", title: "Options" },
 ];
+
+function PromptTextArea({
+  prompt,
+  setPrompt,
+  negativePrompt,
+  setNegativePrompt,
+  headerRight,
+}: {
+  prompt: string;
+  setPrompt: (v: string) => void;
+  negativePrompt: string;
+  setNegativePrompt: (v: string) => void;
+  headerRight?: ReactNode;
+}) {
+  const [promptInputMode, setPromptInputMode] =
+    useState<PromptInputMode>("base");
+  const isBasePrompt = promptInputMode === "base";
+  const activePrompt = isBasePrompt ? prompt : negativePrompt;
+  const setActivePrompt = isBasePrompt ? setPrompt : setNegativePrompt;
+
+  return (
+    <View style={styles.inputGroup}>
+      <View style={[styles.textAreaWrap, styles.promptTextAreaWrap]}>
+        <View style={styles.promptHeaderRow}>
+          <View style={styles.promptSwitchRow}>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                isBasePrompt && styles.segmentButtonActive,
+              ]}
+              activeOpacity={0.78}
+              onPress={() => {
+                if (!isBasePrompt) {
+                  setPromptInputMode("base");
+                  triggerSelectionHaptic();
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  isBasePrompt && styles.segmentTextActive,
+                ]}
+              >
+                Base
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                !isBasePrompt && styles.segmentButtonActive,
+              ]}
+              activeOpacity={0.78}
+              onPress={() => {
+                if (isBasePrompt) {
+                  setPromptInputMode("negative");
+                  triggerSelectionHaptic();
+                }
+              }}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  !isBasePrompt && styles.segmentTextActive,
+                ]}
+              >
+                Negative
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {headerRight}
+        </View>
+        <TextInput
+          value={activePrompt}
+          onChangeText={setActivePrompt}
+          multiline
+          textAlignVertical="top"
+          placeholderTextColor={colors.colorTextTertiary}
+          style={styles.textArea}
+        />
+        <Text style={styles.countText}>{activePrompt.length}/1000</Text>
+      </View>
+    </View>
+  );
+}
 
 export function OptionTabScene({
   route,
@@ -41,6 +130,8 @@ export function OptionTabScene({
   setPrompt,
   negativePrompt,
   setNegativePrompt,
+  characterPrompts,
+  setCharacterPrompts,
   model,
   resolution,
   setResolution,
@@ -66,6 +157,8 @@ export function OptionTabScene({
   setPrompt: (v: string) => void;
   negativePrompt: string;
   setNegativePrompt: (v: string) => void;
+  characterPrompts: CharacterPrompt[];
+  setCharacterPrompts: (v: CharacterPrompt[]) => void;
   model: string;
   resolution: NaiResolution;
   setResolution: (v: NaiResolution) => void;
@@ -105,6 +198,39 @@ export function OptionTabScene({
     triggerSelectionHaptic();
   }
 
+  function addCharacterPrompt() {
+    if (characterPrompts.length >= MAX_CHARACTER_PROMPTS) {
+      return;
+    }
+
+    setCharacterPrompts([
+      ...characterPrompts,
+      {
+        id: `character-${Date.now()}-${characterPrompts.length}`,
+        prompt: "",
+        negativePrompt: "",
+        enabled: true,
+      },
+    ]);
+    triggerSelectionHaptic();
+  }
+
+  function updateCharacterPrompt(
+    id: string,
+    nextValues: Partial<Omit<CharacterPrompt, "id">>,
+  ) {
+    setCharacterPrompts(
+      characterPrompts.map((item) =>
+        item.id === id ? { ...item, ...nextValues } : item,
+      ),
+    );
+  }
+
+  function deleteCharacterPrompt(id: string) {
+    setCharacterPrompts(characterPrompts.filter((item) => item.id !== id));
+    triggerSelectionHaptic();
+  }
+
   if (!hasLoadedOptions) {
     return (
       <View style={styles.loadingOptions}>
@@ -114,26 +240,102 @@ export function OptionTabScene({
   }
 
   if (route.key === "prompt") {
+    const canAddCharacterPrompt =
+      characterPrompts.length < MAX_CHARACTER_PROMPTS;
+
     return (
       <KeyboardAwareScrollView
         bottomOffset={16}
         contentContainerStyle={styles.tabContent}
         keyboardShouldPersistTaps="handled"
       >
-        <LabeledInput
-          label="Prompt"
-          value={prompt}
-          onChangeText={setPrompt}
-          minHeight={132}
-          count={`${prompt.length}/1000`}
+        <PromptTextArea
+          prompt={prompt}
+          setPrompt={setPrompt}
+          negativePrompt={negativePrompt}
+          setNegativePrompt={setNegativePrompt}
         />
-        <LabeledInput
-          label="Negative Prompt"
-          value={negativePrompt}
-          onChangeText={setNegativePrompt}
-          minHeight={96}
-          count={`${negativePrompt.length}/1000`}
-        />
+        {characterPrompts.map((item, index) => (
+          <View
+            key={item.id}
+            style={[
+              styles.characterPromptGroup,
+              !item.enabled && styles.characterPromptGroupDisabled,
+            ]}
+          >
+            <Text style={styles.characterPromptTitle}>
+              Character {index + 1}
+            </Text>
+            <PromptTextArea
+              prompt={item.prompt}
+              setPrompt={(nextPrompt) =>
+                updateCharacterPrompt(item.id, { prompt: nextPrompt })
+              }
+              negativePrompt={item.negativePrompt}
+              setNegativePrompt={(nextNegativePrompt) =>
+                updateCharacterPrompt(item.id, {
+                  negativePrompt: nextNegativePrompt,
+                })
+              }
+              headerRight={
+                <View style={styles.characterPromptActions}>
+                  <TouchableOpacity
+                    style={styles.characterPromptIconButton}
+                    activeOpacity={0.78}
+                    onPress={() => deleteCharacterPrompt(item.id)}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color={colors.colorTextPrimary}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.characterPromptIconButton,
+                      item.enabled && styles.characterPromptIconButtonActive,
+                    ]}
+                    activeOpacity={0.78}
+                    onPress={() => {
+                      updateCharacterPrompt(item.id, {
+                        enabled: !item.enabled,
+                      });
+                      triggerSelectionHaptic();
+                    }}
+                  >
+                    <Ionicons
+                      name="checkmark"
+                      size={22}
+                      color={
+                        item.enabled
+                          ? colors.appBackground
+                          : colors.colorTextTertiary
+                      }
+                    />
+                  </TouchableOpacity>
+                </View>
+              }
+            />
+          </View>
+        ))}
+        <TouchableOpacity
+          style={[
+            styles.addCharacterButton,
+            !canAddCharacterPrompt && styles.disabledButton,
+          ]}
+          activeOpacity={0.78}
+          disabled={!canAddCharacterPrompt}
+          onPress={addCharacterPrompt}
+        >
+          <Ionicons
+            name="add"
+            size={18}
+            color={colors.colorTextPrimary}
+          />
+          <Text style={styles.addCharacterText}>
+            Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
+          </Text>
+        </TouchableOpacity>
       </KeyboardAwareScrollView>
     );
   }

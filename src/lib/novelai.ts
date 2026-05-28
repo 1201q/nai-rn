@@ -7,6 +7,7 @@ export type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
   negativePrompt: string;
+  characterPrompts?: GenerateNovelAiCharacterPrompt[];
   model: string;
   width: number;
   height: number;
@@ -17,6 +18,11 @@ export type GenerateNovelAiImageInput = {
   sampler: string;
   seed?: number;
   nSamples?: number;
+};
+
+export type GenerateNovelAiCharacterPrompt = {
+  prompt: string;
+  negativePrompt: string;
 };
 
 export type GenerateNovelAiImageResult = {
@@ -132,11 +138,27 @@ function isV4Model(model: string): boolean {
   return model.startsWith("nai-diffusion-4");
 }
 
-function createV4Prompt(prompt: string, useOrder: boolean) {
+type V4CharacterCaption = {
+  char_caption: string;
+  centers: [{ x: number; y: number }];
+};
+
+function createV4CharacterCaption(prompt: string): V4CharacterCaption {
+  return {
+    char_caption: prompt,
+    centers: [{ x: 0.5, y: 0.5 }],
+  };
+}
+
+function createV4Prompt(
+  prompt: string,
+  useOrder: boolean,
+  characterCaptions: V4CharacterCaption[] = [],
+) {
   return {
     caption: {
       base_caption: prompt,
-      char_captions: [],
+      char_captions: characterCaptions,
     },
     use_coords: false,
     use_order: useOrder,
@@ -148,6 +170,7 @@ export async function generateNovelAiImage({
   token,
   prompt,
   negativePrompt,
+  characterPrompts = [],
   model,
   width,
   height,
@@ -161,6 +184,12 @@ export async function generateNovelAiImage({
 }: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
+  const v4PromptCharacterCaptions = characterPrompts.map((item) =>
+    createV4CharacterCaption(item.prompt),
+  );
+  const v4NegativePromptCharacterCaptions = characterPrompts.map((item) =>
+    createV4CharacterCaption(item.negativePrompt),
+  );
   const parameters = {
     width,
     height,
@@ -177,8 +206,12 @@ export async function generateNovelAiImage({
     ...(shouldUseV4Prompt
       ? {
           legacy_v3_extend: false,
-          v4_prompt: createV4Prompt(prompt, true),
-          v4_negative_prompt: createV4Prompt(negativePrompt, false),
+          v4_prompt: createV4Prompt(prompt, true, v4PromptCharacterCaptions),
+          v4_negative_prompt: createV4Prompt(
+            negativePrompt,
+            false,
+            v4NegativePromptCharacterCaptions,
+          ),
         }
       : {}),
   };
