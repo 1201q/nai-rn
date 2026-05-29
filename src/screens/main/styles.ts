@@ -107,13 +107,30 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  actionArea: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 18,
+    gap: 10,
+  },
+  sheetButton: {
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  sheetButtonText: {
+    color: colors.colorTextInfo,
+    fontSize: 15,
+    fontWeight: "800",
+  },
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 18,
   },
   optionsButton: {
     width: 68,
@@ -191,5 +208,81 @@ export const styles = StyleSheet.create({
     color: colors.colorTextPrimary,
     fontSize: 20,
     opacity: 0.85,
+  },
+  sheetContainer: {
+    marginHorizontal: 14,
+    zIndex: 20,
+    elevation: 20,
+  },
+  sheetBackground: {
+    borderRadius: 28,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  sheetHandle: {
+    width: 56,
+    height: 5,
+    backgroundColor: colors.colorTextTertiary,
+  },
+  sheetHeader: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  sheetHeaderSide: {
+    width: 40,
+    height: 40,
+  },
+  sheetHeaderTitle: {
+    flex: 1,
+    textAlign: "center",
+  },
+  sheetTitle: {
+    color: colors.colorTextPrimary,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  sheetCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.colorBackgroundTertiary,
+  },
+  sheetScroll: {
+    flex: 1,
+  },
+  sheetButtonGroup: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 10,
+  },
+  sheetDetailScrollContent: {
+    flexGrow: 1,
+  },
+  sheetNavButton: {
+    minHeight: 52,
+    justifyContent: "center",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.colorBackgroundTertiary,
+  },
+  sheetNavButtonText: {
+    color: colors.colorTextPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  sheetDetailContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  sheetDetailText: {
+    color: colors.colorTextPrimary,
+    fontSize: 18,
+    fontWeight: "800",
   },
 });

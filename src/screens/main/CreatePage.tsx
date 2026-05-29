@@ -22,6 +22,7 @@ export function CreatePage({
   onSaveImage,
   onCopyImage,
   onOpenOptions,
+  onOpenBottomSheet,
   onGenerate,
 }: {
   currentGeneration: GenerationRecord | null;
@@ -34,6 +35,7 @@ export function CreatePage({
   onSaveImage: () => void;
   onCopyImage: () => void;
   onOpenOptions: () => void;
+  onOpenBottomSheet: () => void;
   onGenerate: () => void;
 }) {
   return (
@@ -113,27 +115,42 @@ export function CreatePage({
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
-      <View style={styles.bottomBar}>
+      <View style={styles.actionArea}>
         <TouchableOpacity
-          style={styles.optionsButton}
+          style={styles.sheetButton}
           activeOpacity={0.78}
-          onPress={onOpenOptions}
+          onPress={onOpenBottomSheet}
         >
-          <Ionicons name="options-outline" size={20} color={colors.colorTextInfo} />
+          <Ionicons
+            name="albums-outline"
+            size={20}
+            color={colors.colorTextInfo}
+          />
+          <Text style={styles.sheetButtonText}>Bottom Sheet</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.generateButton, isLoading && styles.disabledButton]}
-          activeOpacity={0.82}
-          onPress={onGenerate}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={colors.colorTextInverse} />
-          ) : (
-            <Text style={styles.generateText}>Generate</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.optionsButton}
+            activeOpacity={0.78}
+            onPress={onOpenOptions}
+          >
+            <Ionicons name="options-outline" size={20} color={colors.colorTextInfo} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.generateButton, isLoading && styles.disabledButton]}
+            activeOpacity={0.82}
+            onPress={onGenerate}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={colors.colorTextInverse} />
+            ) : (
+              <Text style={styles.generateText}>Generate</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </>
   );
