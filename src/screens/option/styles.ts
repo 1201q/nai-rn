@@ -328,6 +328,37 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.colorBackgroundInverse,
   },
+  toggleOptionRow: {
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    marginLeft: 1,
+  },
+  toggleOptionText: {
+    flex: 1,
+  },
+  toggleOptionTitle: {
+    color: colors.colorTextPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  toggleSwitchTrack: {
+    width: 56,
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 16,
+  },
+  toggleSwitchThumb: {
+    position: "absolute",
+    left: 3,
+    top: 3,
+    width: 24,
+    height: 24,
+    borderRadius: 13,
+    backgroundColor: colors.appBackground,
+  },
   seedOptionRow: {
     flexDirection: "row",
     alignItems: "center",

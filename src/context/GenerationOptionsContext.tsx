@@ -44,6 +44,7 @@ type PersistedGenerationOptions = Partial<{
   sampler: string;
   seedText: string;
   outputCount: number;
+  varietyPlus: boolean;
   optionTabIndex: number;
 }>;
 
@@ -167,6 +168,8 @@ type GenerationOptionsContextValue = {
   setSeedText: (v: string) => void;
   outputCount: number;
   setOutputCount: (v: number) => void;
+  varietyPlus: boolean;
+  setVarietyPlus: (v: boolean) => void;
   optionTabIndex: number;
   setOptionTabIndex: (v: number) => void;
   hasLoadedOptions: boolean;
@@ -213,6 +216,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [sampler, setSampler] = useState("k_euler_ancestral");
   const [seedText, setSeedText] = useState("");
   const [outputCount, setOutputCount] = useState(1);
+  const [varietyPlus, setVarietyPlus] = useState(false);
   const [optionTabIndex, setOptionTabIndex] = useState(1);
 
   const [storedToken, setStoredToken] = useState<string | null>(null);
@@ -256,6 +260,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         if (isString(parsed.sampler)) setSampler(parsed.sampler);
         if (isString(parsed.seedText)) setSeedText(parsed.seedText);
         if (isNumber(parsed.outputCount)) setOutputCount(parsed.outputCount);
+        if (isBoolean(parsed.varietyPlus)) setVarietyPlus(parsed.varietyPlus);
         if (
           isNumber(parsed.optionTabIndex) &&
           (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
@@ -285,6 +290,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       sampler,
       seedText,
       outputCount,
+      varietyPlus,
       optionTabIndex,
     };
 
@@ -308,6 +314,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     sampler,
     seedText,
     outputCount,
+    varietyPlus,
     optionTabIndex,
   ]);
 
@@ -370,6 +377,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         sampler,
         seed: Number.isFinite(fixedSeed) ? fixedSeed : undefined,
         nSamples: outputCount,
+        varietyPlus,
       });
 
       const generation = await saveGenerationImage({
@@ -425,6 +433,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setSeedText,
         outputCount,
         setOutputCount,
+        varietyPlus,
+        setVarietyPlus,
         optionTabIndex,
         setOptionTabIndex,
         hasLoadedOptions,

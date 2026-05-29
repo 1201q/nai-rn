@@ -56,6 +56,8 @@ export function OptionScreen() {
     setSampler,
     seedText,
     setSeedText,
+    varietyPlus,
+    setVarietyPlus,
     optionTabIndex,
     setOptionTabIndex,
     hasLoadedOptions,
@@ -213,6 +215,8 @@ export function OptionScreen() {
             sampler={sampler}
             seedText={seedText}
             setSeedText={setSeedText}
+            varietyPlus={varietyPlus}
+            setVarietyPlus={setVarietyPlus}
             resolutionWidthText={resolutionWidthText}
             setResolutionWidthText={setResolutionWidthText}
             resolutionHeightText={resolutionHeightText}

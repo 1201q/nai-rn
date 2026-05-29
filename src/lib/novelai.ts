@@ -18,6 +18,7 @@ export type GenerateNovelAiImageInput = {
   sampler: string;
   seed?: number;
   nSamples?: number;
+  varietyPlus?: boolean;
 };
 
 export type GenerateNovelAiCharacterPrompt = {
@@ -181,6 +182,7 @@ export async function generateNovelAiImage({
   sampler,
   seed: inputSeed,
   nSamples = 1,
+  varietyPlus = false,
 }: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
@@ -203,6 +205,14 @@ export async function generateNovelAiImage({
     negative_prompt: negativePrompt,
     uc: negativePrompt,
     qualityToggle: true,
+    params_version: 3,
+    legacy: false,
+    legacy_uc: false,
+    add_original_image: true,
+    prefer_brownian: true,
+    ucPreset: 0,
+    image_format: "png",
+    skip_cfg_above_sigma: varietyPlus ? 58 : null,
     ...(shouldUseV4Prompt
       ? {
           legacy_v3_extend: false,

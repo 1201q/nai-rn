@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  interpolateColor,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -11,13 +12,13 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { colors } from "../../styles/colors";
-import {
-  SEEK_THUMB_TOUCH_SIZE,
-  SEEK_THUMB_WIDTH,
-  styles,
-} from "./styles";
+import { SEEK_THUMB_TOUCH_SIZE, SEEK_THUMB_WIDTH, styles } from "./styles";
 
 const MIN_HAPTIC_INTERVAL_MS = 35;
+const TOGGLE_WIDTH = 56;
+const TOGGLE_HEIGHT = 32;
+const TOGGLE_PADDING = 3;
+const TOGGLE_THUMB_SIZE = TOGGLE_HEIGHT - TOGGLE_PADDING * 2;
 
 export function SelectOption({
   label,
@@ -39,7 +40,11 @@ export function SelectOption({
         <Text style={styles.optionValue} numberOfLines={1} ellipsizeMode="tail">
           {value}
         </Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.colorTextTertiary} />
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.colorTextTertiary}
+        />
       </View>
     </TouchableOpacity>
   );
@@ -77,6 +82,63 @@ export function SelectionSheetItem({
         {label}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+export function ToggleOption({
+  title,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  const progress = useSharedValue(value ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(value ? 1 : 0, { duration: 180 });
+  }, [progress, value]);
+
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.colorBackgroundTertiary, colors.colorBackgroundInverse],
+    ),
+    borderColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [colors.colorBorderTertiary, colors.colorBackgroundInverse],
+    ),
+  }));
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          progress.value *
+          (TOGGLE_WIDTH - TOGGLE_THUMB_SIZE - TOGGLE_PADDING * 2),
+      },
+    ],
+  }));
+
+  return (
+    <View style={styles.toggleOptionRow}>
+      <View style={styles.toggleOptionText}>
+        <Text style={styles.toggleOptionTitle}>{title}</Text>
+      </View>
+      <TouchableOpacity
+        activeOpacity={0.82}
+        accessibilityRole="switch"
+        accessibilityState={{ checked: value }}
+        onPress={() => onValueChange(!value)}
+      >
+        <Animated.View style={[styles.toggleSwitchTrack, trackStyle]}>
+          <Animated.View style={[styles.toggleSwitchThumb, thumbStyle]} />
+        </Animated.View>
+      </TouchableOpacity>
+    </View>
   );
 }
 

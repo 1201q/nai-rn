@@ -26,7 +26,7 @@ import {
   snapResolutionValue,
   triggerSelectionHaptic,
 } from "./helpers";
-import { SelectOption, StepperRow } from "./OptionControls";
+import { SelectOption, StepperRow, ToggleOption } from "./OptionControls";
 import { styles } from "./styles";
 
 type SelectionSheetName = "model" | "resolution" | "sampler" | "noiseSchedule";
@@ -145,6 +145,8 @@ export function OptionTabScene({
   sampler,
   seedText,
   setSeedText,
+  varietyPlus,
+  setVarietyPlus,
   resolutionWidthText,
   setResolutionWidthText,
   resolutionHeightText,
@@ -172,6 +174,8 @@ export function OptionTabScene({
   sampler: string;
   seedText: string;
   setSeedText: (v: string) => void;
+  varietyPlus: boolean;
+  setVarietyPlus: (v: boolean) => void;
   resolutionWidthText: string;
   setResolutionWidthText: (v: string) => void;
   resolutionHeightText: string;
@@ -352,7 +356,6 @@ export function OptionTabScene({
         onPress={() => openSelectionSheet("model")}
       />
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Image Settings</Text>
         <View style={styles.sectionContent}>
           <SelectOption
             label="Resolution"
@@ -403,26 +406,7 @@ export function OptionTabScene({
         </View>
       </View>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Settings</Text>
         <View style={styles.sectionContent}>
-          <StepperRow
-            label="Steps"
-            value={steps}
-            seekMin={1}
-            seekMax={50}
-            seekStep={1}
-            onSeekChange={setSteps}
-          />
-          <StepperRow
-            label="Prompt Guidance"
-            value={promptGuidance}
-            valueText={formatDecimal(promptGuidance)}
-            seekMin={0}
-            seekMax={10}
-            seekStep={0.1}
-            seekPrecision={1}
-            onSeekChange={setPromptGuidance}
-          />
           <View style={styles.seedOptionRow}>
             <Text style={styles.optionLabel}>Seed</Text>
             <View style={styles.seedRow}>
@@ -436,18 +420,26 @@ export function OptionTabScene({
               />
             </View>
           </View>
-          <SelectOption
-            label="Sampler"
-            value={getOptionLabel(SAMPLERS, sampler)}
-            onPress={() => openSelectionSheet("sampler")}
-          />
-        </View>
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Advanced Settings</Text>
-        <View style={styles.sectionContent}>
           <StepperRow
-            label="Prompt Guidance Rescale"
+            label="Steps"
+            value={steps}
+            seekMin={1}
+            seekMax={50}
+            seekStep={1}
+            onSeekChange={setSteps}
+          />
+          <StepperRow
+            label="CFG Scale"
+            value={promptGuidance}
+            valueText={formatDecimal(promptGuidance)}
+            seekMin={0}
+            seekMax={10}
+            seekStep={0.1}
+            seekPrecision={1}
+            onSeekChange={setPromptGuidance}
+          />
+          <StepperRow
+            label="CFG Rescale"
             value={promptGuidanceRescale}
             valueText={formatDecimal(promptGuidanceRescale, 2)}
             seekMin={0}
@@ -457,9 +449,22 @@ export function OptionTabScene({
             onSeekChange={setPromptGuidanceRescale}
           />
           <SelectOption
+            label="Sampler"
+            value={getOptionLabel(SAMPLERS, sampler)}
+            onPress={() => openSelectionSheet("sampler")}
+          />
+          <SelectOption
             label="Noise Schedule"
             value={getOptionLabel(NOISE_SCHEDULES, noiseSchedule)}
             onPress={() => openSelectionSheet("noiseSchedule")}
+          />
+          <ToggleOption
+            title="Variety+"
+            value={varietyPlus}
+            onValueChange={(nextValue) => {
+              setVarietyPlus(nextValue);
+              triggerSelectionHaptic();
+            }}
           />
         </View>
       </View>
