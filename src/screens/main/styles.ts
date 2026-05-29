@@ -80,6 +80,26 @@ export const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  imageActionRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    gap: 12,
+  },
+  imageActionButton: {
+    flex: 1,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: colors.colorBackgroundInverse,
+  },
+  imageActionText: {
+    color: colors.colorTextInverse,
+    fontSize: 16,
+    fontWeight: "800",
+  },
   message: {
     marginHorizontal: 16,
     marginBottom: 10,

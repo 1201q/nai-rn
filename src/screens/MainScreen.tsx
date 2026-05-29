@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, BackHandler, View } from "react-native";
+import { Alert, Animated, BackHandler, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { File } from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import { StatusBar } from "expo-status-bar";
 import { useNavigation } from "@react-navigation/native";
 import PagerView from "react-native-pager-view";
@@ -30,6 +33,8 @@ export function MainScreen() {
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const [mainPageIndex, setMainPageIndex] = useState<MainPageIndex>(0);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
 
@@ -90,6 +95,44 @@ export function MainScreen() {
     generateImage();
   }
 
+  async function handleSaveImage() {
+    if (!currentImageUri || isSavingImage) return;
+
+    try {
+      setIsSavingImage(true);
+      const permission = await MediaLibrary.requestPermissionsAsync(true, [
+        "photo",
+      ]);
+
+      if (!permission.granted) {
+        Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+        return;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(currentImageUri);
+      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+    } catch {
+      Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+    } finally {
+      setIsSavingImage(false);
+    }
+  }
+
+  async function handleCopyImage() {
+    if (!currentImageUri || isCopyingImage) return;
+
+    try {
+      setIsCopyingImage(true);
+      const base64Image = await new File(currentImageUri).base64();
+      await Clipboard.setImageAsync(base64Image);
+      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
+    } catch {
+      Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
+    } finally {
+      setIsCopyingImage(false);
+    }
+  }
+
   function selectMainPage(index: MainPageIndex) {
     setMainPageIndex(index);
     mainPagerRef.current?.setPage(index);
@@ -118,7 +161,11 @@ export function MainScreen() {
             currentImageUri={currentImageUri}
             message={message}
             isLoading={isLoading}
+            isSavingImage={isSavingImage}
+            isCopyingImage={isCopyingImage}
             onOpenImagePreview={openImagePreview}
+            onSaveImage={handleSaveImage}
+            onCopyImage={handleCopyImage}
             onOpenOptions={() => navigation.navigate("Option")}
             onGenerate={handleGenerate}
           />

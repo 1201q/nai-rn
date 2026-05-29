@@ -16,7 +16,11 @@ export function CreatePage({
   currentImageUri,
   message,
   isLoading,
+  isSavingImage,
+  isCopyingImage,
   onOpenImagePreview,
+  onSaveImage,
+  onCopyImage,
   onOpenOptions,
   onGenerate,
 }: {
@@ -24,7 +28,11 @@ export function CreatePage({
   currentImageUri: string | null;
   message: string | null;
   isLoading: boolean;
+  isSavingImage: boolean;
+  isCopyingImage: boolean;
   onOpenImagePreview: () => void;
+  onSaveImage: () => void;
+  onCopyImage: () => void;
   onOpenOptions: () => void;
   onGenerate: () => void;
 }) {
@@ -50,6 +58,56 @@ export function CreatePage({
               style={styles.generatedImage}
             />
           </TouchableOpacity>
+        ) : null}
+
+        {currentImageUri && currentGeneration ? (
+          <View style={styles.imageActionRow}>
+            <TouchableOpacity
+              style={[
+                styles.imageActionButton,
+                isSavingImage && styles.disabledButton,
+              ]}
+              activeOpacity={0.82}
+              onPress={onSaveImage}
+              disabled={isSavingImage}
+            >
+              {isSavingImage ? (
+                <ActivityIndicator color={colors.colorTextInverse} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="save-outline"
+                    size={18}
+                    color={colors.colorTextInverse}
+                  />
+                  <Text style={styles.imageActionText}>저장</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.imageActionButton,
+                isCopyingImage && styles.disabledButton,
+              ]}
+              activeOpacity={0.82}
+              onPress={onCopyImage}
+              disabled={isCopyingImage}
+            >
+              {isCopyingImage ? (
+                <ActivityIndicator color={colors.colorTextInverse} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="clipboard-outline"
+                    size={18}
+                    color={colors.colorTextInverse}
+                  />
+                  <Text style={styles.imageActionText}>복사</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         ) : null}
       </View>
 
