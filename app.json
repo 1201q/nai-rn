@@ -15,7 +15,14 @@
         "backgroundColor": "#ffffff"
       },
       "predictiveBackGestureEnabled": true,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.anonymous.nairn",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -23,7 +30,22 @@
     "plugins": [
       "expo-secure-store",
       "expo-sqlite",
-      "expo-image"
-    ]
+      "expo-image",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "사진을 선택하고 저장하기 위해 사진 보관함 접근 권한이 필요합니다.",
+          "savePhotosPermission": "생성한 이미지를 사진 보관함에 저장하기 위해 권한이 필요합니다.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1dd3b0a5-a64b-48f6-bf4e-56ad2521e001"
+      }
+    }
   }
 }
