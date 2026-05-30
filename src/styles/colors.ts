@@ -109,7 +109,7 @@ export const colors = {
   colorBackgroundWarning: "#483a0f",
   colorBackgroundDisabled: "rgba(48, 48, 46, 0.5)",
 
-  colorTextPrimary: "#faf9f5",
+  colorTextPrimary: "#e3e3e3",
   colorTextSecondary: "#c2c0b6",
   colorTextTertiary: "#9c9a92",
   colorTextInverse: "#141413",
@@ -139,7 +139,7 @@ export const colors = {
   colorRingSuccess: "rgba(89, 145, 48, 0.5)",
   colorRingWarning: "rgba(168, 120, 41, 0.5)",
 
-  appBackground: "#30302e",
+  appBackground: "#0f0f0f",
   background: "#ffffff",
   greyBackground: "#f2f4f6",
   layeredBackground: "#ffffff",

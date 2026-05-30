@@ -63,8 +63,6 @@ export const styles = StyleSheet.create({
     marginBottom: 0,
   },
   textAreaWrap: {
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingTop: 12,
@@ -98,8 +96,6 @@ export const styles = StyleSheet.create({
   },
   optionBlock: {
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
     borderRadius: 14,
     padding: 16,
     backgroundColor: colors.colorBackgroundSecondary,
@@ -118,8 +114,6 @@ export const styles = StyleSheet.create({
     height: 44,
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.colorBorderSecondary,
     borderRadius: 10,
     paddingHorizontal: 12,
     backgroundColor: colors.colorBackgroundTertiary,
@@ -173,8 +167,6 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
     borderRadius: 14,
     paddingHorizontal: 16,
     backgroundColor: colors.colorBackgroundSecondary,
@@ -210,8 +202,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderWidth: 1,
-    borderColor: colors.colorBorderTertiary,
     borderRadius: 14,
     backgroundColor: colors.colorBackgroundSecondary,
   },
@@ -287,8 +277,6 @@ export const styles = StyleSheet.create({
   seekValueInput: {
     width: 72,
     height: 44,
-    borderWidth: 1,
-    borderColor: colors.colorBorderSecondary,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 0,
@@ -347,7 +335,6 @@ export const styles = StyleSheet.create({
   toggleSwitchTrack: {
     width: 56,
     height: 32,
-    borderWidth: 1,
     borderRadius: 16,
   },
   toggleSwitchThumb: {
@@ -374,8 +361,6 @@ export const styles = StyleSheet.create({
   seedInput: {
     flex: 1,
     height: 38,
-    borderWidth: 1,
-    borderColor: colors.colorBorderSecondary,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 0,
@@ -391,7 +376,7 @@ export const styles = StyleSheet.create({
   },
   sheetBackground: {
     borderRadius: 28,
-    backgroundColor: colors.colorBackgroundSecondary,
+    backgroundColor: "#1c1c1c",
   },
   sheetHandle: {
     width: 56,
@@ -435,7 +420,7 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   sheetItemActive: {
-    backgroundColor: colors.colorBackgroundTertiary,
+    backgroundColor: "#141414",
   },
   sheetItemDisabled: {
     opacity: 0.45,

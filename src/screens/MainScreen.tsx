@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
+  BottomSheetTextInput,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
@@ -36,7 +37,7 @@ const MAIN_SHEET_SNAP_POINTS = [MAIN_SHEET_COLLAPSED_HEIGHT, "92%"];
 const MAIN_SHEET_TEST_BUTTONS = Array.from(
   { length: 20 },
   (_, index) => index + 1,
-);
+).filter((n) => n !== 9);
 type MainSheetRoute = "home" | "test1" | "test2";
 
 export function MainScreen() {
@@ -271,11 +272,13 @@ export function MainScreen() {
         enablePanDownToClose
         backdropComponent={renderBottomSheetBackdrop}
         detached
-        bottomInset={14}
+        bottomInset={0}
         style={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
         onChange={handleBottomSheetChange}
       >
         <View
@@ -342,7 +345,22 @@ export function MainScreen() {
                 <Text style={styles.sheetNavButtonText}>test2</Text>
               </BottomSheetTouchableOpacity>
 
-              {MAIN_SHEET_TEST_BUTTONS.map((item) => (
+              {MAIN_SHEET_TEST_BUTTONS.slice(0, 8).map((item) => (
+                <BottomSheetTouchableOpacity
+                  key={item}
+                  style={styles.sheetNavButton}
+                  activeOpacity={0.78}
+                >
+                  <Text style={styles.sheetNavButtonText}>Button {item}</Text>
+                </BottomSheetTouchableOpacity>
+              ))}
+
+              <BottomSheetTextInput
+                style={styles.sheetNavButton}
+                placeholder="Input 9"
+              />
+
+              {MAIN_SHEET_TEST_BUTTONS.slice(8).map((item) => (
                 <BottomSheetTouchableOpacity
                   key={item}
                   style={styles.sheetNavButton}

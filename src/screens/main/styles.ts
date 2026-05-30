@@ -210,13 +210,13 @@ export const styles = StyleSheet.create({
     opacity: 0.85,
   },
   sheetContainer: {
-    marginHorizontal: 14,
     zIndex: 20,
     elevation: 20,
   },
   sheetBackground: {
-    borderRadius: 28,
-    backgroundColor: colors.colorBackgroundSecondary,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: "#1c1c1c",
   },
   sheetHandle: {
     width: 56,
@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: colors.colorBackgroundTertiary,
+    backgroundColor: "#141414",
   },
   sheetScroll: {
     flex: 1,
@@ -267,7 +267,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 14,
     paddingHorizontal: 16,
-    backgroundColor: colors.colorBackgroundTertiary,
+    backgroundColor: "#141414",
   },
   sheetNavButtonText: {
     color: colors.colorTextPrimary,
