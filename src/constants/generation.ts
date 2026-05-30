@@ -50,9 +50,9 @@ export const DEFAULT_NAI_RESOLUTION: NaiResolution =
 export const MODELS = [
   { label: "V4.5 Full", value: "nai-diffusion-4-5-full" },
   { label: "V4.5 Curated", value: "nai-diffusion-4-5-curated" },
-  { label: "V4 Curated", value: "nai-diffusion-4-curated-preview" },
-  { label: "Anime V3", value: "nai-diffusion-3" },
-  { label: "Furry V3", value: "nai-diffusion-furry-3" },
+  { label: "V4 Curated (Legacy)", value: "nai-diffusion-4-curated-preview" },
+  { label: "Anime V3 (Legacy)", value: "nai-diffusion-3" },
+  { label: "Furry V3 (Legacy)", value: "nai-diffusion-furry-3" },
 ];
 
 export const SAMPLERS = [
@@ -62,15 +62,15 @@ export const SAMPLERS = [
   { label: "DPM++ 2M SDE", value: "k_dpmpp_2m_sde" },
   { label: "DPM++ 2M", value: "k_dpmpp_2m" },
   { label: "DPM++ SDE", value: "k_dpmpp_sde" },
-  { label: "DDIM", value: "ddim_v3" },
+  { label: "DDIM (Legacy)", value: "ddim_v3" },
 ];
 
 export const NOISE_SCHEDULES: Array<{
   label: string;
   value: NoiseSchedule;
 }> = [
-  { label: "Native", value: "native" },
   { label: "Karras", value: "karras" },
   { label: "Exponential", value: "exponential" },
   { label: "Polyexponential", value: "polyexponential" },
+  { label: "Native (Legacy)", value: "native" },
 ];

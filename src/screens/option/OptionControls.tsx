@@ -217,7 +217,7 @@ function formatStepperInput(value: number, precision: number) {
   return value.toFixed(precision).replace(/\.?0+$/, "");
 }
 
-function SteppedSeekBar({
+export function SteppedSeekBar({
   value,
   min,
   max,
