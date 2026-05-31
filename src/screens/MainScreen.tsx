@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, BackHandler, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
@@ -16,6 +17,7 @@ import { MainScreenHeader, type MainPageIndex } from "./main/MainScreenHeader";
 import { styles } from "./main/styles";
 
 export function MainScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
   const {
     prompt,
@@ -139,7 +141,7 @@ export function MainScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <MainScreenHeader
         activeIndex={mainPageIndex}

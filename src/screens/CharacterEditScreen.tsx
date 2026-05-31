@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -171,6 +171,7 @@ function DraggableRow({
 }
 
 export function CharacterEditScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<CharacterEditScreenNavigationProp>();
   const { characterPrompts, setCharacterPrompts } = useGenerationOptions();
 
@@ -219,7 +220,7 @@ export function CharacterEditScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Header title="캐릭터 편집" onBack={() => navigation.goBack()} />
 
       <View style={styles.listWrap}>
@@ -241,7 +242,7 @@ export function CharacterEditScreen() {
         </View>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 18 }]}>
         <TouchableOpacity
           style={[
             styles.footerButton,
@@ -267,7 +268,6 @@ export function CharacterEditScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? 28 : 0,
     backgroundColor: colors.appBackground,
   },
   listWrap: {

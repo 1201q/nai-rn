@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Header } from "../components/Header";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
@@ -19,6 +20,7 @@ import { colors } from "../styles/colors";
 import { styles } from "./settings/styles";
 
 export function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { storedToken, saveToken } = useGenerationOptions();
   const [tokenInput, setTokenInput] = useState("");
@@ -51,7 +53,7 @@ export function SettingsScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <Header title="Settings" onBack={() => navigation.goBack()} />
 
@@ -61,7 +63,7 @@ export function SettingsScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         >
           <View style={styles.sectionHeader}>
             <Ionicons

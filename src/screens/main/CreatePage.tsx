@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 
@@ -38,6 +39,8 @@ export function CreatePage({
   onOpenBottomSheet: () => void;
   onGenerate: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <>
       <View style={styles.imageStage}>
@@ -115,7 +118,7 @@ export function CreatePage({
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
-      <View style={styles.actionArea}>
+      <View style={[styles.actionArea, { paddingBottom: insets.bottom + 18 }]}>
         <TouchableOpacity
           style={styles.sheetButton}
           activeOpacity={0.78}

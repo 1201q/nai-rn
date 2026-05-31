@@ -13,6 +13,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Header } from "../components/Header";
@@ -38,6 +39,7 @@ type SelectionSheetKey =
   | null;
 
 export function ImageSettingScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<ImageSettingScreenNavigationProp>();
   const {
     model,
@@ -190,7 +192,7 @@ export function ImageSettingScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Header title="Image Setting" onBack={() => navigation.goBack()} />
 
       <ScrollView

@@ -6,6 +6,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TabBar, TabView } from "react-native-tab-view";
 
 import { Header } from "../components/Header";
@@ -16,6 +17,7 @@ import { OptionTabScene, optionTabRoutes } from "./option/OptionTabs";
 import { styles } from "./option/styles";
 
 export function OptionScreen() {
+  const insets = useSafeAreaInsets();
   const layout = useWindowDimensions();
 
   const navigation = useNavigation<OptionScreenNavigationProp>();
@@ -34,7 +36,7 @@ export function OptionScreen() {
   } = useGenerationOptions();
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Header title="Prompt" onBack={() => navigation.goBack()} />
 
       <TabView
@@ -65,7 +67,7 @@ export function OptionScreen() {
         )}
       />
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 18 }]}>
         <TouchableOpacity
           style={[styles.generateButton, isLoading && styles.disabledButton]}
           activeOpacity={0.82}

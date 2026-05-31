@@ -1,11 +1,10 @@
-import { Platform, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 
 import { colors } from "../../styles/colors";
 
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? 28 : 0,
     backgroundColor: colors.appBackground,
   },
   keyboardAvoidingView: {

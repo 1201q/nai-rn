@@ -5,6 +5,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
 
 import type { GenerationRecord } from "../../lib/generationHistory";
@@ -21,6 +22,7 @@ export function HistoryPage({
   resolveThumbnailUri: (record: GenerationRecord) => string | null;
   onImagePress: (index: number) => void;
 }) {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const padding = 2;
   const gap = 2;
@@ -36,6 +38,7 @@ export function HistoryPage({
       contentContainerStyle={[
         styles.historyGrid,
         images.length === 0 && styles.historyEmptyGrid,
+        { paddingBottom: insets.bottom + 18 },
       ]}
       ListEmptyComponent={
         <View style={styles.historyEmptyState}>

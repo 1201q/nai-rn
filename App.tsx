@@ -7,6 +7,7 @@ import {
 } from "@react-navigation/stack";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { GenerationOptionsProvider } from "./src/context/GenerationOptionsContext";
@@ -29,6 +30,7 @@ export default function App() {
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: colors.appBackground }}
     >
+      <SafeAreaProvider>
       <KeyboardProvider>
         <GenerationOptionsProvider>
           <NavigationContainer
@@ -57,6 +59,7 @@ export default function App() {
           </NavigationContainer>
         </GenerationOptionsProvider>
       </KeyboardProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
