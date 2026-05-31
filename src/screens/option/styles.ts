@@ -267,17 +267,28 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.colorBorderTertiary,
   },
-  characterDeleteButton: {
-    minHeight: 42,
+  editEntryRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: 10,
-    backgroundColor: colors.colorBackgroundDanger,
+    justifyContent: "space-between",
+    marginBottom: -8,
   },
-  characterDeleteText: {
-    color: colors.colorTextDanger,
+  editEntryCount: {
+    color: colors.colorTextTertiary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  editEntryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  editEntryText: {
+    color: colors.colorTextSecondary,
     fontSize: 14,
     fontWeight: "800",
   },

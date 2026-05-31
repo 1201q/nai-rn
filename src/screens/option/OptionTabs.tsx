@@ -7,16 +7,18 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import type { CharacterPrompt } from "../../context/GenerationOptionsContext";
+import type { OptionScreenNavigationProp } from "../../navigation/types";
 import { colors } from "../../styles/colors";
 import { triggerSelectionHaptic } from "./helpers";
 import { styles } from "./styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
 
-const BADGE_COLORS = [
+export const BADGE_COLORS = [
   colors.green500,
   colors.red500,
   colors.blue500,
@@ -69,14 +71,12 @@ function CharacterPromptCard({
   expanded,
   onToggleExpand,
   onUpdate,
-  onDelete,
 }: {
   item: CharacterPrompt;
   index: number;
   expanded: boolean;
   onToggleExpand: () => void;
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
-  onDelete: () => void;
 }) {
   const badgeColor = BADGE_COLORS[index % BADGE_COLORS.length];
   const title = item.prompt.trim() || `Character ${index + 1}`;
@@ -149,18 +149,6 @@ function CharacterPromptCard({
             value={item.negativePrompt}
             onChangeText={(next) => onUpdate({ negativePrompt: next })}
           />
-          <TouchableOpacity
-            style={styles.characterDeleteButton}
-            activeOpacity={0.78}
-            onPress={onDelete}
-          >
-            <Ionicons
-              name="trash-outline"
-              size={18}
-              color={colors.colorTextDanger}
-            />
-            <Text style={styles.characterDeleteText}>Delete</Text>
-          </TouchableOpacity>
         </View>
       ) : null}
     </View>
@@ -186,6 +174,7 @@ export function OptionTabScene({
   characterPrompts: CharacterPrompt[];
   setCharacterPrompts: (v: CharacterPrompt[]) => void;
 }) {
+  const navigation = useNavigation<OptionScreenNavigationProp>();
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   function toggleExpand(id: string) {
@@ -219,12 +208,6 @@ export function OptionTabScene({
         item.id === id ? { ...item, ...nextValues } : item,
       ),
     );
-  }
-
-  function deleteCharacterPrompt(id: string) {
-    setCharacterPrompts(characterPrompts.filter((item) => item.id !== id));
-    setExpandedIds((current) => current.filter((value) => value !== id));
-    triggerSelectionHaptic();
   }
 
   if (!hasLoadedOptions) {
@@ -266,6 +249,25 @@ export function OptionTabScene({
       contentContainerStyle={styles.tabContent}
       keyboardShouldPersistTaps="handled"
     >
+      {characterPrompts.length > 0 ? (
+        <View style={styles.editEntryRow}>
+          <Text style={styles.editEntryCount}>
+            캐릭터 ({characterPrompts.length})
+          </Text>
+          <TouchableOpacity
+            style={styles.editEntryButton}
+            activeOpacity={0.78}
+            onPress={() => navigation.navigate("CharacterEdit")}
+          >
+            <Ionicons
+              name="create-outline"
+              size={16}
+              color={colors.colorTextSecondary}
+            />
+            <Text style={styles.editEntryText}>편집</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {characterPrompts.map((item, index) => (
         <CharacterPromptCard
           key={item.id}
@@ -274,7 +276,6 @@ export function OptionTabScene({
           expanded={expandedIds.includes(item.id)}
           onToggleExpand={() => toggleExpand(item.id)}
           onUpdate={(values) => updateCharacterPrompt(item.id, values)}
-          onDelete={() => deleteCharacterPrompt(item.id)}
         />
       ))}
       <TouchableOpacity

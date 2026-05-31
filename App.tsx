@@ -12,6 +12,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { GenerationOptionsProvider } from "./src/context/GenerationOptionsContext";
 import { MainScreen } from "./src/screens/MainScreen";
 import { OptionScreen } from "./src/screens/OptionScreen";
+import { CharacterEditScreen } from "./src/screens/CharacterEditScreen";
 import { ImageSettingScreen } from "./src/screens/ImageSettingScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import type { RootStackParamList } from "./src/navigation/types";
@@ -46,6 +47,10 @@ export default function App() {
             >
               <Stack.Screen name="Main" component={MainScreen} />
               <Stack.Screen name="Option" component={OptionScreen} />
+              <Stack.Screen
+                name="CharacterEdit"
+                component={CharacterEditScreen}
+              />
               <Stack.Screen name="ImageSetting" component={ImageSettingScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
             </Stack.Navigator>
