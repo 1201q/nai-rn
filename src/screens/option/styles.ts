@@ -59,9 +59,6 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
-  inputGroup: {
-    marginBottom: 0,
-  },
   textAreaWrap: {
     borderRadius: 14,
     paddingHorizontal: 14,
@@ -75,6 +72,21 @@ export const styles = StyleSheet.create({
     color: colors.colorTextPrimary,
     fontSize: 15,
     lineHeight: 23,
+  },
+  tallTextArea: {
+    minHeight: 150,
+  },
+  labeledInput: {
+    rowGap: 8,
+  },
+  inputLabel: {
+    marginLeft: 2,
+    color: colors.colorTextSecondary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  negativeLabel: {
+    color: colors.colorTextDanger,
   },
   countText: {
     alignSelf: "flex-end",
@@ -179,23 +191,6 @@ export const styles = StyleSheet.create({
     justifyContent: "flex-end",
     marginLeft: 16,
   },
-  promptSwitchRow: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    alignItems: "center",
-    gap: 8,
-  },
-  promptHeaderRow: {
-    minHeight: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 8,
-  },
-  promptTextAreaWrap: {
-    minHeight: 220,
-  },
   addCharacterButton: {
     minHeight: 46,
     flexDirection: "row",
@@ -210,53 +205,81 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
-  characterPromptGroup: {
-    // marginTop: 5,
-    // backgroundColor: "red",
-  },
   characterPromptGroupDisabled: {
     opacity: 0.48,
   },
-  characterPromptTitle: {
-    marginBottom: 8,
-    paddingLeft: 2,
-    color: colors.colorTextPrimary,
-    fontSize: 15,
-    fontWeight: "800",
+  characterCard: {
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: colors.colorBackgroundSecondary,
   },
-  characterPromptActions: {
+  characterCardHeader: {
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    paddingHorizontal: 14,
   },
-  characterPromptIconButton: {
+  characterCardHeaderMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  characterAvatar: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: colors.colorBackgroundTertiary,
+  },
+  characterBadge: {
+    minWidth: 26,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 7,
+    paddingHorizontal: 6,
+  },
+  characterBadgeText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  characterCardTitle: {
+    flex: 1,
+    color: colors.colorTextPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  characterHeaderIcon: {
     width: 32,
     height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: colors.colorBackgroundSecondary,
   },
-  characterPromptIconButtonActive: {
-    backgroundColor: "#fff",
+  characterCardBody: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    rowGap: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.colorBorderTertiary,
   },
-  segmentButton: {
-    minHeight: 32,
+  characterDeleteButton: {
+    minHeight: 42,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    backgroundColor: "transparent",
+    gap: 6,
+    borderRadius: 10,
+    backgroundColor: colors.colorBackgroundDanger,
   },
-  segmentButtonActive: {
-    backgroundColor: "#fff",
-  },
-  segmentText: {
-    color: colors.colorTextTertiary,
-    fontWeight: "700",
-  },
-  segmentTextActive: {
-    color: colors.appBackground,
+  characterDeleteText: {
+    color: colors.colorTextDanger,
+    fontSize: 14,
+    fontWeight: "800",
   },
   seekOptionRow: {
     minHeight: 70,

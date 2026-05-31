@@ -217,7 +217,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [seedText, setSeedText] = useState("");
   const [outputCount, setOutputCount] = useState(1);
   const [varietyPlus, setVarietyPlus] = useState(false);
-  const [optionTabIndex, setOptionTabIndex] = useState(1);
+  const [optionTabIndex, setOptionTabIndex] = useState(0);
 
   const [storedToken, setStoredToken] = useState<string | null>(null);
   const [currentGeneration, setCurrentGeneration] =
