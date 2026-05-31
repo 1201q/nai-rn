@@ -40,7 +40,8 @@
             "photo"
           ]
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
