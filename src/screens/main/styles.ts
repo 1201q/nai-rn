@@ -112,8 +112,22 @@ export const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 10,
   },
-  sheetButton: {
-    height: 48,
+  toolButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  settingsButton: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: colors.colorBackgroundSecondary,
+  },
+  toolButton: {
+    flex: 1,
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -121,7 +135,7 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.colorBackgroundSecondary,
   },
-  sheetButtonText: {
+  toolButtonText: {
     color: colors.colorTextInfo,
     fontSize: 15,
     fontWeight: "800",
@@ -130,14 +144,6 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-  },
-  optionsButton: {
-    width: 68,
-    height: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: colors.colorBackgroundSecondary,
   },
   generateButton: {
     flex: 1,

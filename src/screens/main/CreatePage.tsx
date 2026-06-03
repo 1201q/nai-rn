@@ -119,28 +119,47 @@ export function CreatePage({
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
       <View style={[styles.actionArea, { paddingBottom: insets.bottom + 18 }]}>
-        <TouchableOpacity
-          style={styles.sheetButton}
-          activeOpacity={0.78}
-          onPress={onOpenBottomSheet}
-        >
-          <Ionicons
-            name="albums-outline"
-            size={20}
-            color={colors.colorTextInfo}
-          />
-          <Text style={styles.sheetButtonText}>Bottom Sheet</Text>
-        </TouchableOpacity>
-
-        <View style={styles.bottomBar}>
+        <View style={styles.toolButtonRow}>
           <TouchableOpacity
-            style={styles.optionsButton}
+            style={styles.settingsButton}
+            activeOpacity={0.78}
+            onPress={onOpenBottomSheet}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={22}
+              color={colors.colorTextInfo}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolButton}
             activeOpacity={0.78}
             onPress={onOpenOptions}
           >
-            <Ionicons name="options-outline" size={20} color={colors.colorTextInfo} />
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={colors.colorTextInfo}
+            />
+            <Text style={styles.toolButtonText}>프롬프트</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.toolButton}
+            activeOpacity={0.78}
+            disabled
+          >
+            <Ionicons
+              name="image-outline"
+              size={20}
+              color={colors.colorTextInfo}
+            />
+            <Text style={styles.toolButtonText}>이미지 참조</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.bottomBar}>
           <TouchableOpacity
             style={[styles.generateButton, isLoading && styles.disabledButton]}
             activeOpacity={0.82}
