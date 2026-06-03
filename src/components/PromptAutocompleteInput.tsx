@@ -70,7 +70,9 @@ export function PromptAutocompleteInput({
         const results = await searchTags(query, type);
         if (id !== reqIdRef.current) return;
         if (results.length > 0) {
-          barActions?.setSuggestions(results, (item) => pickFnRef.current(item));
+          barActions?.setSuggestions(results, (item) =>
+            pickFnRef.current(item),
+          );
         } else {
           clearSuggestions();
         }

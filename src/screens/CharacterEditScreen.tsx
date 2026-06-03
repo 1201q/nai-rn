@@ -103,14 +103,27 @@ function DraggableRow({
           );
           const currentIndex = positions.value[item.id];
           if (newIndex !== currentIndex) {
-            positions.value = objectMove(positions.value, currentIndex, newIndex);
+            positions.value = objectMove(
+              positions.value,
+              currentIndex,
+              newIndex,
+            );
           }
         })
         .onEnd(() => {
           activeId.value = null;
           runOnJS(onCommitOrder)();
         }),
-    [item.id, index, count, positions, activeId, activeY, startY, onCommitOrder],
+    [
+      item.id,
+      index,
+      count,
+      positions,
+      activeId,
+      activeY,
+      startY,
+      onCommitOrder,
+    ],
   );
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -137,11 +150,7 @@ function DraggableRow({
   return (
     <Animated.View style={[styles.rowContainer, animatedStyle]}>
       <View style={[styles.rowCard, !item.enabled && styles.rowCardDisabled]}>
-        <Pressable
-          style={styles.checkbox}
-          hitSlop={8}
-          onPress={onToggleSelect}
-        >
+        <Pressable style={styles.checkbox} hitSlop={8} onPress={onToggleSelect}>
           <View
             style={[styles.checkboxCircle, selected && styles.checkboxChecked]}
           >

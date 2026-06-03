@@ -1,13 +1,13 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 
 import { PromptAutocompleteInput } from "../../components/PromptAutocompleteInput";
 import type { CharacterPrompt } from "../../context/GenerationOptionsContext";
@@ -18,6 +18,9 @@ import { triggerSelectionHaptic } from "./helpers";
 import { styles } from "./styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
+const CHARACTER_LAYOUT = LinearTransition.duration(220);
+const CHARACTER_BODY_ENTERING = FadeIn.duration(140);
+const CHARACTER_BODY_EXITING = FadeOut.duration(100);
 
 export const BADGE_COLORS = [
   colors.green500,
@@ -57,7 +60,7 @@ function LabeledPromptInput({
           onChangeText={onChangeText}
           style={[styles.textArea, tall && styles.tallTextArea]}
         />
-        <Text style={styles.countText}>{value.length}/1000</Text>
+        {/* <Text style={styles.countText}>{value.length}/1000</Text> */}
       </View>
     </View>
   );
@@ -80,7 +83,8 @@ function CharacterPromptCard({
   const title = item.prompt.trim() || `Character ${index + 1}`;
 
   return (
-    <View
+    <Animated.View
+      layout={CHARACTER_LAYOUT}
       style={[
         styles.characterCard,
         !item.enabled && styles.characterPromptGroupDisabled,
@@ -99,7 +103,9 @@ function CharacterPromptCard({
               color={colors.colorTextSecondary}
             />
           </View>
-          <View style={[styles.characterBadge, { backgroundColor: badgeColor }]}>
+          <View
+            style={[styles.characterBadge, { backgroundColor: badgeColor }]}
+          >
             <Text style={styles.characterBadgeText}>{index + 1}</Text>
           </View>
           <Text style={styles.characterCardTitle} numberOfLines={1}>
@@ -135,21 +141,26 @@ function CharacterPromptCard({
         </TouchableOpacity>
       </View>
       {expanded ? (
-        <View style={styles.characterCardBody}>
+        <Animated.View
+          entering={CHARACTER_BODY_ENTERING}
+          exiting={CHARACTER_BODY_EXITING}
+          layout={CHARACTER_LAYOUT}
+          style={styles.characterCardBody}
+        >
           <LabeledPromptInput
-            label="프롬프트"
+            label="Base"
             value={item.prompt}
             onChangeText={(next) => onUpdate({ prompt: next })}
           />
           <LabeledPromptInput
-            label="네거티브"
+            label="Negative"
             negative
             value={item.negativePrompt}
             onChangeText={(next) => onUpdate({ negativePrompt: next })}
           />
-        </View>
+        </Animated.View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -278,20 +289,22 @@ export function OptionTabScene({
           onUpdate={(values) => updateCharacterPrompt(item.id, values)}
         />
       ))}
-      <TouchableOpacity
-        style={[
-          styles.addCharacterButton,
-          !canAddCharacterPrompt && styles.disabledButton,
-        ]}
-        activeOpacity={0.78}
-        disabled={!canAddCharacterPrompt}
-        onPress={addCharacterPrompt}
-      >
-        <Ionicons name="add" size={18} color={colors.colorTextPrimary} />
-        <Text style={styles.addCharacterText}>
-          Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
-        </Text>
-      </TouchableOpacity>
+      <Animated.View layout={CHARACTER_LAYOUT}>
+        <TouchableOpacity
+          style={[
+            styles.addCharacterButton,
+            !canAddCharacterPrompt && styles.disabledButton,
+          ]}
+          activeOpacity={0.78}
+          disabled={!canAddCharacterPrompt}
+          onPress={addCharacterPrompt}
+        >
+          <Ionicons name="add" size={18} color={colors.colorTextPrimary} />
+          <Text style={styles.addCharacterText}>
+            Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
     </KeyboardAwareScrollView>
   );
 }

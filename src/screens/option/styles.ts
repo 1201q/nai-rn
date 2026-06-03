@@ -60,17 +60,18 @@ export const styles = StyleSheet.create({
   },
   textAreaWrap: {
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingTop: 12,
+    paddingHorizontal: 12,
+    paddingTop: 2,
     paddingBottom: 10,
     backgroundColor: colors.colorBackgroundTertiary,
+    textAlignVertical: "top",
   },
   textArea: {
     flex: 1,
-    minHeight: 70,
+    minHeight: 110,
     color: colors.colorTextPrimary,
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 24,
   },
   tallTextArea: {
     minHeight: 150,
