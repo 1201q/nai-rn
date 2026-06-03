@@ -11,6 +11,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { PromptAutocompleteInput } from "../../components/PromptAutocompleteInput";
 import type { CharacterPrompt } from "../../context/GenerationOptionsContext";
+import { useSuggestions } from "../../context/SuggestionBarContext";
 import type { OptionScreenNavigationProp } from "../../navigation/types";
 import { colors } from "../../styles/colors";
 import { triggerSelectionHaptic } from "./helpers";
@@ -172,6 +173,8 @@ export function OptionTabScene({
   setCharacterPrompts: (v: CharacterPrompt[]) => void;
 }) {
   const navigation = useNavigation<OptionScreenNavigationProp>();
+  const suggestions = useSuggestions();
+  const bottomOffset = suggestions.length > 0 ? 86 : 16;
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   function toggleExpand(id: string) {
@@ -218,7 +221,7 @@ export function OptionTabScene({
   if (route.key === "base") {
     return (
       <KeyboardAwareScrollView
-        bottomOffset={16}
+        bottomOffset={bottomOffset}
         contentContainerStyle={styles.tabContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -242,7 +245,7 @@ export function OptionTabScene({
 
   return (
     <KeyboardAwareScrollView
-      bottomOffset={16}
+      bottomOffset={bottomOffset}
       contentContainerStyle={styles.tabContent}
       keyboardShouldPersistTaps="handled"
     >
