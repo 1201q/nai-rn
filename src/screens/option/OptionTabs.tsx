@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -10,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
+import { PromptAutocompleteInput } from "../../components/PromptAutocompleteInput";
 import type { CharacterPrompt } from "../../context/GenerationOptionsContext";
 import type { OptionScreenNavigationProp } from "../../navigation/types";
 import { colors } from "../../styles/colors";
@@ -51,12 +51,9 @@ function LabeledPromptInput({
         {label}
       </Text>
       <View style={styles.textAreaWrap}>
-        <TextInput
+        <PromptAutocompleteInput
           value={value}
           onChangeText={onChangeText}
-          multiline
-          textAlignVertical="top"
-          placeholderTextColor={colors.colorTextTertiary}
           style={[styles.textArea, tall && styles.tallTextArea]}
         />
         <Text style={styles.countText}>{value.length}/1000</Text>

@@ -39,6 +39,12 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# tag autocomplete source (28MB build input; assets/tags.db is the committed artifact)
+assets/tags.json
+
 # generated native folders
 /ios
 /android
+
+
+/.understand-anything
