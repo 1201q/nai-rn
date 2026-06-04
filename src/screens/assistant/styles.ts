@@ -222,6 +222,11 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     color: light.textSecondary,
   },
+  optionChipUnit: {
+    fontSize: 13,
+    fontWeight: "400",
+    color: light.textHint,
+  },
   optionChipTextActive: {
     color: "#ffffff",
   },

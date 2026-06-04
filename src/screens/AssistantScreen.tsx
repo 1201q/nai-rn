@@ -19,6 +19,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
 import type { AssistantScreenNavigationProp } from "../navigation/types";
 import { light, styles } from "./assistant/styles";
+import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../constants/generation";
+import { formatDecimal } from "./option/helpers";
 
 const OPTIONS: {
   key: string;
@@ -128,10 +130,14 @@ function VarietyChip({
   );
 }
 
+type ChipValue = { text: string; unit?: string; unitBefore?: boolean };
+
 function OptionChip({
   opt,
+  value,
 }: {
   opt: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap };
+  value: ChipValue;
 }) {
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -168,7 +174,13 @@ function OptionChip({
         style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
       >
         <Ionicons name={opt.icon} size={16} color={light.textSecondary} />
-        <Text style={styles.optionChipText}>{opt.label}</Text>
+        {value.unitBefore && value.unit ? (
+          <Text style={styles.optionChipUnit}>{value.unit}</Text>
+        ) : null}
+        <Text style={styles.optionChipText}>{value.text}</Text>
+        {!value.unitBefore && value.unit ? (
+          <Text style={styles.optionChipUnit}>{value.unit}</Text>
+        ) : null}
         <Ionicons name="chevron-down" size={14} color={light.textSecondary} />
       </Animated.View>
     </Pressable>
@@ -263,10 +275,50 @@ function PromptModePill({
 export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AssistantScreenNavigationProp>();
-  const { currentGeneration, currentImageUri } = useGenerationOptions();
-  const [prompt, setPrompt] = useState("");
-  const [varietyPlus, setVarietyPlus] = useState(false);
+  const {
+    currentGeneration,
+    currentImageUri,
+    model,
+    resolution,
+    steps,
+    promptGuidance,
+    promptGuidanceRescale,
+    noiseSchedule,
+    sampler,
+    seedText,
+    varietyPlus,
+    setVarietyPlus,
+    prompt,
+    setPrompt,
+    negativePrompt,
+    setNegativePrompt,
+  } = useGenerationOptions();
   const [promptMode, setPromptMode] = useState<"base" | "negative">("base");
+
+  const optionValues: Record<string, ChipValue> = {
+    model: { text: MODELS.find((m) => m.value === model)?.label ?? model },
+    resolution: { text: `${resolution.width}×${resolution.height}` },
+    seed: { text: seedText || "Random" },
+    steps: { text: String(steps), unit: "steps", unitBefore: true },
+    cfg: {
+      text: formatDecimal(promptGuidance),
+      unit: "guidance",
+      unitBefore: true,
+    },
+    cfgRescale: {
+      text: formatDecimal(promptGuidanceRescale, 2),
+      unit: "rescale",
+      unitBefore: true,
+    },
+    sampler: {
+      text: SAMPLERS.find((s) => s.value === sampler)?.label ?? sampler,
+    },
+    schedule: {
+      text:
+        NOISE_SCHEDULES.find((n) => n.value === noiseSchedule)?.label ??
+        noiseSchedule,
+    },
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -342,12 +394,16 @@ export function AssistantScreen() {
           contentContainerStyle={styles.optionScrollContent}
         >
           {OPTIONS.map((opt) => (
-            <OptionChip key={opt.key} opt={opt} />
+            <OptionChip
+              key={opt.key}
+              opt={opt}
+              value={optionValues[opt.key] ?? { text: opt.label }}
+            />
           ))}
 
           <VarietyChip
             active={varietyPlus}
-            onPress={() => setVarietyPlus((v) => !v)}
+            onPress={() => setVarietyPlus(!varietyPlus)}
           />
         </ScrollView>
 
@@ -355,8 +411,8 @@ export function AssistantScreen() {
           <View style={styles.promptInputWrap}>
             <TextInput
               style={styles.promptInput}
-              value={prompt}
-              onChangeText={setPrompt}
+              value={promptMode === "base" ? prompt : negativePrompt}
+              onChangeText={promptMode === "base" ? setPrompt : setNegativePrompt}
               placeholder="Ready to help, ask anything…"
               placeholderTextColor={light.textHint}
               multiline
@@ -377,7 +433,11 @@ export function AssistantScreen() {
               </View> */}
               <PromptModePill mode={promptMode} onChange={setPromptMode} />
               <ScalePressable style={styles.characterButton}>
-                <Ionicons name="person-outline" size={15} color={light.textSecondary} />
+                <Ionicons
+                  name="person-outline"
+                  size={15}
+                  color={light.textSecondary}
+                />
                 <Text style={styles.characterButtonText}>Character</Text>
               </ScalePressable>
             </View>
