@@ -11,10 +11,12 @@ export function MainScreenHeader({
   activeIndex,
   onSelect,
   onOpenSettings,
+  onOpenAssistant,
 }: {
   activeIndex: MainPageIndex;
   onSelect: (index: MainPageIndex) => void;
   onOpenSettings: () => void;
+  onOpenAssistant: () => void;
 }) {
   const indicatorX = useRef(
     new Animated.Value(activeIndex * MAIN_SEGMENT_BUTTON_WIDTH),
@@ -52,19 +54,34 @@ export function MainScreenHeader({
           onPress={() => onSelect(1)}
         />
       </View>
-      <TouchableOpacity
-        style={styles.headerIconButton}
-        activeOpacity={0.78}
-        accessibilityRole="button"
-        accessibilityLabel="Settings"
-        onPress={onOpenSettings}
-      >
-        <Ionicons
-          name="settings-outline"
-          size={21}
-          color={colors.colorTextPrimary}
-        />
-      </TouchableOpacity>
+      <View style={styles.headerRight}>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Assistant"
+          onPress={onOpenAssistant}
+        >
+          <Ionicons
+            name="flask-outline"
+            size={21}
+            color={colors.colorTextPrimary}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          onPress={onOpenSettings}
+        >
+          <Ionicons
+            name="settings-outline"
+            size={21}
+            color={colors.colorTextPrimary}
+          />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

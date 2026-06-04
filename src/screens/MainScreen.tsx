@@ -147,6 +147,7 @@ export function MainScreen() {
         activeIndex={mainPageIndex}
         onSelect={selectMainPage}
         onOpenSettings={() => navigation.navigate("Settings")}
+        onOpenAssistant={() => navigation.navigate("Assistant")}
       />
 
       <PagerView

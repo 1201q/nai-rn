@@ -16,6 +16,7 @@ import { OptionScreen } from "./src/screens/OptionScreen";
 import { CharacterEditScreen } from "./src/screens/CharacterEditScreen";
 import { ImageSettingScreen } from "./src/screens/ImageSettingScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { AssistantScreen } from "./src/screens/AssistantScreen";
 import type { RootStackParamList } from "./src/navigation/types";
 import { colors } from "./src/styles/colors";
 
@@ -55,6 +56,7 @@ export default function App() {
               />
               <Stack.Screen name="ImageSetting" component={ImageSettingScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="Assistant" component={AssistantScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </GenerationOptionsProvider>

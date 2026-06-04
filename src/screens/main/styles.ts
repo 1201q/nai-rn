@@ -21,7 +21,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerSide: {
-    width: 44,
+    width: 88,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerIconButton: {
     width: 44,

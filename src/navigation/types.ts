@@ -6,6 +6,7 @@ export type RootStackParamList = {
   CharacterEdit: undefined;
   ImageSetting: undefined;
   Settings: undefined;
+  Assistant: undefined;
 };
 
 export type MainScreenNavigationProp = StackNavigationProp<
@@ -31,4 +32,9 @@ export type ImageSettingScreenNavigationProp = StackNavigationProp<
 export type SettingsScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   "Settings"
+>;
+
+export type AssistantScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  "Assistant"
 >;
