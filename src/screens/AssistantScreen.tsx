@@ -1,5 +1,7 @@
-import { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Animated,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -33,12 +35,238 @@ const OPTIONS: {
   { key: "schedule", label: "Schedule", icon: "git-branch-outline" },
 ];
 
+function ScalePressable({
+  children,
+  style,
+  onPress,
+}: {
+  children: React.ReactNode;
+  style?: object | object[];
+  onPress?: () => void;
+}) {
+  const anim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () =>
+    Animated.spring(anim, {
+      toValue: 0.93,
+      useNativeDriver: true,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+
+  return (
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
+      <Animated.View style={[style, { transform: [{ scale: anim }] }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function VarietyChip({
+  active,
+  onPress,
+}: {
+  active: boolean;
+  onPress: () => void;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () => {
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+    onPress();
+  };
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.93],
+  });
+
+  return (
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View
+        style={[
+          styles.optionChip,
+          active ? styles.optionChipActive : null,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Ionicons
+          name="sparkles-outline"
+          size={16}
+          color={active ? "#ffffff" : light.textSecondary}
+        />
+        <Text
+          style={[styles.optionChipText, active && styles.optionChipTextActive]}
+        >
+          Variety+
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function OptionChip({
+  opt,
+}: {
+  opt: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap };
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () => {
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: false,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+  };
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.93],
+  });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [light.surface, light.surfaceAlt],
+  });
+
+  return (
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View
+        style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
+      >
+        <Ionicons name={opt.icon} size={16} color={light.textSecondary} />
+        <Text style={styles.optionChipText}>{opt.label}</Text>
+        <Ionicons name="chevron-down" size={14} color={light.textSecondary} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function PromptModePill({
+  mode,
+  onChange,
+}: {
+  mode: "base" | "negative";
+  onChange: (m: "base" | "negative") => void;
+}) {
+  const leftAnim = useRef(new Animated.Value(0)).current;
+  const widthAnim = useRef(new Animated.Value(0)).current;
+  const layouts = useRef<{ x: number; width: number }[]>([]);
+  const initialized = useRef(false);
+
+  const animateTo = (index: number) => {
+    const layout = layouts.current[index];
+    if (!layout) return;
+    Animated.spring(leftAnim, {
+      toValue: layout.x,
+      useNativeDriver: false,
+      speed: 25,
+      bounciness: 5,
+    }).start();
+    Animated.spring(widthAnim, {
+      toValue: layout.width,
+      useNativeDriver: false,
+      speed: 25,
+      bounciness: 5,
+    }).start();
+  };
+
+  const handleLayout = (index: number, x: number, width: number) => {
+    layouts.current[index] = { x, width };
+    if (!initialized.current && layouts.current[0] && layouts.current[1]) {
+      initialized.current = true;
+      const initial = layouts.current[mode === "base" ? 0 : 1];
+      leftAnim.setValue(initial.x);
+      widthAnim.setValue(initial.width);
+    }
+  };
+
+  const handlePress = (next: "base" | "negative") => {
+    animateTo(next === "base" ? 0 : 1);
+    onChange(next);
+  };
+
+  return (
+    <View style={styles.promptModePill}>
+      <Animated.View
+        style={[styles.promptModeThumb, { left: leftAnim, width: widthAnim }]}
+      />
+      <Pressable
+        onLayout={(e) =>
+          handleLayout(0, e.nativeEvent.layout.x, e.nativeEvent.layout.width)
+        }
+        onPress={() => handlePress("base")}
+        style={styles.promptModeSegment}
+      >
+        <Text
+          style={[
+            styles.promptModeText,
+            mode === "base" && styles.promptModeTextActive,
+          ]}
+        >
+          Base
+        </Text>
+      </Pressable>
+      <Pressable
+        onLayout={(e) =>
+          handleLayout(1, e.nativeEvent.layout.x, e.nativeEvent.layout.width)
+        }
+        onPress={() => handlePress("negative")}
+        style={styles.promptModeSegment}
+      >
+        <Text
+          style={[
+            styles.promptModeText,
+            mode === "negative" && styles.promptModeTextActive,
+          ]}
+        >
+          Negative
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AssistantScreenNavigationProp>();
   const { currentGeneration, currentImageUri } = useGenerationOptions();
   const [prompt, setPrompt] = useState("");
   const [varietyPlus, setVarietyPlus] = useState(false);
+  const [promptMode, setPromptMode] = useState<"base" | "negative">("base");
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -114,36 +342,13 @@ export function AssistantScreen() {
           contentContainerStyle={styles.optionScrollContent}
         >
           {OPTIONS.map((opt) => (
-            <View key={opt.key} style={styles.optionChip}>
-              <Ionicons name={opt.icon} size={16} color={light.textSecondary} />
-              <Text style={styles.optionChipText}>{opt.label}</Text>
-              <Ionicons
-                name="chevron-down"
-                size={14}
-                color={light.textSecondary}
-              />
-            </View>
+            <OptionChip key={opt.key} opt={opt} />
           ))}
 
-          <TouchableOpacity
-            style={[styles.optionChip, varietyPlus && styles.optionChipActive]}
-            activeOpacity={0.8}
+          <VarietyChip
+            active={varietyPlus}
             onPress={() => setVarietyPlus((v) => !v)}
-          >
-            <Ionicons
-              name="sparkles-outline"
-              size={16}
-              color={varietyPlus ? "#ffffff" : light.textSecondary}
-            />
-            <Text
-              style={[
-                styles.optionChipText,
-                varietyPlus && styles.optionChipTextActive,
-              ]}
-            >
-              Variety+
-            </Text>
-          </TouchableOpacity>
+          />
         </ScrollView>
 
         <View style={styles.promptCard}>
@@ -166,12 +371,19 @@ export function AssistantScreen() {
           </View>
 
           <View style={styles.promptActionRow}>
-            <View style={styles.plusButton}>
-              <Ionicons name="add" size={24} color={light.textSecondary} />
+            <View style={styles.promptActionLeft}>
+              {/* <View style={styles.plusButton}>
+                <Ionicons name="add" size={24} color={light.textSecondary} />
+              </View> */}
+              <PromptModePill mode={promptMode} onChange={setPromptMode} />
+              <ScalePressable style={styles.characterButton}>
+                <Ionicons name="person-outline" size={15} color={light.textSecondary} />
+                <Text style={styles.characterButtonText}>Character</Text>
+              </ScalePressable>
             </View>
-            <View style={styles.submitButton}>
+            <ScalePressable style={styles.submitButton}>
               <Ionicons name="arrow-up" size={22} color="#ffffff" />
-            </View>
+            </ScalePressable>
           </View>
         </View>
       </KeyboardStickyView>
