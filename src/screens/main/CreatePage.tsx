@@ -1,9 +1,4 @@
-import {
-  ActivityIndicator,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
@@ -51,14 +46,13 @@ export function CreatePage({
             style={[
               styles.generatedImageWrap,
               {
-                aspectRatio:
-                  currentGeneration.width / currentGeneration.height,
+                aspectRatio: currentGeneration.width / currentGeneration.height,
               },
             ]}
           >
             <ExpoImage
               source={{ uri: currentImageUri }}
-              contentFit="cover"
+              contentFit="contain"
               transition={120}
               style={styles.generatedImage}
             />
@@ -77,16 +71,16 @@ export function CreatePage({
               disabled={isSavingImage}
             >
               {isSavingImage ? (
-                <ActivityIndicator color={colors.colorTextInverse} />
+                <ActivityIndicator
+                  color={colors.colorTextSecondary}
+                  size="small"
+                />
               ) : (
-                <>
-                  <Ionicons
-                    name="save-outline"
-                    size={18}
-                    color={colors.colorTextInverse}
-                  />
-                  <Text style={styles.imageActionText}>저장</Text>
-                </>
+                <Ionicons
+                  name="arrow-down-outline"
+                  size={22}
+                  color={colors.colorTextSecondary}
+                />
               )}
             </TouchableOpacity>
 
@@ -100,17 +94,29 @@ export function CreatePage({
               disabled={isCopyingImage}
             >
               {isCopyingImage ? (
-                <ActivityIndicator color={colors.colorTextInverse} />
+                <ActivityIndicator
+                  color={colors.colorTextSecondary}
+                  size="small"
+                />
               ) : (
-                <>
-                  <Ionicons
-                    name="clipboard-outline"
-                    size={18}
-                    color={colors.colorTextInverse}
-                  />
-                  <Text style={styles.imageActionText}>복사</Text>
-                </>
+                <Ionicons
+                  name="copy-outline"
+                  size={22}
+                  color={colors.colorTextSecondary}
+                />
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.imageActionButton, styles.disabledButton]}
+              activeOpacity={0.82}
+              disabled
+            >
+              <Ionicons
+                name="cube-outline"
+                size={22}
+                color={colors.colorTextSecondary}
+              />
             </TouchableOpacity>
           </View>
         ) : null}
@@ -121,26 +127,14 @@ export function CreatePage({
       <View style={[styles.actionArea, { paddingBottom: insets.bottom + 18 }]}>
         <View style={styles.toolButtonRow}>
           <TouchableOpacity
-            style={styles.settingsButton}
-            activeOpacity={0.78}
-            onPress={onOpenBottomSheet}
-          >
-            <Ionicons
-              name="settings-outline"
-              size={22}
-              color={colors.colorTextInfo}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.toolButton}
             activeOpacity={0.78}
             onPress={onOpenOptions}
           >
             <Ionicons
-              name="options-outline"
-              size={20}
-              color={colors.colorTextInfo}
+              name="create-outline"
+              size={17}
+              color={colors.colorTextSecondary}
             />
             <Text style={styles.toolButtonText}>프롬프트</Text>
           </TouchableOpacity>
@@ -148,14 +142,27 @@ export function CreatePage({
           <TouchableOpacity
             style={styles.toolButton}
             activeOpacity={0.78}
+            onPress={onOpenBottomSheet}
+          >
+            <Ionicons
+              name="options-outline"
+              size={17}
+              color={colors.colorTextSecondary}
+            />
+            <Text style={styles.toolButtonText}>이미지 설정</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toolButton, styles.disabledButton]}
+            activeOpacity={0.78}
             disabled
           >
             <Ionicons
-              name="image-outline"
-              size={20}
-              color={colors.colorTextInfo}
+              name="images-outline"
+              size={17}
+              color={colors.colorTextSecondary}
             />
-            <Text style={styles.toolButtonText}>이미지 참조</Text>
+            <Text style={styles.toolButtonText}>참조</Text>
           </TouchableOpacity>
         </View>
 
