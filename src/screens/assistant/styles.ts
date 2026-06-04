@@ -54,6 +54,12 @@ export const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 16,
   },
+  imageSlot: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
   imageCard: {
     width: "100%",
     aspectRatio: 16 / 9,
@@ -103,8 +109,16 @@ export const styles = StyleSheet.create({
   },
   promptInputWrap: {
     position: "relative",
+    minHeight: 44,
+    overflow: "hidden",
   },
+  // 측정 자유(고정 height 없음) → onContentSizeChange 가 콘텐츠 실제 높이 보고.
+  // absolute 라 wrapper(애니메이션 height)에 영향 안 줌.
   promptInput: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     minHeight: 44,
     maxHeight: 140,
     paddingRight: 36,

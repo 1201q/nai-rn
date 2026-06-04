@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
@@ -14,6 +14,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 
 import { KeyboardStickyView } from "react-native-keyboard-controller";
+import Reanimated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { useNavigation } from "@react-navigation/native";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
@@ -21,6 +27,10 @@ import type { AssistantScreenNavigationProp } from "../navigation/types";
 import { light, styles } from "./assistant/styles";
 import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../constants/generation";
 import { formatDecimal } from "./option/helpers";
+
+const PROMPT_MIN_HEIGHT = 44;
+const PROMPT_MAX_HEIGHT = 140;
+const IMAGE_MIN_SCALE = 0.78;
 
 const OPTIONS: {
   key: string;
@@ -295,6 +305,63 @@ export function AssistantScreen() {
   } = useGenerationOptions();
   const [promptMode, setPromptMode] = useState<"base" | "negative">("base");
 
+  // 입력창 높이(UI 스레드). 모드별 마지막 높이를 기억해 전환 즉시 반영.
+  const inputHeight = useSharedValue(PROMPT_MIN_HEIGHT);
+  const heights = useRef<Record<"base" | "negative", number>>({
+    base: PROMPT_MIN_HEIGHT,
+    negative: PROMPT_MIN_HEIGHT,
+  });
+
+  const handleContentSizeChange = (e: {
+    nativeEvent: { contentSize: { height: number } };
+  }) => {
+    const next = Math.min(
+      PROMPT_MAX_HEIGHT,
+      Math.max(PROMPT_MIN_HEIGHT, e.nativeEvent.contentSize.height)
+    );
+    heights.current[promptMode] = next;
+    inputHeight.value = withTiming(next, { duration: 150 });
+  };
+
+  // onContentSizeChange 는 콘텐츠 변화에만 발화 → 모드 전환만으론 안 옴.
+  // 기억해 둔 높이로 즉시 애니메이션해 전환 지연 버그 제거.
+  useEffect(() => {
+    inputHeight.value = withTiming(heights.current[promptMode], {
+      duration: 150,
+    });
+  }, [promptMode, inputHeight]);
+
+  const inputAnimStyle = useAnimatedStyle(() => ({
+    height: inputHeight.value,
+  }));
+
+  // 입력창이 커질수록 이미지를 비율 유지한 채 축소.
+  // scale(transform) 이라 재레이아웃 없음 → 깜박이지 않음.
+  // 세로 공간 회수는 바깥 slot 의 height 로만.
+  const baseHeight = useSharedValue(0);
+
+  const imageCardAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: interpolate(
+          inputHeight.value,
+          [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
+          [1, IMAGE_MIN_SCALE]
+        ),
+      },
+    ],
+  }));
+
+  const imageSlotAnimStyle = useAnimatedStyle(() => {
+    if (baseHeight.value === 0) return {};
+    const scale = interpolate(
+      inputHeight.value,
+      [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
+      [1, IMAGE_MIN_SCALE]
+    );
+    return { height: baseHeight.value * scale };
+  });
+
   const optionValues: Record<string, ChipValue> = {
     model: { text: MODELS.find((m) => m.value === model)?.label ?? model },
     resolution: { text: `${resolution.width}×${resolution.height}` },
@@ -353,17 +420,22 @@ export function AssistantScreen() {
         contentContainerStyle={styles.imageScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[
-            styles.imageCard,
-            currentGeneration
-              ? {
-                  aspectRatio:
-                    currentGeneration.width / currentGeneration.height,
-                }
-              : null,
-          ]}
-        >
+        <Reanimated.View style={[styles.imageSlot, imageSlotAnimStyle]}>
+          <Reanimated.View
+            onLayout={(e) => {
+              baseHeight.value = e.nativeEvent.layout.height;
+            }}
+            style={[
+              styles.imageCard,
+              imageCardAnimStyle,
+              currentGeneration
+                ? {
+                    aspectRatio:
+                      currentGeneration.width / currentGeneration.height,
+                  }
+                : null,
+            ]}
+          >
           {currentImageUri ? (
             <ExpoImage
               source={{ uri: currentImageUri }}
@@ -380,7 +452,8 @@ export function AssistantScreen() {
               <Ionicons name="copy-outline" size={20} color="#ffffff" />
             </View>
           </View>
-        </View>
+          </Reanimated.View>
+        </Reanimated.View>
       </ScrollView>
 
       {/* 하단: 옵션 + 프롬프트 */}
@@ -408,11 +481,12 @@ export function AssistantScreen() {
         </ScrollView>
 
         <View style={styles.promptCard}>
-          <View style={styles.promptInputWrap}>
+          <Reanimated.View style={[styles.promptInputWrap, inputAnimStyle]}>
             <TextInput
               style={styles.promptInput}
               value={promptMode === "base" ? prompt : negativePrompt}
               onChangeText={promptMode === "base" ? setPrompt : setNegativePrompt}
+              onContentSizeChange={handleContentSizeChange}
               placeholder="Ready to help, ask anything…"
               placeholderTextColor={light.textHint}
               multiline
@@ -424,7 +498,7 @@ export function AssistantScreen() {
                 color={light.textSecondary}
               />
             </View>
-          </View>
+          </Reanimated.View>
 
           <View style={styles.promptActionRow}>
             <View style={styles.promptActionLeft}>
