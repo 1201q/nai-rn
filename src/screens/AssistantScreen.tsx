@@ -38,8 +38,10 @@ import type { AssistantScreenNavigationProp } from "../navigation/types";
 import { light, SLIDER_THUMB, styles } from "./assistant/styles";
 import {
   MODELS,
+  NAI_RESOLUTIONS,
   NOISE_SCHEDULES,
   SAMPLERS,
+  type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
 import { formatDecimal } from "./option/helpers";
@@ -660,6 +662,128 @@ function SeedSheetContent({
   );
 }
 
+function ResolutionSheetContent({
+  resolution,
+  onChange,
+  onClose,
+}: {
+  resolution: NaiResolution;
+  onChange: (v: NaiResolution) => void;
+  onClose: () => void;
+}) {
+  const setDimension = (key: "width" | "height", text: string) => {
+    const digits = text.replace(/\D/g, "");
+    onChange({
+      label: "Custom",
+      width: key === "width" ? Number(digits || 0) : resolution.width,
+      height: key === "height" ? Number(digits || 0) : resolution.height,
+    });
+  };
+
+  // 입력 확정 시 64 배수로 스냅 (최소 64)
+  const snapDimension = (key: "width" | "height") => {
+    const v = resolution[key];
+    const snapped = v ? Math.max(64, Math.round(v / 64) * 64) : 0;
+    if (snapped !== v) {
+      onChange({ ...resolution, label: "Custom", [key]: snapped });
+    }
+  };
+
+  const swap = () => {
+    onChange({
+      label: "Custom",
+      width: resolution.height,
+      height: resolution.width,
+    });
+  };
+
+  const visibleGroups = NAI_RESOLUTIONS.filter((g) => g.group === "Normal");
+  const isCustom = !visibleGroups.some((g) =>
+    g.options.some(
+      (o) => o.width === resolution.width && o.height === resolution.height
+    )
+  );
+
+  return (
+    <>
+      <Text style={styles.sheetTitle}>Resolution</Text>
+
+      <View style={styles.resolutionInputRow}>
+        <View style={styles.resolutionInputBox}>
+          <Text style={styles.resolutionInputLabel}>W</Text>
+          <BottomSheetTextInput
+            style={styles.resolutionInput}
+            value={resolution.width ? String(resolution.width) : ""}
+            onChangeText={(t) => setDimension("width", t)}
+            onEndEditing={() => snapDimension("width")}
+            keyboardType="number-pad"
+            placeholder="0"
+            placeholderTextColor={light.textHint}
+          />
+        </View>
+        <BottomSheetTouchableOpacity
+          style={styles.resolutionSwapButton}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            swap();
+          }}
+        >
+          <Ionicons
+            name="swap-horizontal"
+            size={20}
+            color={light.textSecondary}
+          />
+        </BottomSheetTouchableOpacity>
+        <View style={styles.resolutionInputBox}>
+          <Text style={styles.resolutionInputLabel}>H</Text>
+          <BottomSheetTextInput
+            style={styles.resolutionInput}
+            value={resolution.height ? String(resolution.height) : ""}
+            onChangeText={(t) => setDimension("height", t)}
+            onEndEditing={() => snapDimension("height")}
+            keyboardType="number-pad"
+            placeholder="0"
+            placeholderTextColor={light.textHint}
+          />
+        </View>
+      </View>
+
+      {visibleGroups.map((group) => (
+        <View key={group.group}>
+          <Text style={styles.resolutionGroupLabel}>{group.group}</Text>
+          {group.options.map((opt) => (
+            <SheetItem
+              key={opt.label}
+              item={{ value: opt.label, label: opt.label }}
+              isActive={
+                opt.width === resolution.width &&
+                opt.height === resolution.height
+              }
+              onPress={() => {
+                onChange({
+                  label: opt.label,
+                  width: opt.width,
+                  height: opt.height,
+                });
+                onClose();
+              }}
+            />
+          ))}
+        </View>
+      ))}
+
+      <View>
+        <Text style={styles.resolutionGroupLabel}>Custom</Text>
+        <SheetItem
+          item={{ value: "custom", label: "Custom" }}
+          isActive={isCustom}
+          onPress={onClose}
+        />
+      </View>
+    </>
+  );
+}
+
 export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AssistantScreenNavigationProp>();
@@ -669,6 +793,7 @@ export function AssistantScreen() {
     model,
     setModel,
     resolution,
+    setResolution,
     steps,
     setSteps,
     promptGuidance,
@@ -699,6 +824,7 @@ export function AssistantScreen() {
   const cfgSheetRef = useRef<BottomSheet>(null);
   const cfgRescaleSheetRef = useRef<BottomSheet>(null);
   const seedSheetRef = useRef<BottomSheet>(null);
+  const resolutionSheetRef = useRef<BottomSheet>(null);
   const activeSheetRef = useRef<
     | "model"
     | "sampler"
@@ -707,6 +833,7 @@ export function AssistantScreen() {
     | "cfg"
     | "cfgRescale"
     | "seed"
+    | "resolution"
     | null
   >(null);
 
@@ -743,6 +870,10 @@ export function AssistantScreen() {
           seedSheetRef.current?.close();
           return true;
         }
+        if (active === "resolution") {
+          resolutionSheetRef.current?.close();
+          return true;
+        }
         return false;
       }
     );
@@ -758,7 +889,8 @@ export function AssistantScreen() {
         | "steps"
         | "cfg"
         | "cfgRescale"
-        | "seed",
+        | "seed"
+        | "resolution",
       index: number
     ) => {
       if (index >= 0) {
@@ -847,6 +979,7 @@ export function AssistantScreen() {
     cfg: cfgSheetRef,
     cfgRescale: cfgRescaleSheetRef,
     seed: seedSheetRef,
+    resolution: resolutionSheetRef,
   };
 
   const optionValues: Record<string, ChipValue> = {
@@ -1229,6 +1362,31 @@ export function AssistantScreen() {
             locked={seedLocked}
             onChangeSeed={setSeed}
             onToggleLock={() => setSeedLocked(!seedLocked)}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={resolutionSheetRef}
+        index={-1}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => handleSheetChange("resolution", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ResolutionSheetContent
+            resolution={resolution}
+            onChange={setResolution}
+            onClose={() => resolutionSheetRef.current?.close()}
           />
         </BottomSheetScrollView>
       </BottomSheet>
