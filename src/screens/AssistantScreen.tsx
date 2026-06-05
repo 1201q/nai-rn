@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Pressable,
@@ -9,6 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { File } from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -35,6 +40,7 @@ import Reanimated, {
 import { useNavigation } from "@react-navigation/native";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
 import type { AssistantScreenNavigationProp } from "../navigation/types";
+import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { light, SLIDER_THUMB, styles } from "./assistant/styles";
 import {
   MODELS,
@@ -814,8 +820,74 @@ export function AssistantScreen() {
     setPrompt,
     negativePrompt,
     setNegativePrompt,
+    isLoading,
+    generateImage,
   } = useGenerationOptions();
   const [promptMode, setPromptMode] = useState<"base" | "negative">("base");
+
+  const previewAnimation = useRef(new Animated.Value(0)).current;
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
+
+  function openImagePreview() {
+    if (!currentImageUri) return;
+    setIsImagePreviewOpen(true);
+    previewAnimation.setValue(0);
+    Animated.timing(previewAnimation, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closeImagePreview() {
+    Animated.timing(previewAnimation, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setIsImagePreviewOpen(false);
+    });
+  }
+
+  async function handleSaveImage() {
+    if (!currentImageUri || isSavingImage) return;
+
+    try {
+      setIsSavingImage(true);
+      const permission = await MediaLibrary.requestPermissionsAsync(true, [
+        "photo",
+      ]);
+
+      if (!permission.granted) {
+        Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+        return;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(currentImageUri);
+      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+    } catch {
+      Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+    } finally {
+      setIsSavingImage(false);
+    }
+  }
+
+  async function handleCopyImage() {
+    if (!currentImageUri || isCopyingImage) return;
+
+    try {
+      setIsCopyingImage(true);
+      const base64Image = await new File(currentImageUri).base64();
+      await Clipboard.setImageAsync(base64Image);
+      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
+    } catch {
+      Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
+    } finally {
+      setIsCopyingImage(false);
+    }
+  }
 
   const modelSheetRef = useRef<BottomSheet>(null);
   const samplerSheetRef = useRef<BottomSheet>(null);
@@ -841,6 +913,10 @@ export function AssistantScreen() {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (isImagePreviewOpen) {
+          closeImagePreview();
+          return true;
+        }
         const active = activeSheetRef.current;
         if (active === "model") {
           modelSheetRef.current?.close();
@@ -878,7 +954,7 @@ export function AssistantScreen() {
       }
     );
     return () => subscription.remove();
-  }, []);
+  }, [isImagePreviewOpen]);
 
   const handleSheetChange = useCallback(
     (
@@ -1028,12 +1104,29 @@ export function AssistantScreen() {
 
         <Text style={styles.headerTitle}>test1</Text>
 
-        <View style={styles.headerCircleButton}>
-          <Ionicons
-            name="ellipsis-horizontal"
-            size={20}
-            color={light.textPrimary}
-          />
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerCircleButton}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="History"
+            onPress={() => navigation.navigate("AssistantHistory")}
+          >
+            <Ionicons name="time-outline" size={20} color={light.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerCircleButton}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            onPress={() => navigation.navigate("AssistantSettings")}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={20}
+              color={light.textPrimary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1060,21 +1153,50 @@ export function AssistantScreen() {
             ]}
           >
           {currentImageUri ? (
-            <ExpoImage
-              source={{ uri: currentImageUri }}
-              contentFit="cover"
-              transition={120}
+            <Pressable
               style={styles.generatedImage}
-            />
+              onPress={openImagePreview}
+            >
+              <ExpoImage
+                source={{ uri: currentImageUri }}
+                contentFit="cover"
+                transition={120}
+                style={styles.generatedImage}
+              />
+            </Pressable>
           ) : null}
-          <View style={styles.imageOverlayRow}>
-            <View style={styles.imageOverlayButton}>
-              <Ionicons name="arrow-down-outline" size={20} color="#ffffff" />
+          {currentImageUri ? (
+            <View style={styles.imageOverlayRow}>
+              <TouchableOpacity
+                style={styles.imageOverlayButton}
+                activeOpacity={0.82}
+                onPress={handleSaveImage}
+                disabled={isSavingImage}
+              >
+                {isSavingImage ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons
+                    name="arrow-down-outline"
+                    size={20}
+                    color="#ffffff"
+                  />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.imageOverlayButton}
+                activeOpacity={0.82}
+                onPress={handleCopyImage}
+                disabled={isCopyingImage}
+              >
+                {isCopyingImage ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons name="copy-outline" size={20} color="#ffffff" />
+                )}
+              </TouchableOpacity>
             </View>
-            <View style={styles.imageOverlayButton}>
-              <Ionicons name="copy-outline" size={20} color="#ffffff" />
-            </View>
-          </View>
+          ) : null}
           </Reanimated.View>
         </Reanimated.View>
       </ScrollView>
@@ -1134,7 +1256,10 @@ export function AssistantScreen() {
                 <Ionicons name="add" size={24} color={light.textSecondary} />
               </View> */}
               <PromptModePill mode={promptMode} onChange={setPromptMode} />
-              <ScalePressable style={styles.characterButton}>
+              <ScalePressable
+                style={styles.characterButton}
+                onPress={() => navigation.navigate("AssistantCharacter")}
+              >
                 <Ionicons
                   name="person-outline"
                   size={15}
@@ -1143,8 +1268,15 @@ export function AssistantScreen() {
                 <Text style={styles.characterButtonText}>Character</Text>
               </ScalePressable>
             </View>
-            <ScalePressable style={styles.submitButton}>
-              <Ionicons name="arrow-up" size={22} color="#ffffff" />
+            <ScalePressable
+              style={styles.submitButton}
+              onPress={isLoading ? undefined : () => generateImage()}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Ionicons name="arrow-up" size={22} color="#ffffff" />
+              )}
             </ScalePressable>
           </View>
         </View>
@@ -1390,6 +1522,14 @@ export function AssistantScreen() {
           />
         </BottomSheetScrollView>
       </BottomSheet>
+
+      <ImagePreviewModal
+        visible={isImagePreviewOpen}
+        images={currentImageUri ? [currentImageUri] : []}
+        initialIndex={0}
+        animation={previewAnimation}
+        onClose={closeImagePreview}
+      />
     </View>
   );
 }

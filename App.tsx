@@ -17,6 +17,10 @@ import { CharacterEditScreen } from "./src/screens/CharacterEditScreen";
 import { ImageSettingScreen } from "./src/screens/ImageSettingScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AssistantScreen } from "./src/screens/AssistantScreen";
+import { AssistantCharacterScreen } from "./src/screens/AssistantCharacterScreen";
+import { AssistantCharacterEditScreen } from "./src/screens/AssistantCharacterEditScreen";
+import { AssistantHistoryScreen } from "./src/screens/AssistantHistoryScreen";
+import { AssistantSettingsScreen } from "./src/screens/AssistantSettingsScreen";
 import type { RootStackParamList } from "./src/navigation/types";
 import { colors } from "./src/styles/colors";
 
@@ -57,6 +61,22 @@ export default function App() {
               <Stack.Screen name="ImageSetting" component={ImageSettingScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="Assistant" component={AssistantScreen} />
+              <Stack.Screen
+                name="AssistantCharacter"
+                component={AssistantCharacterScreen}
+              />
+              <Stack.Screen
+                name="AssistantCharacterEdit"
+                component={AssistantCharacterEditScreen}
+              />
+              <Stack.Screen
+                name="AssistantHistory"
+                component={AssistantHistoryScreen}
+              />
+              <Stack.Screen
+                name="AssistantSettings"
+                component={AssistantSettingsScreen}
+              />
             </Stack.Navigator>
           </NavigationContainer>
         </GenerationOptionsProvider>

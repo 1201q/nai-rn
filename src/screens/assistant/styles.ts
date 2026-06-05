@@ -43,6 +43,11 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: light.textPrimary,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
 
   // 중단: 이미지 영역
   imageScroll: {
