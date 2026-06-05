@@ -400,4 +400,45 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     color: light.textHint,
   },
+
+  // Seed 바텀시트
+  seedSheetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  seedSheetInput: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: "600",
+    color: light.textPrimary,
+    backgroundColor: light.surface,
+    padding: 0,
+    includeFontPadding: false,
+  },
+  seedSheetInputLocked: {
+    color: light.textHint,
+  },
+  seedSheetButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  seedSheetButtonActive: {
+    backgroundColor: "#fff3e0",
+  },
+  seedSheetHint: {
+    paddingHorizontal: 4,
+    fontSize: 13,
+    fontWeight: "500",
+    color: light.textHint,
+  },
 });

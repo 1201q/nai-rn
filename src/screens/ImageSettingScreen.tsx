@@ -56,8 +56,10 @@ export function ImageSettingScreen() {
     setPromptGuidance,
     promptGuidanceRescale,
     setPromptGuidanceRescale,
-    seedText,
-    setSeedText,
+    seed,
+    setSeed,
+    seedLocked,
+    setSeedLocked,
     varietyPlus,
     setVarietyPlus,
   } = useGenerationOptions();
@@ -265,13 +267,40 @@ export function ImageSettingScreen() {
           </Text>
           <View style={optionStyles.seedRow}>
             <TextInput
-              value={seedText}
-              onChangeText={(text) => setSeedText(text.replace(/\D/g, ""))}
+              value={String(seed)}
+              onChangeText={(text) => {
+                const digits = text.replace(/\D/g, "");
+                setSeed(digits ? Number(digits) : 0);
+              }}
+              editable={!seedLocked}
               keyboardType="number-pad"
-              placeholder="Random"
+              placeholder="0"
               placeholderTextColor={colors.colorTextTertiary}
-              style={optionStyles.seedInput}
+              style={[optionStyles.seedInput, seedLocked && optionStyles.seedInputLocked]}
             />
+            <TouchableOpacity
+              onPress={() => setSeedLocked(!seedLocked)}
+              style={[optionStyles.seedButton, seedLocked && optionStyles.seedButtonActive]}
+            >
+              <Ionicons
+                name={seedLocked ? "lock-closed" : "lock-open-outline"}
+                size={16}
+                color={seedLocked ? colors.colorTextInfo : colors.colorTextPrimary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                if (!seedLocked) setSeed(Math.floor(Math.random() * 4_294_967_295));
+              }}
+              disabled={seedLocked}
+              style={optionStyles.seedButton}
+            >
+              <Ionicons
+                name="dice-outline"
+                size={16}
+                color={seedLocked ? colors.colorTextTertiary : colors.colorTextPrimary}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 

@@ -42,11 +42,16 @@ type PersistedGenerationOptions = Partial<{
   promptGuidanceRescale: number;
   noiseSchedule: NoiseSchedule;
   sampler: string;
-  seedText: string;
+  seed: number;
+  seedLocked: boolean;
   outputCount: number;
   varietyPlus: boolean;
   optionTabIndex: number;
 }>;
+
+function generateRandomSeed(): number {
+  return Math.floor(Math.random() * 4_294_967_295);
+}
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -164,8 +169,10 @@ type GenerationOptionsContextValue = {
   setNoiseSchedule: (v: NoiseSchedule) => void;
   sampler: string;
   setSampler: (v: string) => void;
-  seedText: string;
-  setSeedText: (v: string) => void;
+  seed: number;
+  setSeed: (v: number) => void;
+  seedLocked: boolean;
+  setSeedLocked: (v: boolean) => void;
   outputCount: number;
   setOutputCount: (v: number) => void;
   varietyPlus: boolean;
@@ -214,7 +221,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
   const [promptGuidanceRescale, setPromptGuidanceRescale] = useState(0);
   const [noiseSchedule, setNoiseSchedule] = useState<NoiseSchedule>("karras");
   const [sampler, setSampler] = useState("k_euler_ancestral");
-  const [seedText, setSeedText] = useState("");
+  const [seed, setSeed] = useState(generateRandomSeed);
+  const [seedLocked, setSeedLocked] = useState(false);
   const [outputCount, setOutputCount] = useState(1);
   const [varietyPlus, setVarietyPlus] = useState(false);
   const [optionTabIndex, setOptionTabIndex] = useState(0);
@@ -258,7 +266,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
           setNoiseSchedule(parsed.noiseSchedule);
         }
         if (isString(parsed.sampler)) setSampler(parsed.sampler);
-        if (isString(parsed.seedText)) setSeedText(parsed.seedText);
+        if (isNumber(parsed.seed)) setSeed(parsed.seed);
+        if (isBoolean(parsed.seedLocked)) setSeedLocked(parsed.seedLocked);
         if (isNumber(parsed.outputCount)) setOutputCount(parsed.outputCount);
         if (isBoolean(parsed.varietyPlus)) setVarietyPlus(parsed.varietyPlus);
         if (
@@ -288,7 +297,9 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       promptGuidanceRescale,
       noiseSchedule,
       sampler,
-      seedText,
+      // 시드는 잠금일 때만 저장 (NAIS2 동일)
+      ...(seedLocked ? { seed } : {}),
+      seedLocked,
       outputCount,
       varietyPlus,
       optionTabIndex,
@@ -312,7 +323,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     promptGuidanceRescale,
     noiseSchedule,
     sampler,
-    seedText,
+    seed,
+    seedLocked,
     outputCount,
     varietyPlus,
     optionTabIndex,
@@ -354,7 +366,14 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
       return;
     }
 
-    const fixedSeed = Number.parseInt(seedText.trim(), 10);
+    // 이번 생성에 쓸 시드 확정 후, 잠금이 아니면 즉시 다음 시드로 advance (UI에 다음 시드 표시)
+    let currentSeed = seed;
+    if (currentSeed === 0) {
+      currentSeed = generateRandomSeed();
+    }
+    if (!seedLocked) {
+      setSeed(generateRandomSeed());
+    }
 
     setIsLoading(true);
     setMessage(null);
@@ -375,7 +394,7 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         promptGuidanceRescale,
         noiseSchedule,
         sampler,
-        seed: Number.isFinite(fixedSeed) ? fixedSeed : undefined,
+        seed: currentSeed,
         nSamples: outputCount,
         varietyPlus,
       });
@@ -429,8 +448,10 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         setNoiseSchedule,
         sampler,
         setSampler,
-        seedText,
-        setSeedText,
+        seed,
+        setSeed,
+        seedLocked,
+        setSeedLocked,
         outputCount,
         setOutputCount,
         varietyPlus,

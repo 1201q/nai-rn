@@ -595,6 +595,71 @@ function NumericSheetContent({
   );
 }
 
+function SeedSheetContent({
+  seed,
+  locked,
+  onChangeSeed,
+  onToggleLock,
+}: {
+  seed: number;
+  locked: boolean;
+  onChangeSeed: (v: number) => void;
+  onToggleLock: () => void;
+}) {
+  return (
+    <>
+      <Text style={styles.sheetTitle}>Seed</Text>
+      <View style={styles.seedSheetRow}>
+        <BottomSheetTextInput
+          style={[styles.seedSheetInput, locked && styles.seedSheetInputLocked]}
+          value={seed === 0 ? "" : String(seed)}
+          onChangeText={(t) => {
+            const digits = t.replace(/\D/g, "");
+            onChangeSeed(digits ? Number(digits) : 0);
+          }}
+          editable={!locked}
+          keyboardType="number-pad"
+          placeholder="Random"
+          placeholderTextColor={light.textHint}
+        />
+        <BottomSheetTouchableOpacity
+          style={[
+            styles.seedSheetButton,
+            locked && styles.seedSheetButtonActive,
+          ]}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            onToggleLock();
+          }}
+        >
+          <Ionicons
+            name={locked ? "lock-closed" : "lock-open-outline"}
+            size={20}
+            color={locked ? light.accent : light.textSecondary}
+          />
+        </BottomSheetTouchableOpacity>
+        <BottomSheetTouchableOpacity
+          style={styles.seedSheetButton}
+          disabled={locked}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            onChangeSeed(Math.floor(Math.random() * 4_294_967_295));
+          }}
+        >
+          <Ionicons
+            name="dice-outline"
+            size={20}
+            color={locked ? light.textHint : light.textSecondary}
+          />
+        </BottomSheetTouchableOpacity>
+      </View>
+      <Text style={styles.seedSheetHint}>
+        비우면 매 생성마다 랜덤. 잠그면 시드 고정.
+      </Text>
+    </>
+  );
+}
+
 export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AssistantScreenNavigationProp>();
@@ -614,7 +679,10 @@ export function AssistantScreen() {
     setNoiseSchedule,
     sampler,
     setSampler,
-    seedText,
+    seed,
+    setSeed,
+    seedLocked,
+    setSeedLocked,
     varietyPlus,
     setVarietyPlus,
     prompt,
@@ -630,8 +698,16 @@ export function AssistantScreen() {
   const stepsSheetRef = useRef<BottomSheet>(null);
   const cfgSheetRef = useRef<BottomSheet>(null);
   const cfgRescaleSheetRef = useRef<BottomSheet>(null);
+  const seedSheetRef = useRef<BottomSheet>(null);
   const activeSheetRef = useRef<
-    "model" | "sampler" | "schedule" | "steps" | "cfg" | "cfgRescale" | null
+    | "model"
+    | "sampler"
+    | "schedule"
+    | "steps"
+    | "cfg"
+    | "cfgRescale"
+    | "seed"
+    | null
   >(null);
 
   useEffect(() => {
@@ -663,6 +739,10 @@ export function AssistantScreen() {
           cfgRescaleSheetRef.current?.close();
           return true;
         }
+        if (active === "seed") {
+          seedSheetRef.current?.close();
+          return true;
+        }
         return false;
       }
     );
@@ -677,7 +757,8 @@ export function AssistantScreen() {
         | "schedule"
         | "steps"
         | "cfg"
-        | "cfgRescale",
+        | "cfgRescale"
+        | "seed",
       index: number
     ) => {
       if (index >= 0) {
@@ -765,12 +846,16 @@ export function AssistantScreen() {
     steps: stepsSheetRef,
     cfg: cfgSheetRef,
     cfgRescale: cfgRescaleSheetRef,
+    seed: seedSheetRef,
   };
 
   const optionValues: Record<string, ChipValue> = {
     model: { text: MODELS.find((m) => m.value === model)?.label ?? model },
     resolution: { text: `${resolution.width}×${resolution.height}` },
-    seed: { text: seedText || "Random" },
+    seed: {
+      text:
+        seed === 0 ? "Random" : seedLocked ? `${seed} 🔒` : String(seed),
+    },
     steps: { text: String(steps), unit: "steps", unitBefore: true },
     cfg: {
       text: formatDecimal(promptGuidance),
@@ -1117,6 +1202,33 @@ export function AssistantScreen() {
             value={promptGuidanceRescale}
             onChange={setPromptGuidanceRescale}
             cfg={CFG_RESCALE_CONFIG}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={seedSheetRef}
+        index={-1}
+        snapPoints={[260]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => handleSheetChange("seed", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <SeedSheetContent
+            seed={seed}
+            locked={seedLocked}
+            onChangeSeed={setSeed}
+            onToggleLock={() => setSeedLocked(!seedLocked)}
           />
         </BottomSheetScrollView>
       </BottomSheet>

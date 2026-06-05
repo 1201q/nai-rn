@@ -387,9 +387,9 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
   },
   seedRow: {
-    width: 136,
+    flex: 1,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     marginLeft: 16,
   },
   seedInput: {
@@ -402,6 +402,20 @@ export const styles = StyleSheet.create({
     color: colors.colorTextPrimary,
     includeFontPadding: false,
     textAlignVertical: "center",
+  },
+  seedInputLocked: {
+    color: colors.colorTextTertiary,
+  },
+  seedButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.colorBackgroundTertiary,
+  },
+  seedButtonActive: {
+    backgroundColor: colors.colorBackgroundInfo,
   },
   sheetContainer: {
     marginHorizontal: 14,
