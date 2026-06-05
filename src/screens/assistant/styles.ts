@@ -1,5 +1,7 @@
 import { StyleSheet } from "react-native";
 
+export const SLIDER_THUMB = 26;
+
 // 이 화면 전용 라이트 팔레트 (공유 colors.ts 다크 토큰과 분리)
 export const light = {
   bg: "#ffffff",
@@ -243,5 +245,159 @@ export const styles = StyleSheet.create({
   },
   optionChipTextActive: {
     color: "#ffffff",
+  },
+
+  // 모델 선택 바텀시트 (라이트)
+  sheetContainer: {
+    zIndex: 20,
+    elevation: 20,
+  },
+  sheetBackground: {
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    backgroundColor: light.bg,
+  },
+  sheetHandle: {
+    width: 56,
+    height: 5,
+    backgroundColor: light.border,
+  },
+  sheetScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 2,
+  },
+  sheetTitle: {
+    paddingHorizontal: 4,
+    paddingTop: 8,
+    paddingBottom: 12,
+    color: light.textPrimary,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  sheetModelItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 50,
+    paddingHorizontal: 12,
+    marginHorizontal: -8,
+    borderRadius: 14,
+  },
+  sheetModelItemLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  sheetModelItemLabel: {
+    color: light.textSecondary,
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  sheetModelItemLabelActive: {
+    color: light.accent,
+  },
+  sheetModelItemBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: light.surface,
+  },
+  sheetModelItemBadgeText: {
+    color: light.textHint,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  sheetDivider: {
+    height: 1,
+    backgroundColor: light.border,
+    marginVertical: 12,
+  },
+
+  // Steps 바텀시트
+  stepsValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+    marginBottom: 28,
+  },
+  stepsButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  stepsButtonDisabled: {
+    opacity: 0.4,
+  },
+  stepsValueCenter: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 6,
+  },
+  stepsValueInput: {
+    minWidth: 56,
+    height: 52,
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontSize: 44,
+    lineHeight: 52,
+    fontWeight: "bold",
+    color: light.textPrimary,
+    padding: 0,
+    includeFontPadding: false,
+  },
+  stepsValueUnit: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: light.textHint,
+  },
+  stepsSliderTrack: {
+    height: SLIDER_THUMB,
+    justifyContent: "center",
+    marginHorizontal: 4,
+  },
+  stepsSliderBase: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: light.surfaceAlt,
+  },
+  stepsSliderFill: {
+    position: "absolute",
+    left: 0,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: light.accent,
+  },
+  stepsSliderThumb: {
+    width: SLIDER_THUMB,
+    height: SLIDER_THUMB,
+    borderRadius: SLIDER_THUMB / 2,
+    backgroundColor: light.bg,
+    borderWidth: 2,
+    borderColor: light.accent,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stepsRangeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  stepsRangeLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: light.textHint,
   },
 });

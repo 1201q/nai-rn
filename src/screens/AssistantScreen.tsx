@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  BackHandler,
   Pressable,
   ScrollView,
   Text,
@@ -8,14 +9,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+  type BottomSheetBackdropProps,
+  TouchableOpacity as BottomSheetTouchableOpacity,
+} from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
+import * as Haptics from "expo-haptics";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 import Reanimated, {
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -24,13 +35,43 @@ import Reanimated, {
 import { useNavigation } from "@react-navigation/native";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
 import type { AssistantScreenNavigationProp } from "../navigation/types";
-import { light, styles } from "./assistant/styles";
-import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../constants/generation";
+import { light, SLIDER_THUMB, styles } from "./assistant/styles";
+import {
+  MODELS,
+  NOISE_SCHEDULES,
+  SAMPLERS,
+  type NoiseSchedule,
+} from "../constants/generation";
 import { formatDecimal } from "./option/helpers";
 
 const PROMPT_MIN_HEIGHT = 44;
 const PROMPT_MAX_HEIGHT = 140;
 const IMAGE_MIN_SCALE = 0.78;
+
+const STEPS_CONFIG = {
+  title: "Steps",
+  unit: "steps",
+  min: 1,
+  max: 50,
+  step: 1,
+  precision: 0,
+} as const;
+const CFG_CONFIG = {
+  title: "CFG Scale",
+  unit: "guidance",
+  min: 0,
+  max: 10,
+  step: 0.1,
+  precision: 1,
+} as const;
+const CFG_RESCALE_CONFIG = {
+  title: "CFG Rescale",
+  unit: "rescale",
+  min: 0,
+  max: 1,
+  step: 0.02,
+  precision: 2,
+} as const;
 
 const OPTIONS: {
   key: string;
@@ -145,9 +186,11 @@ type ChipValue = { text: string; unit?: string; unitBefore?: boolean };
 function OptionChip({
   opt,
   value,
+  onPress,
 }: {
   opt: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap };
   value: ChipValue;
+  onPress?: () => void;
 }) {
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -179,7 +222,7 @@ function OptionChip({
   });
 
   return (
-    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
       <Animated.View
         style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
       >
@@ -282,6 +325,276 @@ function PromptModePill({
   );
 }
 
+function SheetItem({
+  item,
+  isActive,
+  onPress,
+  recommendedValue,
+}: {
+  item: { value: string; label: string };
+  isActive: boolean;
+  onPress: () => void;
+  recommendedValue?: string;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () =>
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: false,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(244,244,243,0)", light.surface],
+  });
+
+  return (
+    <BottomSheetTouchableOpacity
+      activeOpacity={1}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={onPress}
+    >
+      <Animated.View
+        style={[
+          styles.sheetModelItem,
+          { transform: [{ scale }], backgroundColor },
+        ]}
+      >
+        <View style={styles.sheetModelItemLabelRow}>
+          <Text
+            style={[
+              styles.sheetModelItemLabel,
+              isActive && styles.sheetModelItemLabelActive,
+            ]}
+          >
+            {item.label}
+          </Text>
+          {item.value === recommendedValue && (
+            <View style={styles.sheetModelItemBadge}>
+              <Text style={styles.sheetModelItemBadgeText}>권장</Text>
+            </View>
+          )}
+        </View>
+        {isActive && (
+          <Ionicons name="checkmark" size={20} color={light.accent} />
+        )}
+      </Animated.View>
+    </BottomSheetTouchableOpacity>
+  );
+}
+
+type NumericConfig = {
+  title: string;
+  unit: string;
+  min: number;
+  max: number;
+  step: number;
+  precision: number;
+};
+
+function snapValue(v: number, cfg: NumericConfig) {
+  "worklet";
+  const idx = Math.round((v - cfg.min) / cfg.step);
+  const stepped = cfg.min + idx * cfg.step;
+  return Number(
+    Math.min(cfg.max, Math.max(cfg.min, stepped)).toFixed(cfg.precision)
+  );
+}
+
+function formatNumeric(v: number, precision: number) {
+  if (precision <= 0) return String(v);
+  return v.toFixed(precision);
+}
+
+function NumericSlider({
+  value,
+  onChange,
+  cfg,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  cfg: NumericConfig;
+}) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const range = cfg.max - cfg.min;
+
+  const progress = useSharedValue((value - cfg.min) / range);
+  const dragStart = useSharedValue(0);
+  const lastValue = useSharedValue(value);
+
+  useEffect(() => {
+    progress.value = withTiming((value - cfg.min) / range, { duration: 120 });
+    lastValue.value = value;
+  }, [value, range, cfg.min, progress, lastValue]);
+
+  const commit = useCallback(
+    (v: number) => {
+      onChange(v);
+      Haptics.selectionAsync().catch(() => {});
+    },
+    [onChange]
+  );
+
+  const panGesture = Gesture.Pan()
+    .minDistance(0)
+    .onBegin(() => {
+      dragStart.value = progress.value;
+    })
+    .onUpdate((event) => {
+      if (trackWidth <= SLIDER_THUMB) return;
+      const usableWidth = trackWidth - SLIDER_THUMB;
+      const nextProgress = Math.min(
+        1,
+        Math.max(0, dragStart.value + event.translationX / usableWidth)
+      );
+      const nextValue = snapValue(cfg.min + nextProgress * range, cfg);
+      progress.value = (nextValue - cfg.min) / range;
+      if (nextValue !== lastValue.value) {
+        lastValue.value = nextValue;
+        runOnJS(commit)(nextValue);
+      }
+    });
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width:
+      progress.value * Math.max(0, trackWidth - SLIDER_THUMB) +
+      SLIDER_THUMB / 2,
+  }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: progress.value * Math.max(0, trackWidth - SLIDER_THUMB) },
+    ],
+  }));
+
+  return (
+    <View
+      style={styles.stepsSliderTrack}
+      onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+    >
+      <View style={styles.stepsSliderBase} />
+      <Reanimated.View style={[styles.stepsSliderFill, fillStyle]} />
+      {trackWidth > 0 ? (
+        <GestureDetector gesture={panGesture}>
+          <Reanimated.View style={[styles.stepsSliderThumb, thumbStyle]} />
+        </GestureDetector>
+      ) : null}
+    </View>
+  );
+}
+
+function NumericSheetContent({
+  value,
+  onChange,
+  cfg,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  cfg: NumericConfig;
+}) {
+  const [inputText, setInputText] = useState(
+    formatNumeric(value, cfg.precision)
+  );
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    setInputText(formatNumeric(value, cfg.precision));
+  }, [value, cfg.precision]);
+
+  const step = (delta: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    onChange(snapValue(value + delta, cfg));
+  };
+
+  const commitInput = () => {
+    setEditing(false);
+    const parsed = Number(inputText);
+    if (!Number.isFinite(parsed)) {
+      setInputText(formatNumeric(value, cfg.precision));
+      return;
+    }
+    const next = snapValue(parsed, cfg);
+    onChange(next);
+    setInputText(formatNumeric(next, cfg.precision));
+  };
+
+  const filter = cfg.precision > 0 ? /[^0-9.]/g : /[^0-9]/g;
+
+  return (
+    <>
+      <Text style={styles.sheetTitle}>{cfg.title}</Text>
+
+      <View style={styles.stepsValueRow}>
+        <ScalePressable
+          style={[
+            styles.stepsButton,
+            value <= cfg.min && styles.stepsButtonDisabled,
+          ]}
+          onPress={() => step(-cfg.step)}
+        >
+          <Ionicons name="remove" size={24} color={light.textPrimary} />
+        </ScalePressable>
+
+        <View style={styles.stepsValueCenter}>
+          {editing ? (
+            <BottomSheetTextInput
+              style={styles.stepsValueInput}
+              value={inputText}
+              onChangeText={(t) => setInputText(t.replace(filter, ""))}
+              onBlur={commitInput}
+              onSubmitEditing={commitInput}
+              keyboardType={cfg.precision > 0 ? "decimal-pad" : "number-pad"}
+              maxLength={6}
+              autoFocus
+            />
+          ) : (
+            <Text
+              style={styles.stepsValueInput}
+              suppressHighlighting
+              onPress={() => setEditing(true)}
+            >
+              {formatNumeric(value, cfg.precision)}
+            </Text>
+          )}
+          <Text style={styles.stepsValueUnit}>{cfg.unit}</Text>
+        </View>
+
+        <ScalePressable
+          style={[
+            styles.stepsButton,
+            value >= cfg.max && styles.stepsButtonDisabled,
+          ]}
+          onPress={() => step(cfg.step)}
+        >
+          <Ionicons name="add" size={24} color={light.textPrimary} />
+        </ScalePressable>
+      </View>
+
+      <NumericSlider value={value} onChange={onChange} cfg={cfg} />
+      <View style={styles.stepsRangeRow}>
+        <Text style={styles.stepsRangeLabel}>
+          {formatNumeric(cfg.min, cfg.precision)}
+        </Text>
+        <Text style={styles.stepsRangeLabel}>
+          {formatNumeric(cfg.max, cfg.precision)}
+        </Text>
+      </View>
+    </>
+  );
+}
+
 export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<AssistantScreenNavigationProp>();
@@ -289,12 +602,18 @@ export function AssistantScreen() {
     currentGeneration,
     currentImageUri,
     model,
+    setModel,
     resolution,
     steps,
+    setSteps,
     promptGuidance,
+    setPromptGuidance,
     promptGuidanceRescale,
+    setPromptGuidanceRescale,
     noiseSchedule,
+    setNoiseSchedule,
     sampler,
+    setSampler,
     seedText,
     varietyPlus,
     setVarietyPlus,
@@ -304,6 +623,83 @@ export function AssistantScreen() {
     setNegativePrompt,
   } = useGenerationOptions();
   const [promptMode, setPromptMode] = useState<"base" | "negative">("base");
+
+  const modelSheetRef = useRef<BottomSheet>(null);
+  const samplerSheetRef = useRef<BottomSheet>(null);
+  const scheduleSheetRef = useRef<BottomSheet>(null);
+  const stepsSheetRef = useRef<BottomSheet>(null);
+  const cfgSheetRef = useRef<BottomSheet>(null);
+  const cfgRescaleSheetRef = useRef<BottomSheet>(null);
+  const activeSheetRef = useRef<
+    "model" | "sampler" | "schedule" | "steps" | "cfg" | "cfgRescale" | null
+  >(null);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        const active = activeSheetRef.current;
+        if (active === "model") {
+          modelSheetRef.current?.close();
+          return true;
+        }
+        if (active === "sampler") {
+          samplerSheetRef.current?.close();
+          return true;
+        }
+        if (active === "schedule") {
+          scheduleSheetRef.current?.close();
+          return true;
+        }
+        if (active === "steps") {
+          stepsSheetRef.current?.close();
+          return true;
+        }
+        if (active === "cfg") {
+          cfgSheetRef.current?.close();
+          return true;
+        }
+        if (active === "cfgRescale") {
+          cfgRescaleSheetRef.current?.close();
+          return true;
+        }
+        return false;
+      }
+    );
+    return () => subscription.remove();
+  }, []);
+
+  const handleSheetChange = useCallback(
+    (
+      sheet:
+        | "model"
+        | "sampler"
+        | "schedule"
+        | "steps"
+        | "cfg"
+        | "cfgRescale",
+      index: number
+    ) => {
+      if (index >= 0) {
+        activeSheetRef.current = sheet;
+      } else if (activeSheetRef.current === sheet) {
+        activeSheetRef.current = null;
+      }
+    },
+    []
+  );
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        pressBehavior="close"
+      />
+    ),
+    []
+  );
 
   // 입력창 높이(UI 스레드). 모드별 마지막 높이를 기억해 전환 즉시 반영.
   const inputHeight = useSharedValue(PROMPT_MIN_HEIGHT);
@@ -361,6 +757,15 @@ export function AssistantScreen() {
     );
     return { height: baseHeight.value * scale };
   });
+
+  const sheetRefs: Record<string, React.RefObject<BottomSheet | null>> = {
+    model: modelSheetRef,
+    sampler: samplerSheetRef,
+    schedule: scheduleSheetRef,
+    steps: stepsSheetRef,
+    cfg: cfgSheetRef,
+    cfgRescale: cfgRescaleSheetRef,
+  };
 
   const optionValues: Record<string, ChipValue> = {
     model: { text: MODELS.find((m) => m.value === model)?.label ?? model },
@@ -471,6 +876,11 @@ export function AssistantScreen() {
               key={opt.key}
               opt={opt}
               value={optionValues[opt.key] ?? { text: opt.label }}
+              onPress={
+                sheetRefs[opt.key]
+                  ? () => sheetRefs[opt.key].current?.snapToIndex(0)
+                  : undefined
+              }
             />
           ))}
 
@@ -521,6 +931,195 @@ export function AssistantScreen() {
           </View>
         </View>
       </KeyboardStickyView>
+
+      <BottomSheet
+        ref={modelSheetRef}
+        index={-1}
+        snapPoints={[430]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        onChange={(index) => handleSheetChange("model", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sheetTitle}>Model</Text>
+          {MODELS.flatMap((item, index) => {
+            const el = (
+              <SheetItem
+                key={item.value}
+                item={item}
+                isActive={model === item.value}
+                recommendedValue="nai-diffusion-4-5-full"
+                onPress={() => {
+                  setModel(item.value);
+                  modelSheetRef.current?.close();
+                }}
+              />
+            );
+            return index === 1
+              ? [el, <View key="model-divider" style={styles.sheetDivider} />]
+              : [el];
+          })}
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={samplerSheetRef}
+        index={-1}
+        snapPoints={[540]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        onChange={(index) => handleSheetChange("sampler", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sheetTitle}>Sampler</Text>
+          {SAMPLERS.flatMap((item, index) => {
+            const el = (
+              <SheetItem
+                key={item.value}
+                item={item}
+                isActive={sampler === item.value}
+                recommendedValue="k_euler_ancestral"
+                onPress={() => {
+                  setSampler(item.value);
+                  samplerSheetRef.current?.close();
+                }}
+              />
+            );
+            return index === 5
+              ? [el, <View key="sampler-divider" style={styles.sheetDivider} />]
+              : [el];
+          })}
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={scheduleSheetRef}
+        index={-1}
+        snapPoints={[360]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        onChange={(index) => handleSheetChange("schedule", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sheetTitle}>Noise Schedule</Text>
+          {NOISE_SCHEDULES.flatMap((item, index) => {
+            const el = (
+              <SheetItem
+                key={item.value}
+                item={item}
+                isActive={noiseSchedule === item.value}
+                recommendedValue="karras"
+                onPress={() => {
+                  setNoiseSchedule(item.value as NoiseSchedule);
+                  scheduleSheetRef.current?.close();
+                }}
+              />
+            );
+            return index === 2
+              ? [el, <View key="schedule-divider" style={styles.sheetDivider} />]
+              : [el];
+          })}
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={stepsSheetRef}
+        index={-1}
+        snapPoints={[320]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => handleSheetChange("steps", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <NumericSheetContent
+            value={steps}
+            onChange={setSteps}
+            cfg={STEPS_CONFIG}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={cfgSheetRef}
+        index={-1}
+        snapPoints={[320]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => handleSheetChange("cfg", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <NumericSheetContent
+            value={promptGuidance}
+            onChange={setPromptGuidance}
+            cfg={CFG_CONFIG}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={cfgRescaleSheetRef}
+        index={-1}
+        snapPoints={[320]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => handleSheetChange("cfgRescale", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <NumericSheetContent
+            value={promptGuidanceRescale}
+            onChange={setPromptGuidanceRescale}
+            cfg={CFG_RESCALE_CONFIG}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
     </View>
   );
 }
