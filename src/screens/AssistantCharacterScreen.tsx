@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -22,8 +25,11 @@ import {
   useGenerationOptions,
 } from "../context/GenerationOptionsContext";
 import type { AssistantCharacterScreenNavigationProp } from "../navigation/types";
+import { SuggestionBarProvider } from "../context/SuggestionBarContext";
+import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
 import { triggerSelectionHaptic } from "./option/helpers";
 import { BADGE_COLORS } from "./option/OptionTabs";
+import { StickyAssistantSuggestionBar } from "./assistant/SuggestionBar";
 import { light } from "./assistant/styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
@@ -42,14 +48,21 @@ function LabeledPromptInput({
   value: string;
   onChangeText: (v: string) => void;
 }) {
+  const inputRef = useRef<TextInput>(null);
+  const autocomplete = usePromptAutocomplete({ value, onChangeText, inputRef });
+
   return (
     <View style={styles.labeledInput}>
       <Text style={[styles.inputLabel, negative && styles.negativeLabel]}>
         {label}
       </Text>
       <TextInput
+        ref={inputRef}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={autocomplete.handleChangeText}
+        selection={autocomplete.selection}
+        onSelectionChange={autocomplete.handleSelectionChange}
+        onBlur={autocomplete.clearSuggestions}
         multiline
         textAlignVertical="top"
         placeholderTextColor={light.textHint}
@@ -192,6 +205,7 @@ export function AssistantCharacterScreen() {
   const canAddCharacterPrompt = characterPrompts.length < MAX_CHARACTER_PROMPTS;
 
   return (
+    <SuggestionBarProvider>
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
@@ -210,7 +224,7 @@ export function AssistantCharacterScreen() {
       </View>
 
       <KeyboardAwareScrollView
-        bottomOffset={16}
+        bottomOffset={72}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -262,7 +276,15 @@ export function AssistantCharacterScreen() {
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAwareScrollView>
+
+      <KeyboardStickyView
+        style={styles.suggestionSticky}
+        offset={{ closed: 0, opened: 0 }}
+      >
+        <StickyAssistantSuggestionBar />
+      </KeyboardStickyView>
     </View>
+    </SuggestionBarProvider>
   );
 }
 
@@ -427,5 +449,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: light.textPrimary,
+  },
+  suggestionSticky: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 20,
   },
 });

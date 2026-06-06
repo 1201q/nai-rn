@@ -10,6 +10,7 @@ import { useNavigation } from "@react-navigation/native";
 
 import { useGenerationStore } from "../../store/generationStore";
 import type { AssistantScreenNavigationProp } from "../../navigation/types";
+import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { light, styles } from "./styles";
 import { PromptModePill, ScalePressable } from "./primitives";
 import { PROMPT_MAX_HEIGHT, PROMPT_MIN_HEIGHT } from "./constants";
@@ -29,6 +30,7 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
   const [mode, setMode] = useState<"base" | "negative">("base");
   const [baseText, setBaseText] = useState(prompt);
   const [negText, setNegText] = useState(negativePrompt);
+  const inputRef = useRef<TextInput>(null);
   const focusedRef = useRef(false);
   // 언마운트(네비게이션 등 blur 미발생) 대비 최신값 보존
   const latestRef = useRef({ base: prompt, neg: negativePrompt });
@@ -66,6 +68,13 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
     setPrompt(latestRef.current.base);
     setNegativePrompt(latestRef.current.neg);
   };
+
+  const activeText = mode === "base" ? baseText : negText;
+  const autocomplete = usePromptAutocomplete({
+    value: activeText,
+    onChangeText,
+    inputRef,
+  });
 
   // 언마운트 시 마지막 동기화 (blur 가 안 올 수 있음)
   useEffect(
@@ -109,15 +118,19 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
     <View style={styles.promptCard}>
       <Reanimated.View style={[styles.promptInputWrap, inputAnimStyle]}>
         <TextInput
+          ref={inputRef}
           style={styles.promptInput}
-          value={mode === "base" ? baseText : negText}
-          onChangeText={onChangeText}
+          value={activeText}
+          onChangeText={autocomplete.handleChangeText}
+          selection={autocomplete.selection}
+          onSelectionChange={autocomplete.handleSelectionChange}
           onFocus={() => {
             focusedRef.current = true;
           }}
           onBlur={() => {
             focusedRef.current = false;
             flushBoth();
+            autocomplete.clearSuggestions();
           }}
           onContentSizeChange={handleContentSizeChange}
           placeholder="Ready to help, ask anything…"

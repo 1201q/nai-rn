@@ -220,6 +220,9 @@ export const styles = StyleSheet.create({
   },
 
   // 하단: 가로 스크롤 옵션
+  optionChipsWrap: {
+    overflow: "hidden",
+  },
   optionScrollContent: {
     flexDirection: "row",
     alignItems: "center",
