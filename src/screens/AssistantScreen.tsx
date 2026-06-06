@@ -32,9 +32,11 @@ import { KeyboardStickyView } from "react-native-keyboard-controller";
 import Reanimated, {
   interpolate,
   runOnJS,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { useNavigation } from "@react-navigation/native";
@@ -51,6 +53,12 @@ import {
   type NoiseSchedule,
 } from "../constants/generation";
 import { formatDecimal } from "./option/helpers";
+
+const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
+
+function hapticTick() {
+  Haptics.selectionAsync().catch(() => {});
+}
 
 const PROMPT_MIN_HEIGHT = 44;
 const PROMPT_MAX_HEIGHT = 140;
@@ -362,7 +370,10 @@ function SheetItem({
       bounciness: 0,
     }).start();
 
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] });
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.96],
+  });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: ["rgba(244,244,243,0)", light.surface],
@@ -418,7 +429,7 @@ function snapValue(v: number, cfg: NumericConfig) {
   const idx = Math.round((v - cfg.min) / cfg.step);
   const stepped = cfg.min + idx * cfg.step;
   return Number(
-    Math.min(cfg.max, Math.max(cfg.min, stepped)).toFixed(cfg.precision)
+    Math.min(cfg.max, Math.max(cfg.min, stepped)).toFixed(cfg.precision),
   );
 }
 
@@ -428,62 +439,53 @@ function formatNumeric(v: number, precision: number) {
 }
 
 function NumericSlider({
-  value,
-  onChange,
+  display,
+  onCommit,
   cfg,
 }: {
-  value: number;
-  onChange: (v: number) => void;
+  display: SharedValue<number>;
+  onCommit: (v: number) => void;
   cfg: NumericConfig;
 }) {
   const [trackWidth, setTrackWidth] = useState(0);
   const range = cfg.max - cfg.min;
-
-  const progress = useSharedValue((value - cfg.min) / range);
   const dragStart = useSharedValue(0);
-  const lastValue = useSharedValue(value);
-
-  useEffect(() => {
-    progress.value = withTiming((value - cfg.min) / range, { duration: 120 });
-    lastValue.value = value;
-  }, [value, range, cfg.min, progress, lastValue]);
-
-  const commit = useCallback(
-    (v: number) => {
-      onChange(v);
-      Haptics.selectionAsync().catch(() => {});
-    },
-    [onChange]
-  );
 
   const panGesture = Gesture.Pan()
     .minDistance(0)
     .onBegin(() => {
-      dragStart.value = progress.value;
+      dragStart.value = (display.value - cfg.min) / range;
     })
     .onUpdate((event) => {
       if (trackWidth <= SLIDER_THUMB) return;
       const usableWidth = trackWidth - SLIDER_THUMB;
       const nextProgress = Math.min(
         1,
-        Math.max(0, dragStart.value + event.translationX / usableWidth)
+        Math.max(0, dragStart.value + event.translationX / usableWidth),
       );
       const nextValue = snapValue(cfg.min + nextProgress * range, cfg);
-      progress.value = (nextValue - cfg.min) / range;
-      if (nextValue !== lastValue.value) {
-        lastValue.value = nextValue;
-        runOnJS(commit)(nextValue);
+      if (nextValue !== display.value) {
+        display.value = nextValue;
+        runOnJS(hapticTick)();
       }
+    })
+    .onEnd(() => {
+      runOnJS(onCommit)(display.value);
     });
 
   const fillStyle = useAnimatedStyle(() => ({
     width:
-      progress.value * Math.max(0, trackWidth - SLIDER_THUMB) +
+      ((display.value - cfg.min) / range) *
+        Math.max(0, trackWidth - SLIDER_THUMB) +
       SLIDER_THUMB / 2,
   }));
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: progress.value * Math.max(0, trackWidth - SLIDER_THUMB) },
+      {
+        translateX:
+          ((display.value - cfg.min) / range) *
+          Math.max(0, trackWidth - SLIDER_THUMB),
+      },
     ],
   }));
 
@@ -513,13 +515,23 @@ function NumericSheetContent({
   cfg: NumericConfig;
 }) {
   const [inputText, setInputText] = useState(
-    formatNumeric(value, cfg.precision)
+    formatNumeric(value, cfg.precision),
   );
   const [editing, setEditing] = useState(false);
 
+  // 드래그 중 표시값은 UI 스레드에서 직접 구동(재렌더 없음).
+  // 외부 변경(+/- · 수동입력 · 초기값)은 여기서 동기화.
+  const display = useSharedValue(value);
   useEffect(() => {
+    display.value = value;
     setInputText(formatNumeric(value, cfg.precision));
-  }, [value, cfg.precision]);
+  }, [value, cfg.precision, display]);
+
+  const animatedProps = useAnimatedProps(() => {
+    const v = display.value;
+    const text = cfg.precision <= 0 ? String(v) : v.toFixed(cfg.precision);
+    return { text, defaultValue: text } as object;
+  });
 
   const step = (delta: number) => {
     Haptics.selectionAsync().catch(() => {});
@@ -568,13 +580,14 @@ function NumericSheetContent({
               autoFocus
             />
           ) : (
-            <Text
-              style={styles.stepsValueInput}
-              suppressHighlighting
-              onPress={() => setEditing(true)}
-            >
-              {formatNumeric(value, cfg.precision)}
-            </Text>
+            <Pressable onPress={() => setEditing(true)}>
+              <AnimatedTextInput
+                style={[styles.stepsValueInput, { padding: 0 }]}
+                editable={false}
+                pointerEvents="none"
+                animatedProps={animatedProps}
+              />
+            </Pressable>
           )}
           <Text style={styles.stepsValueUnit}>{cfg.unit}</Text>
         </View>
@@ -590,7 +603,7 @@ function NumericSheetContent({
         </ScalePressable>
       </View>
 
-      <NumericSlider value={value} onChange={onChange} cfg={cfg} />
+      <NumericSlider display={display} onCommit={onChange} cfg={cfg} />
       <View style={styles.stepsRangeRow}>
         <Text style={styles.stepsRangeLabel}>
           {formatNumeric(cfg.min, cfg.precision)}
@@ -706,8 +719,8 @@ function ResolutionSheetContent({
   const visibleGroups = NAI_RESOLUTIONS.filter((g) => g.group === "Normal");
   const isCustom = !visibleGroups.some((g) =>
     g.options.some(
-      (o) => o.width === resolution.width && o.height === resolution.height
-    )
+      (o) => o.width === resolution.width && o.height === resolution.height,
+    ),
   );
 
   return (
@@ -951,7 +964,7 @@ export function AssistantScreen() {
           return true;
         }
         return false;
-      }
+      },
     );
     return () => subscription.remove();
   }, [isImagePreviewOpen]);
@@ -967,7 +980,7 @@ export function AssistantScreen() {
         | "cfgRescale"
         | "seed"
         | "resolution",
-      index: number
+      index: number,
     ) => {
       if (index >= 0) {
         activeSheetRef.current = sheet;
@@ -975,7 +988,7 @@ export function AssistantScreen() {
         activeSheetRef.current = null;
       }
     },
-    []
+    [],
   );
 
   const renderBackdrop = useCallback(
@@ -987,7 +1000,7 @@ export function AssistantScreen() {
         pressBehavior="close"
       />
     ),
-    []
+    [],
   );
 
   // 입력창 높이(UI 스레드). 모드별 마지막 높이를 기억해 전환 즉시 반영.
@@ -1002,7 +1015,7 @@ export function AssistantScreen() {
   }) => {
     const next = Math.min(
       PROMPT_MAX_HEIGHT,
-      Math.max(PROMPT_MIN_HEIGHT, e.nativeEvent.contentSize.height)
+      Math.max(PROMPT_MIN_HEIGHT, e.nativeEvent.contentSize.height),
     );
     heights.current[promptMode] = next;
     inputHeight.value = withTiming(next, { duration: 150 });
@@ -1031,7 +1044,7 @@ export function AssistantScreen() {
         scale: interpolate(
           inputHeight.value,
           [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
-          [1, IMAGE_MIN_SCALE]
+          [1, IMAGE_MIN_SCALE],
         ),
       },
     ],
@@ -1042,7 +1055,7 @@ export function AssistantScreen() {
     const scale = interpolate(
       inputHeight.value,
       [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
-      [1, IMAGE_MIN_SCALE]
+      [1, IMAGE_MIN_SCALE],
     );
     return { height: baseHeight.value * scale };
   });
@@ -1062,8 +1075,7 @@ export function AssistantScreen() {
     model: { text: MODELS.find((m) => m.value === model)?.label ?? model },
     resolution: { text: `${resolution.width}×${resolution.height}` },
     seed: {
-      text:
-        seed === 0 ? "Random" : seedLocked ? `${seed} 🔒` : String(seed),
+      text: seed === 0 ? "Random" : seedLocked ? `${seed} 🔒` : String(seed),
     },
     steps: { text: String(steps), unit: "steps", unitBefore: true },
     cfg: {
@@ -1152,51 +1164,51 @@ export function AssistantScreen() {
                 : null,
             ]}
           >
-          {currentImageUri ? (
-            <Pressable
-              style={styles.generatedImage}
-              onPress={openImagePreview}
-            >
-              <ExpoImage
-                source={{ uri: currentImageUri }}
-                contentFit="cover"
-                transition={120}
+            {currentImageUri ? (
+              <Pressable
                 style={styles.generatedImage}
-              />
-            </Pressable>
-          ) : null}
-          {currentImageUri ? (
-            <View style={styles.imageOverlayRow}>
-              <TouchableOpacity
-                style={styles.imageOverlayButton}
-                activeOpacity={0.82}
-                onPress={handleSaveImage}
-                disabled={isSavingImage}
+                onPress={openImagePreview}
               >
-                {isSavingImage ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Ionicons
-                    name="arrow-down-outline"
-                    size={20}
-                    color="#ffffff"
-                  />
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.imageOverlayButton}
-                activeOpacity={0.82}
-                onPress={handleCopyImage}
-                disabled={isCopyingImage}
-              >
-                {isCopyingImage ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Ionicons name="copy-outline" size={20} color="#ffffff" />
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : null}
+                <ExpoImage
+                  source={{ uri: currentImageUri }}
+                  contentFit="cover"
+                  transition={120}
+                  style={styles.generatedImage}
+                />
+              </Pressable>
+            ) : null}
+            {currentImageUri ? (
+              <View style={styles.imageOverlayRow}>
+                <TouchableOpacity
+                  style={styles.imageOverlayButton}
+                  activeOpacity={0.82}
+                  onPress={handleSaveImage}
+                  disabled={isSavingImage}
+                >
+                  {isSavingImage ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Ionicons
+                      name="arrow-down-outline"
+                      size={20}
+                      color="#ffffff"
+                    />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.imageOverlayButton}
+                  activeOpacity={0.82}
+                  onPress={handleCopyImage}
+                  disabled={isCopyingImage}
+                >
+                  {isCopyingImage ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Ionicons name="copy-outline" size={20} color="#ffffff" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </Reanimated.View>
         </Reanimated.View>
       </ScrollView>
@@ -1235,7 +1247,9 @@ export function AssistantScreen() {
             <TextInput
               style={styles.promptInput}
               value={promptMode === "base" ? prompt : negativePrompt}
-              onChangeText={promptMode === "base" ? setPrompt : setNegativePrompt}
+              onChangeText={
+                promptMode === "base" ? setPrompt : setNegativePrompt
+              }
               onContentSizeChange={handleContentSizeChange}
               placeholder="Ready to help, ask anything…"
               placeholderTextColor={light.textHint}
@@ -1387,7 +1401,10 @@ export function AssistantScreen() {
               />
             );
             return index === 2
-              ? [el, <View key="schedule-divider" style={styles.sheetDivider} />]
+              ? [
+                  el,
+                  <View key="schedule-divider" style={styles.sheetDivider} />,
+                ]
               : [el];
           })}
         </BottomSheetScrollView>
