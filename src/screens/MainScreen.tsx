@@ -8,7 +8,11 @@ import { StatusBar } from "expo-status-bar";
 import { useNavigation } from "@react-navigation/native";
 import PagerView from "react-native-pager-view";
 
-import { useGenerationOptions } from "../context/GenerationOptionsContext";
+import {
+  resolveGenerationImageUri,
+  resolveGenerationThumbnailUri,
+} from "../lib/generationHistory";
+import { useGenerationStore } from "../store/generationStore";
 import type { MainScreenNavigationProp } from "../navigation/types";
 import { CreatePage } from "./main/CreatePage";
 import { HistoryPage } from "./main/HistoryPage";
@@ -19,17 +23,17 @@ import { styles } from "./main/styles";
 export function MainScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
-  const {
-    prompt,
-    currentGeneration,
-    currentImageUri,
-    generationHistory,
-    resolveGenerationImageUri,
-    resolveGenerationThumbnailUri,
-    isLoading,
-    message,
-    generateImage,
-  } = useGenerationOptions();
+  // 옵션 화면 위에 push 돼도 마운트 유지되므로, 쓰는 슬라이스만 구독해
+  // steps/cfg/seed 등 무관한 변경에 재렌더되지 않게 한다.
+  const prompt = useGenerationStore((s) => s.prompt);
+  const currentGeneration = useGenerationStore((s) => s.currentGeneration);
+  const generationHistory = useGenerationStore((s) => s.generationHistory);
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const message = useGenerationStore((s) => s.message);
+  const generateImage = useGenerationStore((s) => s.generateImage);
+  const currentImageUri = currentGeneration
+    ? resolveGenerationImageUri(currentGeneration)
+    : null;
 
   const mainPagerRef = useRef<PagerView>(null);
   const previewAnimation = useRef(new Animated.Value(0)).current;
