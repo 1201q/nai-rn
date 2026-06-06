@@ -15,13 +15,13 @@ import { Image as ExpoImage } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
-import type { AssistantHistoryScreenNavigationProp } from "../navigation/types";
+import type { HistoryScreenNavigationProp } from "../navigation/types";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
-import { light } from "./assistant/styles";
+import { light } from "./home/styles";
 
-export function AssistantHistoryScreen() {
+export function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<AssistantHistoryScreenNavigationProp>();
+  const navigation = useNavigation<HistoryScreenNavigationProp>();
   const {
     generationHistory,
     resolveGenerationImageUri,

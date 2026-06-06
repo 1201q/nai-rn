@@ -2,15 +2,10 @@ import type { StackNavigationProp } from "@react-navigation/stack";
 
 export type RootStackParamList = {
   Main: undefined;
-  Option: undefined;
+  Character: undefined;
   CharacterEdit: undefined;
-  ImageSetting: undefined;
+  History: undefined;
   Settings: undefined;
-  Assistant: undefined;
-  AssistantCharacter: undefined;
-  AssistantCharacterEdit: undefined;
-  AssistantHistory: undefined;
-  AssistantSettings: undefined;
 };
 
 export type MainScreenNavigationProp = StackNavigationProp<
@@ -18,9 +13,9 @@ export type MainScreenNavigationProp = StackNavigationProp<
   "Main"
 >;
 
-export type OptionScreenNavigationProp = StackNavigationProp<
+export type CharacterScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  "Option"
+  "Character"
 >;
 
 export type CharacterEditScreenNavigationProp = StackNavigationProp<
@@ -28,37 +23,12 @@ export type CharacterEditScreenNavigationProp = StackNavigationProp<
   "CharacterEdit"
 >;
 
-export type ImageSettingScreenNavigationProp = StackNavigationProp<
+export type HistoryScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  "ImageSetting"
+  "History"
 >;
 
 export type SettingsScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   "Settings"
->;
-
-export type AssistantScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "Assistant"
->;
-
-export type AssistantCharacterScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "AssistantCharacter"
->;
-
-export type AssistantCharacterEditScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "AssistantCharacterEdit"
->;
-
-export type AssistantHistoryScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "AssistantHistory"
->;
-
-export type AssistantSettingsScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "AssistantSettings"
 >;

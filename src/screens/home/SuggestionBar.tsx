@@ -15,8 +15,8 @@ const TAG_TYPE_COLORS: Record<TagType, string> = {
   copyright: colors.purple500,
 };
 
-// AssistantScreen 칩 디자인에 맞춘 태그 추천 바. 데이터는 SuggestionBarProvider 에서.
-export function AssistantSuggestionBar() {
+// MainScreen 칩 디자인에 맞춘 태그 추천 바. 데이터는 SuggestionBarProvider 에서.
+export function SuggestionBar() {
   const suggestions = useSuggestions();
   const actions = useSuggestionBarActions();
 
@@ -54,12 +54,12 @@ export function AssistantSuggestionBar() {
 }
 
 // 키보드 위 sticky 배치용(캐릭터 화면). 추천 없으면 줄째로 사라짐.
-export function StickyAssistantSuggestionBar() {
+export function StickySuggestionBar() {
   const suggestions = useSuggestions();
   if (!suggestions.length) return null;
   return (
     <View style={barStyles.stickyContainer}>
-      <AssistantSuggestionBar />
+      <SuggestionBar />
     </View>
   );
 }

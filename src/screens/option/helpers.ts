@@ -1,8 +1,18 @@
 import * as Haptics from "expo-haptics";
 
 import { NAI_RESOLUTIONS, type NaiResolution } from "../../constants/generation";
+import { colors } from "../../styles/colors";
 
 const RESOLUTION_STEP = 64;
+
+export const BADGE_COLORS = [
+  colors.green500,
+  colors.red500,
+  colors.blue500,
+  colors.orange500,
+  colors.purple500,
+  colors.teal500,
+];
 
 export function triggerSelectionHaptic() {
   Haptics.selectionAsync().catch(() => {});

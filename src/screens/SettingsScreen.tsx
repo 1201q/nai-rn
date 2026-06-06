@@ -3,21 +3,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from "expo-status-bar";
-import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
-import { Header } from "../components/Header";
 import { useGenerationOptions } from "../context/GenerationOptionsContext";
 import type { SettingsScreenNavigationProp } from "../navigation/types";
-import { colors } from "../styles/colors";
-import { styles } from "./settings/styles";
+import { light } from "./home/styles";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -54,23 +53,35 @@ export function SettingsScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="light" />
-      <Header title="Settings" onBack={() => navigation.goBack()} />
+      <StatusBar style="dark" />
+
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerCircleButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
       <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 28 },
+          ]}
         >
           <View style={styles.sectionHeader}>
-            <Ionicons
-              name="key-outline"
-              size={14}
-              color={colors.colorTextSecondary}
-            />
+            <Ionicons name="key-outline" size={14} color={light.textSecondary} />
             <Text style={styles.sectionTitle}>API</Text>
           </View>
 
@@ -80,7 +91,7 @@ export function SettingsScreen() {
               value={tokenInput}
               onChangeText={setTokenInput}
               placeholder="Enter API token"
-              placeholderTextColor={colors.colorTextTertiary}
+              placeholderTextColor={light.textHint}
               autoCapitalize="none"
               autoCorrect={false}
               secureTextEntry={!isTokenVisible}
@@ -96,7 +107,7 @@ export function SettingsScreen() {
               <Ionicons
                 name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
                 size={20}
-                color={colors.colorTextTertiary}
+                color={light.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -118,3 +129,104 @@ export function SettingsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: light.bg,
+  },
+  flex: {
+    flex: 1,
+  },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  headerCircleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  headerTitle: {
+    fontFamily: "serif",
+    fontSize: 20,
+    fontWeight: "600",
+    color: light.textPrimary,
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    color: light.textSecondary,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: light.textPrimary,
+  },
+  tokenInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  tokenInput: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: light.border,
+    backgroundColor: light.surface,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: light.textPrimary,
+  },
+  inputIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  saveButton: {
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.textPrimary,
+    marginTop: 6,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: light.bg,
+  },
+  message: {
+    fontSize: 13,
+    color: light.textSecondary,
+    marginTop: 2,
+  },
+});

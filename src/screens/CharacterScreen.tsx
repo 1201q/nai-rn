@@ -24,13 +24,12 @@ import {
   type CharacterPrompt,
   useGenerationOptions,
 } from "../context/GenerationOptionsContext";
-import type { AssistantCharacterScreenNavigationProp } from "../navigation/types";
+import type { CharacterScreenNavigationProp } from "../navigation/types";
 import { SuggestionBarProvider } from "../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
-import { triggerSelectionHaptic } from "./option/helpers";
-import { BADGE_COLORS } from "./option/OptionTabs";
-import { StickyAssistantSuggestionBar } from "./assistant/SuggestionBar";
-import { light } from "./assistant/styles";
+import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
+import { StickySuggestionBar } from "./home/SuggestionBar";
+import { light } from "./home/styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
 const CHARACTER_LAYOUT = LinearTransition.duration(220);
@@ -163,9 +162,9 @@ function CharacterPromptCard({
   );
 }
 
-export function AssistantCharacterScreen() {
+export function CharacterScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<AssistantCharacterScreenNavigationProp>();
+  const navigation = useNavigation<CharacterScreenNavigationProp>();
   const { characterPrompts, setCharacterPrompts } = useGenerationOptions();
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
@@ -236,7 +235,7 @@ export function AssistantCharacterScreen() {
             <TouchableOpacity
               style={styles.editEntryButton}
               activeOpacity={0.78}
-              onPress={() => navigation.navigate("AssistantCharacterEdit")}
+              onPress={() => navigation.navigate("CharacterEdit")}
             >
               <Ionicons
                 name="create-outline"
@@ -281,7 +280,7 @@ export function AssistantCharacterScreen() {
         style={styles.suggestionSticky}
         offset={{ closed: 0, opened: 0 }}
       >
-        <StickyAssistantSuggestionBar />
+        <StickySuggestionBar />
       </KeyboardStickyView>
     </View>
     </SuggestionBarProvider>

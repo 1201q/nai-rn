@@ -13,7 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 
 import { useGenerationStore } from "../../store/generationStore";
-import type { AssistantScreenNavigationProp } from "../../navigation/types";
+import type { MainScreenNavigationProp } from "../../navigation/types";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { light, styles } from "./styles";
 import { PromptModePill, ScalePressable } from "./primitives";
@@ -23,7 +23,7 @@ import { PROMPT_MAX_HEIGHT, PROMPT_MIN_HEIGHT } from "./constants";
 // 화면 재렌더를 막고, store 동기화는 blur/전송/언마운트 시에만. 전송 시엔
 // 최신 로컬값을 직접 전달해 stale 방지.
 export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }) {
-  const navigation = useNavigation<AssistantScreenNavigationProp>();
+  const navigation = useNavigation<MainScreenNavigationProp>();
   const prompt = useGenerationStore((s) => s.prompt);
   const setPrompt = useGenerationStore((s) => s.setPrompt);
   const negativePrompt = useGenerationStore((s) => s.negativePrompt);
@@ -157,7 +157,7 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
           <PromptModePill mode={mode} onChange={setMode} />
           <ScalePressable
             style={styles.characterButton}
-            onPress={() => navigation.navigate("AssistantCharacter")}
+            onPress={() => navigation.navigate("Character")}
           >
             <Ionicons
               name="person-outline"

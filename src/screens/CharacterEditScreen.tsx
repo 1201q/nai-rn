@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -18,17 +19,16 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Header } from "../components/Header";
 import {
   type CharacterPrompt,
   useGenerationOptions,
 } from "../context/GenerationOptionsContext";
 import type { CharacterEditScreenNavigationProp } from "../navigation/types";
-import { triggerSelectionHaptic } from "./option/helpers";
-import { BADGE_COLORS } from "./option/OptionTabs";
-import { colors } from "../styles/colors";
+import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
+import { light } from "./home/styles";
 
 const ROW_HEIGHT = 68;
+const DELETE_COLOR = "#e5484d";
 
 type Positions = Record<string, number>;
 
@@ -114,16 +114,7 @@ function DraggableRow({
           activeId.value = null;
           runOnJS(onCommitOrder)();
         }),
-    [
-      item.id,
-      index,
-      count,
-      positions,
-      activeId,
-      activeY,
-      startY,
-      onCommitOrder,
-    ],
+    [item.id, index, count, positions, activeId, activeY, startY, onCommitOrder],
   );
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -155,7 +146,7 @@ function DraggableRow({
             style={[styles.checkboxCircle, selected && styles.checkboxChecked]}
           >
             {selected ? (
-              <Ionicons name="checkmark" size={16} color={colors.background} />
+              <Ionicons name="checkmark" size={16} color={light.bg} />
             ) : null}
           </View>
         </Pressable>
@@ -167,11 +158,7 @@ function DraggableRow({
         </Text>
         <GestureDetector gesture={panGesture}>
           <View style={styles.dragHandle} hitSlop={8}>
-            <Ionicons
-              name="reorder-three"
-              size={26}
-              color={colors.colorTextTertiary}
-            />
+            <Ionicons name="reorder-three" size={26} color={light.textHint} />
           </View>
         </GestureDetector>
       </View>
@@ -181,7 +168,8 @@ function DraggableRow({
 
 export function CharacterEditScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<CharacterEditScreenNavigationProp>();
+  const navigation =
+    useNavigation<CharacterEditScreenNavigationProp>();
   const { characterPrompts, setCharacterPrompts } = useGenerationOptions();
 
   const [items, setItems] = useState<CharacterPrompt[]>(() => characterPrompts);
@@ -230,7 +218,21 @@ export function CharacterEditScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Header title="캐릭터 편집" onBack={() => navigation.goBack()} />
+      <StatusBar style="dark" />
+
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerCircleButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>캐릭터 편집</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
       <View style={styles.listWrap}>
         <View style={{ height: items.length * ROW_HEIGHT }}>
@@ -277,7 +279,31 @@ export function CharacterEditScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.appBackground,
+    backgroundColor: light.bg,
+  },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  headerCircleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  headerTitle: {
+    fontFamily: "serif",
+    fontSize: 20,
+    fontWeight: "600",
+    color: light.textPrimary,
+  },
+  headerSpacer: {
+    width: 44,
   },
   listWrap: {
     flex: 1,
@@ -295,10 +321,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
-    backgroundColor: colors.colorBackgroundSecondary,
+    backgroundColor: light.surface,
   },
   rowCardDisabled: {
-    opacity: 0.48,
+    opacity: 0.5,
   },
   checkbox: {
     width: 28,
@@ -311,13 +337,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: colors.colorBorderPrimary,
+    borderColor: light.border,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    borderColor: colors.blue500,
-    backgroundColor: colors.blue500,
+    borderColor: light.accent,
+    backgroundColor: light.accent,
   },
   badge: {
     minWidth: 26,
@@ -334,7 +360,7 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     flex: 1,
-    color: colors.colorTextPrimary,
+    color: light.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -348,7 +374,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 18,
-    backgroundColor: colors.appBackground,
+    backgroundColor: light.bg,
   },
   footerButton: {
     height: 60,
@@ -357,19 +383,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   doneButton: {
-    backgroundColor: colors.colorBackgroundSecondary,
+    backgroundColor: light.surface,
   },
   deleteButton: {
-    backgroundColor: colors.background,
+    backgroundColor: light.surface,
   },
   footerText: {
     fontSize: 18,
     fontWeight: "800",
   },
   doneText: {
-    color: colors.colorTextSecondary,
+    color: light.textSecondary,
   },
   deleteText: {
-    color: colors.red600,
+    color: DELETE_COLOR,
   },
 });
