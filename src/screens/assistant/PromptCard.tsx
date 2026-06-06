@@ -6,6 +6,10 @@ import Reanimated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
+import {
+  KeyboardController,
+  AndroidSoftInputModes,
+} from "react-native-keyboard-controller";
 import { useNavigation } from "@react-navigation/native";
 
 import { useGenerationStore } from "../../store/generationStore";
@@ -126,6 +130,12 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
           onSelectionChange={autocomplete.handleSelectionChange}
           onFocus={() => {
             focusedRef.current = true;
+            // 다른 화면(Character 등) 복귀 후 윈도우 모드가 pan/resize로
+            // 남아 키보드 시 화면 전체가 밀리는 문제 방지. 키보드 뜨기 직전
+            // adjustNothing 강제 → KeyboardStickyView 단독 lift만 적용.
+            KeyboardController.setInputMode(
+              AndroidSoftInputModes.SOFT_INPUT_ADJUST_NOTHING,
+            );
           }}
           onBlur={() => {
             focusedRef.current = false;
