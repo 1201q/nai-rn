@@ -196,7 +196,10 @@ type GenerationOptionsContextValue = {
   isLoading: boolean;
   message: string | null;
   setMessage: (v: string | null) => void;
-  generateImage: (onSuccess?: () => void) => Promise<void>;
+  generateImage: (
+    onSuccess?: () => void,
+    overrides?: { prompt?: string; negativePrompt?: string },
+  ) => Promise<void>;
 };
 
 const GenerationOptionsContext =
@@ -355,13 +358,20 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
     setStoredToken(token);
   }
 
-  async function generateImage(onSuccess?: () => void) {
+  async function generateImage(
+    onSuccess?: () => void,
+    overrides?: { prompt?: string; negativePrompt?: string },
+  ) {
     if (!storedToken) {
       setMessage("저장된 NovelAI 토큰이 없습니다.");
       return;
     }
 
-    if (!prompt.trim()) {
+    // 디바운스 동기화 전에 전송될 수 있으므로, 호출 측이 최신 텍스트를 직접 넘길 수 있게 함.
+    const effPrompt = (overrides?.prompt ?? prompt).trim();
+    const effNegativePrompt = (overrides?.negativePrompt ?? negativePrompt).trim();
+
+    if (!effPrompt) {
       setMessage("프롬프트를 입력해주세요.");
       return;
     }
@@ -383,8 +393,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
         resolveActiveCharacterPrompts(characterPrompts);
       const result = await generateNovelAiImage({
         token: storedToken,
-        prompt: prompt.trim(),
-        negativePrompt: negativePrompt.trim(),
+        prompt: effPrompt,
+        negativePrompt: effNegativePrompt,
         characterPrompts: activeCharacterPrompts,
         model,
         width: resolution.width,
@@ -401,8 +411,8 @@ export function GenerationOptionsProvider({ children }: { children: ReactNode })
 
       const generation = await saveGenerationImage({
         imageBytes: result.imageBytes,
-        prompt: prompt.trim(),
-        negativePrompt: negativePrompt.trim(),
+        prompt: effPrompt,
+        negativePrompt: effNegativePrompt,
         model,
         width: resolution.width,
         height: resolution.height,
