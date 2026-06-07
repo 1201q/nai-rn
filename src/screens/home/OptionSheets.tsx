@@ -17,6 +17,7 @@ import { SheetItem } from "./primitives";
 import { NumericSheetContent } from "./NumericSheet";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
+import { ImageUploadSheet } from "./ImageUploadSheet";
 import {
   CFG_CONFIG,
   CFG_RESCALE_CONFIG,
@@ -24,6 +25,7 @@ import {
 } from "./constants";
 
 export type SheetKey =
+  | "imageImport"
   | "model"
   | "sampler"
   | "schedule"
@@ -195,6 +197,27 @@ export function OptionSheets({
 }) {
   return (
     <>
+      <BottomSheet
+        ref={sheetRefs.imageImport}
+        index={-1}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing
+        onChange={(index) => onSheetChange("imageImport", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ImageUploadSheet
+            onClose={() => sheetRefs.imageImport.current?.close()}
+          />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
       <BottomSheet
         ref={sheetRefs.model}
         index={-1}

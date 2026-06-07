@@ -19,6 +19,22 @@ const OPT = Object.fromEntries(OPTIONS.map((o) => [o.key, o])) as Record<
 
 type ChipProps = { openSheet: (key: SheetKey) => void };
 
+const IMAGE_IMPORT_OPT = {
+  key: "imageImport",
+  label: "Import",
+  icon: "image-outline",
+} as const;
+
+function ImageImportChip({ openSheet }: ChipProps) {
+  return (
+    <OptionChip
+      opt={IMAGE_IMPORT_OPT}
+      value={{ text: "이미지" }}
+      onPress={() => openSheet("imageImport")}
+    />
+  );
+}
+
 function ModelChip({ openSheet }: ChipProps) {
   const model = useGenerationStore((s) => s.model);
   const text = MODELS.find((m) => m.value === model)?.label ?? model;
@@ -147,6 +163,7 @@ export function OptionChips({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.optionScrollContent}
     >
+      <ImageImportChip openSheet={openSheet} />
       <ModelChip openSheet={openSheet} />
       <ResolutionChip openSheet={openSheet} />
       <SeedChip openSheet={openSheet} />

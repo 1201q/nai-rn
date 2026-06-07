@@ -85,7 +85,7 @@ function addMetadataEntry(
   metadata[`${key}#${duplicateIndex}`] = value;
 }
 
-function extractPngTextMetadata(bytes: Uint8Array): Record<string, string> {
+export function extractPngTextMetadata(bytes: Uint8Array): Record<string, string> {
   const metadata: Record<string, string> = {};
   const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 

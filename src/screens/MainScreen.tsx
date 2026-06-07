@@ -41,6 +41,7 @@ export function MainScreen() {
   const navigation = useNavigation<MainScreenNavigationProp>();
 
   const sheetRefs: SheetRefs = {
+    imageImport: useRef<BottomSheet>(null),
     model: useRef<BottomSheet>(null),
     sampler: useRef<BottomSheet>(null),
     schedule: useRef<BottomSheet>(null),
@@ -163,11 +164,6 @@ export function MainScreen() {
         ]}
         offset={{ closed: 0, opened: 0 }}
       >
-        <View style={styles.bottomFadeWrap} pointerEvents="none">
-          {Array.from({ length: 12 }, (_, i) => (
-            <View key={i} style={[styles.bottomFadeStripe, { opacity: i / 11 }]} />
-          ))}
-        </View>
         <Animated.View style={[styles.optionChipsWrap, chipsAnimStyle]}>
           <OptionChips openSheet={openSheet} />
         </Animated.View>
