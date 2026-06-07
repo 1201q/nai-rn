@@ -37,9 +37,17 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: light.surface,
   },
-  headerTitle: {
-    fontFamily: "serif",
-    fontSize: 20,
+  anlasChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: light.surface,
+  },
+  anlasChipText: {
+    fontSize: 14,
     fontWeight: "600",
     color: light.textPrimary,
   },

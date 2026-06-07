@@ -10,7 +10,9 @@ import {
 } from "../lib/generationHistory";
 import {
   type GenerateNovelAiCharacterPrompt,
+  type NovelAiAnlasBalance,
   generateNovelAiImage,
+  getNovelAiAnlasBalance,
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import {
@@ -184,6 +186,10 @@ export type GenerationState = {
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
 
+  // Anlas 잔액
+  anlasBalance: NovelAiAnlasBalance | null;
+  refreshAnlas: () => Promise<void>;
+
   // 생성 결과
   currentGeneration: GenerationRecord | null;
   generationHistory: GenerationRecord[];
@@ -237,6 +243,18 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   saveToken: async (token) => {
     await saveNovelAiToken(token);
     set({ storedToken: token });
+  },
+
+  anlasBalance: null,
+  refreshAnlas: async () => {
+    const token = get().storedToken;
+    if (!token) return;
+    try {
+      const balance = await getNovelAiAnlasBalance(token);
+      set({ anlasBalance: balance });
+    } catch {
+      // 칩은 기존 값 유지, 조용히 실패
+    }
   },
 
   currentGeneration: null,
@@ -318,6 +336,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         generationHistory: [generation, ...state.generationHistory],
       }));
       onSuccess?.();
+      get().refreshAnlas();
     } catch (error: unknown) {
       set({ message: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -380,7 +399,10 @@ export function useGenerationBootstrap() {
       .finally(() => setState({ hasLoadedOptions: true }));
 
     getNovelAiToken()
-      .then((token) => setState({ storedToken: token }))
+      .then((token) => {
+        setState({ storedToken: token });
+        if (token) useGenerationStore.getState().refreshAnlas();
+      })
       .catch((error: unknown) => {
         setState({
           message: error instanceof Error ? error.message : String(error),

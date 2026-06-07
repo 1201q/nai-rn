@@ -30,6 +30,7 @@ import { OptionChips } from "./home/OptionChips";
 import { SuggestionBar } from "./home/SuggestionBar";
 import { PromptCard } from "./home/PromptCard";
 import { SuggestionBarProvider } from "../context/SuggestionBarContext";
+import { useGenerationStore } from "../store/generationStore";
 import {
   OptionSheets,
   type SheetKey,
@@ -39,6 +40,7 @@ import {
 export function MainScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
+  const anlasBalance = useGenerationStore((s) => s.anlasBalance);
 
   const sheetRefs: SheetRefs = {
     imageImport: useRef<BottomSheet>(null),
@@ -125,7 +127,12 @@ export function MainScreen() {
 
       {/* 상단 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Main</Text>
+        <View style={styles.anlasChip}>
+          <Ionicons name="diamond-outline" size={14} color={light.accent} />
+          <Text style={styles.anlasChipText}>
+            {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
+          </Text>
+        </View>
 
         <View style={styles.headerActions}>
           <TouchableOpacity

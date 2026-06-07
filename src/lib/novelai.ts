@@ -3,6 +3,41 @@ import JSZip from "jszip";
 import type { NoiseSchedule } from "../constants/generation";
 
 const NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
+const NOVELAI_SUBSCRIPTION_API_URL =
+  "https://api.novelai.net/user/subscription";
+
+export type NovelAiAnlasBalance = {
+  fixed: number;
+  purchased: number;
+  total: number;
+};
+
+export async function getNovelAiAnlasBalance(
+  token: string,
+): Promise<NovelAiAnlasBalance> {
+  const response = await fetch(NOVELAI_SUBSCRIPTION_API_URL, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token.trim()}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as {
+    trainingStepsLeft?: {
+      fixedTrainingStepsLeft?: number;
+      purchasedTrainingSteps?: number;
+    };
+  };
+
+  const fixed = data.trainingStepsLeft?.fixedTrainingStepsLeft ?? 0;
+  const purchased = data.trainingStepsLeft?.purchasedTrainingSteps ?? 0;
+  return { fixed, purchased, total: fixed + purchased };
+}
 export type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
