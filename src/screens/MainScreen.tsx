@@ -124,17 +124,7 @@ export function MainScreen() {
 
       {/* 상단 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>test1</Text>
+        <Text style={styles.headerTitle}>Main</Text>
 
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -169,10 +159,15 @@ export function MainScreen() {
       <KeyboardStickyView
         style={[
           styles.bottomArea,
-          { gap: 0, paddingBottom: insets.bottom + 16 },
+          { gap: 0, paddingBottom: insets.bottom + 16, marginTop: -40 },
         ]}
         offset={{ closed: 0, opened: 0 }}
       >
+        <View style={styles.bottomFadeWrap} pointerEvents="none">
+          {Array.from({ length: 12 }, (_, i) => (
+            <View key={i} style={[styles.bottomFadeStripe, { opacity: i / 11 }]} />
+          ))}
+        </View>
         <Animated.View style={[styles.optionChipsWrap, chipsAnimStyle]}>
           <OptionChips openSheet={openSheet} />
         </Animated.View>

@@ -1,10 +1,11 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef } from "react";
 
 import {
   useSuggestionBarActions,
   useSuggestions,
 } from "../../context/SuggestionBarContext";
-import type { TagType } from "../../lib/tagDb";
+import type { TagSuggestion, TagType } from "../../lib/tagDb";
 import { colors } from "../../styles/colors";
 import { light } from "./styles";
 
@@ -14,6 +15,49 @@ const TAG_TYPE_COLORS: Record<TagType, string> = {
   character: colors.green500,
   copyright: colors.purple500,
 };
+
+function SuggestionChip({
+  item,
+  onPress,
+}: {
+  item: TagSuggestion;
+  onPress: () => void;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () =>
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: false,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.93] });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [light.surface, light.surfaceAlt],
+  });
+
+  return (
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
+      <Animated.View style={[barStyles.chip, { transform: [{ scale }], backgroundColor }]}>
+        <View style={[barStyles.dot, { backgroundColor: TAG_TYPE_COLORS[item.type] }]} />
+        <Text style={barStyles.chipText} numberOfLines={1}>
+          {item.label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 // MainScreen 칩 디자인에 맞춘 태그 추천 바. 데이터는 SuggestionBarProvider 에서.
 export function SuggestionBar() {
@@ -30,24 +74,11 @@ export function SuggestionBar() {
       keyboardShouldPersistTaps="always"
     >
       {suggestions.map((item, i) => (
-        <Pressable
+        <SuggestionChip
           key={`${item.label}-${i}`}
-          style={({ pressed }) => [
-            barStyles.chip,
-            pressed && barStyles.chipPressed,
-          ]}
+          item={item}
           onPress={() => actions.pickRef.current?.(item)}
-        >
-          <View
-            style={[
-              barStyles.dot,
-              { backgroundColor: TAG_TYPE_COLORS[item.type] },
-            ]}
-          />
-          <Text style={barStyles.chipText} numberOfLines={1}>
-            {item.label}
-          </Text>
-        </Pressable>
+        />
       ))}
     </ScrollView>
   );
@@ -85,9 +116,6 @@ const barStyles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 999,
     backgroundColor: light.surface,
-  },
-  chipPressed: {
-    backgroundColor: light.surfaceAlt,
   },
   dot: {
     width: 8,
