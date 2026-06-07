@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 export const PROMPT_MIN_HEIGHT = 44;
 export const PROMPT_MAX_HEIGHT = 140;
-export const IMAGE_MIN_SCALE = 0.78;
 
 // 옵션 칩 줄: 칩 높이(36) = styles.optionChip.height, 줄↔프롬프트 간격(12) = 키보드 접힘 시 0
 export const CHIP_ROW_HEIGHT = 36;

@@ -50,26 +50,17 @@ export const styles = StyleSheet.create({
   },
 
   // 중단: 이미지 영역
-  imageScroll: {
+  imageSlot: {
     flex: 1,
-  },
-  imageScrollContent: {
-    flexGrow: 1,
+    width: "100%",
+    alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
-    gap: 16,
-  },
-  imageSlot: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
     overflow: "hidden",
   },
   imageCard: {
-    width: "100%",
-    aspectRatio: 16 / 9,
     borderRadius: 18,
     backgroundColor: light.surfaceAlt,
     overflow: "hidden",
@@ -77,6 +68,8 @@ export const styles = StyleSheet.create({
   generatedImage: {
     width: "100%",
     height: "100%",
+    borderRadius: 18,
+    overflow: "hidden",
   },
   imageOverlayRow: {
     position: "absolute",

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
+  Image as ReactNativeImage,
   Pressable,
-  ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -15,32 +15,59 @@ import * as MediaLibrary from "expo-media-library";
 import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
-  type SharedValue,
 } from "react-native-reanimated";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import { useGenerationStore } from "../../store/generationStore";
 import { ImagePreviewModal } from "../main/ImagePreviewModal";
 import { styles } from "./styles";
-import { IMAGE_MIN_SCALE, PROMPT_MAX_HEIGHT, PROMPT_MIN_HEIGHT } from "./constants";
 
-export function ImageArea({
-  inputHeight,
-}: {
-  inputHeight: SharedValue<number>;
-}) {
+const IMAGE_SLOT_HORIZONTAL_PADDING = 32;
+const IMAGE_SLOT_VERTICAL_PADDING = 24;
+
+export function ImageArea() {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
     : null;
+  const imageSource = useMemo(
+    () => (currentImageUri ? { uri: currentImageUri } : undefined),
+    [currentImageUri],
+  );
+  const generationAspect = currentGeneration
+    ? currentGeneration.width / currentGeneration.height
+    : 16 / 9;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
+  const slotWidth = useSharedValue(0);
+  const slotHeight = useSharedValue(0);
+  const [imageAspect, setImageAspect] = useState(generationAspect);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setImageAspect(generationAspect);
+
+    if (!currentImageUri) return;
+
+    ReactNativeImage.getSize(
+      currentImageUri,
+      (width, height) => {
+        if (!cancelled && width > 0 && height > 0) {
+          setImageAspect(width / height);
+        }
+      },
+      () => {},
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentImageUri, generationAspect]);
 
   function openImagePreview() {
     if (!currentImageUri) return;
@@ -115,104 +142,92 @@ export function ImageArea({
     }
   }
 
-  // 입력창이 커질수록 이미지를 비율 유지한 채 축소.
-  // scale(transform) 이라 재레이아웃 없음 → 깜박이지 않음.
-  // 세로 공간 회수는 바깥 slot 의 height 로만.
-  const baseHeight = useSharedValue(0);
-
-  const imageCardAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: interpolate(
-          inputHeight.value,
-          [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
-          [1, IMAGE_MIN_SCALE],
-        ),
-      },
-    ],
-  }));
-
-  const imageSlotAnimStyle = useAnimatedStyle(() => {
-    if (baseHeight.value === 0) return {};
-    const scale = interpolate(
-      inputHeight.value,
-      [PROMPT_MIN_HEIGHT, PROMPT_MAX_HEIGHT],
-      [1, IMAGE_MIN_SCALE],
+  // 사용 가능한 슬롯 안에 비율 유지한 채 꽉 채워 넣되, 가로·세로 모두 넘지 않게
+  // 맞춤 → 세로로 긴 이미지도 잘리거나 스크롤 없이 한눈에.
+  const imageCardStyle = useAnimatedStyle(() => {
+    const availableWidth = Math.max(
+      0,
+      slotWidth.value - IMAGE_SLOT_HORIZONTAL_PADDING,
     );
-    return { height: baseHeight.value * scale };
-  });
+    const availableHeight = Math.max(
+      0,
+      slotHeight.value - IMAGE_SLOT_VERTICAL_PADDING,
+    );
+
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      return { width: 0, height: 0, opacity: 0 };
+    }
+
+    let width = availableWidth;
+    let height = width / imageAspect;
+    if (height > availableHeight) {
+      height = availableHeight;
+      width = height * imageAspect;
+    }
+
+    return { width, height, opacity: 1 };
+  }, [imageAspect]);
 
   return (
     <>
-      <ScrollView
-        style={styles.imageScroll}
-        contentContainerStyle={styles.imageScrollContent}
-        showsVerticalScrollIndicator={false}
+      <View
+        style={styles.imageSlot}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          if (Math.abs(slotWidth.value - width) >= 1) {
+            slotWidth.value = width;
+          }
+          if (Math.abs(slotHeight.value - height) >= 1) {
+            slotHeight.value = height;
+          }
+        }}
       >
-        <Reanimated.View style={[styles.imageSlot, imageSlotAnimStyle]}>
-          <Reanimated.View
-            onLayout={(e) => {
-              baseHeight.value = e.nativeEvent.layout.height;
-            }}
-            style={[
-              styles.imageCard,
-              imageCardAnimStyle,
-              currentGeneration
-                ? {
-                    aspectRatio:
-                      currentGeneration.width / currentGeneration.height,
-                  }
-                : null,
-            ]}
-          >
-            {currentImageUri ? (
-              <Pressable
+        <Reanimated.View style={[styles.imageCard, imageCardStyle]}>
+          {currentImageUri ? (
+            <Pressable style={styles.generatedImage} onPress={openImagePreview}>
+              <ExpoImage
+                source={imageSource}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={0}
                 style={styles.generatedImage}
-                onPress={openImagePreview}
+              />
+            </Pressable>
+          ) : null}
+          {currentImageUri ? (
+            <View style={styles.imageOverlayRow}>
+              <TouchableOpacity
+                style={styles.imageOverlayButton}
+                activeOpacity={0.82}
+                onPress={handleSaveImage}
+                disabled={isSavingImage}
               >
-                <ExpoImage
-                  source={{ uri: currentImageUri }}
-                  contentFit="cover"
-                  transition={120}
-                  style={styles.generatedImage}
-                />
-              </Pressable>
-            ) : null}
-            {currentImageUri ? (
-              <View style={styles.imageOverlayRow}>
-                <TouchableOpacity
-                  style={styles.imageOverlayButton}
-                  activeOpacity={0.82}
-                  onPress={handleSaveImage}
-                  disabled={isSavingImage}
-                >
-                  {isSavingImage ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <Ionicons
-                      name="arrow-down-outline"
-                      size={20}
-                      color="#ffffff"
-                    />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.imageOverlayButton}
-                  activeOpacity={0.82}
-                  onPress={handleCopyImage}
-                  disabled={isCopyingImage}
-                >
-                  {isCopyingImage ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <Ionicons name="copy-outline" size={20} color="#ffffff" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </Reanimated.View>
+                {isSavingImage ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons
+                    name="arrow-down-outline"
+                    size={20}
+                    color="#ffffff"
+                  />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.imageOverlayButton}
+                activeOpacity={0.82}
+                onPress={handleCopyImage}
+                disabled={isCopyingImage}
+              >
+                {isCopyingImage ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Ionicons name="copy-outline" size={20} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </Reanimated.View>
-      </ScrollView>
+      </View>
 
       <ImagePreviewModal
         visible={isImagePreviewOpen}

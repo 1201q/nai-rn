@@ -154,7 +154,7 @@ export function MainScreen() {
       </View>
 
       {/* 중단: 생성 이미지 영역 */}
-      <ImageArea inputHeight={inputHeight} />
+      <ImageArea />
 
       {/* 하단: 옵션 + 프롬프트 */}
       <KeyboardStickyView
