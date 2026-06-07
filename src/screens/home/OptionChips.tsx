@@ -1,4 +1,7 @@
-import { ScrollView } from "react-native";
+import { useState } from "react";
+import { ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInLeft, FadeInRight } from "react-native-reanimated";
 
 import {
   MODELS,
@@ -7,8 +10,13 @@ import {
 } from "../../constants/generation";
 import { useGenerationStore } from "../../store/generationStore";
 import { formatDecimal } from "../option/helpers";
-import { styles } from "./styles";
-import { OptionChip, VarietyChip } from "./primitives";
+import { light, styles } from "./styles";
+import {
+  ImageActionChip,
+  OptionChip,
+  ScalePressable,
+  VarietyChip,
+} from "./primitives";
 import { OPTIONS } from "./constants";
 import type { SheetKey } from "./OptionSheets";
 
@@ -29,7 +37,7 @@ function ImageImportChip({ openSheet }: ChipProps) {
   return (
     <OptionChip
       opt={IMAGE_IMPORT_OPT}
-      value={{ text: "이미지" }}
+      value={{ text: "메타데이터 추출" }}
       onPress={() => openSheet("imageImport")}
     />
   );
@@ -152,27 +160,115 @@ function VarietyChipConnected() {
   );
 }
 
+type ChipMode = "collapsed" | "options" | "image";
+
+function SquareIconButton({
+  icon,
+  style,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  style?: object | object[];
+  onPress: () => void;
+}) {
+  return (
+    <ScalePressable
+      style={[styles.chipSquareButton, ...(style ? [style] : [])]}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={20} color={light.textSecondary} />
+    </ScalePressable>
+  );
+}
+
 export function OptionChips({
   openSheet,
 }: {
   openSheet: (key: SheetKey) => void;
 }) {
+  const [mode, setMode] = useState<ChipMode>("collapsed");
+
+  if (mode === "collapsed") {
+    return (
+      <View style={styles.chipRow2}>
+        <SquareIconButton
+          icon="options-outline"
+          onPress={() => setMode("options")}
+        />
+        <SquareIconButton
+          icon="image-outline"
+          onPress={() => setMode("image")}
+        />
+      </View>
+    );
+  }
+
+  if (mode === "options") {
+    const chips = [
+      <ModelChip openSheet={openSheet} />,
+      <ResolutionChip openSheet={openSheet} />,
+      <SeedChip openSheet={openSheet} />,
+      <StepsChip openSheet={openSheet} />,
+      <CfgChip openSheet={openSheet} />,
+      <CfgRescaleChip openSheet={openSheet} />,
+      <SamplerChip openSheet={openSheet} />,
+      <ScheduleChip openSheet={openSheet} />,
+      <VarietyChipConnected />,
+    ];
+    return (
+      <View style={styles.chipRowExpanded}>
+        <SquareIconButton
+          icon="chevron-back"
+          style={styles.chipCollapseLeft}
+          onPress={() => setMode("collapsed")}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+          contentContainerStyle={styles.optionScrollContentLeft}
+        >
+          {chips.map((chip, i) => (
+            <Animated.View
+              key={i}
+              entering={FadeInRight.duration(180).delay(i * 28)}
+            >
+              {chip}
+            </Animated.View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const imageChips = [
+    <ImageImportChip openSheet={openSheet} />,
+    <ImageActionChip icon="git-compare-outline" label="I2I" />,
+    <ImageActionChip icon="color-palette-outline" label="Vibe Transfer" />,
+    <ImageActionChip icon="locate-outline" label="Precise Reference" />,
+  ];
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.optionScrollContent}
-    >
-      <ImageImportChip openSheet={openSheet} />
-      <ModelChip openSheet={openSheet} />
-      <ResolutionChip openSheet={openSheet} />
-      <SeedChip openSheet={openSheet} />
-      <StepsChip openSheet={openSheet} />
-      <CfgChip openSheet={openSheet} />
-      <CfgRescaleChip openSheet={openSheet} />
-      <SamplerChip openSheet={openSheet} />
-      <ScheduleChip openSheet={openSheet} />
-      <VarietyChipConnected />
-    </ScrollView>
+    <View style={styles.chipRowExpanded}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.optionScrollContentRight}
+      >
+        {imageChips.map((chip, i) => (
+          <Animated.View
+            key={i}
+            entering={FadeInLeft.duration(180).delay(i * 28)}
+          >
+            {chip}
+          </Animated.View>
+        ))}
+      </ScrollView>
+      <SquareIconButton
+        icon="chevron-forward"
+        style={styles.chipCollapseRight}
+        onPress={() => setMode("collapsed")}
+      />
+    </View>
   );
 }

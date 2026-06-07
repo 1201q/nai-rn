@@ -255,6 +255,49 @@ export const styles = StyleSheet.create({
     color: "#ffffff",
   },
 
+  // 2버튼 축약 모드 / 펼침 모드
+  chipRow2: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  chipRowExpanded: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  chipScroll: {
+    flex: 1,
+  },
+  chipSquareButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  chipCollapseLeft: {
+    marginLeft: 16,
+    marginRight: 8,
+  },
+  chipCollapseRight: {
+    marginRight: 16,
+    marginLeft: 8,
+  },
+  optionScrollContentLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingRight: 16,
+  },
+  optionScrollContentRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 16,
+  },
+
   // 모델 선택 바텀시트 (라이트)
   sheetContainer: {
     zIndex: 20,

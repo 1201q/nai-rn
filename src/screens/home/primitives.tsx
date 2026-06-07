@@ -104,6 +104,54 @@ export function VarietyChip({
   );
 }
 
+export function ImageActionChip({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () =>
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: false,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.93],
+  });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [light.surface, light.surfaceAlt],
+  });
+
+  return (
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
+      <Animated.View
+        style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
+      >
+        <Ionicons name={icon} size={16} color={light.textSecondary} />
+        <Text style={styles.optionChipText}>{label}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export const OptionChip = React.memo(function OptionChip({
   opt,
   value,
