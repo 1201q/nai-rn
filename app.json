@@ -42,7 +42,13 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "이미지를 가져와 메타데이터를 추출하기 위해 사진 보관함 접근 권한이 필요합니다."
+        }
+      ]
     ],
     "extra": {
       "eas": {
