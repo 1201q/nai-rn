@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
@@ -36,30 +42,64 @@ function CheckRow({
   indent?: boolean;
   onToggle: () => void;
 }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () =>
+    Animated.spring(anim, {
+      toValue: 1,
+      useNativeDriver: false,
+      speed: 60,
+      bounciness: 0,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(anim, {
+      toValue: 0,
+      useNativeDriver: false,
+      speed: 30,
+      bounciness: 0,
+    }).start();
+
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.96],
+  });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(244,244,243,0)", light.surface],
+  });
+
   return (
     <BottomSheetTouchableOpacity
-      activeOpacity={0.7}
+      activeOpacity={1}
       disabled={disabled}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={() => {
         Haptics.selectionAsync().catch(() => {});
         onToggle();
       }}
-      style={[styles.checkRow, indent && styles.checkRowIndent]}
     >
-      <View
+      <Animated.View
         style={[
-          styles.checkbox,
-          checked && styles.checkboxChecked,
-          disabled && styles.checkboxDisabled,
+          sheetStyles.sheetModelItem,
+          indent && styles.rowIndent,
+          disabled && styles.rowDisabled,
+          { transform: [{ scale }], backgroundColor },
         ]}
       >
+        <Text
+          style={[
+            sheetStyles.sheetModelItemLabel,
+            checked && sheetStyles.sheetModelItemLabelActive,
+          ]}
+        >
+          {label}
+        </Text>
         {checked ? (
-          <Ionicons name="checkmark" size={15} color={light.bg} />
+          <Ionicons name="checkmark" size={20} color={light.accent} />
         ) : null}
-      </View>
-      <Text style={[styles.checkLabel, disabled && styles.checkLabelDisabled]}>
-        {label}
-      </Text>
+      </Animated.View>
     </BottomSheetTouchableOpacity>
   );
 }
@@ -100,12 +140,12 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
       }
 
       const asset = result.assets[0];
-      setPickedUri(asset.uri);
-      setAspect(asset.width && asset.height ? asset.width / asset.height : 1);
-
       const bytes = await new File(asset.uri).bytes();
       const raw = extractPngTextMetadata(bytes);
       const meta = parseNaiMetadata(raw);
+
+      setPickedUri(asset.uri);
+      setAspect(asset.width && asset.height ? asset.width / asset.height : 1);
       setParsed(meta);
       setSel({
         prompt: meta.prompt !== undefined,
@@ -170,7 +210,9 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <Text style={sheetStyles.sheetTitle}>Image Upload</Text>
+      <Text style={[sheetStyles.sheetTitle, styles.stickyTitle]}>
+        Image Upload
+      </Text>
 
       {pickedUri ? (
         <View
@@ -215,15 +257,21 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
           onPress={handlePick}
           style={styles.reselectButton}
         >
-          <Ionicons name="refresh" size={15} color={light.textSecondary} />
-          <Text style={styles.reselectText}>다시 선택</Text>
+          {busy ? (
+            <ActivityIndicator size="small" color={light.textSecondary} />
+          ) : (
+            <>
+              <Ionicons name="refresh" size={15} color={light.textSecondary} />
+              <Text style={styles.reselectText}>다시 선택</Text>
+            </>
+          )}
         </BottomSheetTouchableOpacity>
       ) : null}
 
-      {pickedUri && !busy ? (
+      {pickedUri ? (
         hasMetadata ? (
           <>
-            <Text style={styles.sectionTitle}>가져올 항목</Text>
+            <Text style={sheetStyles.resolutionGroupLabel}>가져올 항목</Text>
             {parsed?.prompt !== undefined ? (
               <CheckRow
                 label="Prompt"
@@ -233,7 +281,7 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
             ) : null}
             {parsed?.negativePrompt !== undefined ? (
               <CheckRow
-                label="Undesired Content"
+                label="Negative Prompt (UC)"
                 checked={sel.undesired}
                 onToggle={() =>
                   setSel((p) => ({ ...p, undesired: !p.undesired }))
@@ -312,11 +360,14 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     width: "100%",
-    maxHeight: 260,
-    minHeight: 180,
+    maxHeight: 220,
+    minHeight: 150,
     borderRadius: 18,
     backgroundColor: light.surface,
     overflow: "hidden",
+  },
+  stickyTitle: {
+    backgroundColor: light.bg,
   },
   previewImage: {
     width: "100%",
@@ -336,47 +387,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  sectionTitle: {
-    color: light.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-    marginTop: 12,
-    marginBottom: 4,
-    paddingHorizontal: 4,
+  rowIndent: {
+    marginLeft: 24,
   },
-  checkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  checkRowIndent: {
-    paddingLeft: 28,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: light.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    borderColor: light.accent,
-    backgroundColor: light.accent,
-  },
-  checkboxDisabled: {
+  rowDisabled: {
     opacity: 0.4,
-  },
-  checkLabel: {
-    color: light.textPrimary,
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  checkLabelDisabled: {
-    color: light.textHint,
   },
   importButton: {
     marginTop: 16,

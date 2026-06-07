@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Dimensions, Text, View } from "react-native";
 import BottomSheet, {
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
@@ -206,11 +206,13 @@ export function OptionSheets({
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing
+        maxDynamicContentSize={Dimensions.get("window").height * 0.92}
         onChange={(index) => onSheetChange("imageImport", index)}
       >
         <BottomSheetScrollView
           contentContainerStyle={styles.sheetScrollContent}
           showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[0]}
         >
           <ImageUploadSheet
             onClose={() => sheetRefs.imageImport.current?.close()}
