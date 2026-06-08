@@ -6,12 +6,12 @@ import {
   type GenerationRecord,
   initGenerationHistoryStorage,
   listGenerations,
-  saveGenerationImage,
+  saveGenerationImageBase64,
 } from "../lib/generationHistory";
 import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
-  generateNovelAiImage,
+  generateNovelAiImageStream,
   getNovelAiAnlasBalance,
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
@@ -24,6 +24,7 @@ import {
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const MAX_CHARACTER_PROMPTS = 6;
+const STREAMING_PREVIEW_THROTTLE_MS = 350;
 
 export type CharacterPrompt = {
   id: string;
@@ -193,6 +194,9 @@ export type GenerationState = {
   // 생성 결과
   currentGeneration: GenerationRecord | null;
   generationHistory: GenerationRecord[];
+  streamingPreviewUri: string | null;
+  streamingStep: number | null;
+  streamingGenerationId: number | null;
 
   // 생성 상태
   isLoading: boolean;
@@ -259,6 +263,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   currentGeneration: null,
   generationHistory: [],
+  streamingPreviewUri: null,
+  streamingStep: null,
+  streamingGenerationId: null,
 
   isLoading: false,
   message: null,
@@ -291,32 +298,70 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       set({ seed: generateRandomSeed() });
     }
 
-    set({ isLoading: true, message: null });
+    set({
+      isLoading: true,
+      message: null,
+      streamingPreviewUri: null,
+      streamingStep: null,
+      streamingGenerationId: null,
+    });
 
     try {
       const activeCharacterPrompts = resolveActiveCharacterPrompts(
         s.characterPrompts,
       );
-      const result = await generateNovelAiImage({
-        token: s.storedToken,
-        prompt: effPrompt,
-        negativePrompt: effNegativePrompt,
-        characterPrompts: activeCharacterPrompts,
-        model: s.model,
-        width: s.resolution.width,
-        height: s.resolution.height,
-        steps: s.steps,
-        promptGuidance: s.promptGuidance,
-        promptGuidanceRescale: s.promptGuidanceRescale,
-        noiseSchedule: s.noiseSchedule,
-        sampler: s.sampler,
-        seed: currentSeed,
-        nSamples: s.outputCount,
-        varietyPlus: s.varietyPlus,
-      });
+      let lastPreviewUpdateAt = 0;
+      const result = await generateNovelAiImageStream(
+        {
+          token: s.storedToken,
+          prompt: effPrompt,
+          negativePrompt: effNegativePrompt,
+          characterPrompts: activeCharacterPrompts,
+          model: s.model,
+          width: s.resolution.width,
+          height: s.resolution.height,
+          steps: s.steps,
+          promptGuidance: s.promptGuidance,
+          promptGuidanceRescale: s.promptGuidanceRescale,
+          noiseSchedule: s.noiseSchedule,
+          sampler: s.sampler,
+          seed: currentSeed,
+          nSamples: s.outputCount,
+          varietyPlus: s.varietyPlus,
+        },
+        (event) => {
+          if (event.type === "intermediate") {
+            const now = Date.now();
+            if (
+              now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
+              get().streamingPreviewUri
+            ) {
+              return;
+            }
 
-      const generation = await saveGenerationImage({
-        imageBytes: result.imageBytes,
+            lastPreviewUpdateAt = now;
+            set({
+              streamingPreviewUri: `data:image/jpeg;base64,${event.imageBase64}`,
+              streamingStep: event.step,
+              streamingGenerationId: event.generationId,
+            });
+            return;
+          }
+
+          if (event.type === "final") {
+            set({
+              streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
+              streamingGenerationId: event.generationId,
+            });
+            return;
+          }
+
+          return;
+        },
+      );
+
+      const generation = await saveGenerationImageBase64({
+        imageBase64: result.imageBase64,
         prompt: effPrompt,
         negativePrompt: effNegativePrompt,
         model: s.model,
@@ -328,17 +373,24 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         noiseSchedule: s.noiseSchedule,
         sampler: s.sampler,
         seed: result.seed,
-        metadata: result.metadata,
       });
 
       set((state) => ({
         currentGeneration: generation,
         generationHistory: [generation, ...state.generationHistory],
+        streamingPreviewUri: null,
+        streamingStep: null,
+        streamingGenerationId: null,
       }));
       onSuccess?.();
       get().refreshAnlas();
     } catch (error: unknown) {
-      set({ message: error instanceof Error ? error.message : String(error) });
+      set({
+        message: error instanceof Error ? error.message : String(error),
+        streamingPreviewUri: null,
+        streamingStep: null,
+        streamingGenerationId: null,
+      });
     } finally {
       set({ isLoading: false });
     }

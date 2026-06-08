@@ -72,6 +72,8 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: light.surfaceAlt,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
   generatedImage: {
     width: "100%",

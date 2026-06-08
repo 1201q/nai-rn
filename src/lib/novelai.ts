@@ -3,6 +3,8 @@ import JSZip from "jszip";
 import type { NoiseSchedule } from "../constants/generation";
 
 const NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
+const NOVELAI_IMAGE_STREAM_API_URL =
+  "https://image.novelai.net/ai/generate-image-stream";
 const NOVELAI_SUBSCRIPTION_API_URL =
   "https://api.novelai.net/user/subscription";
 
@@ -65,6 +67,38 @@ export type GenerateNovelAiImageResult = {
   imageBytes: Uint8Array;
   seed: number;
   metadata: Record<string, string>;
+};
+
+export type GenerateNovelAiImageStreamResult = {
+  imageBase64: string;
+  seed: number;
+};
+
+export type NovelAiImageStreamEvent =
+  | {
+      type: "intermediate";
+      imageBase64: string;
+      step: number | null;
+      generationId: number | null;
+    }
+  | {
+      type: "final";
+      imageBase64: string;
+      generationId: number | null;
+    }
+  | {
+      type: "error";
+      message: string;
+    };
+
+type NovelAiImageStreamRawEvent = {
+  event_type?: string;
+  samp_ix?: number;
+  step_ix?: number;
+  gen_id?: number;
+  image?: string;
+  message?: string;
+  error?: string;
 };
 
 function readUInt32BE(bytes: Uint8Array, offset: number): number {
@@ -202,8 +236,7 @@ function createV4Prompt(
   };
 }
 
-export async function generateNovelAiImage({
-  token,
+function createImageGenerationBody({
   prompt,
   negativePrompt,
   characterPrompts = [],
@@ -218,7 +251,7 @@ export async function generateNovelAiImage({
   seed: inputSeed,
   nSamples = 1,
   varietyPlus = false,
-}: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
+}: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
   const v4PromptCharacterCaptions = characterPrompts.map((item) =>
@@ -261,6 +294,223 @@ export async function generateNovelAiImage({
       : {}),
   };
 
+  return {
+    seed,
+    body: {
+      input: prompt,
+      model,
+      action: "generate",
+      parameters,
+    },
+  };
+}
+
+function parseSseEvents(
+  buffer: string,
+  onEvent: (eventName: string, data: unknown) => void,
+) {
+  let nextBuffer = buffer;
+  let separatorIndex = nextBuffer.search(/\r?\n\r?\n/);
+
+  while (separatorIndex !== -1) {
+    const rawEvent = nextBuffer.slice(0, separatorIndex);
+    nextBuffer = nextBuffer
+      .slice(separatorIndex)
+      .replace(/^\r?\n\r?\n/, "");
+
+    const lines = rawEvent.split(/\r?\n/);
+    const eventName =
+      lines
+        .find((line) => line.startsWith("event:"))
+        ?.slice("event:".length)
+        .trim() || "message";
+    const dataText = lines
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice("data:".length).trimStart())
+      .join("\n");
+
+    let data: unknown = dataText;
+    if (dataText) {
+      try {
+        data = JSON.parse(dataText);
+      } catch {
+        data = dataText;
+      }
+    }
+
+    onEvent(eventName, data);
+
+    separatorIndex = nextBuffer.search(/\r?\n\r?\n/);
+  }
+
+  return nextBuffer;
+}
+
+function getStreamErrorMessage(data: unknown): string {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (data && typeof data === "object") {
+    const event = data as NovelAiImageStreamRawEvent;
+    return event.message ?? event.error ?? JSON.stringify(data);
+  }
+
+  return "NovelAI image stream failed.";
+}
+
+function toNovelAiImageStreamEvent(
+  data: unknown,
+): NovelAiImageStreamEvent | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const event = data as NovelAiImageStreamRawEvent;
+  if (event.samp_ix !== undefined && event.samp_ix !== 0) {
+    return null;
+  }
+
+  if (event.event_type === "intermediate" && event.image) {
+    return {
+      type: "intermediate",
+      imageBase64: event.image,
+      step: event.step_ix ?? null,
+      generationId: event.gen_id ?? null,
+    };
+  }
+
+  if (event.event_type === "final" && event.image) {
+    return {
+      type: "final",
+      imageBase64: event.image,
+      generationId: event.gen_id ?? null,
+    };
+  }
+
+  if (event.event_type === "error") {
+    return {
+      type: "error",
+      message: getStreamErrorMessage(data),
+    };
+  }
+
+  return null;
+}
+
+export async function generateNovelAiImageStream(
+  input: GenerateNovelAiImageInput,
+  onEvent?: (event: NovelAiImageStreamEvent) => void,
+): Promise<GenerateNovelAiImageStreamResult> {
+  const { token, ...requestInput } = input;
+  const { seed, body } = createImageGenerationBody(requestInput);
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let responseOffset = 0;
+    let buffer = "";
+    let finalImageBase64: string | null = null;
+    let isSettled = false;
+
+    function settleError(error: unknown) {
+      if (isSettled) return;
+      isSettled = true;
+      reject(error);
+    }
+
+    function handleStreamText(text: string) {
+      buffer = parseSseEvents(buffer + text, (_eventName, data) => {
+        const streamEvent = toNovelAiImageStreamEvent(data);
+        if (!streamEvent) return;
+
+        try {
+          onEvent?.(streamEvent);
+        } catch (error: unknown) {
+          settleError(error);
+          xhr.abort();
+          return;
+        }
+
+        if (streamEvent.type === "final") {
+          finalImageBase64 = streamEvent.imageBase64;
+        }
+
+        if (streamEvent.type === "error") {
+          settleError(new Error(streamEvent.message));
+          xhr.abort();
+        }
+      });
+    }
+
+    xhr.open("POST", NOVELAI_IMAGE_STREAM_API_URL, true);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "text/event-stream");
+
+    xhr.onprogress = () => {
+      const nextText = xhr.responseText.slice(responseOffset);
+      responseOffset = xhr.responseText.length;
+      if (nextText) {
+        handleStreamText(nextText);
+      }
+    };
+
+    xhr.onerror = () => {
+      settleError(new Error("NovelAI image stream network error."));
+    };
+
+    xhr.onabort = () => {
+      settleError(new Error("NovelAI image stream was aborted."));
+    };
+
+    xhr.onload = () => {
+      if (isSettled) return;
+
+      const nextText = xhr.responseText.slice(responseOffset);
+      responseOffset = xhr.responseText.length;
+      if (nextText) {
+        handleStreamText(nextText);
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        settleError(
+          new Error(`HTTP ${xhr.status} ${xhr.statusText}\n${xhr.responseText}`),
+        );
+        return;
+      }
+
+      if (!finalImageBase64) {
+        settleError(
+          new Error("NovelAI image stream finished without a final image."),
+        );
+        return;
+      }
+
+      isSettled = true;
+      resolve({
+        imageBase64: finalImageBase64,
+        seed,
+      });
+    };
+
+    xhr.send(
+      JSON.stringify({
+        ...body,
+        parameters: {
+          ...body.parameters,
+          stream: "sse",
+        },
+      }),
+    );
+  });
+}
+
+export async function generateNovelAiImage({
+  token,
+  ...requestInput
+}: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
+  const { seed, body } = createImageGenerationBody(requestInput);
+
   const response = await fetch(NOVELAI_IMAGE_API_URL, {
     method: "POST",
     headers: {
@@ -268,12 +518,7 @@ export async function generateNovelAiImage({
       "Content-Type": "application/json",
       Accept: "application/zip, */*",
     },
-    body: JSON.stringify({
-      input: prompt,
-      model,
-      action: "generate",
-      parameters,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

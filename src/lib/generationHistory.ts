@@ -3,6 +3,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 
 import type { NoiseSchedule } from "../constants/generation";
+import { extractPngTextMetadata } from "./novelai";
 
 const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
@@ -45,6 +46,13 @@ export type SaveGenerationInput = {
   cfgRescale: number;
   seed: number;
   metadata: Record<string, string>;
+};
+
+export type SaveGenerationBase64Input = Omit<
+  SaveGenerationInput,
+  "imageBytes" | "metadata"
+> & {
+  imageBase64: string;
 };
 
 type GenerationRow = {
@@ -153,8 +161,20 @@ export async function listGenerations(): Promise<GenerationRecord[]> {
   return rows.map(rowToRecord);
 }
 
-export async function saveGenerationImage({
-  imageBytes,
+type SaveGenerationRecordInput = Omit<SaveGenerationInput, "imageBytes"> & {
+  id: string;
+  createdAt: number;
+  imagePath: string;
+  thumbnailFileName: string;
+  originalFile: File;
+};
+
+async function saveGenerationRecord({
+  id,
+  createdAt,
+  imagePath,
+  thumbnailFileName,
+  originalFile,
   prompt,
   negativePrompt,
   model,
@@ -167,18 +187,7 @@ export async function saveGenerationImage({
   cfgRescale,
   seed,
   metadata,
-}: SaveGenerationInput): Promise<GenerationRecord> {
-  await initGenerationHistoryStorage();
-
-  const id = createGenerationId();
-  const createdAt = Date.now();
-  const imagePath = `${ORIGINALS_DIR}/${id}.png`;
-  const thumbnailFileName = `${id}.jpg`;
-  const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
-
-  originalFile.create({ overwrite: true });
-  originalFile.write(imageBytes);
-
+}: SaveGenerationRecordInput): Promise<GenerationRecord> {
   let thumbnailPath: string | null = `${THUMBNAILS_DIR}/${thumbnailFileName}`;
 
   try {
@@ -269,6 +278,58 @@ export async function saveGenerationImage({
   );
 
   return record;
+}
+
+export async function saveGenerationImage({
+  imageBytes,
+  ...recordInput
+}: SaveGenerationInput): Promise<GenerationRecord> {
+  await initGenerationHistoryStorage();
+
+  const id = createGenerationId();
+  const createdAt = Date.now();
+  const imagePath = `${ORIGINALS_DIR}/${id}.png`;
+  const thumbnailFileName = `${id}.jpg`;
+  const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
+
+  originalFile.create({ overwrite: true });
+  originalFile.write(imageBytes);
+
+  return saveGenerationRecord({
+    ...recordInput,
+    id,
+    createdAt,
+    imagePath,
+    thumbnailFileName,
+    originalFile,
+  });
+}
+
+export async function saveGenerationImageBase64({
+  imageBase64,
+  ...recordInput
+}: SaveGenerationBase64Input): Promise<GenerationRecord> {
+  await initGenerationHistoryStorage();
+
+  const id = createGenerationId();
+  const createdAt = Date.now();
+  const imagePath = `${ORIGINALS_DIR}/${id}.png`;
+  const thumbnailFileName = `${id}.jpg`;
+  const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
+
+  originalFile.create({ overwrite: true });
+  originalFile.write(imageBase64, { encoding: "base64" });
+
+  const imageBytes = await originalFile.bytes();
+  return saveGenerationRecord({
+    ...recordInput,
+    id,
+    createdAt,
+    imagePath,
+    thumbnailFileName,
+    originalFile,
+    metadata: extractPngTextMetadata(imageBytes),
+  });
 }
 
 export function resolveGenerationImageUri(record: GenerationRecord) {

@@ -29,16 +29,24 @@ const IMAGE_SLOT_VERTICAL_PADDING = 24;
 
 export function ImageArea() {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const resolution = useGenerationStore((s) => s.resolution);
+  const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
     : null;
+  const displayedImageUri =
+    streamingPreviewUri ?? (isLoading ? null : currentImageUri);
+  const isStreamingPreview = Boolean(streamingPreviewUri || isLoading);
   const imageSource = useMemo(
-    () => (currentImageUri ? { uri: currentImageUri } : undefined),
-    [currentImageUri],
+    () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
+    [displayedImageUri],
   );
-  const generationAspect = currentGeneration
-    ? currentGeneration.width / currentGeneration.height
-    : 16 / 9;
+  const generationAspect = isStreamingPreview
+    ? resolution.width / resolution.height
+    : currentGeneration
+      ? currentGeneration.width / currentGeneration.height
+      : 16 / 9;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const slotWidth = useSharedValue(0);
@@ -52,10 +60,10 @@ export function ImageArea() {
     let cancelled = false;
     setImageAspect(generationAspect);
 
-    if (!currentImageUri) return;
+    if (!displayedImageUri || isStreamingPreview) return;
 
     ReactNativeImage.getSize(
-      currentImageUri,
+      displayedImageUri,
       (width, height) => {
         if (!cancelled && width > 0 && height > 0) {
           setImageAspect(width / height);
@@ -67,10 +75,10 @@ export function ImageArea() {
     return () => {
       cancelled = true;
     };
-  }, [currentImageUri, generationAspect]);
+  }, [displayedImageUri, generationAspect, isStreamingPreview]);
 
   function openImagePreview() {
-    if (!currentImageUri) return;
+    if (!currentImageUri || isStreamingPreview) return;
     setIsImagePreviewOpen(true);
     previewAnimation.setValue(0);
     Animated.timing(previewAnimation, {
@@ -183,8 +191,12 @@ export function ImageArea() {
         }}
       >
         <Reanimated.View style={[styles.imageCard, imageCardStyle]}>
-          {currentImageUri ? (
-            <Pressable style={styles.generatedImage} onPress={openImagePreview}>
+          {displayedImageUri ? (
+            <Pressable
+              style={styles.generatedImage}
+              onPress={openImagePreview}
+              disabled={isStreamingPreview}
+            >
               <ExpoImage
                 source={imageSource}
                 contentFit="contain"
@@ -194,7 +206,10 @@ export function ImageArea() {
               />
             </Pressable>
           ) : null}
-          {currentImageUri ? (
+          {isLoading && !displayedImageUri ? (
+            <ActivityIndicator color="#1c1c1c" size="large" />
+          ) : null}
+          {currentImageUri && !isStreamingPreview ? (
             <View style={styles.imageOverlayRow}>
               <TouchableOpacity
                 style={styles.imageOverlayButton}
