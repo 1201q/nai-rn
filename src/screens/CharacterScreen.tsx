@@ -32,6 +32,7 @@ import { StickySuggestionBar } from "./home/SuggestionBar";
 import { light } from "./home/styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
+const TEXTAREA_MIN_HEIGHT = 88;
 const CHARACTER_LAYOUT = LinearTransition.duration(220);
 const CHARACTER_BODY_ENTERING = FadeIn.duration(140);
 const CHARACTER_BODY_EXITING = FadeOut.duration(100);
@@ -53,6 +54,7 @@ function LabeledPromptInput({
   const inputRef = useRef<TextInput>(null);
   const focusedRef = useRef(false);
   const [text, setText] = useState(value);
+  const [inputHeight, setInputHeight] = useState(TEXTAREA_MIN_HEIGHT);
   const latestRef = useRef(value);
 
   // 외부(import 등) 변경은 포커스 아닐 때만 로컬에 반영 (타이핑 중엔 로컬 우선)
@@ -104,7 +106,12 @@ function LabeledPromptInput({
         multiline
         textAlignVertical="top"
         placeholderTextColor={light.textHint}
-        style={styles.textArea}
+        onContentSizeChange={(e) =>
+          setInputHeight(
+            Math.max(TEXTAREA_MIN_HEIGHT, e.nativeEvent.contentSize.height),
+          )
+        }
+        style={[styles.textArea, { height: inputHeight }]}
       />
     </View>
   );
@@ -201,7 +208,7 @@ function CharacterPromptCard({
   );
 }
 
-export function CharacterScreen() {
+export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<CharacterScreenNavigationProp>();
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
@@ -252,22 +259,29 @@ export function CharacterScreen() {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
+        {embedded ? (
+          <View style={styles.headerSpacer} />
+        ) : (
+          <TouchableOpacity
+            style={styles.headerCircleButton}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
+          </TouchableOpacity>
+        )}
         <Text style={styles.headerTitle}>Character</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <KeyboardAwareScrollView
         bottomOffset={72}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          embedded && { paddingBottom: insets.bottom + 96 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {characterPrompts.length > 0 ? (
@@ -463,7 +477,7 @@ const styles = StyleSheet.create({
     color: light.accent,
   },
   textArea: {
-    minHeight: 88,
+    minHeight: TEXTAREA_MIN_HEIGHT,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: light.border,

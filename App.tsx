@@ -14,7 +14,6 @@ import { GenerationOptionsProvider } from "./src/context/GenerationOptionsContex
 import { MainScreen } from "./src/screens/MainScreen";
 import { CharacterScreen } from "./src/screens/CharacterScreen";
 import { CharacterEditScreen } from "./src/screens/CharacterEditScreen";
-import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import type { RootStackParamList } from "./src/navigation/types";
 import { colors } from "./src/styles/colors";
@@ -53,7 +52,6 @@ export default function App() {
                 name="CharacterEdit"
                 component={CharacterEditScreen}
               />
-              <Stack.Screen name="History" component={HistoryScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
             </Stack.Navigator>
           </NavigationContainer>

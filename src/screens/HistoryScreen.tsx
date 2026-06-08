@@ -12,20 +12,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
-import { useNavigation } from "@react-navigation/native";
 
 import { useGenerationStore } from "../store/generationStore";
 import {
   resolveGenerationImageUri,
   resolveGenerationThumbnailUri,
 } from "../lib/generationHistory";
-import type { HistoryScreenNavigationProp } from "../navigation/types";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { light } from "./home/styles";
 
-export function HistoryScreen() {
+type HistoryScreenProps = {
+  onBack: () => void;
+};
+
+export function HistoryScreen({ onBack }: HistoryScreenProps) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<HistoryScreenNavigationProp>();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
 
   const { width } = useWindowDimensions();
@@ -67,7 +68,7 @@ export function HistoryScreen() {
           activeOpacity={0.78}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
+          onPress={onBack}
         >
           <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
         </TouchableOpacity>

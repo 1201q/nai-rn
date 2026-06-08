@@ -4,7 +4,6 @@ export type RootStackParamList = {
   Main: undefined;
   Character: undefined;
   CharacterEdit: undefined;
-  History: undefined;
   Settings: undefined;
 };
 
@@ -21,11 +20,6 @@ export type CharacterScreenNavigationProp = StackNavigationProp<
 export type CharacterEditScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   "CharacterEdit"
->;
-
-export type HistoryScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  "History"
 >;
 
 export type SettingsScreenNavigationProp = StackNavigationProp<
