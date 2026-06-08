@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
@@ -143,9 +157,42 @@ function PromptTabContent() {
   );
 }
 
+const TAB_BAR_PADDING = 4;
+const PILL_TIMING = { duration: 200, easing: Easing.bezier(0.4, 0, 0.2, 1) };
+
 export function PromptPage() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<PromptTab>("prompt");
+  const activeTabRef = useRef<PromptTab>("prompt");
+  const tabLayouts = useRef<Partial<Record<PromptTab, { x: number; width: number }>>>({});
+  const pillX = useSharedValue(0);
+  const pillWidth = useSharedValue(0);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    left: pillX.value,
+    width: pillWidth.value,
+  }));
+
+  const handleTabLayout = (key: PromptTab) => (e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    if (width === 0) return;
+    tabLayouts.current[key] = { x, width };
+    if (key === activeTabRef.current) {
+      // content-area 기준 x → absolute 좌표로 변환
+      pillX.value = x;
+      pillWidth.value = width;
+    }
+  };
+
+  const handleTabPress = (key: PromptTab) => {
+    activeTabRef.current = key;
+    setTab(key);
+    const layout = tabLayouts.current[key];
+    if (layout) {
+      pillX.value = withTiming(layout.x, PILL_TIMING);
+      pillWidth.value = withTiming(layout.width, PILL_TIMING);
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -157,28 +204,37 @@ export function PromptPage() {
 
       {/* 하단 플로팅 세그먼트 탭 */}
       <View style={[styles.tabBarWrap, { bottom: insets.bottom + 16 }]}>
-        <View style={styles.tabBar}>
-          {TABS.map(({ key, label, icon }) => {
-            const active = tab === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => setTab(key)}
-                style={[styles.tab, active && styles.tabActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Ionicons
-                  name={icon}
-                  size={20}
-                  color={active ? light.textPrimary : light.textSecondary}
-                />
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.tabBarShadow}>
+          <BlurView intensity={60} tint="light" style={styles.tabBar}>
+            <Animated.View
+              style={[styles.slidingPill, pillStyle]}
+              pointerEvents="none"
+            />
+            {TABS.map(({ key, label, icon }) => {
+              const active = tab === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => handleTabPress(key)}
+                  onLayout={handleTabLayout(key)}
+                  style={styles.tab}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Ionicons
+                    name={icon}
+                    size={20}
+                    color={active ? light.textPrimary : light.textSecondary}
+                  />
+                  <Text
+                    style={[styles.tabLabel, active && styles.tabLabelActive]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </BlurView>
         </View>
       </View>
     </View>
@@ -250,19 +306,21 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
   },
+  tabBarShadow: {
+    borderRadius: 999,
+    shadowColor: "#00000076",
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: light.bg,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: light.border,
     padding: 4,
     gap: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,1)",
   },
   tab: {
     flexDirection: "row",
@@ -272,8 +330,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 999,
   },
-  tabActive: {
-    backgroundColor: light.surface,
+  slidingPill: {
+    position: "absolute",
+    top: TAB_BAR_PADDING,
+    bottom: TAB_BAR_PADDING,
+    borderRadius: 999,
+    backgroundColor: light.surfaceAlt,
   },
   tabLabel: {
     fontSize: 13,
