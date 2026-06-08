@@ -3,10 +3,16 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 
 import { useGenerationStore } from "../../store/generationStore";
 import { CharacterScreen } from "../CharacterScreen";
+import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
+import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+import { StickySuggestionBar } from "../home/SuggestionBar";
 import { light } from "../home/styles";
 
 type PromptTab = "prompt" | "character";
@@ -33,6 +39,7 @@ function PromptField({
   onCommit: (v: string) => void;
   minHeight: number;
 }) {
+  const inputRef = useRef<TextInput>(null);
   const focusedRef = useRef(false);
   const [text, setText] = useState(value);
   const latestRef = useRef(value);
@@ -43,6 +50,16 @@ function PromptField({
       latestRef.current = value;
     }
   }, [value]);
+
+  const onChangeText = (t: string) => {
+    setText(t);
+    latestRef.current = t;
+  };
+  const autocomplete = usePromptAutocomplete({
+    value: text,
+    onChangeText,
+    inputRef,
+  });
 
   // 언마운트(탭 전환/네비 등 blur 미발생) 대비 최종 동기화
   useEffect(
@@ -55,17 +72,18 @@ function PromptField({
     <View style={styles.card}>
       <Text style={styles.cardLabel}>{label}</Text>
       <TextInput
+        ref={inputRef}
         value={text}
-        onChangeText={(t) => {
-          setText(t);
-          latestRef.current = t;
-        }}
+        onChangeText={autocomplete.handleChangeText}
+        selection={autocomplete.selection}
+        onSelectionChange={autocomplete.handleSelectionChange}
         onFocus={() => {
           focusedRef.current = true;
         }}
         onBlur={() => {
           focusedRef.current = false;
           onCommit(latestRef.current);
+          autocomplete.clearSuggestions();
         }}
         multiline
         textAlignVertical="top"
@@ -84,35 +102,44 @@ function PromptTabContent() {
   const setNegativePrompt = useGenerationStore((s) => s.setNegativePrompt);
 
   return (
-    <View style={[styles.tabScreen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>Prompt</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <SuggestionBarProvider>
+      <View style={[styles.tabScreen, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>Prompt</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <KeyboardAwareScrollView
-        bottomOffset={24}
-        contentContainerStyle={[
-          styles.tabContent,
-          { paddingBottom: insets.bottom + 96 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <PromptField
-          label="Prompt"
-          value={prompt}
-          onCommit={setPrompt}
-          minHeight={220}
-        />
-        <PromptField
-          label="Negative Prompt"
-          value={negativePrompt}
-          onCommit={setNegativePrompt}
-          minHeight={120}
-        />
-      </KeyboardAwareScrollView>
-    </View>
+        <KeyboardAwareScrollView
+          bottomOffset={72}
+          contentContainerStyle={[
+            styles.tabContent,
+            { paddingBottom: insets.bottom + 96 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <PromptField
+            label="Prompt"
+            value={prompt}
+            onCommit={setPrompt}
+            minHeight={220}
+          />
+          <PromptField
+            label="Negative Prompt"
+            value={negativePrompt}
+            onCommit={setNegativePrompt}
+            minHeight={120}
+          />
+        </KeyboardAwareScrollView>
+
+        <KeyboardStickyView
+          style={styles.suggestionSticky}
+          offset={{ closed: 0, opened: 0 }}
+        >
+          <StickySuggestionBar />
+        </KeyboardStickyView>
+      </View>
+    </SuggestionBarProvider>
   );
 }
 
@@ -208,6 +235,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: light.textPrimary,
     padding: 0,
+  },
+  suggestionSticky: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 20,
   },
   tabBarWrap: {
     position: "absolute",
