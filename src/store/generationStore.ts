@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
@@ -8,6 +9,14 @@ import {
   listGenerations,
   saveGenerationImageBase64,
 } from "../lib/generationHistory";
+import notifee, { EventType } from "react-native-notify-kit";
+
+import {
+  CANCEL_ACTION_ID,
+  startGenerationService,
+  stopGenerationService,
+  updateGenerationProgress,
+} from "../lib/foregroundService";
 import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
@@ -214,11 +223,35 @@ export type GenerationState = {
     onSuccess?: () => void,
     overrides?: { prompt?: string; negativePrompt?: string },
   ) => Promise<void>;
+  // foreground service 태스크에서 호출하는 실제 큐 루프 (백그라운드 실행 보장).
+  runQueueTask: () => Promise<void>;
 };
 
-function delay(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
+type QueueParams = {
+  token: string;
+  prompt: string;
+  negativePrompt: string;
+  characterPrompts: GenerateNovelAiCharacterPrompt[];
+  opts: {
+    model: string;
+    width: number;
+    height: number;
+    steps: number;
+    promptGuidance: number;
+    promptGuidanceRescale: number;
+    noiseSchedule: NoiseSchedule;
+    sampler: string;
+    nSamples: number;
+    varietyPlus: boolean;
+  };
+  total: number;
+  onSuccess?: () => void;
+};
+
+// 큐 파라미터/실행 플래그는 store state 밖 모듈 스코프에 보관
+// (foreground service 태스크가 트리거와 별개로 읽어야 하므로).
+let pendingQueue: QueueParams | null = null;
+let queueRunning = false;
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   prompt:
@@ -292,7 +325,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   generateImage: async (onSuccess, overrides) => {
     const s = get();
-    if (s.isLoading) return;
+    if (s.isLoading || queueRunning) return;
     if (!s.storedToken) {
       set({ message: "저장된 NovelAI 토큰이 없습니다." });
       return;
@@ -310,24 +343,27 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
-    const token = s.storedToken;
-    const activeCharacterPrompts = resolveActiveCharacterPrompts(
-      s.characterPrompts,
-    );
-    const opts = {
-      model: s.model,
-      width: s.resolution.width,
-      height: s.resolution.height,
-      steps: s.steps,
-      promptGuidance: s.promptGuidance,
-      promptGuidanceRescale: s.promptGuidanceRescale,
-      noiseSchedule: s.noiseSchedule,
-      sampler: s.sampler,
-      nSamples: s.outputCount,
-      varietyPlus: s.varietyPlus,
-    };
-
     const total = Math.min(20, Math.max(1, s.batchCount));
+    pendingQueue = {
+      token: s.storedToken,
+      prompt: effPrompt,
+      negativePrompt: effNegativePrompt,
+      characterPrompts: resolveActiveCharacterPrompts(s.characterPrompts),
+      opts: {
+        model: s.model,
+        width: s.resolution.width,
+        height: s.resolution.height,
+        steps: s.steps,
+        promptGuidance: s.promptGuidance,
+        promptGuidanceRescale: s.promptGuidanceRescale,
+        noiseSchedule: s.noiseSchedule,
+        sampler: s.sampler,
+        nSamples: s.outputCount,
+        varietyPlus: s.varietyPlus,
+      },
+      total,
+      onSuccess,
+    };
 
     set({
       isLoading: true,
@@ -340,6 +376,23 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       streamingGenerationId: null,
     });
 
+    // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
+    // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
+    // 또는 비-Android면 직접 구동(포그라운드 한정).
+    const started = await startGenerationService(total);
+    if (started) return;
+    await get().runQueueTask();
+  },
+
+  runQueueTask: async () => {
+    if (queueRunning) return;
+    const params = pendingQueue;
+    if (!params) return;
+    queueRunning = true;
+
+    const { token, prompt, negativePrompt, characterPrompts, opts, total } =
+      params;
+
     try {
       for (let i = 1; i <= total; i++) {
         if (get().queueCancelRequested) break;
@@ -350,6 +403,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           streamingStep: null,
           streamingGenerationId: null,
         });
+        updateGenerationProgress(i, total);
 
         // 이번 장 시드 확정 후, 잠금이 아니면 즉시 다음 시드로 advance (UI에 다음 시드 표시)
         let currentSeed = get().seed;
@@ -364,14 +418,18 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const result = await generateNovelAiImageStream(
           {
             token,
-            prompt: effPrompt,
-            negativePrompt: effNegativePrompt,
-            characterPrompts: activeCharacterPrompts,
+            prompt,
+            negativePrompt,
+            characterPrompts,
             seed: currentSeed,
             ...opts,
           },
           (event) => {
             if (event.type === "intermediate") {
+              // 백그라운드에선 미리보기 base64 디코딩이 메모리 낭비 — 스킵
+              if (AppState.currentState !== "active") {
+                return;
+              }
               const now = Date.now();
               if (
                 now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
@@ -403,8 +461,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
         const generation = await saveGenerationImageBase64({
           imageBase64: result.imageBase64,
-          prompt: effPrompt,
-          negativePrompt: effNegativePrompt,
+          prompt,
+          negativePrompt,
           model: opts.model,
           width: opts.width,
           height: opts.height,
@@ -424,18 +482,17 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           streamingGenerationId: null,
         }));
         get().refreshAnlas();
-
-        if (i < total && !get().queueCancelRequested) {
-          await delay(1000);
-        }
       }
-      onSuccess?.();
+      params.onSuccess?.();
     } catch (error: unknown) {
       // 한 장 실패 시 큐 중단. 부분 완료분은 history 유지.
       set({
         message: error instanceof Error ? error.message : String(error),
       });
     } finally {
+      pendingQueue = null;
+      queueRunning = false;
+      await stopGenerationService();
       set({
         isLoading: false,
         queueTotal: 0,
@@ -451,6 +508,33 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
 // 초기 로드(옵션/토큰/히스토리) + persist 구독. Provider에서 1회 호출.
 export function useGenerationBootstrap() {
+  // 앱 포그라운드일 때 알림 "취소" 액션 → 큐 중단
+  useEffect(() => {
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (
+        type === EventType.ACTION_PRESS &&
+        detail.pressAction?.id === CANCEL_ACTION_ID
+      ) {
+        useGenerationStore.getState().requestQueueCancel();
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 부팅 시 잔존 foreground service 정리 (reload/크래시로 JS 컨텍스트가
+  // 큐 도중 죽으면 네이티브 FS 알림이 고아로 남아 취소도 안 됨).
+  useEffect(() => {
+    if (!queueRunning) {
+      useGenerationStore.setState({
+        isLoading: false,
+        queueTotal: 0,
+        queueIndex: 0,
+        queueCancelRequested: false,
+      });
+      void stopGenerationService();
+    }
+  }, []);
+
   useEffect(() => {
     const { setState } = useGenerationStore;
 
