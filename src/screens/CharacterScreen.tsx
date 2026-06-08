@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -22,8 +22,8 @@ import Animated, {
 
 import {
   type CharacterPrompt,
-  useGenerationOptions,
-} from "../context/GenerationOptionsContext";
+  useGenerationStore,
+} from "../store/generationStore";
 import type { CharacterScreenNavigationProp } from "../navigation/types";
 import { SuggestionBarProvider } from "../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
@@ -36,19 +36,51 @@ const CHARACTER_LAYOUT = LinearTransition.duration(220);
 const CHARACTER_BODY_ENTERING = FadeIn.duration(140);
 const CHARACTER_BODY_EXITING = FadeOut.duration(100);
 
+// 캐릭터 프롬프트 입력도 고빈도 편집. PromptCard 와 동일하게 텍스트를 로컬
+// state 로 보유해 키 입력당 store 갱신(전체 배열 재생성 + 재렌더 + persist write)을
+// 막고, store 동기화는 blur/언마운트(카드 접힘·네비) 시에만.
 function LabeledPromptInput({
   label,
   negative,
   value,
-  onChangeText,
+  onCommit,
 }: {
   label: string;
   negative?: boolean;
   value: string;
-  onChangeText: (v: string) => void;
+  onCommit: (v: string) => void;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const autocomplete = usePromptAutocomplete({ value, onChangeText, inputRef });
+  const focusedRef = useRef(false);
+  const [text, setText] = useState(value);
+  const latestRef = useRef(value);
+
+  // 외부(import 등) 변경은 포커스 아닐 때만 로컬에 반영 (타이핑 중엔 로컬 우선)
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setText(value);
+      latestRef.current = value;
+    }
+  }, [value]);
+
+  const onChangeText = (t: string) => {
+    setText(t);
+    latestRef.current = t;
+  };
+  const autocomplete = usePromptAutocomplete({
+    value: text,
+    onChangeText,
+    inputRef,
+  });
+
+  // 언마운트(카드 접힘/네비 등 blur 미발생) 대비 최종 동기화
+  useEffect(
+    () => () => onCommit(latestRef.current),
+    // onCommit 은 매 렌더 새 함수지만 cleanup 만 쓰고, 커밋은 store getState 기반이라
+    // stale 위험 없음 → 의도적으로 deps 비움
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <View style={styles.labeledInput}>
@@ -57,11 +89,18 @@ function LabeledPromptInput({
       </Text>
       <TextInput
         ref={inputRef}
-        value={value}
+        value={text}
         onChangeText={autocomplete.handleChangeText}
         selection={autocomplete.selection}
         onSelectionChange={autocomplete.handleSelectionChange}
-        onBlur={autocomplete.clearSuggestions}
+        onFocus={() => {
+          focusedRef.current = true;
+        }}
+        onBlur={() => {
+          focusedRef.current = false;
+          onCommit(latestRef.current);
+          autocomplete.clearSuggestions();
+        }}
         multiline
         textAlignVertical="top"
         placeholderTextColor={light.textHint}
@@ -148,13 +187,13 @@ function CharacterPromptCard({
           <LabeledPromptInput
             label="Base"
             value={item.prompt}
-            onChangeText={(next) => onUpdate({ prompt: next })}
+            onCommit={(next) => onUpdate({ prompt: next })}
           />
           <LabeledPromptInput
             label="Negative"
             negative
             value={item.negativePrompt}
-            onChangeText={(next) => onUpdate({ negativePrompt: next })}
+            onCommit={(next) => onUpdate({ negativePrompt: next })}
           />
         </Animated.View>
       ) : null}
@@ -165,7 +204,8 @@ function CharacterPromptCard({
 export function CharacterScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<CharacterScreenNavigationProp>();
-  const { characterPrompts, setCharacterPrompts } = useGenerationOptions();
+  const characterPrompts = useGenerationStore((s) => s.characterPrompts);
+  const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   function toggleExpand(id: string) {
@@ -194,8 +234,11 @@ export function CharacterScreen() {
     id: string,
     nextValues: Partial<Omit<CharacterPrompt, "id">>,
   ) {
+    // 항상 최신 배열 기준으로 갱신. (한 카드의 Base/Negative 가 접힘·언마운트 시
+    // 동시에 커밋될 때 closure 의 stale 배열로 서로 덮어쓰는 것 방지)
+    const current = useGenerationStore.getState().characterPrompts;
     setCharacterPrompts(
-      characterPrompts.map((item) =>
+      current.map((item) =>
         item.id === id ? { ...item, ...nextValues } : item,
       ),
     );
