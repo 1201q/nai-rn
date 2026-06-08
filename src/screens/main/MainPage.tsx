@@ -37,11 +37,7 @@ import {
   type SheetRefs,
 } from "../home/OptionSheets";
 
-type MainPageProps = {
-  onOpenHistory: () => void;
-};
-
-export function MainPage({ onOpenHistory }: MainPageProps) {
+export function MainPage() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
@@ -140,15 +136,6 @@ export function MainPage({ onOpenHistory }: MainPageProps) {
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.headerCircleButton}
-            activeOpacity={0.78}
-            accessibilityRole="button"
-            accessibilityLabel="History"
-            onPress={onOpenHistory}
-          >
-            <Ionicons name="time-outline" size={20} color={light.textPrimary} />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerCircleButton}
             activeOpacity={0.78}

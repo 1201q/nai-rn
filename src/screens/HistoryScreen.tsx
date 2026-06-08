@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 
 import { useGenerationStore } from "../store/generationStore";
@@ -21,11 +20,7 @@ import {
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { light } from "./home/styles";
 
-type HistoryScreenProps = {
-  onBack: () => void;
-};
-
-export function HistoryScreen({ onBack }: HistoryScreenProps) {
+export function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
 
@@ -63,17 +58,7 @@ export function HistoryScreen({ onBack }: HistoryScreenProps) {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={onBack}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>History</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <FlatList
@@ -146,22 +131,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
   },
-  headerCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.surface,
-  },
   headerTitle: {
     fontFamily: "serif",
     fontSize: 20,
     fontWeight: "600",
     color: light.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   list: {
     flex: 1,
