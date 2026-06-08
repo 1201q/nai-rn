@@ -14,7 +14,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 
-import { useGenerationOptions } from "../context/GenerationOptionsContext";
+import { useGenerationStore } from "../store/generationStore";
+import {
+  resolveGenerationImageUri,
+  resolveGenerationThumbnailUri,
+} from "../lib/generationHistory";
 import type { HistoryScreenNavigationProp } from "../navigation/types";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { light } from "./home/styles";
@@ -22,11 +26,7 @@ import { light } from "./home/styles";
 export function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HistoryScreenNavigationProp>();
-  const {
-    generationHistory,
-    resolveGenerationImageUri,
-    resolveGenerationThumbnailUri,
-  } = useGenerationOptions();
+  const generationHistory = useGenerationStore((s) => s.generationHistory);
 
   const { width } = useWindowDimensions();
   const gap = 2;

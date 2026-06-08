@@ -21,8 +21,8 @@ import Animated, {
 
 import {
   type CharacterPrompt,
-  useGenerationOptions,
-} from "../context/GenerationOptionsContext";
+  useGenerationStore,
+} from "../store/generationStore";
 import type { CharacterEditScreenNavigationProp } from "../navigation/types";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { light } from "./home/styles";
@@ -170,7 +170,8 @@ export function CharacterEditScreen() {
   const insets = useSafeAreaInsets();
   const navigation =
     useNavigation<CharacterEditScreenNavigationProp>();
-  const { characterPrompts, setCharacterPrompts } = useGenerationOptions();
+  const characterPrompts = useGenerationStore((s) => s.characterPrompts);
+  const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
 
   const [items, setItems] = useState<CharacterPrompt[]>(() => characterPrompts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());

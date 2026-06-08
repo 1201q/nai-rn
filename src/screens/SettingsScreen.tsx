@@ -14,14 +14,15 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
-import { useGenerationOptions } from "../context/GenerationOptionsContext";
+import { useGenerationStore } from "../store/generationStore";
 import type { SettingsScreenNavigationProp } from "../navigation/types";
 import { light } from "./home/styles";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const { storedToken, saveToken } = useGenerationOptions();
+  const storedToken = useGenerationStore((s) => s.storedToken);
+  const saveToken = useGenerationStore((s) => s.saveToken);
   const [tokenInput, setTokenInput] = useState("");
   const [isTokenVisible, setIsTokenVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
