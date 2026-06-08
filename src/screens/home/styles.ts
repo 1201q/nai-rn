@@ -97,10 +97,25 @@ export const styles = StyleSheet.create({
     backgroundColor: light.overlay,
   },
 
-  // 하단: 프롬프트 카드
+  // 하단: 옵션 + 생성 버튼
   bottomArea: {
     paddingTop: 8,
     gap: 12,
+  },
+  generateButton: {
+    marginHorizontal: 16,
+    height: 54,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: light.accent,
+  },
+  generateButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   promptCard: {
     marginHorizontal: 16,

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
-import { BackHandler, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  BackHandler,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
@@ -7,29 +13,13 @@ import BottomSheet, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  interpolate,
-} from "react-native-reanimated";
-import {
-  KeyboardStickyView,
-  useReanimatedKeyboardAnimation,
-} from "react-native-keyboard-controller";
 import { useNavigation } from "@react-navigation/native";
 
 import type { MainScreenNavigationProp } from "../../navigation/types";
 import { light, styles } from "../home/styles";
-import {
-  PROMPT_MIN_HEIGHT,
-  CHIP_ROW_HEIGHT,
-  CHIP_ROW_GAP,
-} from "../home/constants";
 import { ImageArea } from "../home/ImageArea";
 import { OptionChips } from "../home/OptionChips";
-import { SuggestionBar } from "../home/SuggestionBar";
-import { PromptCard } from "../home/PromptCard";
-import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
+import { ScalePressable } from "../home/primitives";
 import { useGenerationStore } from "../../store/generationStore";
 import {
   OptionSheets,
@@ -41,6 +31,11 @@ export function MainPage() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const queueTotal = useGenerationStore((s) => s.queueTotal);
+  const queueIndex = useGenerationStore((s) => s.queueIndex);
+  const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
+  const generateImage = useGenerationStore((s) => s.generateImage);
 
   const sheetRefs: SheetRefs = {
     imageImport: useRef<BottomSheet>(null),
@@ -104,25 +99,15 @@ export function MainPage() {
     [],
   );
 
-  // 입력창 높이(UI 스레드). PromptCard 가 구동, ImageArea 의 이미지 스케일이 이를 읽음.
-  const inputHeight = useSharedValue(PROMPT_MIN_HEIGHT);
-
-  // 키보드 진행도(0=닫힘, 1=열림). 키보드 올라오면 옵션 칩 줄을 접고, 같은 자리에
-  // 태그 추천 바를 펼침(서로 반대 애니, UI 스레드, 재렌더 없음).
-  const { progress } = useReanimatedKeyboardAnimation();
-  const chipsAnimStyle = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], [CHIP_ROW_HEIGHT, 0]),
-    marginBottom: interpolate(progress.value, [0, 1], [CHIP_ROW_GAP, 0]),
-    opacity: interpolate(progress.value, [0, 1], [1, 0]),
-  }));
-  const suggestAnimStyle = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], [0, CHIP_ROW_HEIGHT]),
-    marginBottom: interpolate(progress.value, [0, 1], [0, CHIP_ROW_GAP]),
-    opacity: progress.value,
-  }));
+  const handleGenerate = () => {
+    if (isLoading) {
+      requestQueueCancel();
+      return;
+    }
+    generateImage();
+  };
 
   return (
-    <SuggestionBarProvider>
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
@@ -155,22 +140,26 @@ export function MainPage() {
       {/* 중단: 생성 이미지 영역 */}
       <ImageArea />
 
-      {/* 하단: 옵션 + 프롬프트 */}
-      <KeyboardStickyView
-        style={[
-          styles.bottomArea,
-          { gap: 0, paddingBottom: insets.bottom + 16, marginTop: -40 },
-        ]}
-        offset={{ closed: 0, opened: 0 }}
-      >
-        <Animated.View style={[styles.optionChipsWrap, chipsAnimStyle]}>
-          <OptionChips openSheet={openSheet} />
-        </Animated.View>
-        <Animated.View style={[styles.optionChipsWrap, suggestAnimStyle]}>
-          <SuggestionBar />
-        </Animated.View>
-        <PromptCard inputHeight={inputHeight} />
-      </KeyboardStickyView>
+      {/* 하단: 옵션 + 생성 버튼 (고정 높이) */}
+      <View style={[styles.bottomArea, { paddingBottom: insets.bottom + 16 }]}>
+        <OptionChips openSheet={openSheet} />
+        <ScalePressable style={styles.generateButton} onPress={handleGenerate}>
+          {isLoading ? (
+            queueTotal > 1 ? (
+              <Text style={styles.generateButtonText}>
+                취소 ({queueIndex}/{queueTotal})
+              </Text>
+            ) : (
+              <ActivityIndicator color="#ffffff" size="small" />
+            )
+          ) : (
+            <>
+              <Ionicons name="sparkles" size={18} color="#ffffff" />
+              <Text style={styles.generateButtonText}>생성</Text>
+            </>
+          )}
+        </ScalePressable>
+      </View>
 
       <OptionSheets
         sheetRefs={sheetRefs}
@@ -178,6 +167,5 @@ export function MainPage() {
         renderBackdrop={renderBackdrop}
       />
     </View>
-    </SuggestionBarProvider>
   );
 }
