@@ -29,6 +29,9 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
   const negativePrompt = useGenerationStore((s) => s.negativePrompt);
   const setNegativePrompt = useGenerationStore((s) => s.setNegativePrompt);
   const isLoading = useGenerationStore((s) => s.isLoading);
+  const queueTotal = useGenerationStore((s) => s.queueTotal);
+  const queueIndex = useGenerationStore((s) => s.queueIndex);
+  const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
   const generateImage = useGenerationStore((s) => s.generateImage);
 
   const [mode, setMode] = useState<"base" | "negative">("base");
@@ -110,7 +113,10 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
   }));
 
   const handleSubmit = () => {
-    if (isLoading) return;
+    if (isLoading) {
+      requestQueueCancel();
+      return;
+    }
     flushBoth();
     generateImage(undefined, {
       prompt: latestRef.current.base,
@@ -169,7 +175,13 @@ export function PromptCard({ inputHeight }: { inputHeight: SharedValue<number> }
         </View>
         <ScalePressable style={styles.submitButton} onPress={handleSubmit}>
           {isLoading ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+            queueTotal > 1 ? (
+              <Text style={styles.submitButtonProgressText}>
+                {queueIndex}/{queueTotal}
+              </Text>
+            ) : (
+              <ActivityIndicator color="#ffffff" size="small" />
+            )
           ) : (
             <Ionicons name="arrow-up" size={22} color="#ffffff" />
           )}

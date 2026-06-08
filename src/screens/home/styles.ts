@@ -221,6 +221,11 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: light.accent,
   },
+  submitButtonProgressText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 
   // 하단: 가로 스크롤 옵션
   optionChipsWrap: {

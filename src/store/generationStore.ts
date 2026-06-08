@@ -205,11 +205,20 @@ export type GenerationState = {
   isLoading: boolean;
   message: string | null;
   setMessage: (v: string | null) => void;
+  // 연속 생성 큐
+  queueTotal: number;
+  queueIndex: number;
+  queueCancelRequested: boolean;
+  requestQueueCancel: () => void;
   generateImage: (
     onSuccess?: () => void,
     overrides?: { prompt?: string; negativePrompt?: string },
   ) => Promise<void>;
 };
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   prompt:
@@ -276,8 +285,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   message: null,
   setMessage: (v) => set({ message: v }),
 
+  queueTotal: 0,
+  queueIndex: 0,
+  queueCancelRequested: false,
+  requestQueueCancel: () => set({ queueCancelRequested: true }),
+
   generateImage: async (onSuccess, overrides) => {
     const s = get();
+    if (s.isLoading) return;
     if (!s.storedToken) {
       set({ message: "저장된 NovelAI 토큰이 없습니다." });
       return;
@@ -294,110 +309,142 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return;
     }
 
-    // 이번 생성에 쓸 시드 확정 후, 잠금이 아니면 즉시 다음 시드로 advance (UI에 다음 시드 표시)
-    let currentSeed = s.seed;
-    if (currentSeed === 0) {
-      currentSeed = generateRandomSeed();
-    }
-    if (!s.seedLocked) {
-      set({ seed: generateRandomSeed() });
-    }
+    // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
+    const token = s.storedToken;
+    const activeCharacterPrompts = resolveActiveCharacterPrompts(
+      s.characterPrompts,
+    );
+    const opts = {
+      model: s.model,
+      width: s.resolution.width,
+      height: s.resolution.height,
+      steps: s.steps,
+      promptGuidance: s.promptGuidance,
+      promptGuidanceRescale: s.promptGuidanceRescale,
+      noiseSchedule: s.noiseSchedule,
+      sampler: s.sampler,
+      nSamples: s.outputCount,
+      varietyPlus: s.varietyPlus,
+    };
+
+    const total = Math.min(20, Math.max(1, s.batchCount));
 
     set({
       isLoading: true,
       message: null,
+      queueTotal: total,
+      queueIndex: 0,
+      queueCancelRequested: false,
       streamingPreviewUri: null,
       streamingStep: null,
       streamingGenerationId: null,
     });
 
     try {
-      const activeCharacterPrompts = resolveActiveCharacterPrompts(
-        s.characterPrompts,
-      );
-      let lastPreviewUpdateAt = 0;
-      const result = await generateNovelAiImageStream(
-        {
-          token: s.storedToken,
-          prompt: effPrompt,
-          negativePrompt: effNegativePrompt,
-          characterPrompts: activeCharacterPrompts,
-          model: s.model,
-          width: s.resolution.width,
-          height: s.resolution.height,
-          steps: s.steps,
-          promptGuidance: s.promptGuidance,
-          promptGuidanceRescale: s.promptGuidanceRescale,
-          noiseSchedule: s.noiseSchedule,
-          sampler: s.sampler,
-          seed: currentSeed,
-          nSamples: s.outputCount,
-          varietyPlus: s.varietyPlus,
-        },
-        (event) => {
-          if (event.type === "intermediate") {
-            const now = Date.now();
-            if (
-              now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
-              get().streamingPreviewUri
-            ) {
+      for (let i = 1; i <= total; i++) {
+        if (get().queueCancelRequested) break;
+
+        set({
+          queueIndex: i,
+          streamingPreviewUri: null,
+          streamingStep: null,
+          streamingGenerationId: null,
+        });
+
+        // 이번 장 시드 확정 후, 잠금이 아니면 즉시 다음 시드로 advance (UI에 다음 시드 표시)
+        let currentSeed = get().seed;
+        if (currentSeed === 0) {
+          currentSeed = generateRandomSeed();
+        }
+        if (!get().seedLocked) {
+          set({ seed: generateRandomSeed() });
+        }
+
+        let lastPreviewUpdateAt = 0;
+        const result = await generateNovelAiImageStream(
+          {
+            token,
+            prompt: effPrompt,
+            negativePrompt: effNegativePrompt,
+            characterPrompts: activeCharacterPrompts,
+            seed: currentSeed,
+            ...opts,
+          },
+          (event) => {
+            if (event.type === "intermediate") {
+              const now = Date.now();
+              if (
+                now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
+                get().streamingPreviewUri
+              ) {
+                return;
+              }
+
+              lastPreviewUpdateAt = now;
+              set({
+                streamingPreviewUri: `data:image/jpeg;base64,${event.imageBase64}`,
+                streamingStep: event.step,
+                streamingGenerationId: event.generationId,
+              });
               return;
             }
 
-            lastPreviewUpdateAt = now;
-            set({
-              streamingPreviewUri: `data:image/jpeg;base64,${event.imageBase64}`,
-              streamingStep: event.step,
-              streamingGenerationId: event.generationId,
-            });
+            if (event.type === "final") {
+              set({
+                streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
+                streamingGenerationId: event.generationId,
+              });
+              return;
+            }
+
             return;
-          }
+          },
+        );
 
-          if (event.type === "final") {
-            set({
-              streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
-              streamingGenerationId: event.generationId,
-            });
-            return;
-          }
+        const generation = await saveGenerationImageBase64({
+          imageBase64: result.imageBase64,
+          prompt: effPrompt,
+          negativePrompt: effNegativePrompt,
+          model: opts.model,
+          width: opts.width,
+          height: opts.height,
+          steps: opts.steps,
+          scale: opts.promptGuidance,
+          cfgRescale: opts.promptGuidanceRescale,
+          noiseSchedule: opts.noiseSchedule,
+          sampler: opts.sampler,
+          seed: result.seed,
+        });
 
-          return;
-        },
-      );
+        set((state) => ({
+          currentGeneration: generation,
+          generationHistory: [generation, ...state.generationHistory],
+          streamingPreviewUri: null,
+          streamingStep: null,
+          streamingGenerationId: null,
+        }));
+        get().refreshAnlas();
 
-      const generation = await saveGenerationImageBase64({
-        imageBase64: result.imageBase64,
-        prompt: effPrompt,
-        negativePrompt: effNegativePrompt,
-        model: s.model,
-        width: s.resolution.width,
-        height: s.resolution.height,
-        steps: s.steps,
-        scale: s.promptGuidance,
-        cfgRescale: s.promptGuidanceRescale,
-        noiseSchedule: s.noiseSchedule,
-        sampler: s.sampler,
-        seed: result.seed,
-      });
-
-      set((state) => ({
-        currentGeneration: generation,
-        generationHistory: [generation, ...state.generationHistory],
-        streamingPreviewUri: null,
-        streamingStep: null,
-        streamingGenerationId: null,
-      }));
+        if (i < total && !get().queueCancelRequested) {
+          await delay(1000);
+        }
+      }
       onSuccess?.();
-      get().refreshAnlas();
     } catch (error: unknown) {
+      // 한 장 실패 시 큐 중단. 부분 완료분은 history 유지.
       set({
         message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      set({
+        isLoading: false,
+        queueTotal: 0,
+        queueIndex: 0,
+        queueCancelRequested: false,
         streamingPreviewUri: null,
         streamingStep: null,
         streamingGenerationId: null,
       });
-    } finally {
-      set({ isLoading: false });
     }
   },
 }));
