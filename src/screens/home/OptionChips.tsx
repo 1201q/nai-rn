@@ -33,6 +33,23 @@ const IMAGE_IMPORT_OPT = {
   icon: "image-outline",
 } as const;
 
+const BATCH_COUNT_OPT = {
+  key: "batchCount",
+  label: "연속 생성",
+  icon: "albums-outline",
+} as const;
+
+function BatchCountChip({ openSheet }: ChipProps) {
+  const batchCount = useGenerationStore((s) => s.batchCount);
+  return (
+    <OptionChip
+      opt={BATCH_COUNT_OPT}
+      value={{ text: String(batchCount), unit: "장" }}
+      onPress={() => openSheet("batchCount")}
+    />
+  );
+}
+
 function ImageImportChip({ openSheet }: ChipProps) {
   return (
     <OptionChip
@@ -195,10 +212,13 @@ export function OptionChips({
           icon="options-outline"
           onPress={() => setMode("options")}
         />
-        <SquareIconButton
-          icon="image-outline"
-          onPress={() => setMode("image")}
-        />
+        <View style={styles.chipRow2Right}>
+          <BatchCountChip openSheet={openSheet} />
+          <SquareIconButton
+            icon="image-outline"
+            onPress={() => setMode("image")}
+          />
+        </View>
       </View>
     );
   }

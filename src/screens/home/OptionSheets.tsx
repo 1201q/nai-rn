@@ -19,6 +19,7 @@ import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
 import { ImageUploadSheet } from "./ImageUploadSheet";
 import {
+  BATCH_COUNT_CONFIG,
   CFG_CONFIG,
   CFG_RESCALE_CONFIG,
   STEPS_CONFIG,
@@ -33,7 +34,8 @@ export type SheetKey =
   | "cfg"
   | "cfgRescale"
   | "seed"
-  | "resolution";
+  | "resolution"
+  | "batchCount";
 
 export type SheetRefs = Record<
   SheetKey,
@@ -127,6 +129,18 @@ function StepsSheet() {
   const steps = useGenerationStore((s) => s.steps);
   const setSteps = useGenerationStore((s) => s.setSteps);
   return <NumericSheetContent value={steps} onChange={setSteps} cfg={STEPS_CONFIG} />;
+}
+
+function BatchCountSheet() {
+  const batchCount = useGenerationStore((s) => s.batchCount);
+  const setBatchCount = useGenerationStore((s) => s.setBatchCount);
+  return (
+    <NumericSheetContent
+      value={batchCount}
+      onChange={setBatchCount}
+      cfg={BATCH_COUNT_CONFIG}
+    />
+  );
 }
 
 function CfgSheet() {
@@ -299,6 +313,28 @@ export function OptionSheets({
           showsVerticalScrollIndicator={false}
         >
           <StepsSheet />
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      <BottomSheet
+        ref={sheetRefs.batchCount}
+        index={-1}
+        snapPoints={[320]}
+        enablePanDownToClose
+        backdropComponent={renderBackdrop}
+        style={styles.sheetContainer}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.sheetHandle}
+        enableDynamicSizing={false}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        onChange={(index) => onSheetChange("batchCount", index)}
+      >
+        <BottomSheetScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <BatchCountSheet />
         </BottomSheetScrollView>
       </BottomSheet>
 

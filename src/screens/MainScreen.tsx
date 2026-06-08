@@ -52,6 +52,7 @@ export function MainScreen() {
     cfgRescale: useRef<BottomSheet>(null),
     seed: useRef<BottomSheet>(null),
     resolution: useRef<BottomSheet>(null),
+    batchCount: useRef<BottomSheet>(null),
   };
   const activeSheetRef = useRef<SheetKey | null>(null);
 

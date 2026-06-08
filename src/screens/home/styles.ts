@@ -265,6 +265,11 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
   },
+  chipRow2Right: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   chipRowExpanded: {
     flexDirection: "row",
     alignItems: "center",

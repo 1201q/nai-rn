@@ -47,6 +47,7 @@ type PersistedGenerationOptions = Partial<{
   seed: number;
   seedLocked: boolean;
   outputCount: number;
+  batchCount: number;
   varietyPlus: boolean;
   optionTabIndex: number;
 }>;
@@ -177,6 +178,8 @@ export type GenerationState = {
   setSeedLocked: (v: boolean) => void;
   outputCount: number;
   setOutputCount: (v: number) => void;
+  batchCount: number;
+  setBatchCount: (v: number) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
   optionTabIndex: number;
@@ -237,6 +240,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setSeedLocked: (v) => set({ seedLocked: v }),
   outputCount: 1,
   setOutputCount: (v) => set({ outputCount: v }),
+  batchCount: 1,
+  setBatchCount: (v) => set({ batchCount: v }),
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
   optionTabIndex: 0,
@@ -434,6 +439,7 @@ export function useGenerationBootstrap() {
         if (isNumber(parsed.seed)) next.seed = parsed.seed;
         if (isBoolean(parsed.seedLocked)) next.seedLocked = parsed.seedLocked;
         if (isNumber(parsed.outputCount)) next.outputCount = parsed.outputCount;
+        if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
         if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
         if (
           isNumber(parsed.optionTabIndex) &&
@@ -498,6 +504,7 @@ export function useGenerationBootstrap() {
         ...(state.seedLocked ? { seed: state.seed } : {}),
         seedLocked: state.seedLocked,
         outputCount: state.outputCount,
+        batchCount: state.batchCount,
         varietyPlus: state.varietyPlus,
         optionTabIndex: state.optionTabIndex,
       };

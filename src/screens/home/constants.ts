@@ -42,6 +42,14 @@ export const CFG_RESCALE_CONFIG: NumericConfig = {
   step: 0.02,
   precision: 2,
 };
+export const BATCH_COUNT_CONFIG: NumericConfig = {
+  title: "연속 생성 개수",
+  unit: "장",
+  min: 1,
+  max: 20,
+  step: 1,
+  precision: 0,
+};
 
 export const OPTIONS: {
   key: string;
