@@ -27,7 +27,11 @@ import {
   type SheetRefs,
 } from "../home/OptionSheets";
 
-export function MainPage() {
+export function MainPage({
+  onSheetOpenChange,
+}: {
+  onSheetOpenChange?: (isOpen: boolean) => void;
+}) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<MainScreenNavigationProp>();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
@@ -68,15 +72,21 @@ export function MainPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    return () => onSheetOpenChange?.(false);
+  }, [onSheetOpenChange]);
+
   const handleSheetChange = useCallback(
     (sheet: SheetKey, index: number) => {
       if (index >= 0) {
         activeSheetRef.current = sheet;
+        onSheetOpenChange?.(true);
       } else if (activeSheetRef.current === sheet) {
         activeSheetRef.current = null;
+        onSheetOpenChange?.(false);
       }
     },
-    [],
+    [onSheetOpenChange],
   );
 
   const openSheet = useCallback(

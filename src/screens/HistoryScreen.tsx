@@ -30,7 +30,11 @@ import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
 
-export function HistoryScreen() {
+export function HistoryScreen({
+  onSelectionModeChange,
+}: {
+  onSelectionModeChange?: (isSelectionMode: boolean) => void;
+}) {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
   const deleteGenerations = useGenerationStore((s) => s.deleteGenerations);
@@ -170,6 +174,11 @@ export function HistoryScreen() {
     );
     return () => subscription.remove();
   }, [isSelectionMode]);
+
+  useEffect(() => {
+    onSelectionModeChange?.(isSelectionMode);
+    return () => onSelectionModeChange?.(false);
+  }, [isSelectionMode, onSelectionModeChange]);
 
   return (
     <View style={styles.screen}>
