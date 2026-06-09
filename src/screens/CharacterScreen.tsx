@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated as RNAnimated,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +30,8 @@ import { SuggestionBarProvider } from "../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { StickySuggestionBar } from "./home/SuggestionBar";
+import { FloatingPillHeader } from "../components/FloatingPillHeader";
+import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
@@ -219,6 +222,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const scrollY = useRef(new RNAnimated.Value(0)).current;
 
   function toggleExpand(id: string) {
     setExpandedIds((current) =>
@@ -260,33 +264,22 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <SuggestionBarProvider>
-      <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <View style={styles.screen}>
         <StatusBar style="dark" />
-
-        <View style={styles.header}>
-          {!embedded && (
-            <TouchableOpacity
-              style={styles.headerCircleButton}
-              activeOpacity={0.78}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={22}
-                color={light.textPrimary}
-              />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.headerTitle}>Character</Text>
-        </View>
 
         <KeyboardAwareScrollView
           bottomOffset={72}
+          scrollEventThrottle={16}
+          onScroll={RNAnimated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
           contentContainerStyle={[
             styles.scrollContent,
-            embedded && { paddingBottom: insets.bottom + 96 },
+            { paddingTop: insets.top + 56 },
+            embedded
+              ? { paddingBottom: insets.bottom + 140 }
+              : { paddingBottom: insets.bottom + 48 },
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -340,6 +333,35 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
           </Animated.View>
         </KeyboardAwareScrollView>
 
+        <ScreenEdgeFade
+          topHeight={insets.top + 64}
+          bottomHeight={embedded ? insets.bottom + 140 : insets.bottom + 40}
+        />
+
+        <FloatingPillHeader
+          title="Character"
+          scrollY={scrollY}
+          topInset={insets.top}
+          variant="solid"
+          left={
+            !embedded ? (
+              <TouchableOpacity
+                style={styles.headerCircleButton}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={22}
+                  color={light.textPrimary}
+                />
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
+
         <KeyboardStickyView
           style={styles.suggestionSticky}
           offset={{ closed: 0, opened: 0 }}
@@ -356,25 +378,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: light.bg,
   },
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
   headerCircleButton: {
     width: 44,
     height: 44,
+    marginLeft: 16,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: light.surface,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: 16,

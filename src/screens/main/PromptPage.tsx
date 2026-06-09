@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated as RNAnimated,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -27,6 +28,8 @@ import { CharacterScreen } from "../CharacterScreen";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { StickySuggestionBar } from "../home/SuggestionBar";
+import { FloatingPillHeader } from "../../components/FloatingPillHeader";
+import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import { light } from "../home/styles";
 
 type PromptTab = "prompt" | "character";
@@ -115,18 +118,21 @@ function PromptTabContent() {
   const negativePrompt = useGenerationStore((s) => s.negativePrompt);
   const setNegativePrompt = useGenerationStore((s) => s.setNegativePrompt);
 
+  const scrollY = useRef(new RNAnimated.Value(0)).current;
+
   return (
     <SuggestionBarProvider>
-      <View style={[styles.tabScreen, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Prompt</Text>
-        </View>
-
+      <View style={styles.tabScreen}>
         <KeyboardAwareScrollView
           bottomOffset={72}
+          scrollEventThrottle={16}
+          onScroll={RNAnimated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
           contentContainerStyle={[
             styles.tabContent,
-            { paddingBottom: insets.bottom + 96 },
+            { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 140 },
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -143,6 +149,18 @@ function PromptTabContent() {
             minHeight={120}
           />
         </KeyboardAwareScrollView>
+
+        <ScreenEdgeFade
+          topHeight={insets.top + 64}
+          bottomHeight={insets.bottom + 140}
+        />
+
+        <FloatingPillHeader
+          title="Prompt"
+          scrollY={scrollY}
+          topInset={insets.top}
+          variant="solid"
+        />
 
         <KeyboardStickyView
           style={styles.suggestionSticky}
@@ -252,18 +270,6 @@ const styles = StyleSheet.create({
   tabScreen: {
     flex: 1,
   },
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
-  },
   tabContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -301,6 +307,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: "center",
+    zIndex: 30,
+    elevation: 30,
   },
   tabBarShadow: {
     borderRadius: 999,

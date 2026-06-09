@@ -18,6 +18,7 @@ import {
   resolveGenerationThumbnailUri,
 } from "../lib/generationHistory";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
+import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { light } from "./home/styles";
 
 export function HistoryScreen() {
@@ -31,6 +32,8 @@ export function HistoryScreen() {
   const previewAnimation = useRef(new Animated.Value(0)).current;
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   function openPreview(index: number) {
     setPreviewIndex(index);
@@ -54,22 +57,23 @@ export function HistoryScreen() {
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>History</Text>
-      </View>
-
-      <FlatList
+      <Animated.FlatList
         data={generationHistory}
         keyExtractor={(item) => item.id}
         numColumns={3}
         showsVerticalScrollIndicator={false}
         style={styles.list}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
         contentContainerStyle={[
           generationHistory.length === 0 && styles.emptyGrid,
-          { paddingBottom: insets.bottom + 18 },
+          { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 18 },
         ]}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -108,6 +112,8 @@ export function HistoryScreen() {
         )}
       />
 
+      <FloatingPillHeader title="History" scrollY={scrollY} topInset={insets.top} />
+
       <ImagePreviewModal
         visible={isPreviewOpen}
         images={generationHistory.map(resolveGenerationImageUri)}
@@ -123,18 +129,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: light.bg,
-  },
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
   },
   list: {
     flex: 1,
