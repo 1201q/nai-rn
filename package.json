@@ -31,6 +31,7 @@
     "expo-image": "~55.0.11",
     "expo-image-manipulator": "~55.0.17",
     "expo-image-picker": "~55.0.20",
+    "expo-linear-gradient": "~55.0.14",
     "expo-media-library": "~55.0.17",
     "expo-secure-store": "~55.0.14",
     "expo-sqlite": "~55.0.16",
