@@ -1,71 +1,127 @@
 import { ReactNode } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { BlurView } from "expo-blur";
 
 import { light } from "../screens/home/styles";
 
-// 스크롤 0 → 텍스트만, 스크롤 시작 → 패딩 자라며 blur pill 배경 fade-in.
+type Variant = "blur" | "solid";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// 스크롤 0 → 콘텐츠만, 스크롤 시작 → 패딩 자라며 배경 fade-in 하는 플로팅 pill.
+function Pill({
+  scrollY,
+  variant,
+  circle,
+  onPress,
+  style,
+  children,
+}: {
+  scrollY: Animated.Value;
+  variant: Variant;
+  circle?: boolean;
+  onPress?: () => void;
+  style?: object;
+  children: ReactNode;
+}) {
+  const opacity = scrollY.interpolate({
+    inputRange: [0, 30],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  // circle: 가로/세로 패딩 동일 → 정사각 + borderRadius 로 완벽한 원
+  const padH = scrollY.interpolate({
+    inputRange: [0, 30],
+    outputRange: [0, circle ? 8 : 14],
+    extrapolate: "clamp",
+  });
+  const padV = scrollY.interpolate({
+    inputRange: [0, 30],
+    outputRange: [0, 8],
+    extrapolate: "clamp",
+  });
+
+  const Container = onPress ? AnimatedPressable : Animated.View;
+
+  return (
+    <Container
+      onPress={onPress}
+      style={[
+        styles.pill,
+        style,
+        { paddingHorizontal: padH, paddingVertical: padV },
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.pillBg,
+          variant === "solid" ? styles.pillBgSolid : styles.pillBgBlur,
+          { opacity },
+        ]}
+      >
+        {variant === "blur" ? (
+          <View style={styles.pillBgClip}>
+            <BlurView
+              intensity={50}
+              tint="light"
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        ) : null}
+      </Animated.View>
+      {children}
+    </Container>
+  );
+}
+
 // scrollY 는 RN Animated.Value (useNativeDriver:false 로 구동).
 export function FloatingPillHeader({
   title,
   scrollY,
   topInset,
   left,
+  right,
   variant = "blur",
+  onTitlePress,
 }: {
   title: string;
   scrollY: Animated.Value;
   topInset: number;
   left?: ReactNode;
+  right?: ReactNode;
   variant?: "blur" | "solid";
+  onTitlePress?: () => void;
 }) {
-  const pillOpacity = scrollY.interpolate({
-    inputRange: [0, 30],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-  const pillPadH = scrollY.interpolate({
-    inputRange: [0, 30],
-    outputRange: [0, 14],
-    extrapolate: "clamp",
-  });
-  const pillPadV = scrollY.interpolate({
-    inputRange: [0, 30],
-    outputRange: [0, 8],
-    extrapolate: "clamp",
-  });
-
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.headerFixed, { height: topInset + 56, paddingTop: topInset }]}
+      style={[
+        styles.headerFixed,
+        { height: topInset + 56, paddingTop: topInset },
+      ]}
     >
       <View pointerEvents="box-none" style={styles.row}>
-        {left}
-        <Animated.View
-          style={[
-            styles.pill,
-            { marginLeft: left ? 8 : 16 },
-            { paddingHorizontal: pillPadH, paddingVertical: pillPadV },
-          ]}
-        >
-          <Animated.View
-            style={[
-              styles.pillBg,
-              variant === "solid" ? styles.pillBgSolid : styles.pillBgBlur,
-              { opacity: pillOpacity },
-            ]}
+        <View pointerEvents="box-none" style={styles.leftGroup}>
+          {left}
+          <Pill
+            scrollY={scrollY}
+            variant={variant}
+            onPress={onTitlePress}
+            style={{ marginLeft: left ? 8 : 16 }}
           >
-            {variant === "blur" ? (
-              <BlurView
-                intensity={50}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : null}
-          </Animated.View>
-          <Text style={styles.headerTitle}>{title}</Text>
-        </Animated.View>
+            <Text style={styles.headerTitle}>{title}</Text>
+          </Pill>
+        </View>
+        {right ? (
+          <Pill
+            scrollY={scrollY}
+            variant={variant}
+            circle
+            style={styles.rightPill}
+          >
+            {right}
+          </Pill>
+        ) : null}
       </View>
     </View>
   );
@@ -84,29 +140,41 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  leftGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rightPill: {
+    marginRight: 16,
   },
   pill: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     borderRadius: 22,
     justifyContent: "center",
   },
   pillBg: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 22,
-  },
-  pillBgBlur: {
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.55)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
-  },
-  pillBgSolid: {
-    backgroundColor: "#ffffff",
     shadowColor: "#000000",
     shadowOpacity: 0.1,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  pillBgClip: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+  pillBgBlur: {
+    backgroundColor: "rgba(255,255,255,0.75)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.06)",
+  },
+  pillBgSolid: {
+    backgroundColor: "#ffffff",
   },
   headerTitle: {
     fontSize: 20,

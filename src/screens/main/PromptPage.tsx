@@ -21,6 +21,7 @@ import { BlurView } from "expo-blur";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
+  type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 
 import { useGenerationStore } from "../../store/generationStore";
@@ -119,11 +120,13 @@ function PromptTabContent() {
   const setNegativePrompt = useGenerationStore((s) => s.setNegativePrompt);
 
   const scrollY = useRef(new RNAnimated.Value(0)).current;
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   return (
     <SuggestionBarProvider>
       <View style={styles.tabScreen}>
         <KeyboardAwareScrollView
+          ref={scrollRef}
           bottomOffset={72}
           scrollEventThrottle={16}
           onScroll={RNAnimated.event(
@@ -160,6 +163,9 @@ function PromptTabContent() {
           scrollY={scrollY}
           topInset={insets.top}
           variant="solid"
+          onTitlePress={() =>
+            scrollRef.current?.scrollTo({ y: 0, animated: true })
+          }
         />
 
         <KeyboardStickyView

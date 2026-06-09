@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
+  type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 import Animated, {
   FadeIn,
@@ -223,6 +224,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const scrollY = useRef(new RNAnimated.Value(0)).current;
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   function toggleExpand(id: string) {
     setExpandedIds((current) =>
@@ -268,6 +270,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
         <StatusBar style="dark" />
 
         <KeyboardAwareScrollView
+          ref={scrollRef}
           bottomOffset={72}
           scrollEventThrottle={16}
           onScroll={RNAnimated.event(
@@ -288,18 +291,6 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
               <Text style={styles.editEntryCount}>
                 캐릭터 ({characterPrompts.length})
               </Text>
-              <TouchableOpacity
-                style={styles.editEntryButton}
-                activeOpacity={0.78}
-                onPress={() => navigation.navigate("CharacterEdit")}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={16}
-                  color={light.textSecondary}
-                />
-                <Text style={styles.editEntryText}>편집</Text>
-              </TouchableOpacity>
             </View>
           ) : null}
 
@@ -343,6 +334,9 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
           scrollY={scrollY}
           topInset={insets.top}
           variant="solid"
+          onTitlePress={() =>
+            scrollRef.current?.scrollTo({ y: 0, animated: true })
+          }
           left={
             !embedded ? (
               <TouchableOpacity
@@ -354,6 +348,23 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
               >
                 <Ionicons
                   name="chevron-back"
+                  size={22}
+                  color={light.textPrimary}
+                />
+              </TouchableOpacity>
+            ) : undefined
+          }
+          right={
+            characterPrompts.length > 0 ? (
+              <TouchableOpacity
+                style={styles.headerEditButton}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel="캐릭터 편집"
+                onPress={() => navigation.navigate("CharacterEdit")}
+              >
+                <Ionicons
+                  name="create-outline"
                   size={22}
                   color={light.textPrimary}
                 />
@@ -387,6 +398,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: light.surface,
   },
+  headerEditButton: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -402,22 +419,6 @@ const styles = StyleSheet.create({
   editEntryCount: {
     fontSize: 14,
     fontWeight: "600",
-    color: light.textSecondary,
-  },
-  editEntryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: light.border,
-    backgroundColor: light.bg,
-  },
-  editEntryText: {
-    fontSize: 13,
-    fontWeight: "500",
     color: light.textSecondary,
   },
   characterCard: {

@@ -34,6 +34,7 @@ export function HistoryScreen() {
   const [previewIndex, setPreviewIndex] = useState(0);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const listRef = useRef<FlatList>(null);
 
   function openPreview(index: number) {
     setPreviewIndex(index);
@@ -61,6 +62,7 @@ export function HistoryScreen() {
       <StatusBar style="dark" />
 
       <Animated.FlatList
+        ref={listRef}
         data={generationHistory}
         keyExtractor={(item) => item.id}
         numColumns={3}
@@ -112,7 +114,14 @@ export function HistoryScreen() {
         )}
       />
 
-      <FloatingPillHeader title="History" scrollY={scrollY} topInset={insets.top} />
+      <FloatingPillHeader
+        title="History"
+        scrollY={scrollY}
+        topInset={insets.top}
+        onTitlePress={() =>
+          listRef.current?.scrollToOffset({ offset: 0, animated: true })
+        }
+      />
 
       <ImagePreviewModal
         visible={isPreviewOpen}
