@@ -124,6 +124,14 @@ function rowToRecord(row: GenerationRow): GenerationRecord {
   };
 }
 
+function fileFromStoredPath(path: string) {
+  const [directoryName, fileName] = path.split("/");
+  return new File(
+    new Directory(getImageRootDirectory(), directoryName),
+    fileName,
+  );
+}
+
 export async function initGenerationHistoryStorage() {
   ensureImageDirectories();
   const db = await getDatabase();
@@ -159,6 +167,42 @@ export async function listGenerations(): Promise<GenerationRecord[]> {
     "SELECT * FROM generations ORDER BY created_at DESC",
   );
   return rows.map(rowToRecord);
+}
+
+export async function deleteGenerations(ids: string[]) {
+  await initGenerationHistoryStorage();
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return;
+
+  const db = await getDatabase();
+  const placeholders = uniqueIds.map(() => "?").join(", ");
+  const rows = await db.getAllAsync<GenerationRow>(
+    `SELECT * FROM generations WHERE id IN (${placeholders})`,
+    uniqueIds,
+  );
+
+  await db.runAsync(
+    `DELETE FROM generations WHERE id IN (${placeholders})`,
+    uniqueIds,
+  );
+
+  rows.map(rowToRecord).forEach((record) => {
+    try {
+      const originalFile = fileFromStoredPath(record.imagePath);
+      if (originalFile.exists) originalFile.delete();
+    } catch {
+      // DB deletion succeeded, so missing file cleanup can be ignored.
+    }
+
+    if (!record.thumbnailPath) return;
+
+    try {
+      const thumbnailFile = fileFromStoredPath(record.thumbnailPath);
+      if (thumbnailFile.exists) thumbnailFile.delete();
+    } catch {
+      // DB deletion succeeded, so missing thumbnail cleanup can be ignored.
+    }
+  });
 }
 
 type SaveGenerationRecordInput = Omit<SaveGenerationInput, "imageBytes"> & {
@@ -333,9 +377,7 @@ export async function saveGenerationImageBase64({
 }
 
 export function resolveGenerationImageUri(record: GenerationRecord) {
-  const [directoryName, fileName] = record.imagePath.split("/");
-  return new File(new Directory(getImageRootDirectory(), directoryName), fileName)
-    .uri;
+  return fileFromStoredPath(record.imagePath).uri;
 }
 
 export function resolveGenerationThumbnailUri(record: GenerationRecord) {
@@ -343,11 +385,7 @@ export function resolveGenerationThumbnailUri(record: GenerationRecord) {
     return null;
   }
 
-  const [directoryName, fileName] = record.thumbnailPath.split("/");
-  const file = new File(
-    new Directory(getImageRootDirectory(), directoryName),
-    fileName,
-  );
+  const file = fileFromStoredPath(record.thumbnailPath);
 
   return file.exists ? file.uri : null;
 }

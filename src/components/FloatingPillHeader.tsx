@@ -77,18 +77,22 @@ function Pill({
 // scrollY 는 RN Animated.Value (useNativeDriver:false 로 구동).
 export function FloatingPillHeader({
   title,
+  titleNode,
   scrollY,
   topInset,
   left,
   right,
+  rightCircle = true,
   variant = "blur",
   onTitlePress,
 }: {
   title: string;
+  titleNode?: ReactNode;
   scrollY: Animated.Value;
   topInset: number;
   left?: ReactNode;
   right?: ReactNode;
+  rightCircle?: boolean;
   variant?: "blur" | "solid";
   onTitlePress?: () => void;
 }) {
@@ -109,14 +113,14 @@ export function FloatingPillHeader({
             onPress={onTitlePress}
             style={{ marginLeft: left ? 8 : 16 }}
           >
-            <Text style={styles.headerTitle}>{title}</Text>
+            {titleNode ?? <Text style={styles.headerTitle}>{title}</Text>}
           </Pill>
         </View>
         {right ? (
           <Pill
             scrollY={scrollY}
             variant={variant}
-            circle
+            circle={rightCircle}
             style={styles.rightPill}
           >
             {right}

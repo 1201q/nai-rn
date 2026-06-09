@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
 import {
+  deleteGenerations as deleteStoredGenerations,
   type GenerationRecord,
   initGenerationHistoryStorage,
   listGenerations,
@@ -206,6 +207,7 @@ export type GenerationState = {
   // 생성 결과
   currentGeneration: GenerationRecord | null;
   generationHistory: GenerationRecord[];
+  deleteGenerations: (ids: string[]) => Promise<void>;
   streamingPreviewUri: string | null;
   streamingStep: number | null;
   streamingGenerationId: number | null;
@@ -310,6 +312,24 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   currentGeneration: null,
   generationHistory: [],
+  deleteGenerations: async (ids) => {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return;
+
+    await deleteStoredGenerations(uniqueIds);
+    const deletedIds = new Set(uniqueIds);
+    set((state) => {
+      const generationHistory = state.generationHistory.filter(
+        (item) => !deletedIds.has(item.id),
+      );
+      const currentGeneration =
+        state.currentGeneration && deletedIds.has(state.currentGeneration.id)
+          ? generationHistory[0] ?? null
+          : state.currentGeneration;
+
+      return { generationHistory, currentGeneration };
+    });
+  },
   streamingPreviewUri: null,
   streamingStep: null,
   streamingGenerationId: null,

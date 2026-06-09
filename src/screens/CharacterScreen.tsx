@@ -399,8 +399,8 @@ const styles = StyleSheet.create({
     backgroundColor: light.surface,
   },
   headerEditButton: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
   },
