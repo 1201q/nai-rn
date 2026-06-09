@@ -136,7 +136,10 @@ function CharacterPromptCard({
   return (
     <Animated.View
       layout={CHARACTER_LAYOUT}
-      style={[styles.characterCard, !item.enabled && styles.characterCardDisabled]}
+      style={[
+        styles.characterCard,
+        !item.enabled && styles.characterCardDisabled,
+      ]}
     >
       <View style={styles.characterCardHeader}>
         <TouchableOpacity
@@ -151,7 +154,9 @@ function CharacterPromptCard({
               color={light.textSecondary}
             />
           </View>
-          <View style={[styles.characterBadge, { backgroundColor: badgeColor }]}>
+          <View
+            style={[styles.characterBadge, { backgroundColor: badgeColor }]}
+          >
             <Text style={styles.characterBadgeText}>{index + 1}</Text>
           </View>
           <Text style={styles.characterCardTitle} numberOfLines={1}>
@@ -255,91 +260,93 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
 
   return (
     <SuggestionBarProvider>
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
 
-      <View style={styles.header}>
-        {embedded ? (
-          <View style={styles.headerSpacer} />
-        ) : (
-          <TouchableOpacity
-            style={styles.headerCircleButton}
-            activeOpacity={0.78}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-          </TouchableOpacity>
-        )}
-        <Text style={styles.headerTitle}>Character</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <KeyboardAwareScrollView
-        bottomOffset={72}
-        contentContainerStyle={[
-          styles.scrollContent,
-          embedded && { paddingBottom: insets.bottom + 96 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {characterPrompts.length > 0 ? (
-          <View style={styles.editEntryRow}>
-            <Text style={styles.editEntryCount}>
-              캐릭터 ({characterPrompts.length})
-            </Text>
+        <View style={styles.header}>
+          {!embedded && (
             <TouchableOpacity
-              style={styles.editEntryButton}
+              style={styles.headerCircleButton}
               activeOpacity={0.78}
-              onPress={() => navigation.navigate("CharacterEdit")}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={() => navigation.goBack()}
             >
               <Ionicons
-                name="create-outline"
-                size={16}
-                color={light.textSecondary}
+                name="chevron-back"
+                size={22}
+                color={light.textPrimary}
               />
-              <Text style={styles.editEntryText}>편집</Text>
             </TouchableOpacity>
-          </View>
-        ) : null}
+          )}
+          <Text style={styles.headerTitle}>Character</Text>
+        </View>
 
-        {characterPrompts.map((item, index) => (
-          <CharacterPromptCard
-            key={item.id}
-            item={item}
-            index={index}
-            expanded={expandedIds.includes(item.id)}
-            onToggleExpand={() => toggleExpand(item.id)}
-            onUpdate={(values) => updateCharacterPrompt(item.id, values)}
-          />
-        ))}
+        <KeyboardAwareScrollView
+          bottomOffset={72}
+          contentContainerStyle={[
+            styles.scrollContent,
+            embedded && { paddingBottom: insets.bottom + 96 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {characterPrompts.length > 0 ? (
+            <View style={styles.editEntryRow}>
+              <Text style={styles.editEntryCount}>
+                캐릭터 ({characterPrompts.length})
+              </Text>
+              <TouchableOpacity
+                style={styles.editEntryButton}
+                activeOpacity={0.78}
+                onPress={() => navigation.navigate("CharacterEdit")}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={16}
+                  color={light.textSecondary}
+                />
+                <Text style={styles.editEntryText}>편집</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
-        <Animated.View layout={CHARACTER_LAYOUT}>
-          <TouchableOpacity
-            style={[
-              styles.addCharacterButton,
-              !canAddCharacterPrompt && styles.addCharacterButtonDisabled,
-            ]}
-            activeOpacity={0.78}
-            disabled={!canAddCharacterPrompt}
-            onPress={addCharacterPrompt}
-          >
-            <Ionicons name="add" size={18} color={light.textPrimary} />
-            <Text style={styles.addCharacterText}>
-              Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </KeyboardAwareScrollView>
+          {characterPrompts.map((item, index) => (
+            <CharacterPromptCard
+              key={item.id}
+              item={item}
+              index={index}
+              expanded={expandedIds.includes(item.id)}
+              onToggleExpand={() => toggleExpand(item.id)}
+              onUpdate={(values) => updateCharacterPrompt(item.id, values)}
+            />
+          ))}
 
-      <KeyboardStickyView
-        style={styles.suggestionSticky}
-        offset={{ closed: 0, opened: 0 }}
-      >
-        <StickySuggestionBar />
-      </KeyboardStickyView>
-    </View>
+          <Animated.View layout={CHARACTER_LAYOUT}>
+            <TouchableOpacity
+              style={[
+                styles.addCharacterButton,
+                !canAddCharacterPrompt && styles.addCharacterButtonDisabled,
+              ]}
+              activeOpacity={0.78}
+              disabled={!canAddCharacterPrompt}
+              onPress={addCharacterPrompt}
+            >
+              <Ionicons name="add" size={18} color={light.textPrimary} />
+              <Text style={styles.addCharacterText}>
+                Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS}
+                )
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </KeyboardAwareScrollView>
+
+        <KeyboardStickyView
+          style={styles.suggestionSticky}
+          offset={{ closed: 0, opened: 0 }}
+        >
+          <StickySuggestionBar />
+        </KeyboardStickyView>
+      </View>
     </SuggestionBarProvider>
   );
 }
@@ -365,13 +372,9 @@ const styles = StyleSheet.create({
     backgroundColor: light.surface,
   },
   headerTitle: {
-    fontFamily: "serif",
     fontSize: 20,
     fontWeight: "600",
     color: light.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   scrollContent: {
     paddingHorizontal: 16,

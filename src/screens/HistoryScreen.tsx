@@ -132,7 +132,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitle: {
-    fontFamily: "serif",
     fontSize: 20,
     fontWeight: "600",
     color: light.textPrimary,

@@ -119,9 +119,7 @@ function PromptTabContent() {
     <SuggestionBarProvider>
       <View style={[styles.tabScreen, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>Prompt</Text>
-          <View style={styles.headerSpacer} />
         </View>
 
         <KeyboardAwareScrollView
@@ -164,7 +162,9 @@ export function PromptPage() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<PromptTab>("prompt");
   const activeTabRef = useRef<PromptTab>("prompt");
-  const tabLayouts = useRef<Partial<Record<PromptTab, { x: number; width: number }>>>({});
+  const tabLayouts = useRef<
+    Partial<Record<PromptTab, { x: number; width: number }>>
+  >({});
   const pillX = useSharedValue(0);
   const pillWidth = useSharedValue(0);
 
@@ -260,13 +260,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitle: {
-    fontFamily: "serif",
     fontSize: 20,
     fontWeight: "600",
     color: light.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   tabContent: {
     paddingHorizontal: 16,

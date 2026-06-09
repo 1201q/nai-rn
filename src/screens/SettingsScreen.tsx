@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
     backgroundColor: light.surface,
   },
   headerTitle: {
-    fontFamily: "serif",
     fontSize: 20,
     fontWeight: "600",
     color: light.textPrimary,
