@@ -31,6 +31,26 @@ import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
 
+const TileImage = memo(function TileImage({
+  item,
+}: {
+  item: GenerationRecord;
+}) {
+  return (
+    <ExpoImage
+      source={{
+        uri:
+          resolveGenerationThumbnailUri(item) ??
+          resolveGenerationImageUri(item),
+      }}
+      contentFit="cover"
+      recyclingKey={item.id}
+      transition={120}
+      style={styles.tileImage}
+    />
+  );
+});
+
 const HistoryTile = memo(function HistoryTile({
   item,
   index,
@@ -63,6 +83,7 @@ const HistoryTile = memo(function HistoryTile({
         onOpenPreview(index);
       }}
       onLongPress={() => onEnterSelectionMode(item.id)}
+      delayLongPress={250}
       style={[
         styles.tile,
         {
@@ -73,17 +94,7 @@ const HistoryTile = memo(function HistoryTile({
         },
       ]}
     >
-      <ExpoImage
-        source={{
-          uri:
-            resolveGenerationThumbnailUri(item) ??
-            resolveGenerationImageUri(item),
-        }}
-        contentFit="cover"
-        recyclingKey={item.id}
-        transition={120}
-        style={styles.tileImage}
-      />
+      <TileImage item={item} />
       {isSelectionMode ? (
         <View
           style={[

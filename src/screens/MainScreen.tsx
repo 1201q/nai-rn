@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Keyboard, StyleSheet, View } from "react-native";
 import PagerView from "react-native-pager-view";
 
@@ -25,6 +25,31 @@ export function MainScreen() {
     };
   }, []);
 
+  const promptPage = useMemo(
+    () => (
+      <View key="prompt" style={styles.page}>
+        <PromptPage />
+      </View>
+    ),
+    [],
+  );
+  const mainPage = useMemo(
+    () => (
+      <View key="main" style={styles.page}>
+        <MainPage onSheetOpenChange={setIsMainSheetOpen} />
+      </View>
+    ),
+    [],
+  );
+  const historyPage = useMemo(
+    () => (
+      <View key="history" style={styles.page}>
+        <HistoryScreen onSelectionModeChange={setIsHistorySelectionMode} />
+      </View>
+    ),
+    [],
+  );
+
   return (
     <PagerView
       style={styles.pager}
@@ -33,15 +58,9 @@ export function MainScreen() {
         !isHistorySelectionMode && !isKeyboardVisible && !isMainSheetOpen
       }
     >
-      <View key="prompt" style={styles.page}>
-        <PromptPage />
-      </View>
-      <View key="main" style={styles.page}>
-        <MainPage onSheetOpenChange={setIsMainSheetOpen} />
-      </View>
-      <View key="history" style={styles.page}>
-        <HistoryScreen onSelectionModeChange={setIsHistorySelectionMode} />
-      </View>
+      {promptPage}
+      {mainPage}
+      {historyPage}
     </PagerView>
   );
 }
