@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,7 @@ import * as MediaLibrary from "expo-media-library";
 
 import { useGenerationStore } from "../store/generationStore";
 import {
+  type GenerationRecord,
   resolveGenerationImageUri,
   resolveGenerationThumbnailUri,
 } from "../lib/generationHistory";
@@ -29,6 +30,75 @@ import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
+
+const HistoryTile = memo(function HistoryTile({
+  item,
+  index,
+  itemSize,
+  gap,
+  isSelectionMode,
+  isSelected,
+  onOpenPreview,
+  onEnterSelectionMode,
+  onToggleSelection,
+}: {
+  item: GenerationRecord;
+  index: number;
+  itemSize: number;
+  gap: number;
+  isSelectionMode: boolean;
+  isSelected: boolean;
+  onOpenPreview: (index: number) => void;
+  onEnterSelectionMode: (id: string) => void;
+  onToggleSelection: (id: string) => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.86}
+      onPress={() => {
+        if (isSelectionMode) {
+          onToggleSelection(item.id);
+          return;
+        }
+        onOpenPreview(index);
+      }}
+      onLongPress={() => onEnterSelectionMode(item.id)}
+      style={[
+        styles.tile,
+        {
+          width: itemSize,
+          height: itemSize,
+          marginRight: index % 3 === 2 ? 0 : gap,
+          marginBottom: gap,
+        },
+      ]}
+    >
+      <ExpoImage
+        source={{
+          uri:
+            resolveGenerationThumbnailUri(item) ??
+            resolveGenerationImageUri(item),
+        }}
+        contentFit="cover"
+        recyclingKey={item.id}
+        transition={120}
+        style={styles.tileImage}
+      />
+      {isSelectionMode ? (
+        <View
+          style={[
+            styles.selectionCircle,
+            isSelected && styles.selectionCircleSelected,
+          ]}
+        >
+          {isSelected ? (
+            <Ionicons name="checkmark" size={14} color="#1c1c1c" />
+          ) : null}
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+});
 
 export function HistoryScreen({
   onSelectionModeChange,
@@ -57,7 +127,7 @@ export function HistoryScreen({
   const allSelected =
     generationHistory.length > 0 && selectedCount === generationHistory.length;
 
-  function openPreview(index: number) {
+  const openPreview = useCallback((index: number) => {
     setPreviewIndex(index);
     setIsPreviewOpen(true);
     previewAnimation.setValue(0);
@@ -66,7 +136,7 @@ export function HistoryScreen({
       duration: 180,
       useNativeDriver: true,
     }).start();
-  }
+  }, [previewAnimation]);
 
   function closePreview() {
     Animated.timing(previewAnimation, {
@@ -83,13 +153,13 @@ export function HistoryScreen({
     setSelectedIds(new Set());
   }
 
-  function enterSelectionMode(id: string) {
+  const enterSelectionMode = useCallback((id: string) => {
     Haptics.selectionAsync().catch(() => {});
     setIsSelectionMode(true);
     setSelectedIds(new Set([id]));
-  }
+  }, []);
 
-  function toggleSelection(id: string) {
+  const toggleSelection = useCallback((id: string) => {
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(id)) {
@@ -99,7 +169,7 @@ export function HistoryScreen({
       }
       return next;
     });
-  }
+  }, []);
 
   function toggleSelectAll() {
     Haptics.selectionAsync().catch(() => {});
@@ -212,50 +282,17 @@ export function HistoryScreen({
           </View>
         }
         renderItem={({ item, index }) => (
-          <TouchableOpacity
-            activeOpacity={0.86}
-            onPress={() => {
-              if (isSelectionMode) {
-                toggleSelection(item.id);
-                return;
-              }
-              openPreview(index);
-            }}
-            onLongPress={() => enterSelectionMode(item.id)}
-            style={[
-              styles.tile,
-              {
-                width: itemSize,
-                height: itemSize,
-                marginRight: index % 3 === 2 ? 0 : gap,
-                marginBottom: gap,
-              },
-            ]}
-          >
-            <ExpoImage
-              source={{
-                uri:
-                  resolveGenerationThumbnailUri(item) ??
-                  resolveGenerationImageUri(item),
-              }}
-              contentFit="cover"
-              recyclingKey={item.id}
-              transition={120}
-              style={styles.tileImage}
-            />
-            {isSelectionMode ? (
-              <View
-                style={[
-                  styles.selectionCircle,
-                  selectedIds.has(item.id) && styles.selectionCircleSelected,
-                ]}
-              >
-                {selectedIds.has(item.id) ? (
-                  <Ionicons name="checkmark" size={14} color="#1c1c1c" />
-                ) : null}
-              </View>
-            ) : null}
-          </TouchableOpacity>
+          <HistoryTile
+            item={item}
+            index={index}
+            itemSize={itemSize}
+            gap={gap}
+            isSelectionMode={isSelectionMode}
+            isSelected={selectedIds.has(item.id)}
+            onOpenPreview={openPreview}
+            onEnterSelectionMode={enterSelectionMode}
+            onToggleSelection={toggleSelection}
+          />
         )}
       />
 
