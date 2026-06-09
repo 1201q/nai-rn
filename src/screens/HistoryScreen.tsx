@@ -133,8 +133,13 @@ export function HistoryScreen({
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const bgUI = useRef(new Animated.Value(0)).current;
+  const barUI = useRef(new Animated.Value(0)).current;
+  const [bgMounted, setBgMounted] = useState(false);
+  const [barMounted, setBarMounted] = useState(false);
   const listRef = useRef<FlatList>(null);
   const selectedCount = selectedIds.size;
+  const hasSelection = selectedCount > 0;
   const allSelected =
     generationHistory.length > 0 && selectedCount === generationHistory.length;
 
@@ -261,6 +266,52 @@ export function HistoryScreen({
     return () => onSelectionModeChange?.(false);
   }, [isSelectionMode, onSelectionModeChange]);
 
+  // 배경 페이드: 선택 모드 동안 유지 (선택 개수 0 이어도 흐림 유지).
+  useEffect(() => {
+    if (isSelectionMode) {
+      setBgMounted(true);
+      Animated.timing(bgUI, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(bgUI, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setBgMounted(false);
+      });
+    }
+  }, [isSelectionMode, bgUI]);
+
+  // 컨트롤 메뉴: 선택 개수 > 0 일 때만. 진입 시 배경보다 살짝 늦게 등장.
+  useEffect(() => {
+    if (hasSelection) {
+      setBarMounted(true);
+      Animated.timing(barUI, {
+        toValue: 1,
+        duration: 220,
+        delay: 120,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(barUI, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setBarMounted(false);
+      });
+    }
+  }, [hasSelection, barUI]);
+
+  const barTranslateY = barUI.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
@@ -307,8 +358,13 @@ export function HistoryScreen({
         )}
       />
 
-      {selectedCount > 0 ? (
-        <ScreenEdgeFade bottomHeight={insets.bottom + 140} />
+      {bgMounted ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { opacity: bgUI }]}
+        >
+          <ScreenEdgeFade bottomHeight={insets.bottom + 140} />
+        </Animated.View>
       ) : null}
 
       <FloatingPillHeader
@@ -357,10 +413,17 @@ export function HistoryScreen({
         }
       />
 
-      {selectedCount > 0 ? (
-        <View
+      {barMounted ? (
+        <Animated.View
           pointerEvents="box-none"
-          style={[styles.selectionActionWrap, { bottom: insets.bottom + 16 }]}
+          style={[
+            styles.selectionActionWrap,
+            {
+              bottom: insets.bottom + 16,
+              opacity: barUI,
+              transform: [{ translateY: barTranslateY }],
+            },
+          ]}
         >
           <View style={styles.selectionActionShadow}>
             <BlurView
@@ -412,7 +475,7 @@ export function HistoryScreen({
               </Pressable>
             </BlurView>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
 
       <ImagePreviewModal
