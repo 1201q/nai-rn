@@ -281,7 +281,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
             styles.scrollContent,
             { paddingTop: insets.top + 56 },
             embedded
-              ? { paddingBottom: insets.bottom + 140 }
+              ? { paddingBottom: insets.bottom + 80 }
               : { paddingBottom: insets.bottom + 48 },
           ]}
           keyboardShouldPersistTaps="handled"

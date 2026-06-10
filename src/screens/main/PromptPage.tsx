@@ -135,7 +135,7 @@ function PromptTabContent() {
           )}
           contentContainerStyle={[
             styles.tabContent,
-            { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 140 },
+            { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 80 },
           ]}
           keyboardShouldPersistTaps="handled"
         >

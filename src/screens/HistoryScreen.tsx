@@ -332,7 +332,7 @@ export function HistoryScreen({
           generationHistory.length === 0 && styles.emptyGrid,
           {
             paddingTop: insets.top + 56,
-            paddingBottom: insets.bottom + (selectedCount > 0 ? 126 : 18),
+            paddingBottom: insets.bottom + (selectedCount > 0 ? 80 : 18),
           },
         ]}
         ListEmptyComponent={
