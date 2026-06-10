@@ -96,16 +96,25 @@ const HistoryTile = memo(function HistoryTile({
     >
       <TileImage item={item} />
       {isSelectionMode ? (
-        <View
-          style={[
-            styles.selectionCircle,
-            isSelected && styles.selectionCircleSelected,
-          ]}
-        >
-          {isSelected ? (
-            <Ionicons name="checkmark" size={14} color="#1c1c1c" />
-          ) : null}
-        </View>
+        <>
+          <View
+            style={[
+              styles.selectionCircle,
+              isSelected && styles.selectionCircleSelected,
+            ]}
+          >
+            {isSelected ? (
+              <Ionicons name="checkmark" size={14} color="#1c1c1c" />
+            ) : null}
+          </View>
+          <Pressable
+            style={styles.expandButton}
+            onPress={() => onOpenPreview(index)}
+            hitSlop={4}
+          >
+            <Ionicons name="expand-outline" size={14} color="#ffffff" />
+          </Pressable>
+        </>
       ) : null}
     </TouchableOpacity>
   );
@@ -538,6 +547,17 @@ const styles = StyleSheet.create({
   selectionCircleSelected: {
     backgroundColor: "#ffffff",
     borderColor: "rgba(0,0,0,0.28)",
+  },
+  expandButton: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   historyHeaderTitle: {
     height: 30,
