@@ -185,6 +185,9 @@ const PILL_TIMING = { duration: 200, easing: Easing.bezier(0.4, 0, 0.2, 1) };
 export function PromptPage() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<PromptTab>("prompt");
+  // 캐릭터 탭은 최초 진입 시점에 mount. display:none 상태로 미리 mount 하면
+  // 첫 노출 때 layout 애니메이션이 0 → 실제위치로 튀어 "위에서 내려오는" 현상 발생.
+  const [characterMounted, setCharacterMounted] = useState(false);
   const activeTabRef = useRef<PromptTab>("prompt");
   const tabLayouts = useRef<
     Partial<Record<PromptTab, { x: number; width: number }>>
@@ -210,6 +213,7 @@ export function PromptPage() {
 
   const handleTabPress = (key: PromptTab) => {
     activeTabRef.current = key;
+    if (key === "character") setCharacterMounted(true);
     setTab(key);
     const layout = tabLayouts.current[key];
     if (layout) {
@@ -223,7 +227,16 @@ export function PromptPage() {
       <StatusBar style="dark" />
 
       <View style={styles.content}>
-        {tab === "prompt" ? <PromptTabContent /> : <CharacterScreen embedded />}
+        {/* 탭 전환 시 unmount 하지 않고 숨김 → 재mount 시 Android TextInput
+            초기 lineHeight span/layout 타이밍 문제 방지 */}
+        <View style={[styles.fill, tab !== "prompt" && styles.hidden]}>
+          <PromptTabContent />
+        </View>
+        {characterMounted ? (
+          <View style={[styles.fill, tab !== "character" && styles.hidden]}>
+            <CharacterScreen embedded />
+          </View>
+        ) : null}
       </View>
 
       {/* 하단 플로팅 세그먼트 탭 */}
@@ -273,6 +286,12 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  fill: {
+    flex: 1,
+  },
+  hidden: {
+    display: "none",
+  },
   tabScreen: {
     flex: 1,
   },
@@ -297,6 +316,7 @@ const styles = StyleSheet.create({
   cardInput: {
     fontSize: 15,
     lineHeight: 22,
+    includeFontPadding: false,
     color: light.textPrimary,
     padding: 0,
   },

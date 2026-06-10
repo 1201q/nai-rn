@@ -500,6 +500,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
+    lineHeight: 20,
+    includeFontPadding: false,
     color: light.textPrimary,
   },
   addCharacterButton: {
