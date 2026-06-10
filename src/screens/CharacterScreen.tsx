@@ -33,6 +33,7 @@ import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { StickySuggestionBar } from "./home/SuggestionBar";
 import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
+import { renderPromptHighlights } from "../components/highlightPromptSpans";
 import { light } from "./home/styles";
 
 const MAX_CHARACTER_PROMPTS = 6;
@@ -95,7 +96,6 @@ function LabeledPromptInput({
       </Text>
       <TextInput
         ref={inputRef}
-        value={text}
         onChangeText={autocomplete.handleChangeText}
         selection={autocomplete.selection}
         onSelectionChange={autocomplete.handleSelectionChange}
@@ -116,7 +116,9 @@ function LabeledPromptInput({
           )
         }
         style={[styles.textArea, { height: inputHeight }]}
-      />
+      >
+        {renderPromptHighlights(text)}
+      </TextInput>
     </View>
   );
 }

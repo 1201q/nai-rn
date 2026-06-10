@@ -31,6 +31,7 @@ import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { StickySuggestionBar } from "../home/SuggestionBar";
 import { FloatingPillHeader } from "../../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
+import { renderPromptHighlights } from "../../components/highlightPromptSpans";
 import { light } from "../home/styles";
 
 type PromptTab = "prompt" | "character";
@@ -91,7 +92,6 @@ function PromptField({
       <Text style={styles.cardLabel}>{label}</Text>
       <TextInput
         ref={inputRef}
-        value={text}
         onChangeText={autocomplete.handleChangeText}
         selection={autocomplete.selection}
         onSelectionChange={autocomplete.handleSelectionChange}
@@ -107,7 +107,9 @@ function PromptField({
         textAlignVertical="top"
         placeholderTextColor={light.textHint}
         style={[styles.cardInput, { minHeight }]}
-      />
+      >
+        {renderPromptHighlights(text)}
+      </TextInput>
     </View>
   );
 }
