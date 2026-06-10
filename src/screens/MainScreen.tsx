@@ -10,6 +10,7 @@ export function MainScreen() {
   const [isHistorySelectionMode, setIsHistorySelectionMode] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isMainSheetOpen, setIsMainSheetOpen] = useState(false);
+  const [isMainOptionsExpanded, setIsMainOptionsExpanded] = useState(false);
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
@@ -36,7 +37,10 @@ export function MainScreen() {
   const mainPage = useMemo(
     () => (
       <View key="main" style={styles.page}>
-        <MainPage onSheetOpenChange={setIsMainSheetOpen} />
+        <MainPage
+          onOptionsExpandedChange={setIsMainOptionsExpanded}
+          onSheetOpenChange={setIsMainSheetOpen}
+        />
       </View>
     ),
     [],
@@ -55,7 +59,10 @@ export function MainScreen() {
       style={styles.pager}
       initialPage={1}
       scrollEnabled={
-        !isHistorySelectionMode && !isKeyboardVisible && !isMainSheetOpen
+        !isHistorySelectionMode &&
+        !isKeyboardVisible &&
+        !isMainSheetOpen &&
+        !isMainOptionsExpanded
       }
     >
       {promptPage}

@@ -217,6 +217,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing
@@ -241,6 +242,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -261,6 +263,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -281,6 +284,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -301,6 +305,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -323,6 +328,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -345,6 +351,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -367,6 +374,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -389,6 +397,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
@@ -410,6 +419,7 @@ export function OptionSheets({
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
+        containerStyle={styles.sheetContainer}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing

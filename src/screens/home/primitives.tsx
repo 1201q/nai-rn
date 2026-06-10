@@ -137,7 +137,7 @@ export function ImageActionChip({
   });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [light.surface, light.surfaceAlt],
+    outputRange: [light.bg, light.surfaceAlt],
   });
 
   return (
@@ -187,7 +187,7 @@ export const OptionChip = React.memo(function OptionChip({
   });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [light.surface, light.surfaceAlt],
+    outputRange: [light.bg, light.surfaceAlt],
   });
 
   return (

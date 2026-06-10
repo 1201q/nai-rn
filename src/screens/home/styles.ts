@@ -18,6 +18,7 @@ export const light = {
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    position: "relative",
     backgroundColor: light.bg,
   },
 
@@ -99,11 +100,24 @@ export const styles = StyleSheet.create({
 
   // 하단: 옵션 + 생성 버튼
   bottomArea: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingTop: 8,
     gap: 12,
   },
+  generateControlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  generateButtonWrap: {
+    flex: 1,
+  },
   generateButton: {
-    marginHorizontal: 16,
+    width: "100%",
     height: 54,
     borderRadius: 18,
     flexDirection: "row",
@@ -114,6 +128,22 @@ export const styles = StyleSheet.create({
   },
   generateButtonText: {
     color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  batchCountButton: {
+    height: 54,
+    minWidth: 82,
+    borderRadius: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 14,
+    backgroundColor: light.surface,
+  },
+  batchCountButtonText: {
+    color: light.textSecondary,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -242,15 +272,83 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // 하단: 가로 스크롤 옵션
-  optionChipsWrap: {
+  // 하단: 옵션 패널
+  optionPanel: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     overflow: "hidden",
+    backgroundColor: "rgba(244,244,243,0.72)",
   },
-  optionScrollContent: {
+  optionPanelBlur: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  optionPanelHeader: {
+    minHeight: 40,
+    justifyContent: "center",
+  },
+  optionPanelSummaryRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
-    paddingHorizontal: 16,
+  },
+  optionPanelSummary: {
+    flex: 1,
+    color: light.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  optionPanelChevron: {
+    marginTop: 1,
+  },
+  optionPanelGroups: {
+    paddingTop: 10,
+    gap: 9,
+  },
+  optionGroupRow: {
+    gap: 6,
+  },
+  optionGroupLabel: {
+    color: light.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  optionGroupScroll: {
+    flex: 1,
+  },
+  optionGroupChips: {
+    flexDirection: "row",
+    gap: 6,
+    paddingRight: 2,
+  },
+  compactOptionChip: {
+    minHeight: 28,
+    maxWidth: 136,
+    borderWidth: 1,
+    borderColor: "transparent",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    justifyContent: "center",
+    backgroundColor: light.bg,
+  },
+  compactOptionChipActive: {
+    borderColor: light.accent,
+    backgroundColor: "#fff7eb",
+  },
+  compactOptionChipText: {
+    color: light.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  compactOptionChipTextActive: {
+    color: light.accent,
   },
   optionChip: {
     flexDirection: "row",
@@ -259,7 +357,7 @@ export const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: light.surface,
+    backgroundColor: light.bg,
   },
   optionChipActive: {
     backgroundColor: light.accent,
@@ -278,58 +376,10 @@ export const styles = StyleSheet.create({
     color: "#ffffff",
   },
 
-  // 2버튼 축약 모드 / 펼침 모드
-  chipRow2: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  chipRow2Right: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  chipRowExpanded: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  chipScroll: {
-    flex: 1,
-  },
-  chipSquareButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.surface,
-  },
-  chipCollapseLeft: {
-    marginLeft: 16,
-    marginRight: 8,
-  },
-  chipCollapseRight: {
-    marginRight: 16,
-    marginLeft: 8,
-  },
-  optionScrollContentLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingRight: 16,
-  },
-  optionScrollContentRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingLeft: 16,
-  },
-
   // 모델 선택 바텀시트 (라이트)
   sheetContainer: {
-    zIndex: 20,
-    elevation: 20,
+    zIndex: 100,
+    elevation: 100,
   },
   sheetBackground: {
     borderTopLeftRadius: 36,

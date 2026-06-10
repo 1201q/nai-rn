@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
+  type LayoutChangeEvent,
   Text,
   TouchableOpacity,
   View,
@@ -28,8 +29,10 @@ import {
 } from "../home/OptionSheets";
 
 export function MainPage({
+  onOptionsExpandedChange,
   onSheetOpenChange,
 }: {
+  onOptionsExpandedChange?: (isExpanded: boolean) => void;
   onSheetOpenChange?: (isOpen: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -38,8 +41,10 @@ export function MainPage({
   const isLoading = useGenerationStore((s) => s.isLoading);
   const queueTotal = useGenerationStore((s) => s.queueTotal);
   const queueIndex = useGenerationStore((s) => s.queueIndex);
+  const batchCount = useGenerationStore((s) => s.batchCount);
   const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
   const generateImage = useGenerationStore((s) => s.generateImage);
+  const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
 
   const sheetRefs: SheetRefs = {
     imageImport: useRef<BottomSheet>(null),
@@ -73,8 +78,11 @@ export function MainPage({
   }, []);
 
   useEffect(() => {
-    return () => onSheetOpenChange?.(false);
-  }, [onSheetOpenChange]);
+    return () => {
+      onOptionsExpandedChange?.(false);
+      onSheetOpenChange?.(false);
+    };
+  }, [onOptionsExpandedChange, onSheetOpenChange]);
 
   const handleSheetChange = useCallback(
     (sheet: SheetKey, index: number) => {
@@ -117,6 +125,13 @@ export function MainPage({
     generateImage();
   };
 
+  const handleBottomAreaLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    setBottomSpacerHeight((current) =>
+      current === 0 || height < current ? height : current,
+    );
+  }, []);
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
@@ -149,26 +164,48 @@ export function MainPage({
 
       {/* 중단: 생성 이미지 영역 */}
       <ImageArea />
+      <View style={{ height: bottomSpacerHeight }} pointerEvents="none" />
 
       {/* 하단: 옵션 + 생성 버튼 (고정 높이) */}
-      <View style={[styles.bottomArea, { paddingBottom: insets.bottom + 16 }]}>
-        <OptionChips openSheet={openSheet} />
-        <ScalePressable style={styles.generateButton} onPress={handleGenerate}>
-          {isLoading ? (
-            queueTotal > 1 ? (
-              <Text style={styles.generateButtonText}>
-                취소 ({queueIndex}/{queueTotal})
-              </Text>
-            ) : (
-              <ActivityIndicator color="#ffffff" size="small" />
-            )
-          ) : (
-            <>
-              <Ionicons name="sparkles" size={18} color="#ffffff" />
-              <Text style={styles.generateButtonText}>생성</Text>
-            </>
-          )}
-        </ScalePressable>
+      <View
+        onLayout={handleBottomAreaLayout}
+        style={[styles.bottomArea, { paddingBottom: insets.bottom + 16 }]}
+      >
+        <OptionChips
+          onExpandedChange={onOptionsExpandedChange}
+          openSheet={openSheet}
+        />
+        <View style={styles.generateControlsRow}>
+          <ScalePressable
+            style={styles.batchCountButton}
+            onPress={() => openSheet("batchCount")}
+          >
+            <Ionicons
+              name="albums-outline"
+              size={18}
+              color={light.textSecondary}
+            />
+            <Text style={styles.batchCountButtonText}>{batchCount}장</Text>
+          </ScalePressable>
+          <View style={styles.generateButtonWrap}>
+            <ScalePressable style={styles.generateButton} onPress={handleGenerate}>
+              {isLoading ? (
+                queueTotal > 1 ? (
+                  <Text style={styles.generateButtonText}>
+                    취소 ({queueIndex}/{queueTotal})
+                  </Text>
+                ) : (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                )
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color="#ffffff" />
+                  <Text style={styles.generateButtonText}>생성</Text>
+                </>
+              )}
+            </ScalePressable>
+          </View>
+        </View>
       </View>
 
       <OptionSheets
