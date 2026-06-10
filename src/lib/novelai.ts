@@ -1,8 +1,5 @@
-import JSZip from "jszip";
-
 import type { NoiseSchedule } from "../constants/generation";
 
-const NOVELAI_IMAGE_API_URL = "https://image.novelai.net/ai/generate-image";
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
 const NOVELAI_SUBSCRIPTION_API_URL =
@@ -61,12 +58,6 @@ export type GenerateNovelAiImageInput = {
 export type GenerateNovelAiCharacterPrompt = {
   prompt: string;
   negativePrompt: string;
-};
-
-export type GenerateNovelAiImageResult = {
-  imageBytes: Uint8Array;
-  seed: number;
-  metadata: Record<string, string>;
 };
 
 export type GenerateNovelAiImageStreamResult = {
@@ -503,46 +494,4 @@ export async function generateNovelAiImageStream(
       }),
     );
   });
-}
-
-export async function generateNovelAiImage({
-  token,
-  ...requestInput
-}: GenerateNovelAiImageInput): Promise<GenerateNovelAiImageResult> {
-  const { seed, body } = createImageGenerationBody(requestInput);
-
-  const response = await fetch(NOVELAI_IMAGE_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/zip, */*",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(
-      `HTTP ${response.status} ${response.statusText}\n${bodyText}`,
-    );
-  }
-
-  const zip = await JSZip.loadAsync(await response.arrayBuffer());
-  const imageFile = Object.values(zip.files).find(
-    (file) => !file.dir && /\.(png|jpe?g|webp)$/i.test(file.name),
-  );
-
-  if (!imageFile) {
-    throw new Error("응답 zip 안에서 이미지 파일을 찾지 못했습니다.");
-  }
-
-  const imageBytes = await imageFile.async("uint8array");
-  const metadata = extractPngTextMetadata(imageBytes);
-
-  return {
-    imageBytes,
-    seed,
-    metadata,
-  };
 }

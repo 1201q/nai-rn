@@ -324,31 +324,6 @@ async function saveGenerationRecord({
   return record;
 }
 
-export async function saveGenerationImage({
-  imageBytes,
-  ...recordInput
-}: SaveGenerationInput): Promise<GenerationRecord> {
-  await initGenerationHistoryStorage();
-
-  const id = createGenerationId();
-  const createdAt = Date.now();
-  const imagePath = `${ORIGINALS_DIR}/${id}.png`;
-  const thumbnailFileName = `${id}.jpg`;
-  const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
-
-  originalFile.create({ overwrite: true });
-  originalFile.write(imageBytes);
-
-  return saveGenerationRecord({
-    ...recordInput,
-    id,
-    createdAt,
-    imagePath,
-    thumbnailFileName,
-    originalFile,
-  });
-}
-
 export async function saveGenerationImageBase64({
   imageBase64,
   ...recordInput

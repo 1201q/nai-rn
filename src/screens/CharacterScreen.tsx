@@ -27,6 +27,7 @@ import {
   useGenerationStore,
 } from "../store/generationStore";
 import type { CharacterScreenNavigationProp } from "../navigation/types";
+import { MAX_CHARACTER_PROMPTS } from "../constants/generation";
 import { SuggestionBarProvider } from "../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
@@ -36,7 +37,6 @@ import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { renderPromptHighlights } from "../components/highlightPromptSpans";
 import { light } from "./home/styles";
 
-const MAX_CHARACTER_PROMPTS = 6;
 const TEXTAREA_MIN_HEIGHT = 88;
 const CHARACTER_LAYOUT = LinearTransition.duration(220);
 const CHARACTER_BODY_ENTERING = FadeIn.duration(140);

@@ -1,7 +1,6 @@
 import React from "react";
 import { Dimensions, Text, View } from "react-native";
 import BottomSheet, {
-  BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 
@@ -18,6 +17,7 @@ import { NumericSheetContent } from "./NumericSheet";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
 import { ImageUploadSheet } from "./ImageUploadSheet";
+import { BaseSheet } from "./BaseSheet";
 import {
   BATCH_COUNT_CONFIG,
   CFG_CONFIG,
@@ -211,231 +211,131 @@ export function OptionSheets({
 }) {
   return (
     <>
-      <BottomSheet
-        ref={sheetRefs.imageImport}
-        index={-1}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
+      <BaseSheet
+        sheetRef={sheetRefs.imageImport}
+        sheetKey="imageImport"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         enableDynamicSizing
         maxDynamicContentSize={Dimensions.get("window").height * 0.92}
-        onChange={(index) => onSheetChange("imageImport", index)}
+        stickyHeaderIndices={[0]}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={[0]}
-        >
-          <ImageUploadSheet
-            onClose={() => sheetRefs.imageImport.current?.close()}
-          />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <ImageUploadSheet
+          onClose={() => sheetRefs.imageImport.current?.close()}
+        />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.model}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.model}
+        sheetKey="model"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[430]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
-        onChange={(index) => onSheetChange("model", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <ModelSheet onClose={() => sheetRefs.model.current?.close()} />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <ModelSheet onClose={() => sheetRefs.model.current?.close()} />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.sampler}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.sampler}
+        sheetKey="sampler"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[540]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
-        onChange={(index) => onSheetChange("sampler", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <SamplerSheet onClose={() => sheetRefs.sampler.current?.close()} />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <SamplerSheet onClose={() => sheetRefs.sampler.current?.close()} />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.schedule}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.schedule}
+        sheetKey="schedule"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[360]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
-        onChange={(index) => onSheetChange("schedule", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <ScheduleSheet onClose={() => sheetRefs.schedule.current?.close()} />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <ScheduleSheet onClose={() => sheetRefs.schedule.current?.close()} />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.steps}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.steps}
+        sheetKey="steps"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[320]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("steps", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <StepsSheet />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <StepsSheet />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.batchCount}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.batchCount}
+        sheetKey="batchCount"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[320]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("batchCount", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <BatchCountSheet />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <BatchCountSheet />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.cfg}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.cfg}
+        sheetKey="cfg"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[320]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("cfg", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <CfgSheet />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <CfgSheet />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.cfgRescale}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.cfgRescale}
+        sheetKey="cfgRescale"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[320]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("cfgRescale", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <CfgRescaleSheet />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <CfgRescaleSheet />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.seed}
-        index={-1}
+      <BaseSheet
+        sheetRef={sheetRefs.seed}
+        sheetKey="seed"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         snapPoints={[260]}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("seed", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <SeedSheet />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <SeedSheet />
+      </BaseSheet>
 
-      <BottomSheet
-        ref={sheetRefs.resolution}
-        index={-1}
-        enablePanDownToClose
-        backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
+      <BaseSheet
+        sheetRef={sheetRefs.resolution}
+        sheetKey="resolution"
+        onSheetChange={onSheetChange}
+        renderBackdrop={renderBackdrop}
         enableDynamicSizing
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        onChange={(index) => onSheetChange("resolution", index)}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={styles.sheetScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <ResolutionSheet
-            onClose={() => sheetRefs.resolution.current?.close()}
-          />
-        </BottomSheetScrollView>
-      </BottomSheet>
+        <ResolutionSheet
+          onClose={() => sheetRefs.resolution.current?.close()}
+        />
+      </BaseSheet>
     </>
   );
 }

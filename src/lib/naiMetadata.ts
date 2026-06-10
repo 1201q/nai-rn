@@ -1,4 +1,5 @@
 import {
+  MAX_CHARACTER_PROMPTS,
   NAI_RESOLUTIONS,
   NOISE_SCHEDULES,
   SAMPLERS,
@@ -6,8 +7,7 @@ import {
   type NoiseSchedule,
 } from "../constants/generation";
 import type { CharacterPrompt } from "../store/generationStore";
-
-const MAX_CHARACTER_PROMPTS = 6;
+import { isNonEmptyString, isNumber } from "./guards";
 
 export type ParsedNaiMetadata = {
   raw: Record<string, string>;
@@ -25,14 +25,6 @@ export type ParsedNaiMetadata = {
   seed?: number;
   hasSettings: boolean;
 };
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
 
 function isNoiseSchedule(value: unknown): value is NoiseSchedule {
   return NOISE_SCHEDULES.some((item) => item.value === value);

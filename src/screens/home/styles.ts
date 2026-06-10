@@ -162,11 +162,6 @@ export const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 2,
   },
-  promptInputWrap: {
-    position: "relative",
-    minHeight: 44,
-    overflow: "hidden",
-  },
   // 측정 자유(고정 height 없음) → onContentSizeChange 가 콘텐츠 실제 높이 보고.
   // absolute 라 wrapper(애니메이션 height)에 영향 안 줌.
   promptInput: {
@@ -223,7 +218,6 @@ export const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: light.bg,
   },
-  promptModeSegmentActive: {},
   characterButton: {
     flexDirection: "row",
     alignItems: "center",

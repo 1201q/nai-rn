@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 
 import { light, styles } from "./styles";
 import type { ChipValue } from "./constants";
+import { useScalePress } from "./useScalePress";
 
 export function hapticTick() {
   Haptics.selectionAsync().catch(() => {});
@@ -54,34 +55,18 @@ export function VarietyChip({
   active: boolean;
   onPress: () => void;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () => {
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-    onPress();
-  };
-
-  const scale = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.93],
+  const { onPressIn, onPressOut, scale } = useScalePress({
+    useNativeDriver: true,
   });
 
   return (
-    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
+    <Pressable
+      onPressIn={onPressIn}
+      onPressOut={() => {
+        onPressOut();
+        onPress();
+      }}
+    >
       <Animated.View
         style={[
           styles.optionChip,
@@ -113,28 +98,7 @@ export function ImageActionChip({
   label: string;
   onPress?: () => void;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () =>
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: false,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-
-  const onPressOut = () =>
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: false,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-
-  const scale = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.93],
-  });
+  const { anim, onPressIn, onPressOut, scale } = useScalePress();
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [light.bg, light.surfaceAlt],
@@ -161,30 +125,7 @@ export const OptionChip = React.memo(function OptionChip({
   value: ChipValue;
   onPress?: () => void;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () => {
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: false,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: false,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-  };
-
-  const scale = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.93],
-  });
+  const { anim, onPressIn, onPressOut, scale } = useScalePress();
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [light.bg, light.surfaceAlt],
@@ -305,28 +246,7 @@ export function SheetItem({
   onPress: () => void;
   recommendedValue?: string;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () =>
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: false,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-
-  const onPressOut = () =>
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: false,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-
-  const scale = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.96],
-  });
+  const { anim, onPressIn, onPressOut, scale } = useScalePress({ scaleTo: 0.96 });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: ["rgba(244,244,243,0)", light.surface],

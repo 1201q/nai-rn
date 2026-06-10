@@ -1,5 +1,4 @@
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRef } from "react";
 
 import {
   useSuggestionBarActions,
@@ -8,6 +7,7 @@ import {
 import type { TagSuggestion, TagType } from "../../lib/tagDb";
 import { colors } from "../../styles/colors";
 import { light } from "./styles";
+import { useScalePress } from "./useScalePress";
 
 const TAG_TYPE_COLORS: Record<TagType, string> = {
   general: colors.blue500,
@@ -23,25 +23,7 @@ function SuggestionChip({
   item: TagSuggestion;
   onPress: () => void;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () =>
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: false,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-
-  const onPressOut = () =>
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: false,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.93] });
+  const { anim, onPressIn, onPressOut, scale } = useScalePress();
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: [light.surface, light.surfaceAlt],

@@ -26,6 +26,7 @@ import {
 import type { CharacterEditScreenNavigationProp } from "../navigation/types";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { light } from "./home/styles";
+import { ScreenHeader } from "../components/ScreenHeader";
 
 const ROW_HEIGHT = 68;
 const DELETE_COLOR = "#e5484d";
@@ -221,19 +222,7 @@ export function CharacterEditScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>캐릭터 편집</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="캐릭터 편집" onBack={() => navigation.goBack()} />
 
       <View style={styles.listWrap}>
         <View style={{ height: items.length * ROW_HEIGHT }}>
@@ -281,29 +270,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: light.bg,
-  },
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.surface,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   listWrap: {
     flex: 1,

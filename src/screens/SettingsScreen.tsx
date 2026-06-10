@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useGenerationStore } from "../store/generationStore";
 import type { SettingsScreenNavigationProp } from "../navigation/types";
 import { light } from "./home/styles";
+import { ScreenHeader } from "../components/ScreenHeader";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -56,19 +57,7 @@ export function SettingsScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Settings" onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -138,29 +127,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.surface,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
-  },
-  headerSpacer: {
-    width: 44,
   },
   content: {
     paddingHorizontal: 16,

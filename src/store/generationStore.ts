@@ -25,15 +25,16 @@ import {
   getNovelAiAnlasBalance,
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
+import { isBoolean, isNumber, isString } from "../lib/guards";
 import {
   DEFAULT_NAI_RESOLUTION,
+  MAX_CHARACTER_PROMPTS,
   NAI_RESOLUTIONS,
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
-const MAX_CHARACTER_PROMPTS = 6;
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
 
 export type CharacterPrompt = {
@@ -64,18 +65,6 @@ type PersistedGenerationOptions = Partial<{
 
 function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === "string";
-}
-
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
 }
 
 function isNoiseSchedule(value: unknown): value is NoiseSchedule {

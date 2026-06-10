@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -17,8 +17,8 @@ import { extractPngTextMetadata } from "../../lib/novelai";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
 import { useGenerationStore } from "../../store/generationStore";
 import { light, styles as sheetStyles } from "./styles";
-
-const MAX_CHARACTER_PROMPTS = 6;
+import { MAX_CHARACTER_PROMPTS } from "../../constants/generation";
+import { useScalePress } from "./useScalePress";
 
 type Selection = {
   prompt: boolean;
@@ -42,28 +42,7 @@ function CheckRow({
   indent?: boolean;
   onToggle: () => void;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  const onPressIn = () =>
-    Animated.spring(anim, {
-      toValue: 1,
-      useNativeDriver: false,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-
-  const onPressOut = () =>
-    Animated.spring(anim, {
-      toValue: 0,
-      useNativeDriver: false,
-      speed: 30,
-      bounciness: 0,
-    }).start();
-
-  const scale = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.96],
-  });
+  const { anim, onPressIn, onPressOut, scale } = useScalePress({ scaleTo: 0.96 });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
     outputRange: ["rgba(244,244,243,0)", light.surface],

@@ -74,3 +74,5 @@ export const NOISE_SCHEDULES: Array<{
   { label: "Polyexponential", value: "polyexponential" },
   { label: "Native (Legacy)", value: "native" },
 ];
+
+export const MAX_CHARACTER_PROMPTS = 6;
