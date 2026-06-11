@@ -13,15 +13,17 @@ export function SeedSheetContent({
   locked,
   onChangeSeed,
   onToggleLock,
+  showTitle = true,
 }: {
   seed: number;
   locked: boolean;
   onChangeSeed: (v: number) => void;
   onToggleLock: () => void;
+  showTitle?: boolean;
 }) {
   return (
     <>
-      <Text style={styles.sheetTitle}>Seed</Text>
+      {showTitle ? <Text style={styles.sheetTitle}>Seed</Text> : null}
       <View style={styles.seedSheetRow}>
         <BottomSheetTextInput
           style={[styles.seedSheetInput, locked && styles.seedSheetInputLocked]}

@@ -14,10 +14,12 @@ export function ResolutionSheetContent({
   resolution,
   onChange,
   onClose,
+  showTitle = true,
 }: {
   resolution: NaiResolution;
   onChange: (v: NaiResolution) => void;
   onClose: () => void;
+  showTitle?: boolean;
 }) {
   const setDimension = (key: "width" | "height", text: string) => {
     const digits = text.replace(/\D/g, "");
@@ -54,7 +56,7 @@ export function ResolutionSheetContent({
 
   return (
     <>
-      <Text style={styles.sheetTitle}>Resolution</Text>
+      {showTitle ? <Text style={styles.sheetTitle}>Resolution</Text> : null}
 
       <View style={styles.resolutionInputRow}>
         <View style={styles.resolutionInputBox}>

@@ -1,18 +1,16 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Reanimated, {
-  runOnJS,
   useAnimatedProps,
-  useAnimatedStyle,
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
 
-import { light, SLIDER_THUMB, styles } from "./styles";
+import { light, styles } from "./styles";
 import { hapticTick, ScalePressable } from "./primitives";
 import type { NumericConfig } from "./constants";
 
@@ -34,68 +32,43 @@ export function formatNumeric(v: number, precision: number) {
 
 function NumericSlider({
   display,
+  value,
   onCommit,
   cfg,
 }: {
   display: SharedValue<number>;
+  value: number;
   onCommit: (v: number) => void;
   cfg: NumericConfig;
 }) {
-  const [trackWidth, setTrackWidth] = useState(0);
-  const range = cfg.max - cfg.min;
-  const dragStart = useSharedValue(0);
+  const lastPreviewRef = useRef(value);
 
-  const panGesture = Gesture.Pan()
-    .minDistance(0)
-    .onBegin(() => {
-      dragStart.value = (display.value - cfg.min) / range;
-    })
-    .onUpdate((event) => {
-      if (trackWidth <= SLIDER_THUMB) return;
-      const usableWidth = trackWidth - SLIDER_THUMB;
-      const nextProgress = Math.min(
-        1,
-        Math.max(0, dragStart.value + event.translationX / usableWidth),
-      );
-      const nextValue = snapValue(cfg.min + nextProgress * range, cfg);
-      if (nextValue !== display.value) {
-        display.value = nextValue;
-        runOnJS(hapticTick)();
-      }
-    })
-    .onEnd(() => {
-      runOnJS(onCommit)(display.value);
-    });
+  useLayoutEffect(() => {
+    lastPreviewRef.current = value;
+  }, [value]);
 
-  const fillStyle = useAnimatedStyle(() => ({
-    width:
-      ((display.value - cfg.min) / range) *
-        Math.max(0, trackWidth - SLIDER_THUMB) +
-      SLIDER_THUMB / 2,
-  }));
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX:
-          ((display.value - cfg.min) / range) *
-          Math.max(0, trackWidth - SLIDER_THUMB),
-      },
-    ],
-  }));
+  const previewValue = (nextRaw: number) => {
+    const next = snapValue(nextRaw, cfg);
+    display.value = next;
+    if (next !== lastPreviewRef.current) {
+      lastPreviewRef.current = next;
+      hapticTick();
+    }
+  };
 
   return (
-    <View
-      style={styles.stepsSliderTrack}
-      onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-    >
-      <View style={styles.stepsSliderBase} />
-      <Reanimated.View style={[styles.stepsSliderFill, fillStyle]} />
-      {trackWidth > 0 ? (
-        <GestureDetector gesture={panGesture}>
-          <Reanimated.View style={[styles.stepsSliderThumb, thumbStyle]} />
-        </GestureDetector>
-      ) : null}
-    </View>
+    <Slider
+      style={styles.stepsNativeSlider}
+      value={value}
+      minimumValue={cfg.min}
+      maximumValue={cfg.max}
+      step={cfg.step}
+      minimumTrackTintColor={light.accent}
+      maximumTrackTintColor={light.surfaceAlt}
+      thumbTintColor={light.accent}
+      onValueChange={previewValue}
+      onSlidingComplete={(next) => onCommit(snapValue(next, cfg))}
+    />
   );
 }
 
@@ -103,10 +76,12 @@ export function NumericSheetContent({
   value,
   onChange,
   cfg,
+  showTitle = true,
 }: {
   value: number;
   onChange: (v: number) => void;
   cfg: NumericConfig;
+  showTitle?: boolean;
 }) {
   const [inputText, setInputText] = useState(
     formatNumeric(value, cfg.precision),
@@ -116,7 +91,7 @@ export function NumericSheetContent({
   // 드래그 중 표시값은 UI 스레드에서 직접 구동(재렌더 없음).
   // 외부 변경(+/- · 수동입력 · 초기값)은 여기서 동기화.
   const display = useSharedValue(value);
-  useEffect(() => {
+  useLayoutEffect(() => {
     display.value = value;
     setInputText(formatNumeric(value, cfg.precision));
   }, [value, cfg.precision, display]);
@@ -148,7 +123,7 @@ export function NumericSheetContent({
 
   return (
     <>
-      <Text style={styles.sheetTitle}>{cfg.title}</Text>
+      {showTitle ? <Text style={styles.sheetTitle}>{cfg.title}</Text> : null}
 
       <View style={styles.stepsValueRow}>
         <ScalePressable
@@ -176,9 +151,11 @@ export function NumericSheetContent({
           ) : (
             <Pressable onPress={() => setEditing(true)}>
               <AnimatedTextInput
+                key={cfg.title}
                 style={[styles.stepsValueInput, { padding: 0 }]}
                 editable={false}
                 pointerEvents="none"
+                defaultValue={formatNumeric(value, cfg.precision)}
                 animatedProps={animatedProps}
               />
             </Pressable>
@@ -197,7 +174,12 @@ export function NumericSheetContent({
         </ScalePressable>
       </View>
 
-      <NumericSlider display={display} onCommit={onChange} cfg={cfg} />
+      <NumericSlider
+        display={display}
+        value={value}
+        onCommit={onChange}
+        cfg={cfg}
+      />
       <View style={styles.stepsRangeRow}>
         <Text style={styles.stepsRangeLabel}>
           {formatNumeric(cfg.min, cfg.precision)}

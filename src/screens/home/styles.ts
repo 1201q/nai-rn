@@ -1,7 +1,5 @@
 import { StyleSheet } from "react-native";
 
-export const SLIDER_THUMB = 26;
-
 // 이 화면 전용 라이트 팔레트 (공유 colors.ts 다크 토큰과 분리)
 export const light = {
   bg: "#ffffff",
@@ -386,9 +384,15 @@ export const styles = StyleSheet.create({
     backgroundColor: light.border,
   },
   sheetScrollContent: {
+    width: "100%",
+    alignItems: "stretch",
     paddingHorizontal: 20,
     paddingBottom: 24,
     gap: 2,
+  },
+  sheetRouteContent: {
+    width: "100%",
+    alignSelf: "stretch",
   },
   sheetTitle: {
     paddingHorizontal: 4,
@@ -396,7 +400,9 @@ export const styles = StyleSheet.create({
     paddingBottom: 12,
     color: light.textPrimary,
     fontSize: 20,
+    lineHeight: 24,
     fontWeight: "800",
+    includeFontPadding: false,
   },
   sheetModelItem: {
     flexDirection: "row",
@@ -435,6 +441,103 @@ export const styles = StyleSheet.create({
     height: 1,
     backgroundColor: light.border,
     marginVertical: 12,
+  },
+
+  // 옵션 시트 — 상세 백 헤더 / 루트 메뉴
+  sheetBackHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    marginBottom: 10,
+    minHeight: 44,
+  },
+  sheetBackButton: {
+    width: 36,
+    height: 36,
+    marginLeft: -8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetBackTitle: {
+    flex: 1,
+    color: light.textPrimary,
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "800",
+    includeFontPadding: false,
+    marginLeft: 0,
+  },
+  sheetMenuGroupLabel: {
+    color: light.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    paddingHorizontal: 4,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  sheetMenuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 52,
+    paddingHorizontal: 12,
+    marginHorizontal: -8,
+    borderRadius: 14,
+    gap: 12,
+  },
+  sheetMenuTileRow: {
+    flexDirection: "row",
+    width: "100%",
+    alignSelf: "stretch",
+    gap: 8,
+    marginBottom: 4,
+  },
+  sheetMenuTileCell: {
+    flex: 1,
+  },
+  sheetMenuTile: {
+    width: "100%",
+    minHeight: 64,
+    justifyContent: "center",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: light.surface,
+  },
+  sheetMenuTileLabel: {
+    color: light.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  sheetMenuTileValue: {
+    color: light.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  sheetMenuLabel: {
+    color: light.textPrimary,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  sheetMenuLabelDisabled: {
+    color: light.textHint,
+  },
+  sheetMenuValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 1,
+  },
+  sheetMenuValue: {
+    color: light.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  sheetMenuValueActive: {
+    color: light.accent,
   },
 
   // Steps 바텀시트
@@ -479,38 +582,9 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     color: light.textHint,
   },
-  stepsSliderTrack: {
-    height: SLIDER_THUMB,
-    justifyContent: "center",
-    marginHorizontal: 4,
-  },
-  stepsSliderBase: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: light.surfaceAlt,
-  },
-  stepsSliderFill: {
-    position: "absolute",
-    left: 0,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: light.accent,
-  },
-  stepsSliderThumb: {
-    width: SLIDER_THUMB,
-    height: SLIDER_THUMB,
-    borderRadius: SLIDER_THUMB / 2,
-    backgroundColor: light.bg,
-    borderWidth: 2,
-    borderColor: light.accent,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 3,
+  stepsNativeSlider: {
+    width: "100%",
+    height: 40,
   },
   stepsRangeRow: {
     flexDirection: "row",

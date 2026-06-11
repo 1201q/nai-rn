@@ -5,7 +5,6 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 
 import { styles } from "./styles";
-import type { SheetKey } from "./OptionSheets";
 
 type BSProps = ComponentProps<typeof BottomSheet>;
 
@@ -27,8 +26,8 @@ export function BaseSheet({
   children,
 }: {
   sheetRef: React.RefObject<BottomSheet | null>;
-  sheetKey: SheetKey;
-  onSheetChange: (sheet: SheetKey, index: number) => void;
+  sheetKey: string;
+  onSheetChange: (sheet: string, index: number) => void;
   renderBackdrop: (props: BottomSheetBackdropProps) => React.ReactElement;
   snapPoints?: BSProps["snapPoints"];
   enableDynamicSizing: boolean;

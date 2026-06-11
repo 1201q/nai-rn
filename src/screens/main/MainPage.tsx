@@ -22,17 +22,12 @@ import { ImageArea } from "../home/ImageArea";
 import { OptionChips } from "../home/OptionChips";
 import { ScalePressable } from "../home/primitives";
 import { useGenerationStore } from "../../store/generationStore";
-import {
-  OptionSheets,
-  type SheetKey,
-  type SheetRefs,
-} from "../home/OptionSheets";
+import { OptionSheets } from "../home/OptionSheets";
+import type { OptionRoute, OptionsSheetHandle } from "../home/OptionsSheet";
 
 export function MainPage({
-  onOptionsExpandedChange,
   onSheetOpenChange,
 }: {
-  onOptionsExpandedChange?: (isExpanded: boolean) => void;
   onSheetOpenChange?: (isOpen: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -46,64 +41,58 @@ export function MainPage({
   const generateImage = useGenerationStore((s) => s.generateImage);
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
 
-  const sheetRefs: SheetRefs = {
-    imageImport: useRef<BottomSheet>(null),
-    model: useRef<BottomSheet>(null),
-    sampler: useRef<BottomSheet>(null),
-    schedule: useRef<BottomSheet>(null),
-    steps: useRef<BottomSheet>(null),
-    cfg: useRef<BottomSheet>(null),
-    cfgRescale: useRef<BottomSheet>(null),
-    seed: useRef<BottomSheet>(null),
-    resolution: useRef<BottomSheet>(null),
-    batchCount: useRef<BottomSheet>(null),
-  };
-  const activeSheetRef = useRef<SheetKey | null>(null);
+  const optionsRef = useRef<OptionsSheetHandle>(null);
+  const imageImportRef = useRef<BottomSheet>(null);
+  const openSheetsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        const active = activeSheetRef.current;
-        if (active) {
-          sheetRefs[active].current?.close();
+        // OptionsSheet 는 자체 백(상세→메뉴→닫기)을 소유. 여기선 imageImport 만.
+        if (openSheetsRef.current.has("imageImport")) {
+          imageImportRef.current?.close();
           return true;
         }
         return false;
       },
     );
     return () => subscription.remove();
-    // sheetRefs 는 마운트 동안 안정적이라 deps 불필요
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     return () => {
-      onOptionsExpandedChange?.(false);
       onSheetOpenChange?.(false);
     };
-  }, [onOptionsExpandedChange, onSheetOpenChange]);
+  }, [onSheetOpenChange]);
 
-  const handleSheetChange = useCallback(
-    (sheet: SheetKey, index: number) => {
-      if (index >= 0) {
-        activeSheetRef.current = sheet;
-        onSheetOpenChange?.(true);
-      } else if (activeSheetRef.current === sheet) {
-        activeSheetRef.current = null;
-        onSheetOpenChange?.(false);
-      }
+  const setSheetOpen = useCallback(
+    (id: string, open: boolean) => {
+      const set = openSheetsRef.current;
+      const had = set.size > 0;
+      if (open) set.add(id);
+      else set.delete(id);
+      const has = set.size > 0;
+      if (had !== has) onSheetOpenChange?.(has);
     },
     [onSheetOpenChange],
   );
 
-  const openSheet = useCallback(
-    (key: SheetKey) => {
-      sheetRefs[key].current?.snapToIndex(0);
+  const handleSheetChange = useCallback(
+    (sheet: string, index: number) => {
+      setSheetOpen(sheet, index >= 0);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [setSheetOpen],
   );
+
+  const handleOptionsOpenChange = useCallback(
+    (open: boolean) => setSheetOpen("options", open),
+    [setSheetOpen],
+  );
+
+  const openOptions = useCallback((route?: OptionRoute) => {
+    optionsRef.current?.openAt(route);
+  }, []);
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -171,14 +160,11 @@ export function MainPage({
         onLayout={handleBottomAreaLayout}
         style={[styles.bottomArea, { paddingBottom: insets.bottom + 16 }]}
       >
-        <OptionChips
-          onExpandedChange={onOptionsExpandedChange}
-          openSheet={openSheet}
-        />
+        <OptionChips openOptions={openOptions} />
         <View style={styles.generateControlsRow}>
           <ScalePressable
             style={styles.batchCountButton}
-            onPress={() => openSheet("batchCount")}
+            onPress={() => openOptions("batchCount")}
           >
             <Ionicons
               name="albums-outline"
@@ -209,7 +195,9 @@ export function MainPage({
       </View>
 
       <OptionSheets
-        sheetRefs={sheetRefs}
+        optionsRef={optionsRef}
+        imageImportRef={imageImportRef}
+        onOptionsOpenChange={handleOptionsOpenChange}
         onSheetChange={handleSheetChange}
         renderBackdrop={renderBackdrop}
       />
