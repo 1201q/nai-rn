@@ -55,7 +55,7 @@ export function SettingsScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <ScreenHeader title="Settings" onBack={() => navigation.goBack()} />
 
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: light.border,
-    backgroundColor: light.surface,
+    backgroundColor: light.input,
     paddingHorizontal: 14,
     fontSize: 14,
     color: light.textPrimary,
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: light.textPrimary,
+    backgroundColor: light.accent,
     marginTop: 6,
   },
   disabledButton: {
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 15,
     fontWeight: "700",
-    color: light.bg,
+    color: light.accentText,
   },
   message: {
     fontSize: 13,

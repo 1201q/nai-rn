@@ -63,7 +63,7 @@ function Pill({
           <View style={styles.pillBgClip}>
             <BlurView
               intensity={50}
-              tint="light"
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
           </View>
@@ -173,12 +173,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   pillBgBlur: {
-    backgroundColor: "rgba(255,255,255,0.75)",
+    backgroundColor: "rgba(25,27,49,0.78)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
+    borderColor: light.border,
   },
   pillBgSolid: {
-    backgroundColor: "#ffffff",
+    backgroundColor: light.surface,
   },
   headerTitle: {
     fontSize: 20,

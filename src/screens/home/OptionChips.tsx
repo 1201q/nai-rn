@@ -1,6 +1,5 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 
 import {
   MODELS,
@@ -45,7 +44,6 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
 
   return (
     <View style={styles.optionPanel}>
-      <BlurView intensity={38} tint="light" style={styles.optionPanelBlur} />
       <Pressable style={styles.optionPanelHeader} onPress={() => openOptions()}>
         <View style={styles.optionPanelSummaryRow}>
           <Text style={styles.optionPanelSummary} numberOfLines={2}>

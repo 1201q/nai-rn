@@ -269,7 +269,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   return (
     <SuggestionBarProvider>
       <View style={styles.screen}>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
 
         <KeyboardAwareScrollView
           ref={scrollRef}
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   characterBadgeText: {
-    color: "#fff",
+    color: light.accentText,
     fontSize: 12,
     fontWeight: "800",
   },

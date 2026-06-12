@@ -10,10 +10,10 @@ import { light } from "./styles";
 import { useScalePress } from "./useScalePress";
 
 const TAG_TYPE_COLORS: Record<TagType, string> = {
-  general: colors.blue500,
-  artist: colors.orange500,
-  character: colors.green500,
-  copyright: colors.purple500,
+  general: colors.naiPurple,
+  artist: colors.naiPink,
+  character: colors.naiGreen,
+  copyright: colors.naiBlonde,
 };
 
 function SuggestionChip({

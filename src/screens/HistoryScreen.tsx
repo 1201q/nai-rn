@@ -104,7 +104,7 @@ const HistoryTile = memo(function HistoryTile({
             ]}
           >
             {isSelected ? (
-              <Ionicons name="checkmark" size={14} color="#1c1c1c" />
+              <Ionicons name="checkmark" size={14} color={light.accentText} />
             ) : null}
           </View>
           <Pressable
@@ -323,7 +323,7 @@ export function HistoryScreen({
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <Animated.FlatList
         ref={listRef}
@@ -391,7 +391,7 @@ export function HistoryScreen({
                 onPress={toggleSelectAll}
               >
                 {allSelected ? (
-                  <Ionicons name="checkmark" size={14} color="#1c1c1c" />
+                  <Ionicons name="checkmark" size={14} color={light.accentText} />
                 ) : null}
               </Pressable>
               <Text style={styles.selectionHeaderCount}>{selectedCount}</Text>
@@ -437,7 +437,7 @@ export function HistoryScreen({
           <View style={styles.selectionActionShadow}>
             <BlurView
               intensity={60}
-              tint="light"
+              tint="dark"
               style={styles.selectionActionBar}
             >
               <Pressable
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   selectionCircleSelected: {
-    backgroundColor: "#ffffff",
+    backgroundColor: light.accent,
     borderColor: "rgba(0,0,0,0.28)",
   },
   expandButton: {
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   selectionHeaderCheckboxSelected: {
-    backgroundColor: "#ffffff",
+    backgroundColor: light.accent,
     borderColor: "rgba(0,0,0,0.18)",
   },
   selectionHeaderCount: {
@@ -627,7 +627,9 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,1)",
+    borderWidth: 1,
+    borderColor: light.border,
+    backgroundColor: light.input,
   },
   selectionActionButton: {
     flexDirection: "row",

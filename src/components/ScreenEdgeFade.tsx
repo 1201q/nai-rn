@@ -17,14 +17,14 @@ export function ScreenEdgeFade({
       {topHeight > 0 ? (
         <LinearGradient
           pointerEvents="none"
-          colors={[light.bg, "rgba(255,255,255,0)"]}
+          colors={[light.bg, "rgba(19,20,44,0)"]}
           style={[styles.top, { height: topHeight }]}
         />
       ) : null}
       {bottomHeight > 0 ? (
         <LinearGradient
           pointerEvents="none"
-          colors={["rgba(255,255,255,0)", light.bg]}
+          colors={["rgba(19,20,44,0)", light.bg]}
           style={[styles.bottom, { height: bottomHeight }]}
         />
       ) : null}

@@ -22,7 +22,7 @@ import Reanimated, {
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import { useGenerationStore } from "../../store/generationStore";
 import { ImagePreviewModal } from "../main/ImagePreviewModal";
-import { styles } from "./styles";
+import { light, styles } from "./styles";
 
 const IMAGE_SLOT_HORIZONTAL_PADDING = 32;
 const IMAGE_SLOT_VERTICAL_PADDING = 24;
@@ -207,7 +207,7 @@ export function ImageArea() {
             </Pressable>
           ) : null}
           {isLoading && !displayedImageUri ? (
-            <ActivityIndicator color="#1c1c1c" size="large" />
+            <ActivityIndicator color={light.textPrimary} size="large" />
           ) : null}
           {currentImageUri && !isStreamingPreview ? (
             <View style={styles.imageOverlayRow}>

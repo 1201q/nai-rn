@@ -2,15 +2,20 @@ import { StyleSheet } from "react-native";
 
 // 이 화면 전용 라이트 팔레트 (공유 colors.ts 다크 토큰과 분리)
 export const light = {
-  bg: "#ffffff",
-  surface: "#f4f4f3",
-  surfaceAlt: "#ececeb",
-  textPrimary: "#1c1c1c",
-  textSecondary: "#6b6b6b",
-  textHint: "#9a9a9a",
-  border: "#e3e3e2",
-  overlay: "rgba(0,0,0,0.28)",
-  accent: "#fe9800",
+  bg: "#13142C",
+  surface: "#191B31",
+  surfaceAlt: "#22253F",
+  input: "#0E0F21",
+  textPrimary: "#F7F7F7",
+  textSecondary: "#C7C8D6",
+  textHint: "#8B8EA8",
+  border: "#22253F",
+  overlay: "rgba(14,15,33,0.72)",
+  accent: "#F5F3C2",
+  accentText: "#0E0F21",
+  pink: "#EC56A7",
+  green: "#75CF67",
+  purple: "#9773FF",
 } as const;
 
 export const styles = StyleSheet.create({
@@ -125,7 +130,7 @@ export const styles = StyleSheet.create({
     backgroundColor: light.accent,
   },
   generateButtonText: {
-    color: "#ffffff",
+    color: light.accentText,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -148,7 +153,7 @@ export const styles = StyleSheet.create({
   promptCard: {
     marginHorizontal: 16,
     borderRadius: 22,
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
     borderWidth: 1,
     borderColor: light.border,
     paddingHorizontal: 16,
@@ -214,7 +219,7 @@ export const styles = StyleSheet.create({
     top: 3,
     bottom: 3,
     borderRadius: 999,
-    backgroundColor: light.bg,
+    backgroundColor: light.surfaceAlt,
   },
   characterButton: {
     flexDirection: "row",
@@ -225,7 +230,7 @@ export const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: light.border,
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
   },
   characterButtonText: {
     fontSize: 13,
@@ -248,7 +253,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: light.border,
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
   },
   submitButton: {
     width: 34,
@@ -259,7 +264,7 @@ export const styles = StyleSheet.create({
     backgroundColor: light.accent,
   },
   submitButtonProgressText: {
-    color: "#ffffff",
+    color: light.accentText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -268,17 +273,12 @@ export const styles = StyleSheet.create({
   optionPanel: {
     marginHorizontal: 16,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: light.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     overflow: "hidden",
-    backgroundColor: "rgba(244,244,243,0.72)",
-  },
-  optionPanelBlur: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
+    backgroundColor: light.input,
   },
   optionPanelHeader: {
     minHeight: 40,
@@ -328,11 +328,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     justifyContent: "center",
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
   },
   compactOptionChipActive: {
     borderColor: light.accent,
-    backgroundColor: "#fff7eb",
+    backgroundColor: "rgba(245,243,194,0.14)",
   },
   compactOptionChipText: {
     color: light.textSecondary,
@@ -349,7 +349,7 @@ export const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
   },
   optionChipActive: {
     backgroundColor: light.accent,
@@ -365,7 +365,7 @@ export const styles = StyleSheet.create({
     color: light.textHint,
   },
   optionChipTextActive: {
-    color: "#ffffff",
+    color: light.accentText,
   },
 
   // 모델 선택 바텀시트 (라이트)
@@ -430,7 +430,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: light.surface,
+    backgroundColor: light.surfaceAlt,
   },
   sheetModelItemBadgeText: {
     color: light.textHint,
@@ -614,7 +614,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: light.textPrimary,
-    backgroundColor: light.surface,
+    backgroundColor: light.input,
     padding: 0,
     includeFontPadding: false,
   },
@@ -630,7 +630,7 @@ export const styles = StyleSheet.create({
     backgroundColor: light.surface,
   },
   seedSheetButtonActive: {
-    backgroundColor: "#fff3e0",
+    backgroundColor: "rgba(245,243,194,0.14)",
   },
   seedSheetHint: {
     paddingHorizontal: 4,
@@ -655,7 +655,7 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     gap: 8,
-    backgroundColor: light.surface,
+    backgroundColor: light.input,
   },
   resolutionInputLabel: {
     fontSize: 14,

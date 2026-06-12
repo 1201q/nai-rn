@@ -286,7 +286,7 @@ function MenuRow({
   });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(244,244,243,0)", light.surface],
+    outputRange: ["rgba(25,27,49,0)", light.surface],
   });
 
   return (

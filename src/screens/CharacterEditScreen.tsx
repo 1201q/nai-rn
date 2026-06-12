@@ -220,7 +220,7 @@ export function CharacterEditScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <ScreenHeader title="캐릭터 편집" onBack={() => navigation.goBack()} />
 
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   badgeText: {
-    color: "#fff",
+    color: light.accentText,
     fontSize: 13,
     fontWeight: "800",
   },

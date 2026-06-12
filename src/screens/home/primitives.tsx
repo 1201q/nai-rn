@@ -77,7 +77,7 @@ export function VarietyChip({
         <Ionicons
           name="sparkles-outline"
           size={16}
-          color={active ? "#ffffff" : light.textSecondary}
+          color={active ? light.accentText : light.textSecondary}
         />
         <Text
           style={[styles.optionChipText, active && styles.optionChipTextActive]}
@@ -249,7 +249,7 @@ export function SheetItem({
   const { anim, onPressIn, onPressOut, scale } = useScalePress({ scaleTo: 0.96 });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(244,244,243,0)", light.surface],
+    outputRange: ["rgba(25,27,49,0)", light.surface],
   });
 
   return (

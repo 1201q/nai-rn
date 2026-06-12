@@ -6,12 +6,10 @@ import { colors } from "../../styles/colors";
 const RESOLUTION_STEP = 64;
 
 export const BADGE_COLORS = [
-  colors.green500,
-  colors.red500,
-  colors.blue500,
-  colors.orange500,
-  colors.purple500,
-  colors.teal500,
+  colors.naiGreen,
+  colors.naiPink,
+  colors.naiPurple,
+  colors.naiBlonde,
 ];
 
 export function triggerSelectionHaptic() {

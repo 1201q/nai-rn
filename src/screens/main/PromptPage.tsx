@@ -17,7 +17,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
@@ -226,7 +225,7 @@ export function PromptPage() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       <View style={styles.content}>
         {/* 탭 전환 시 unmount 하지 않고 숨김 → 재mount 시 Android TextInput
@@ -244,7 +243,7 @@ export function PromptPage() {
       {/* 하단 플로팅 세그먼트 탭 */}
       <View style={[styles.tabBarWrap, { bottom: insets.bottom + 16 }]}>
         <View style={styles.tabBarShadow}>
-          <BlurView intensity={60} tint="light" style={styles.tabBar}>
+          <View style={styles.tabBar}>
             <Animated.View
               style={[styles.slidingPill, pillStyle]}
               pointerEvents="none"
@@ -273,7 +272,7 @@ export function PromptPage() {
                 </Pressable>
               );
             })}
-          </BlurView>
+          </View>
         </View>
       </View>
     </View>
@@ -306,7 +305,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: light.border,
-    backgroundColor: light.bg,
+    backgroundColor: light.input,
     paddingHorizontal: 18,
     paddingVertical: 16,
     gap: 8,
@@ -349,10 +348,12 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: light.border,
     padding: 4,
     gap: 4,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,1)",
+    backgroundColor: light.input,
   },
   tab: {
     flexDirection: "row",
@@ -368,6 +369,7 @@ const styles = StyleSheet.create({
     bottom: TAB_BAR_PADDING,
     borderRadius: 999,
     backgroundColor: light.surfaceAlt,
+    transform: [{ translateX: -1 }],
   },
   tabLabel: {
     fontSize: 13,

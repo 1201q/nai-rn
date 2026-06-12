@@ -123,7 +123,7 @@ export function MainPage({
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       {/* 상단 헤더 */}
       <View style={styles.header}>
@@ -181,11 +181,11 @@ export function MainPage({
                     취소 ({queueIndex}/{queueTotal})
                   </Text>
                 ) : (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color={light.accentText} size="small" />
                 )
               ) : (
                 <>
-                  <Ionicons name="sparkles" size={18} color="#ffffff" />
+                  <Ionicons name="sparkles" size={18} color={light.accentText} />
                   <Text style={styles.generateButtonText}>생성</Text>
                 </>
               )}
