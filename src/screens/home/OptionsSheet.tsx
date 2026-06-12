@@ -6,14 +6,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { BackHandler, Text, View } from "react-native";
+import { Animated as RNAnimated, BackHandler, Text, View } from "react-native";
 import BottomSheet, {
   BottomSheetScrollView,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
+import Reanimated, {
   FadeIn,
   SlideInLeft,
   SlideInRight,
@@ -29,6 +29,7 @@ import { useGenerationStore } from "../../store/generationStore";
 import { formatDecimal, triggerSelectionHaptic } from "../option/helpers";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
+import { useScalePress } from "./useScalePress";
 import { NumericSheetContent } from "./NumericSheet";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
@@ -280,13 +281,28 @@ function MenuRow({
   isToggle?: boolean;
   onPress?: () => void;
 }) {
+  const { anim, onPressIn, onPressOut, scale } = useScalePress({
+    scaleTo: 0.96,
+  });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(244,244,243,0)", light.surface],
+  });
+
   return (
     <BottomSheetTouchableOpacity
-      activeOpacity={0.7}
+      activeOpacity={1}
       disabled={disabled}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={onPress}
     >
-      <View style={styles.sheetMenuRow}>
+      <RNAnimated.View
+        style={[
+          styles.sheetMenuRow,
+          { transform: [{ scale }], backgroundColor },
+        ]}
+      >
         <Text
           style={[
             styles.sheetMenuLabel,
@@ -308,7 +324,7 @@ function MenuRow({
             <Ionicons name="chevron-forward" size={18} color={light.textHint} />
           )}
         </View>
-      </View>
+      </RNAnimated.View>
     </BottomSheetTouchableOpacity>
   );
 }
@@ -322,19 +338,35 @@ function MenuTile({
   value: string;
   onPress: () => void;
 }) {
+  const { anim, onPressIn, onPressOut, scale } = useScalePress({
+    scaleTo: 0.96,
+  });
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [light.surface, light.surfaceAlt],
+  });
+
   return (
     <View style={styles.sheetMenuTileCell}>
       <BottomSheetTouchableOpacity
-        style={styles.sheetMenuTile}
-        activeOpacity={0.7}
+        activeOpacity={1}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
         onPress={onPress}
       >
-        <Text style={styles.sheetMenuTileLabel} numberOfLines={1}>
-          {label}
-        </Text>
-        <Text style={styles.sheetMenuTileValue} numberOfLines={1}>
-          {value}
-        </Text>
+        <RNAnimated.View
+          style={[
+            styles.sheetMenuTile,
+            { transform: [{ scale }], backgroundColor },
+          ]}
+        >
+          <Text style={styles.sheetMenuTileLabel} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={styles.sheetMenuTileValue} numberOfLines={1}>
+            {value}
+          </Text>
+        </RNAnimated.View>
       </BottomSheetTouchableOpacity>
     </View>
   );
@@ -533,12 +565,12 @@ export const OptionsSheet = forwardRef<
       onChange={handleChange}
     >
       {route !== "menu" && (
-        <Animated.View
+        <Reanimated.View
           key={`header-${route}`}
           entering={routeEntering}
           style={styles.sheetRouteContent}
         >
-          <Animated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
+          <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
             <BottomSheetTouchableOpacity
               style={styles.sheetBackButton}
               onPress={back}
@@ -548,8 +580,8 @@ export const OptionsSheet = forwardRef<
             <Text style={styles.sheetBackTitle} numberOfLines={1}>
               {DETAIL_TITLES[route]}
             </Text>
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       )}
 
       <BottomSheetScrollView
@@ -557,12 +589,12 @@ export const OptionsSheet = forwardRef<
         contentContainerStyle={styles.sheetScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
+        <Reanimated.View
           key={route}
           entering={routeEntering}
           style={styles.sheetRouteContent}
         >
-          <Animated.View entering={ROUTE_FADE_IN} style={styles.sheetRouteContent}>
+          <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetRouteContent}>
             {route === "menu" ? (
               <OptionsMenu
                 onSelect={(next) => goTo(next, "forward")}
@@ -587,8 +619,8 @@ export const OptionsSheet = forwardRef<
             ) : route === "batchCount" ? (
               <BatchCountSheet />
             ) : null}
-          </Animated.View>
-        </Animated.View>
+          </Reanimated.View>
+        </Reanimated.View>
       </BottomSheetScrollView>
     </BottomSheet>
   );
