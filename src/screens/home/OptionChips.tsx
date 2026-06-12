@@ -6,7 +6,10 @@ import {
   NOISE_SCHEDULES,
   SAMPLERS,
 } from "../../constants/generation";
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  getI2IEffectiveResolution,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { formatDecimal } from "../option/helpers";
 import { light, styles } from "./styles";
 
@@ -22,6 +25,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const sampler = useGenerationStore((s) => s.sampler);
   const noiseSchedule = useGenerationStore((s) => s.noiseSchedule);
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
+  const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -29,9 +33,15 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const scheduleText =
     NOISE_SCHEDULES.find((n) => n.value === noiseSchedule)?.label ??
     noiseSchedule;
+  const resolutionText = i2iSourceImage
+    ? (() => {
+        const effectiveResolution = getI2IEffectiveResolution(i2iSourceImage);
+        return `I2I ${effectiveResolution.width}x${effectiveResolution.height}`;
+      })()
+    : `${resolution.width}x${resolution.height}`;
   const summary = [
     modelText,
-    `${resolution.width}x${resolution.height}`,
+    resolutionText,
     `${steps} steps`,
     `guidance ${formatDecimal(promptGuidance)}`,
     `rescale ${formatDecimal(promptGuidanceRescale, 2)}`,

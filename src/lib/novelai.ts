@@ -53,6 +53,9 @@ export type GenerateNovelAiImageInput = {
   seed?: number;
   nSamples?: number;
   varietyPlus?: boolean;
+  i2iImageBase64?: string;
+  i2iStrength?: number;
+  i2iNoise?: number;
 };
 
 export type GenerateNovelAiCharacterPrompt = {
@@ -227,6 +230,11 @@ function createV4Prompt(
   };
 }
 
+function stripBase64Header(value: string): string {
+  const commaIndex = value.indexOf(",");
+  return commaIndex === -1 ? value : value.slice(commaIndex + 1);
+}
+
 function createImageGenerationBody({
   prompt,
   negativePrompt,
@@ -242,9 +250,13 @@ function createImageGenerationBody({
   seed: inputSeed,
   nSamples = 1,
   varietyPlus = false,
+  i2iImageBase64,
+  i2iStrength = 0.7,
+  i2iNoise = 0,
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
+  const isI2I = Boolean(i2iImageBase64);
   const v4PromptCharacterCaptions = characterPrompts.map((item) =>
     createV4CharacterCaption(item.prompt),
   );
@@ -272,6 +284,13 @@ function createImageGenerationBody({
     ucPreset: 0,
     image_format: "png",
     skip_cfg_above_sigma: varietyPlus ? 58 : null,
+    ...(i2iImageBase64
+      ? {
+          image: stripBase64Header(i2iImageBase64),
+          strength: i2iStrength,
+          noise: i2iNoise,
+        }
+      : {}),
     ...(shouldUseV4Prompt
       ? {
           legacy_v3_extend: false,
@@ -290,7 +309,7 @@ function createImageGenerationBody({
     body: {
       input: prompt,
       model,
-      action: "generate",
+      action: isI2I ? "img2img" : "generate",
       parameters,
     },
   };

@@ -6,13 +6,22 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Animated as RNAnimated, BackHandler, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated as RNAnimated,
+  BackHandler,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import BottomSheet, {
   BottomSheetScrollView,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
   FadeIn,
   SlideInLeft,
@@ -25,7 +34,10 @@ import {
   SAMPLERS,
   type NoiseSchedule,
 } from "../../constants/generation";
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  getI2IEffectiveResolution,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { formatDecimal, triggerSelectionHaptic } from "../option/helpers";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
@@ -50,7 +62,8 @@ export type OptionRoute =
   | "cfgRescale"
   | "seed"
   | "resolution"
-  | "batchCount";
+  | "batchCount"
+  | "i2i";
 
 export type OptionsSheetHandle = {
   openAt: (route?: OptionRoute) => void;
@@ -64,6 +77,7 @@ const SNAP_POINTS = ["60%", "92%"];
 const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
 const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
 const ROUTE_FADE_IN = FadeIn.duration(100);
+const IMAGE_PREVIEW_FRAME_ASPECT = 1.58;
 const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   model: "Model",
   sampler: "Sampler",
@@ -74,6 +88,25 @@ const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   seed: "Seed",
   resolution: "Resolution",
   batchCount: "Batch Count",
+  i2i: "I2I",
+};
+
+const I2I_STRENGTH_CONFIG = {
+  title: "Strength",
+  unit: "strength",
+  min: 0.01,
+  max: 0.99,
+  step: 0.01,
+  precision: 2,
+};
+
+const I2I_NOISE_CONFIG = {
+  title: "Noise",
+  unit: "noise",
+  min: 0,
+  max: 0.99,
+  step: 0.01,
+  precision: 2,
 };
 
 // --- 상세 라우트 본문 (각자 자기 슬라이스만 구독) ---
@@ -264,6 +297,142 @@ function ResolutionSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+function I2ISheet() {
+  const sourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const setSourceImage = useGenerationStore((s) => s.setI2ISourceImage);
+  const strength = useGenerationStore((s) => s.i2iStrength);
+  const setStrength = useGenerationStore((s) => s.setI2IStrength);
+  const noise = useGenerationStore((s) => s.i2iNoise);
+  const setNoise = useGenerationStore((s) => s.setI2INoise);
+  const clearI2I = useGenerationStore((s) => s.clearI2I);
+  const setMessage = useGenerationStore((s) => s.setMessage);
+  const [busy, setBusy] = useState(false);
+
+  const effectiveResolution = sourceImage
+    ? getI2IEffectiveResolution(sourceImage)
+    : null;
+
+  async function handlePick() {
+    if (busy) return;
+    try {
+      setBusy(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        base64: false,
+      });
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setSourceImage({
+        uri: asset.uri,
+        width: asset.width || 64,
+        height: asset.height || 64,
+      });
+    } catch {
+      setMessage("I2I 이미지를 선택하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {sourceImage ? (
+        <View
+          style={[
+            i2iStyles.previewCard,
+            { aspectRatio: IMAGE_PREVIEW_FRAME_ASPECT },
+          ]}
+        >
+          <ExpoImage
+            source={{ uri: sourceImage.uri }}
+            contentFit="contain"
+            contentPosition="center"
+            transition={120}
+            style={i2iStyles.previewImage}
+          />
+        </View>
+      ) : (
+        <BottomSheetTouchableOpacity
+          activeOpacity={0.82}
+          disabled={busy}
+          onPress={handlePick}
+          style={i2iStyles.uploadCard}
+        >
+          {busy ? (
+            <ActivityIndicator color={light.textSecondary} />
+          ) : (
+            <>
+              <Ionicons
+                name="image-outline"
+                size={28}
+                color={light.textSecondary}
+              />
+              <Text style={i2iStyles.uploadText}>이미지 선택</Text>
+            </>
+          )}
+        </BottomSheetTouchableOpacity>
+      )}
+
+      {sourceImage ? (
+        <>
+          <View style={i2iStyles.actionRow}>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              disabled={busy}
+              onPress={handlePick}
+              style={i2iStyles.secondaryButton}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={light.textSecondary} />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={15} color={light.textSecondary} />
+                  <Text style={i2iStyles.secondaryButtonText}>다시 선택</Text>
+                </>
+              )}
+            </BottomSheetTouchableOpacity>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              onPress={() => {
+                triggerSelectionHaptic();
+                clearI2I();
+              }}
+              style={i2iStyles.secondaryButton}
+            >
+              <Ionicons name="close" size={15} color={light.textSecondary} />
+              <Text style={i2iStyles.secondaryButtonText}>끄기</Text>
+            </BottomSheetTouchableOpacity>
+          </View>
+          {effectiveResolution ? (
+            <Text style={i2iStyles.sizeText}>
+              {effectiveResolution.width}x{effectiveResolution.height}
+            </Text>
+          ) : null}
+          <NumericSheetContent
+            value={strength}
+            onChange={setStrength}
+            cfg={I2I_STRENGTH_CONFIG}
+          />
+          <NumericSheetContent
+            value={noise}
+            onChange={setNoise}
+            cfg={I2I_NOISE_CONFIG}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
 // --- 루트 메뉴 ---
 
 function MenuRow({
@@ -392,6 +561,7 @@ function OptionsMenu({
   const noiseSchedule = useGenerationStore((s) => s.noiseSchedule);
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
   const setVarietyPlus = useGenerationStore((s) => s.setVarietyPlus);
+  const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -466,7 +636,12 @@ function OptionsMenu({
 
       <Text style={styles.sheetMenuGroupLabel}>Reference</Text>
       <MenuRow label="Metadata Extract" onPress={onRequestImageImport} />
-      <MenuRow label="I2I" value="Off" disabled />
+      <MenuRow
+        label="I2I"
+        value={i2iSourceImage ? "On" : "Off"}
+        active={Boolean(i2iSourceImage)}
+        onPress={() => onSelect("i2i")}
+      />
       <MenuRow label="Vibe Transfer" value="Off" disabled />
       <MenuRow label="Precise Ref" value="Off" disabled />
     </>
@@ -618,10 +793,74 @@ export const OptionsSheet = forwardRef<
               <ResolutionSheet onClose={backToMenu} />
             ) : route === "batchCount" ? (
               <BatchCountSheet />
+            ) : route === "i2i" ? (
+              <I2ISheet />
             ) : null}
           </Reanimated.View>
         </Reanimated.View>
       </BottomSheetScrollView>
     </BottomSheet>
   );
+});
+
+const i2iStyles = StyleSheet.create({
+  uploadCard: {
+    height: 160,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: light.border,
+    borderStyle: "dashed",
+    backgroundColor: light.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  uploadText: {
+    color: light.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  previewCard: {
+    width: "100%",
+    maxHeight: 220,
+    minHeight: 150,
+    borderRadius: 18,
+    backgroundColor: light.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  secondaryButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: light.surface,
+  },
+  secondaryButtonText: {
+    color: light.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sizeText: {
+    alignSelf: "center",
+    marginTop: 6,
+    marginBottom: 8,
+    color: light.textHint,
+    fontSize: 13,
+    fontWeight: "700",
+  },
 });

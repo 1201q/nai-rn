@@ -20,6 +20,8 @@ import { light, styles as sheetStyles } from "./styles";
 import { MAX_CHARACTER_PROMPTS } from "../../constants/generation";
 import { useScalePress } from "./useScalePress";
 
+const IMAGE_PREVIEW_FRAME_ASPECT = 1.58;
+
 type Selection = {
   prompt: boolean;
   undesired: boolean;
@@ -85,7 +87,6 @@ function CheckRow({
 
 export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
   const [pickedUri, setPickedUri] = useState<string | null>(null);
-  const [aspect, setAspect] = useState(1);
   const [parsed, setParsed] = useState<ParsedNaiMetadata | null>(null);
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<Selection>({
@@ -124,7 +125,6 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
       const meta = parseNaiMetadata(raw);
 
       setPickedUri(asset.uri);
-      setAspect(asset.width && asset.height ? asset.width / asset.height : 1);
       setParsed(meta);
       setSel({
         prompt: meta.prompt !== undefined,
@@ -197,12 +197,13 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
         <View
           style={[
             styles.previewCard,
-            { aspectRatio: aspect > 1 ? aspect : undefined },
+            { aspectRatio: IMAGE_PREVIEW_FRAME_ASPECT },
           ]}
         >
           <ExpoImage
             source={{ uri: pickedUri }}
             contentFit="contain"
+            contentPosition="center"
             transition={120}
             style={styles.previewImage}
           />
@@ -343,6 +344,8 @@ const styles = StyleSheet.create({
     minHeight: 150,
     borderRadius: 18,
     backgroundColor: light.surface,
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
   },
   stickyTitle: {

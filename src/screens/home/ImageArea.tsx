@@ -20,7 +20,10 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  getI2IEffectiveResolution,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { ImagePreviewModal } from "../main/ImagePreviewModal";
 import { light, styles } from "./styles";
 
@@ -31,6 +34,7 @@ export function ImageArea() {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const isLoading = useGenerationStore((s) => s.isLoading);
   const resolution = useGenerationStore((s) => s.resolution);
+  const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
@@ -42,8 +46,11 @@ export function ImageArea() {
     () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
     [displayedImageUri],
   );
+  const streamingResolution = i2iSourceImage
+    ? getI2IEffectiveResolution(i2iSourceImage)
+    : resolution;
   const generationAspect = isStreamingPreview
-    ? resolution.width / resolution.height
+    ? streamingResolution.width / streamingResolution.height
     : currentGeneration
       ? currentGeneration.width / currentGeneration.height
       : 16 / 9;

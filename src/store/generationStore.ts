@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { File } from "expo-file-system";
 import { create } from "zustand";
 
 import {
@@ -36,12 +37,20 @@ import {
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
+const DEFAULT_I2I_STRENGTH = 0.7;
+const DEFAULT_I2I_NOISE = 0;
 
 export type CharacterPrompt = {
   id: string;
   prompt: string;
   negativePrompt: string;
   enabled: boolean;
+};
+
+export type I2ISourceImage = {
+  uri: string;
+  width: number;
+  height: number;
 };
 
 type PersistedGenerationOptions = Partial<{
@@ -65,6 +74,17 @@ type PersistedGenerationOptions = Partial<{
 
 function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
+}
+
+export function roundI2IDimensionTo64(value: number): number {
+  return Math.max(64, Math.round(value / 64) * 64);
+}
+
+export function getI2IEffectiveResolution(sourceImage: I2ISourceImage) {
+  return {
+    width: roundI2IDimensionTo64(sourceImage.width),
+    height: roundI2IDimensionTo64(sourceImage.height),
+  };
 }
 
 function isNoiseSchedule(value: unknown): value is NoiseSchedule {
@@ -181,6 +201,13 @@ export type GenerationState = {
   setBatchCount: (v: number) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
+  i2iSourceImage: I2ISourceImage | null;
+  setI2ISourceImage: (v: I2ISourceImage) => void;
+  i2iStrength: number;
+  setI2IStrength: (v: number) => void;
+  i2iNoise: number;
+  setI2INoise: (v: number) => void;
+  clearI2I: () => void;
   optionTabIndex: number;
   setOptionTabIndex: (v: number) => void;
   hasLoadedOptions: boolean;
@@ -234,6 +261,9 @@ type QueueParams = {
     sampler: string;
     nSamples: number;
     varietyPlus: boolean;
+    i2iImageBase64?: string;
+    i2iStrength?: number;
+    i2iNoise?: number;
   };
   total: number;
   onSuccess?: () => void;
@@ -277,6 +307,18 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setBatchCount: (v) => set({ batchCount: v }),
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
+  i2iSourceImage: null,
+  setI2ISourceImage: (v) => set({ i2iSourceImage: v }),
+  i2iStrength: DEFAULT_I2I_STRENGTH,
+  setI2IStrength: (v) => set({ i2iStrength: v }),
+  i2iNoise: DEFAULT_I2I_NOISE,
+  setI2INoise: (v) => set({ i2iNoise: v }),
+  clearI2I: () =>
+    set({
+      i2iSourceImage: null,
+      i2iStrength: DEFAULT_I2I_STRENGTH,
+      i2iNoise: DEFAULT_I2I_NOISE,
+    }),
   optionTabIndex: 0,
   setOptionTabIndex: (v) => set({ optionTabIndex: v }),
   hasLoadedOptions: false,
@@ -353,6 +395,21 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
     const total = Math.min(20, Math.max(1, s.batchCount));
+    let width = s.resolution.width;
+    let height = s.resolution.height;
+    let i2iImageBase64: string | undefined;
+    if (s.i2iSourceImage) {
+      try {
+        i2iImageBase64 = await new File(s.i2iSourceImage.uri).base64();
+        const effectiveResolution = getI2IEffectiveResolution(s.i2iSourceImage);
+        width = effectiveResolution.width;
+        height = effectiveResolution.height;
+      } catch {
+        set({ message: "I2I 이미지를 읽지 못했습니다." });
+        return;
+      }
+    }
+
     pendingQueue = {
       token: s.storedToken,
       prompt: effPrompt,
@@ -360,8 +417,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       characterPrompts: resolveActiveCharacterPrompts(s.characterPrompts),
       opts: {
         model: s.model,
-        width: s.resolution.width,
-        height: s.resolution.height,
+        width,
+        height,
         steps: s.steps,
         promptGuidance: s.promptGuidance,
         promptGuidanceRescale: s.promptGuidanceRescale,
@@ -369,6 +426,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         sampler: s.sampler,
         nSamples: s.outputCount,
         varietyPlus: s.varietyPlus,
+        ...(i2iImageBase64
+          ? {
+              i2iImageBase64,
+              i2iStrength: s.i2iStrength,
+              i2iNoise: s.i2iNoise,
+            }
+          : {}),
       },
       total,
       onSuccess,
