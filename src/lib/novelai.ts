@@ -13,6 +13,11 @@ export type NovelAiAnlasBalance = {
   total: number;
 };
 
+export type NovelAiPreciseReferenceType =
+  | "character"
+  | "style"
+  | "character&style";
+
 export async function getNovelAiAnlasBalance(
   token: string,
 ): Promise<NovelAiAnlasBalance> {
@@ -63,6 +68,10 @@ export type GenerateNovelAiImageInput = {
   vibeInformationExtracted?: number[];
   vibeStrengths?: number[];
   normalizeVibeStrengths?: boolean;
+  preciseReferenceImages?: string[];
+  preciseReferenceStrengths?: number[];
+  preciseReferenceFidelities?: number[];
+  preciseReferenceTypes?: NovelAiPreciseReferenceType[];
 };
 
 export type GenerateNovelAiCharacterPrompt = {
@@ -312,11 +321,28 @@ function createImageGenerationBody({
   vibeInformationExtracted = [],
   vibeStrengths = [],
   normalizeVibeStrengths = true,
+  preciseReferenceImages = [],
+  preciseReferenceStrengths = [],
+  preciseReferenceFidelities = [],
+  preciseReferenceTypes = [],
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
+  const hasPreciseReferences = preciseReferenceImages.length > 0;
+  const preciseStrengthValues =
+    preciseReferenceStrengths.length === preciseReferenceImages.length
+      ? preciseReferenceStrengths
+      : preciseReferenceImages.map(() => 0.6);
+  const preciseFidelityValues =
+    preciseReferenceFidelities.length === preciseReferenceImages.length
+      ? preciseReferenceFidelities
+      : preciseReferenceImages.map(() => 0.6);
+  const preciseTypes =
+    preciseReferenceTypes.length === preciseReferenceImages.length
+      ? preciseReferenceTypes
+      : preciseReferenceImages.map(() => "character&style" as const);
   const v4PromptCharacterCaptions = characterPrompts.map((item) =>
     createV4CharacterCaption(item.prompt),
   );
@@ -357,6 +383,24 @@ function createImageGenerationBody({
           reference_information_extracted_multiple: vibeInformationExtracted,
           reference_strength_multiple: vibeStrengths,
           normalize_reference_strength_multiple: normalizeVibeStrengths,
+        }
+      : {}),
+    ...(hasPreciseReferences
+      ? {
+          director_reference_images:
+            preciseReferenceImages.map(stripBase64Header),
+          director_reference_information_extracted:
+            preciseReferenceImages.map(() => 1),
+          director_reference_strength_values: preciseStrengthValues,
+          director_reference_secondary_strength_values:
+            preciseFidelityValues.map((value) => 1 - value),
+          director_reference_descriptions: preciseTypes.map((type) => ({
+            caption: {
+              base_caption: type,
+              char_captions: [],
+            },
+            legacy_uc: false,
+          })),
         }
       : {}),
     ...(shouldUseV4Prompt

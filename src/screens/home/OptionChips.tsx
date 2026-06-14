@@ -29,6 +29,9 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const activeVibeCount = useGenerationStore(
     (s) => s.vibeReferences.filter((item) => item.enabled).length,
   );
+  const activePreciseCount = useGenerationStore(
+    (s) => s.preciseReferences.filter((item) => item.enabled).length,
+  );
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -52,6 +55,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
     scheduleText,
     varietyPlus ? "Variety+" : null,
     activeVibeCount > 0 ? `Vibe ${activeVibeCount}` : null,
+    activePreciseCount > 0 ? `Precise ${activePreciseCount}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -45,6 +45,13 @@ import {
   resolveVibeReferenceThumbnailUri,
   type VibeReference,
 } from "../../lib/vibeReferences";
+import {
+  MAX_PRECISE_REFERENCES,
+  resolvePreciseReferenceImageUri,
+  resolvePreciseReferenceThumbnailUri,
+  type PreciseReference,
+  type PreciseReferenceType,
+} from "../../lib/preciseReferences";
 import { formatDecimal, triggerSelectionHaptic } from "../option/helpers";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
@@ -73,7 +80,8 @@ export type OptionRoute =
   | "batchCount"
   | "metadata"
   | "i2i"
-  | "vibe";
+  | "vibe"
+  | "precise";
 
 export type OptionsSheetHandle = {
   openAt: (route?: OptionRoute) => void;
@@ -101,6 +109,7 @@ const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   metadata: "Metadata Extract",
   i2i: "I2I",
   vibe: "Vibe Transfer",
+  precise: "Precise Ref",
 };
 
 const I2I_STRENGTH_CONFIG = {
@@ -136,6 +145,31 @@ const VIBE_INFORMATION_CONFIG = {
   step: 0.01,
   precision: 2,
 };
+
+const PRECISE_STRENGTH_CONFIG = {
+  title: "Reference Strength",
+  min: 0,
+  max: 1,
+  step: 0.01,
+  precision: 2,
+};
+
+const PRECISE_FIDELITY_CONFIG = {
+  title: "Fidelity",
+  min: 0,
+  max: 1,
+  step: 0.01,
+  precision: 2,
+};
+
+const PRECISE_REFERENCE_TYPES: Array<{
+  label: string;
+  value: PreciseReferenceType;
+}> = [
+  { label: "Character", value: "character" },
+  { label: "Style", value: "style" },
+  { label: "Both", value: "character&style" },
+];
 
 // --- 상세 라우트 본문 (각자 자기 슬라이스만 구독) ---
 
@@ -802,6 +836,380 @@ function VibeSheet() {
   );
 }
 
+function isPreciseReferenceSupportedModel(model: string) {
+  return (
+    model === "nai-diffusion-4-5-full" ||
+    model === "nai-diffusion-4-5-curated"
+  );
+}
+
+function formatPreciseValue(value: number) {
+  return formatDecimal(value, 2);
+}
+
+function shortPreciseId(id: string) {
+  return id.replace(/^precise_/, "").slice(-8);
+}
+
+function getPreciseReferenceTypeLabel(value: PreciseReferenceType) {
+  if (value === "character") return "Character";
+  if (value === "style") return "Style";
+  return "Character & Style";
+}
+
+function PreciseReferenceTypeSelector({
+  value,
+  onChange,
+}: {
+  value: PreciseReferenceType;
+  onChange: (value: PreciseReferenceType) => void;
+}) {
+  return (
+    <View style={vibeStyles.typeSelector}>
+      {PRECISE_REFERENCE_TYPES.map((item) => {
+        const active = item.value === value;
+        return (
+          <BottomSheetTouchableOpacity
+            key={item.value}
+            activeOpacity={0.78}
+            onPress={() => {
+              triggerSelectionHaptic();
+              onChange(item.value);
+            }}
+            style={[
+              vibeStyles.typeButton,
+              active && vibeStyles.typeButtonActive,
+            ]}
+          >
+            <Text
+              style={[
+                vibeStyles.typeButtonText,
+                active && vibeStyles.typeButtonTextActive,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </BottomSheetTouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+function PreciseReferenceCard({
+  reference,
+  expanded,
+  busy,
+  enableBlocked,
+  onToggleExpanded,
+  onToggleEnabled,
+  onStrengthChange,
+  onFidelityChange,
+  onTypeChange,
+  onReplace,
+  onRemove,
+}: {
+  reference: PreciseReference;
+  expanded: boolean;
+  busy: boolean;
+  enableBlocked: boolean;
+  onToggleExpanded: () => void;
+  onToggleEnabled: () => void;
+  onStrengthChange: (v: number) => void;
+  onFidelityChange: (v: number) => void;
+  onTypeChange: (v: PreciseReferenceType) => void;
+  onReplace: () => void;
+  onRemove: () => void;
+}) {
+  const imageUri =
+    resolvePreciseReferenceThumbnailUri(reference) ??
+    resolvePreciseReferenceImageUri(reference);
+  const toggleDisabled = !reference.enabled && enableBlocked;
+
+  return (
+    <View style={vibeStyles.card}>
+      <BottomSheetTouchableOpacity
+        activeOpacity={0.82}
+        onPress={onToggleExpanded}
+        style={vibeStyles.cardHeader}
+      >
+        <ExpoImage
+          source={{ uri: imageUri }}
+          contentFit="cover"
+          transition={120}
+          style={vibeStyles.thumbnail}
+        />
+        <View style={vibeStyles.cardText}>
+          <Text style={vibeStyles.cardTitle} numberOfLines={1}>
+            {shortPreciseId(reference.id)}
+          </Text>
+          <Text style={vibeStyles.cardSubtitle} numberOfLines={1}>
+            {getPreciseReferenceTypeLabel(reference.referenceType)} · S{" "}
+            {formatPreciseValue(reference.strength)} · F{" "}
+            {formatPreciseValue(reference.fidelity)}
+          </Text>
+        </View>
+        {reference.enabled ? (
+          <View style={vibeStyles.costBadge}>
+            <Text style={vibeStyles.costBadgeText}>5</Text>
+            <Ionicons name="diamond" size={12} color={light.accent} />
+          </View>
+        ) : null}
+        <BottomSheetTouchableOpacity
+          activeOpacity={0.72}
+          disabled={toggleDisabled}
+          onPress={onToggleEnabled}
+          style={[
+            vibeStyles.enabledButton,
+            reference.enabled && vibeStyles.enabledButtonActive,
+            toggleDisabled && vibeStyles.disabledControl,
+          ]}
+        >
+          <Ionicons
+            name="checkmark"
+            size={18}
+            color={reference.enabled ? light.accentText : light.textHint}
+          />
+        </BottomSheetTouchableOpacity>
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={light.textHint}
+        />
+      </BottomSheetTouchableOpacity>
+
+      {expanded ? (
+        <View style={vibeStyles.expandedBody}>
+          <View
+            style={[
+              vibeStyles.previewCard,
+              { aspectRatio: IMAGE_PREVIEW_FRAME_ASPECT },
+            ]}
+          >
+            <ExpoImage
+              source={{ uri: resolvePreciseReferenceImageUri(reference) }}
+              contentFit="contain"
+              contentPosition="center"
+              transition={120}
+              style={vibeStyles.previewImage}
+            />
+          </View>
+          <VibeCompactSlider
+            label={PRECISE_STRENGTH_CONFIG.title}
+            value={reference.strength}
+            onChange={onStrengthChange}
+            config={PRECISE_STRENGTH_CONFIG}
+          />
+          <VibeCompactSlider
+            label={PRECISE_FIDELITY_CONFIG.title}
+            value={reference.fidelity}
+            onChange={onFidelityChange}
+            config={PRECISE_FIDELITY_CONFIG}
+          />
+          <PreciseReferenceTypeSelector
+            value={reference.referenceType}
+            onChange={onTypeChange}
+          />
+          {reference.enabled ? (
+            <Text style={vibeStyles.encodingHint}>
+              Enabled references cost 5 Anlas per generation.
+            </Text>
+          ) : null}
+          <View style={vibeStyles.actionRow}>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              disabled={busy}
+              onPress={onReplace}
+              style={vibeStyles.secondaryButton}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={light.textSecondary} />
+              ) : (
+                <Ionicons name="refresh" size={15} color={light.textSecondary} />
+              )}
+              <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
+            </BottomSheetTouchableOpacity>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              disabled={busy}
+              onPress={onRemove}
+              style={vibeStyles.secondaryButton}
+            >
+              <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
+              <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
+            </BottomSheetTouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function PreciseReferenceSheet() {
+  const references = useGenerationStore((s) => s.preciseReferences);
+  const model = useGenerationStore((s) => s.model);
+  const activeVibeCount = useGenerationStore(
+    (s) => s.vibeReferences.filter((item) => item.enabled).length,
+  );
+  const addReference = useGenerationStore((s) => s.addPreciseReference);
+  const replaceReference = useGenerationStore((s) => s.replacePreciseReference);
+  const removeReference = useGenerationStore((s) => s.removePreciseReference);
+  const setEnabled = useGenerationStore((s) => s.setPreciseReferenceEnabled);
+  const setStrength = useGenerationStore((s) => s.setPreciseReferenceStrength);
+  const setFidelity = useGenerationStore((s) => s.setPreciseReferenceFidelity);
+  const setType = useGenerationStore((s) => s.setPreciseReferenceType);
+  const setMessage = useGenerationStore((s) => s.setMessage);
+  const [expandedId, setExpandedId] = useState<string | null>(
+    references[0]?.id ?? null,
+  );
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  const modelSupported = isPreciseReferenceSupportedModel(model);
+  const blockedByVibe = activeVibeCount > 0;
+
+  async function pickPreciseImage(targetId?: string) {
+    if (adding || busyId) return;
+    if (!targetId && !modelSupported) {
+      setMessage("Precise Reference는 V4.5 모델에서 사용할 수 있습니다.");
+      return;
+    }
+    if (!targetId && blockedByVibe) {
+      setMessage(
+        "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+      );
+      return;
+    }
+
+    try {
+      if (targetId) {
+        setBusyId(targetId);
+      } else {
+        setAdding(true);
+      }
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        base64: false,
+      });
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const input = {
+        uri: asset.uri,
+        width: asset.width || 64,
+        height: asset.height || 64,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+      };
+
+      const reference = targetId
+        ? await replaceReference(targetId, input)
+        : await addReference(input);
+      if (reference) {
+        setExpandedId(reference.id);
+      }
+    } catch {
+      setMessage("Precise Reference 이미지를 선택하지 못했습니다.");
+    } finally {
+      setAdding(false);
+      setBusyId(null);
+    }
+  }
+
+  const canAdd =
+    references.length < MAX_PRECISE_REFERENCES &&
+    modelSupported &&
+    !blockedByVibe;
+
+  return (
+    <View style={vibeStyles.sheet}>
+      <View style={vibeStyles.topRow}>
+        <BottomSheetTouchableOpacity
+          activeOpacity={0.82}
+          disabled={!canAdd || adding}
+          onPress={() => pickPreciseImage()}
+          style={[
+            vibeStyles.addButton,
+            (!canAdd || adding) && vibeStyles.addButtonDisabled,
+          ]}
+        >
+          {adding ? (
+            <ActivityIndicator size="small" color={light.accentText} />
+          ) : (
+            <Ionicons name="add" size={22} color={light.accentText} />
+          )}
+          <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
+        </BottomSheetTouchableOpacity>
+        <Text style={vibeStyles.countText}>
+          {references.length}/{MAX_PRECISE_REFERENCES}
+        </Text>
+      </View>
+
+      {!modelSupported ? (
+        <Text style={vibeStyles.encodingHint}>
+          Precise Reference는 V4.5 모델에서 사용할 수 있습니다.
+        </Text>
+      ) : null}
+      {blockedByVibe ? (
+        <Text style={vibeStyles.encodingHint}>
+          Vibe Transfer와 함께 사용할 수 없습니다.
+        </Text>
+      ) : null}
+
+      {references.length === 0 ? (
+        <View style={vibeStyles.emptyCard}>
+          <Ionicons name="person-outline" size={28} color={light.textSecondary} />
+          <Text style={vibeStyles.emptyText}>
+            Precise Reference로 사용할 이미지를 추가하세요.
+          </Text>
+        </View>
+      ) : (
+        <View style={vibeStyles.list}>
+          {references.map((reference) => (
+            <PreciseReferenceCard
+              key={reference.id}
+              reference={reference}
+              expanded={expandedId === reference.id}
+              busy={busyId === reference.id}
+              enableBlocked={blockedByVibe || !modelSupported}
+              onToggleExpanded={() => {
+                triggerSelectionHaptic();
+                setExpandedId((current) =>
+                  current === reference.id ? null : reference.id,
+                );
+              }}
+              onToggleEnabled={() => {
+                triggerSelectionHaptic();
+                setEnabled(reference.id, !reference.enabled);
+              }}
+              onStrengthChange={(value) => setStrength(reference.id, value)}
+              onFidelityChange={(value) => setFidelity(reference.id, value)}
+              onTypeChange={(value) => setType(reference.id, value)}
+              onReplace={() => pickPreciseImage(reference.id)}
+              onRemove={() => {
+                triggerSelectionHaptic();
+                if (expandedId === reference.id) {
+                  setExpandedId(null);
+                }
+                void removeReference(reference.id);
+              }}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // --- 루트 메뉴 ---
 
 function MenuRow({
@@ -932,6 +1340,9 @@ function OptionsMenu({
   const activeVibeCount = useGenerationStore(
     (s) => s.vibeReferences.filter((item) => item.enabled).length,
   );
+  const activePreciseCount = useGenerationStore(
+    (s) => s.preciseReferences.filter((item) => item.enabled).length,
+  );
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -1018,7 +1429,12 @@ function OptionsMenu({
         active={activeVibeCount > 0}
         onPress={() => onSelect("vibe")}
       />
-      <MenuRow label="Precise Ref" value="Off" disabled />
+      <MenuRow
+        label="Precise Ref"
+        value={activePreciseCount > 0 ? `${activePreciseCount}` : "Off"}
+        active={activePreciseCount > 0}
+        onPress={() => onSelect("precise")}
+      />
     </>
   );
 }
@@ -1175,6 +1591,8 @@ export const OptionsSheet = forwardRef<
               <I2ISheet />
             ) : route === "vibe" ? (
               <VibeSheet />
+            ) : route === "precise" ? (
+              <PreciseReferenceSheet />
             ) : null}
           </Reanimated.View>
         </Reanimated.View>
@@ -1383,6 +1801,9 @@ const vibeStyles = StyleSheet.create({
   enabledButtonActive: {
     backgroundColor: light.accent,
   },
+  disabledControl: {
+    opacity: 0.45,
+  },
   expandedBody: {
     gap: 12,
     paddingHorizontal: 10,
@@ -1424,6 +1845,29 @@ const vibeStyles = StyleSheet.create({
   slider: {
     width: "100%",
     height: 36,
+  },
+  typeSelector: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  typeButton: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: light.input,
+  },
+  typeButtonActive: {
+    backgroundColor: light.accent,
+  },
+  typeButtonText: {
+    color: light.textSecondary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  typeButtonTextActive: {
+    color: light.accentText,
   },
   encodingHint: {
     color: light.textSecondary,
