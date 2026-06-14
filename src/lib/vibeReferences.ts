@@ -302,35 +302,47 @@ export async function replaceVibeReferenceImage(
   if (!existing) return null;
 
   const current = rowToRecord(existing);
+  const updatedAt = Date.now();
+  const replacementSuffix = `${updatedAt}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
   const extension = getImageExtension(input);
-  const imageFileName = `${id}.${extension}`;
-  const thumbnailFileName = `${id}.jpg`;
+  const imageFileName = `${id}_${replacementSuffix}.${extension}`;
+  const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
   const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
   const imageFile = new File(getOriginalsDirectory(), imageFileName);
-  const updatedAt = Date.now();
+  const thumbnailPathCandidate = `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
+  let thumbnailPath: string | null = null;
+
+  try {
+    await copyImageToFile(input.uri, imageFile);
+    thumbnailPath = await createThumbnail(
+      input.uri,
+      input.width,
+      input.height,
+      thumbnailFileName,
+    );
+
+    await db.runAsync(
+      `UPDATE vibe_references
+         SET image_path = ?,
+             thumbnail_path = ?,
+             encoded_path = NULL,
+             encoded_information_extracted = NULL,
+             updated_at = ?
+       WHERE id = ?`,
+      [imagePath, thumbnailPath, updatedAt, id],
+    );
+  } catch (error: unknown) {
+    deleteStoredFile(imagePath);
+    deleteStoredFile(thumbnailPathCandidate);
+    if (error instanceof Error) throw error;
+    throw new Error("Vibe 이미지를 교체하지 못했습니다.");
+  }
 
   deleteStoredFile(current.imagePath);
   deleteStoredFile(current.thumbnailPath);
   deleteStoredFile(current.encodedPath);
-
-  await copyImageToFile(input.uri, imageFile);
-  const thumbnailPath = await createThumbnail(
-    input.uri,
-    input.width,
-    input.height,
-    thumbnailFileName,
-  );
-
-  await db.runAsync(
-    `UPDATE vibe_references
-       SET image_path = ?,
-           thumbnail_path = ?,
-           encoded_path = NULL,
-           encoded_information_extracted = NULL,
-           updated_at = ?
-     WHERE id = ?`,
-    [imagePath, thumbnailPath, updatedAt, id],
-  );
 
   return {
     ...current,

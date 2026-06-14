@@ -430,21 +430,19 @@ export async function replacePreciseReferenceImage(
   if (!existing) return null;
 
   const current = rowToRecord(existing);
+  const updatedAt = Date.now();
+  const replacementSuffix = `${updatedAt}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
   const extension = getImageExtension(input);
-  const imageFileName = `${id}.${extension}`;
-  const thumbnailFileName = `${id}.jpg`;
-  const processedFileName = `${id}.jpg`;
+  const imageFileName = `${id}_${replacementSuffix}.${extension}`;
+  const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
+  const processedFileName = `${id}_${replacementSuffix}.jpg`;
   const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
   const imageFile = new File(getOriginalsDirectory(), imageFileName);
-  const updatedAt = Date.now();
-
-  deleteStoredFile(current.imagePath);
-  deleteStoredFile(current.thumbnailPath);
-  deleteStoredFile(current.processedPath);
-
-  await copyImageToFile(input.uri, imageFile);
 
   try {
+    await copyImageToFile(input.uri, imageFile);
     const thumbnailPath = await createThumbnail(
       input.uri,
       input.width,
@@ -481,6 +479,10 @@ export async function replacePreciseReferenceImage(
         id,
       ],
     );
+
+    deleteStoredFile(current.imagePath);
+    deleteStoredFile(current.thumbnailPath);
+    deleteStoredFile(current.processedPath);
 
     return {
       ...current,
