@@ -94,7 +94,6 @@ type PersistedGenerationOptions = Partial<{
   sampler: string;
   seed: number;
   seedLocked: boolean;
-  outputCount: number;
   batchCount: number;
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
@@ -253,8 +252,6 @@ export type GenerationState = {
   setSeed: (v: number) => void;
   seedLocked: boolean;
   setSeedLocked: (v: boolean) => void;
-  outputCount: number;
-  setOutputCount: (v: number) => void;
   batchCount: number;
   setBatchCount: (v: number) => void;
   varietyPlus: boolean;
@@ -347,7 +344,6 @@ type QueueParams = {
     promptGuidanceRescale: number;
     noiseSchedule: NoiseSchedule;
     sampler: string;
-    nSamples: number;
     varietyPlus: boolean;
     vibeEncodedImages?: string[];
     vibeInformationExtracted?: number[];
@@ -397,8 +393,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setSeed: (v) => set({ seed: v }),
   seedLocked: false,
   setSeedLocked: (v) => set({ seedLocked: v }),
-  outputCount: 1,
-  setOutputCount: (v) => set({ outputCount: v }),
   batchCount: 1,
   setBatchCount: (v) => set({ batchCount: v }),
   varietyPlus: false,
@@ -936,7 +930,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         promptGuidanceRescale: s.promptGuidanceRescale,
         noiseSchedule: s.noiseSchedule,
         sampler: s.sampler,
-        nSamples: s.outputCount,
         varietyPlus: s.varietyPlus,
         ...(vibeEncodedImages
           ? {
@@ -1170,7 +1163,6 @@ export function useGenerationBootstrap() {
         if (isString(parsed.sampler)) next.sampler = parsed.sampler;
         if (isNumber(parsed.seed)) next.seed = parsed.seed;
         if (isBoolean(parsed.seedLocked)) next.seedLocked = parsed.seedLocked;
-        if (isNumber(parsed.outputCount)) next.outputCount = parsed.outputCount;
         if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
         if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
         if (isBoolean(parsed.normalizeVibeStrengths)) {
@@ -1260,7 +1252,6 @@ export function useGenerationBootstrap() {
         // 시드는 잠금일 때만 저장 (NAIS2 동일)
         ...(state.seedLocked ? { seed: state.seed } : {}),
         seedLocked: state.seedLocked,
-        outputCount: state.outputCount,
         batchCount: state.batchCount,
         varietyPlus: state.varietyPlus,
         normalizeVibeStrengths: state.normalizeVibeStrengths,

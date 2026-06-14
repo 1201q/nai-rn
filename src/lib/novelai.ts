@@ -59,7 +59,6 @@ export type GenerateNovelAiImageInput = {
   noiseSchedule: NoiseSchedule;
   sampler: string;
   seed?: number;
-  nSamples?: number;
   varietyPlus?: boolean;
   i2iImageBase64?: string;
   i2iStrength?: number;
@@ -312,7 +311,6 @@ function createImageGenerationBody({
   noiseSchedule,
   sampler,
   seed: inputSeed,
-  nSamples = 1,
   varietyPlus = false,
   i2iImageBase64,
   i2iStrength = 0.7,
@@ -357,7 +355,7 @@ function createImageGenerationBody({
     noise_schedule: noiseSchedule,
     sampler,
     steps,
-    n_samples: nSamples,
+    n_samples: 1,
     seed,
     negative_prompt: negativePrompt,
     uc: negativePrompt,
