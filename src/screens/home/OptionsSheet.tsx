@@ -45,6 +45,7 @@ import { useScalePress } from "./useScalePress";
 import { NumericSheetContent } from "./NumericSheet";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
+import { ImageUploadSheet } from "./ImageUploadSheet";
 import {
   BATCH_COUNT_CONFIG,
   CFG_CONFIG,
@@ -63,6 +64,7 @@ export type OptionRoute =
   | "seed"
   | "resolution"
   | "batchCount"
+  | "metadata"
   | "i2i";
 
 export type OptionsSheetHandle = {
@@ -88,6 +90,7 @@ const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   seed: "Seed",
   resolution: "Resolution",
   batchCount: "Batch Count",
+  metadata: "Metadata Extract",
   i2i: "I2I",
 };
 
@@ -543,10 +546,8 @@ function MenuTile({
 
 function OptionsMenu({
   onSelect,
-  onRequestImageImport,
 }: {
   onSelect: (route: OptionRoute) => void;
-  onRequestImageImport: () => void;
 }) {
   const model = useGenerationStore((s) => s.model);
   const resolution = useGenerationStore((s) => s.resolution);
@@ -635,7 +636,7 @@ function OptionsMenu({
       />
 
       <Text style={styles.sheetMenuGroupLabel}>Reference</Text>
-      <MenuRow label="Metadata Extract" onPress={onRequestImageImport} />
+      <MenuRow label="Metadata Extract" onPress={() => onSelect("metadata")} />
       <MenuRow
         label="I2I"
         value={i2iSourceImage ? "On" : "Off"}
@@ -655,10 +656,9 @@ export const OptionsSheet = forwardRef<
   {
     onOpenChange: (open: boolean) => void;
     renderBackdrop: (props: BottomSheetBackdropProps) => React.ReactElement;
-    onRequestImageImport: () => void;
   }
 >(function OptionsSheet(
-  { onOpenChange, renderBackdrop, onRequestImageImport },
+  { onOpenChange, renderBackdrop },
   ref,
 ) {
   const sheetRef = useRef<BottomSheet>(null);
@@ -773,7 +773,6 @@ export const OptionsSheet = forwardRef<
             {route === "menu" ? (
               <OptionsMenu
                 onSelect={(next) => goTo(next, "forward")}
-                onRequestImageImport={onRequestImageImport}
               />
             ) : route === "model" ? (
               <ModelSheet onClose={backToMenu} showTitle={false} />
@@ -793,6 +792,11 @@ export const OptionsSheet = forwardRef<
               <ResolutionSheet onClose={backToMenu} />
             ) : route === "batchCount" ? (
               <BatchCountSheet />
+            ) : route === "metadata" ? (
+              <ImageUploadSheet
+                onClose={() => sheetRef.current?.close()}
+                showTitle={false}
+              />
             ) : route === "i2i" ? (
               <I2ISheet />
             ) : null}

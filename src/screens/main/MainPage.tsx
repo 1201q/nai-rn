@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  BackHandler,
   type LayoutChangeEvent,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import BottomSheet, {
+import {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
@@ -42,23 +41,7 @@ export function MainPage({
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
 
   const optionsRef = useRef<OptionsSheetHandle>(null);
-  const imageImportRef = useRef<BottomSheet>(null);
   const openSheetsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        // OptionsSheet 는 자체 백(상세→메뉴→닫기)을 소유. 여기선 imageImport 만.
-        if (openSheetsRef.current.has("imageImport")) {
-          imageImportRef.current?.close();
-          return true;
-        }
-        return false;
-      },
-    );
-    return () => subscription.remove();
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -76,13 +59,6 @@ export function MainPage({
       if (had !== has) onSheetOpenChange?.(has);
     },
     [onSheetOpenChange],
-  );
-
-  const handleSheetChange = useCallback(
-    (sheet: string, index: number) => {
-      setSheetOpen(sheet, index >= 0);
-    },
-    [setSheetOpen],
   );
 
   const handleOptionsOpenChange = useCallback(
@@ -196,9 +172,7 @@ export function MainPage({
 
       <OptionSheets
         optionsRef={optionsRef}
-        imageImportRef={imageImportRef}
         onOptionsOpenChange={handleOptionsOpenChange}
-        onSheetChange={handleSheetChange}
         renderBackdrop={renderBackdrop}
       />
     </View>

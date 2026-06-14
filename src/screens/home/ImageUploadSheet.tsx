@@ -85,7 +85,13 @@ function CheckRow({
   );
 }
 
-export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
+export function ImageUploadSheet({
+  onClose,
+  showTitle = true,
+}: {
+  onClose: () => void;
+  showTitle?: boolean;
+}) {
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedNaiMetadata | null>(null);
   const [busy, setBusy] = useState(false);
@@ -189,9 +195,11 @@ export function ImageUploadSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <Text style={[sheetStyles.sheetTitle, styles.stickyTitle]}>
-        Image Upload
-      </Text>
+      {showTitle ? (
+        <Text style={[sheetStyles.sheetTitle, styles.stickyTitle]}>
+          Image Upload
+        </Text>
+      ) : null}
 
       {pickedUri ? (
         <View
