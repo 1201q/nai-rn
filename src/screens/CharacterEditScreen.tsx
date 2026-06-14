@@ -26,7 +26,6 @@ import {
 import type { CharacterEditScreenNavigationProp } from "../navigation/types";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { light } from "./home/styles";
-import { ScreenHeader } from "../components/ScreenHeader";
 
 const ROW_HEIGHT = 68;
 const DELETE_COLOR = "#e5484d";
@@ -222,7 +221,19 @@ export function CharacterEditScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
 
-      <ScreenHeader title="캐릭터 편집" onBack={() => navigation.goBack()} />
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerPillButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>캐릭터 편집</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
       <View style={styles.listWrap}>
         <View style={{ height: items.length * ROW_HEIGHT }}>
@@ -270,6 +281,35 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: light.bg,
+  },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  // FloatingPillHeader 의 floated pill(solid) 스타일 시각 복제: surface + 그림자.
+  headerPillButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+    shadowColor: "#000000",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: light.textPrimary,
+  },
+  headerSpacer: {
+    width: 46,
   },
   listWrap: {
     flex: 1,

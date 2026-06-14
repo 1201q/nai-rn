@@ -155,12 +155,13 @@ const styles = StyleSheet.create({
   },
   pill: {
     alignSelf: "center",
-    borderRadius: 22,
+    minHeight: 46,
+    borderRadius: 999,
     justifyContent: "center",
   },
   pillBg: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
+    borderRadius: 999,
     shadowColor: "#000000",
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
   },
   pillBgClip: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 22,
+    borderRadius: 999,
     overflow: "hidden",
   },
   pillBgBlur: {

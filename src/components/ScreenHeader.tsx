@@ -37,13 +37,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
   },
+  // FloatingPillHeader 의 floated pill(solid) 스타일 시각 복제: surface + 그림자.
   headerCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: light.surface,
+    shadowColor: "#000000",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   headerTitle: {
     fontSize: 20,
@@ -51,6 +57,6 @@ const styles = StyleSheet.create({
     color: light.textPrimary,
   },
   headerSpacer: {
-    width: 44,
+    width: 46,
   },
 });

@@ -104,7 +104,7 @@ export function MainPage({
       {/* 상단 헤더 */}
       <View style={styles.header}>
         <View style={styles.anlasChip}>
-          <Ionicons name="diamond-outline" size={14} color={light.accent} />
+          <Ionicons name="diamond-outline" size={16} color={light.accent} />
           <Text style={styles.anlasChipText}>
             {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
           </Text>
