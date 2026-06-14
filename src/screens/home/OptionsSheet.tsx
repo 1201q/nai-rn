@@ -1232,7 +1232,7 @@ function MenuRow({
   });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(25,27,49,0)", light.surface],
+    outputRange: ["rgba(0,0,0,0)", light.surfaceAlt],
   });
 
   return (
@@ -1289,7 +1289,7 @@ function MenuTile({
   });
   const backgroundColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [light.surface, light.surfaceAlt],
+    outputRange: ["rgba(0,0,0,0)", light.surfaceAlt],
   });
 
   return (
@@ -1362,79 +1362,101 @@ function OptionsMenu({
       <Text style={styles.sheetTitle}>Options</Text>
 
       <Text style={styles.sheetMenuGroupLabel}>Core</Text>
-      <View style={styles.sheetMenuTileRow}>
-        <MenuTile
-          label="Model"
-          value={modelText}
-          onPress={() => onSelect("model")}
-        />
-        <MenuTile
-          label="Resolution"
-          value={`${resolution.width}x${resolution.height}`}
-          onPress={() => onSelect("resolution")}
+      <View style={styles.sheetCard}>
+        <View style={styles.sheetMenuTileRow}>
+          <MenuTile
+            label="Model"
+            value={modelText}
+            onPress={() => onSelect("model")}
+          />
+          <View style={styles.sheetTileDivider} />
+          <MenuTile
+            label="Resolution"
+            value={`${resolution.width}x${resolution.height}`}
+            onPress={() => onSelect("resolution")}
+          />
+        </View>
+      </View>
+      <View style={styles.sheetCard}>
+        <MenuRow
+          label="Seed"
+          value={seedText}
+          onPress={() => onSelect("seed")}
         />
       </View>
-      <MenuRow label="Seed" value={seedText} onPress={() => onSelect("seed")} />
 
       <Text style={styles.sheetMenuGroupLabel}>Parameter Options</Text>
-      <View style={styles.sheetMenuTileRow}>
-        <MenuTile
-          label="Steps"
-          value={`${steps}`}
-          onPress={() => onSelect("steps")}
+      <View style={styles.sheetCard}>
+        <View style={styles.sheetMenuTileRow}>
+          <MenuTile
+            label="Steps"
+            value={`${steps}`}
+            onPress={() => onSelect("steps")}
+          />
+          <View style={styles.sheetTileDivider} />
+          <MenuTile
+            label="CFG Scale"
+            value={formatDecimal(promptGuidance)}
+            onPress={() => onSelect("cfg")}
+          />
+          <View style={styles.sheetTileDivider} />
+          <MenuTile
+            label="CFG Rescale"
+            value={formatDecimal(promptGuidanceRescale, 2)}
+            onPress={() => onSelect("cfgRescale")}
+          />
+        </View>
+      </View>
+      <View style={styles.sheetCard}>
+        <MenuRow
+          label="Sampler"
+          value={samplerText}
+          onPress={() => onSelect("sampler")}
         />
-        <MenuTile
-          label="CFG Scale"
-          value={formatDecimal(promptGuidance)}
-          onPress={() => onSelect("cfg")}
+        <View style={styles.sheetCardDivider} />
+        <MenuRow
+          label="Schedule"
+          value={scheduleText}
+          onPress={() => onSelect("schedule")}
         />
-        <MenuTile
-          label="CFG Rescale"
-          value={formatDecimal(promptGuidanceRescale, 2)}
-          onPress={() => onSelect("cfgRescale")}
+        <View style={styles.sheetCardDivider} />
+        <MenuRow
+          label="Variety+"
+          value={varietyPlus ? "On" : "Off"}
+          active={varietyPlus}
+          isToggle
+          onPress={() => {
+            triggerSelectionHaptic();
+            setVarietyPlus(!varietyPlus);
+          }}
         />
       </View>
-      <MenuRow
-        label="Sampler"
-        value={samplerText}
-        onPress={() => onSelect("sampler")}
-      />
-      <MenuRow
-        label="Schedule"
-        value={scheduleText}
-        onPress={() => onSelect("schedule")}
-      />
-      <MenuRow
-        label="Variety+"
-        value={varietyPlus ? "On" : "Off"}
-        active={varietyPlus}
-        isToggle
-        onPress={() => {
-          triggerSelectionHaptic();
-          setVarietyPlus(!varietyPlus);
-        }}
-      />
 
       <Text style={styles.sheetMenuGroupLabel}>Reference</Text>
-      <MenuRow label="Metadata Extract" onPress={() => onSelect("metadata")} />
-      <MenuRow
-        label="I2I"
-        value={i2iSourceImage ? "On" : "Off"}
-        active={Boolean(i2iSourceImage)}
-        onPress={() => onSelect("i2i")}
-      />
-      <MenuRow
-        label="Vibe Transfer"
-        value={activeVibeCount > 0 ? `${activeVibeCount}` : "Off"}
-        active={activeVibeCount > 0}
-        onPress={() => onSelect("vibe")}
-      />
-      <MenuRow
-        label="Precise Ref"
-        value={activePreciseCount > 0 ? `${activePreciseCount}` : "Off"}
-        active={activePreciseCount > 0}
-        onPress={() => onSelect("precise")}
-      />
+      <View style={styles.sheetCard}>
+        <MenuRow label="Metadata Extract" onPress={() => onSelect("metadata")} />
+        <View style={styles.sheetCardDivider} />
+        <MenuRow
+          label="I2I"
+          value={i2iSourceImage ? "On" : "Off"}
+          active={Boolean(i2iSourceImage)}
+          onPress={() => onSelect("i2i")}
+        />
+        <View style={styles.sheetCardDivider} />
+        <MenuRow
+          label="Vibe Transfer"
+          value={activeVibeCount > 0 ? `${activeVibeCount}` : "Off"}
+          active={activeVibeCount > 0}
+          onPress={() => onSelect("vibe")}
+        />
+        <View style={styles.sheetCardDivider} />
+        <MenuRow
+          label="Precise Ref"
+          value={activePreciseCount > 0 ? `${activePreciseCount}` : "Off"}
+          active={activePreciseCount > 0}
+          onPress={() => onSelect("precise")}
+        />
+      </View>
     </>
   );
 }
