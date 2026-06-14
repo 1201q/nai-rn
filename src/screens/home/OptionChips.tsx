@@ -26,6 +26,9 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const noiseSchedule = useGenerationStore((s) => s.noiseSchedule);
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const activeVibeCount = useGenerationStore(
+    (s) => s.vibeReferences.filter((item) => item.enabled).length,
+  );
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -48,6 +51,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
     samplerText,
     scheduleText,
     varietyPlus ? "Variety+" : null,
+    activeVibeCount > 0 ? `Vibe ${activeVibeCount}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

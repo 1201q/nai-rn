@@ -20,6 +20,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import Slider from "@react-native-community/slider";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
@@ -38,6 +39,12 @@ import {
   getI2IEffectiveResolution,
   useGenerationStore,
 } from "../../store/generationStore";
+import {
+  MAX_VIBE_REFERENCES,
+  resolveVibeReferenceImageUri,
+  resolveVibeReferenceThumbnailUri,
+  type VibeReference,
+} from "../../lib/vibeReferences";
 import { formatDecimal, triggerSelectionHaptic } from "../option/helpers";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
@@ -65,7 +72,8 @@ export type OptionRoute =
   | "resolution"
   | "batchCount"
   | "metadata"
-  | "i2i";
+  | "i2i"
+  | "vibe";
 
 export type OptionsSheetHandle = {
   openAt: (route?: OptionRoute) => void;
@@ -92,6 +100,7 @@ const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   batchCount: "Batch Count",
   metadata: "Metadata Extract",
   i2i: "I2I",
+  vibe: "Vibe Transfer",
 };
 
 const I2I_STRENGTH_CONFIG = {
@@ -108,6 +117,22 @@ const I2I_NOISE_CONFIG = {
   unit: "noise",
   min: 0,
   max: 0.99,
+  step: 0.01,
+  precision: 2,
+};
+
+const VIBE_STRENGTH_CONFIG = {
+  title: "Reference Strength",
+  min: 0,
+  max: 1,
+  step: 0.01,
+  precision: 2,
+};
+
+const VIBE_INFORMATION_CONFIG = {
+  title: "Information Extracted",
+  min: 0,
+  max: 1,
   step: 0.01,
   precision: 2,
 };
@@ -436,6 +461,347 @@ function I2ISheet() {
   );
 }
 
+function formatVibeValue(value: number) {
+  return formatDecimal(value, 2);
+}
+
+function shortVibeId(id: string) {
+  return id.replace(/^vibe_/, "").slice(-8);
+}
+
+function VibeCompactSlider({
+  label,
+  value,
+  onChange,
+  config,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  config: typeof VIBE_STRENGTH_CONFIG;
+}) {
+  return (
+    <View style={vibeStyles.sliderBlock}>
+      <View style={vibeStyles.sliderHeader}>
+        <Text style={vibeStyles.sliderLabel}>{label}</Text>
+        <Text style={vibeStyles.sliderValue}>{formatVibeValue(value)}</Text>
+      </View>
+      <Slider
+        style={vibeStyles.slider}
+        value={value}
+        minimumValue={config.min}
+        maximumValue={config.max}
+        step={config.step}
+        minimumTrackTintColor={light.accent}
+        maximumTrackTintColor={light.input}
+        thumbTintColor={light.accent}
+        onSlidingComplete={(next) => {
+          triggerSelectionHaptic();
+          onChange(Number(next.toFixed(config.precision)));
+        }}
+      />
+    </View>
+  );
+}
+
+function VibeReferenceCard({
+  reference,
+  expanded,
+  busy,
+  onToggleExpanded,
+  onToggleEnabled,
+  onStrengthChange,
+  onInformationChange,
+  onReplace,
+  onRemove,
+}: {
+  reference: VibeReference;
+  expanded: boolean;
+  busy: boolean;
+  onToggleExpanded: () => void;
+  onToggleEnabled: () => void;
+  onStrengthChange: (v: number) => void;
+  onInformationChange: (v: number) => void;
+  onReplace: () => void;
+  onRemove: () => void;
+}) {
+  const imageUri =
+    resolveVibeReferenceThumbnailUri(reference) ??
+    resolveVibeReferenceImageUri(reference);
+  const encodingRequired =
+    reference.encodedPath === null ||
+    reference.encodedInformationExtracted !== reference.informationExtracted;
+
+  return (
+    <View style={vibeStyles.card}>
+      <BottomSheetTouchableOpacity
+        activeOpacity={0.82}
+        onPress={onToggleExpanded}
+        style={vibeStyles.cardHeader}
+      >
+        <ExpoImage
+          source={{ uri: imageUri }}
+          contentFit="cover"
+          transition={120}
+          style={vibeStyles.thumbnail}
+        />
+        <View style={vibeStyles.cardText}>
+          <Text style={vibeStyles.cardTitle} numberOfLines={1}>
+            {shortVibeId(reference.id)}
+          </Text>
+          <Text style={vibeStyles.cardSubtitle} numberOfLines={1}>
+            S {formatVibeValue(reference.strength)} · I{" "}
+            {formatVibeValue(reference.informationExtracted)}
+          </Text>
+        </View>
+        {encodingRequired ? (
+          <View style={vibeStyles.costBadge}>
+            <Text style={vibeStyles.costBadgeText}>2</Text>
+            <Ionicons name="diamond" size={12} color={light.accent} />
+          </View>
+        ) : null}
+        <BottomSheetTouchableOpacity
+          activeOpacity={0.72}
+          onPress={onToggleEnabled}
+          style={[
+            vibeStyles.enabledButton,
+            reference.enabled && vibeStyles.enabledButtonActive,
+          ]}
+        >
+          <Ionicons
+            name="checkmark"
+            size={18}
+            color={reference.enabled ? light.accentText : light.textHint}
+          />
+        </BottomSheetTouchableOpacity>
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={light.textHint}
+        />
+      </BottomSheetTouchableOpacity>
+
+      {expanded ? (
+        <View style={vibeStyles.expandedBody}>
+          <View
+            style={[
+              vibeStyles.previewCard,
+              { aspectRatio: IMAGE_PREVIEW_FRAME_ASPECT },
+            ]}
+          >
+            <ExpoImage
+              source={{ uri: resolveVibeReferenceImageUri(reference) }}
+              contentFit="contain"
+              contentPosition="center"
+              transition={120}
+              style={vibeStyles.previewImage}
+            />
+          </View>
+          <VibeCompactSlider
+            label={VIBE_STRENGTH_CONFIG.title}
+            value={reference.strength}
+            onChange={onStrengthChange}
+            config={VIBE_STRENGTH_CONFIG}
+          />
+          <VibeCompactSlider
+            label={VIBE_INFORMATION_CONFIG.title}
+            value={reference.informationExtracted}
+            onChange={onInformationChange}
+            config={VIBE_INFORMATION_CONFIG}
+          />
+          {encodingRequired ? (
+            <Text style={vibeStyles.encodingHint}>
+              Encoding required. This will cost 2 Anlas on the next generation.
+            </Text>
+          ) : (
+            <Text style={vibeStyles.encodingHint}>Encoded vibe cached.</Text>
+          )}
+          <View style={vibeStyles.actionRow}>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              disabled={busy}
+              onPress={onReplace}
+              style={vibeStyles.secondaryButton}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={light.textSecondary} />
+              ) : (
+                <Ionicons name="refresh" size={15} color={light.textSecondary} />
+              )}
+              <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
+            </BottomSheetTouchableOpacity>
+            <BottomSheetTouchableOpacity
+              activeOpacity={0.72}
+              disabled={busy}
+              onPress={onRemove}
+              style={vibeStyles.secondaryButton}
+            >
+              <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
+              <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
+            </BottomSheetTouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function VibeSheet() {
+  const references = useGenerationStore((s) => s.vibeReferences);
+  const normalize = useGenerationStore((s) => s.normalizeVibeStrengths);
+  const setNormalize = useGenerationStore((s) => s.setNormalizeVibeStrengths);
+  const addReference = useGenerationStore((s) => s.addVibeReference);
+  const replaceReference = useGenerationStore((s) => s.replaceVibeReference);
+  const removeReference = useGenerationStore((s) => s.removeVibeReference);
+  const setEnabled = useGenerationStore((s) => s.setVibeReferenceEnabled);
+  const setStrength = useGenerationStore((s) => s.setVibeReferenceStrength);
+  const setInformation = useGenerationStore(
+    (s) => s.setVibeReferenceInformationExtracted,
+  );
+  const setMessage = useGenerationStore((s) => s.setMessage);
+  const [expandedId, setExpandedId] = useState<string | null>(
+    references[0]?.id ?? null,
+  );
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+
+  async function pickVibeImage(targetId?: string) {
+    if (adding || busyId) return;
+    try {
+      if (targetId) {
+        setBusyId(targetId);
+      } else {
+        setAdding(true);
+      }
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        base64: false,
+      });
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const input = {
+        uri: asset.uri,
+        width: asset.width || 64,
+        height: asset.height || 64,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+      };
+
+      const reference = targetId
+        ? await replaceReference(targetId, input)
+        : await addReference(input);
+      if (reference) {
+        setExpandedId(reference.id);
+      }
+    } catch {
+      setMessage("Vibe 이미지를 선택하지 못했습니다.");
+    } finally {
+      setAdding(false);
+      setBusyId(null);
+    }
+  }
+
+  const canAdd = references.length < MAX_VIBE_REFERENCES;
+
+  return (
+    <View style={vibeStyles.sheet}>
+      <View style={vibeStyles.topRow}>
+        <BottomSheetTouchableOpacity
+          activeOpacity={0.82}
+          disabled={!canAdd || adding}
+          onPress={() => pickVibeImage()}
+          style={[vibeStyles.addButton, !canAdd && vibeStyles.addButtonDisabled]}
+        >
+          {adding ? (
+            <ActivityIndicator size="small" color={light.accentText} />
+          ) : (
+            <Ionicons name="add" size={22} color={light.accentText} />
+          )}
+          <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
+        </BottomSheetTouchableOpacity>
+        <Text style={vibeStyles.countText}>
+          {references.length}/{MAX_VIBE_REFERENCES}
+        </Text>
+      </View>
+
+      <BottomSheetTouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => {
+          triggerSelectionHaptic();
+          setNormalize(!normalize);
+        }}
+        style={vibeStyles.normalizeRow}
+      >
+        <View
+          style={[
+            vibeStyles.checkbox,
+            normalize && vibeStyles.checkboxActive,
+          ]}
+        >
+          {normalize ? (
+            <Ionicons name="checkmark" size={15} color={light.accentText} />
+          ) : null}
+        </View>
+        <Text style={vibeStyles.normalizeText}>
+          Normalize Reference Strength Values
+        </Text>
+      </BottomSheetTouchableOpacity>
+
+      {references.length === 0 ? (
+        <View style={vibeStyles.emptyCard}>
+          <Ionicons name="images-outline" size={28} color={light.textSecondary} />
+          <Text style={vibeStyles.emptyText}>
+            Vibe로 사용할 이미지를 추가하세요.
+          </Text>
+        </View>
+      ) : (
+        <View style={vibeStyles.list}>
+          {references.map((reference) => (
+            <VibeReferenceCard
+              key={reference.id}
+              reference={reference}
+              expanded={expandedId === reference.id}
+              busy={busyId === reference.id}
+              onToggleExpanded={() => {
+                triggerSelectionHaptic();
+                setExpandedId((current) =>
+                  current === reference.id ? null : reference.id,
+                );
+              }}
+              onToggleEnabled={() => {
+                triggerSelectionHaptic();
+                setEnabled(reference.id, !reference.enabled);
+              }}
+              onStrengthChange={(value) => setStrength(reference.id, value)}
+              onInformationChange={(value) =>
+                setInformation(reference.id, value)
+              }
+              onReplace={() => pickVibeImage(reference.id)}
+              onRemove={() => {
+                triggerSelectionHaptic();
+                if (expandedId === reference.id) {
+                  setExpandedId(null);
+                }
+                void removeReference(reference.id);
+              }}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // --- 루트 메뉴 ---
 
 function MenuRow({
@@ -563,6 +929,9 @@ function OptionsMenu({
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
   const setVarietyPlus = useGenerationStore((s) => s.setVarietyPlus);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const activeVibeCount = useGenerationStore(
+    (s) => s.vibeReferences.filter((item) => item.enabled).length,
+  );
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
   const samplerText =
@@ -643,7 +1012,12 @@ function OptionsMenu({
         active={Boolean(i2iSourceImage)}
         onPress={() => onSelect("i2i")}
       />
-      <MenuRow label="Vibe Transfer" value="Off" disabled />
+      <MenuRow
+        label="Vibe Transfer"
+        value={activeVibeCount > 0 ? `${activeVibeCount}` : "Off"}
+        active={activeVibeCount > 0}
+        onPress={() => onSelect("vibe")}
+      />
       <MenuRow label="Precise Ref" value="Off" disabled />
     </>
   );
@@ -799,6 +1173,8 @@ export const OptionsSheet = forwardRef<
               />
             ) : route === "i2i" ? (
               <I2ISheet />
+            ) : route === "vibe" ? (
+              <VibeSheet />
             ) : null}
           </Reanimated.View>
         </Reanimated.View>
@@ -864,6 +1240,214 @@ const i2iStyles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 8,
     color: light.textHint,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
+
+const vibeStyles = StyleSheet.create({
+  sheet: {
+    gap: 12,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  addButton: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: light.accent,
+  },
+  addButtonDisabled: {
+    opacity: 0.5,
+  },
+  addButtonText: {
+    color: light.accentText,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  countText: {
+    color: light.textHint,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  normalizeRow: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: light.textHint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxActive: {
+    borderColor: light.accent,
+    backgroundColor: light.accent,
+  },
+  normalizeText: {
+    flex: 1,
+    color: light.textSecondary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  emptyCard: {
+    minHeight: 150,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: light.border,
+    borderStyle: "dashed",
+    backgroundColor: light.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  emptyText: {
+    color: light.textSecondary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  list: {
+    gap: 10,
+  },
+  card: {
+    borderRadius: 18,
+    backgroundColor: light.surface,
+    overflow: "hidden",
+  },
+  cardHeader: {
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  thumbnail: {
+    width: 58,
+    height: 58,
+    borderRadius: 10,
+    backgroundColor: light.input,
+  },
+  cardText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardTitle: {
+    color: light.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  cardSubtitle: {
+    marginTop: 4,
+    color: light.textHint,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  costBadge: {
+    minWidth: 42,
+    height: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    borderRadius: 12,
+    backgroundColor: light.input,
+  },
+  costBadgeText: {
+    color: light.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  enabledButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.input,
+  },
+  enabledButtonActive: {
+    backgroundColor: light.accent,
+  },
+  expandedBody: {
+    gap: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  previewCard: {
+    width: "100%",
+    maxHeight: 200,
+    minHeight: 140,
+    borderRadius: 14,
+    backgroundColor: light.input,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  sliderBlock: {
+    gap: 4,
+  },
+  sliderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  sliderLabel: {
+    color: light.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  sliderValue: {
+    color: light.accent,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  slider: {
+    width: "100%",
+    height: 36,
+  },
+  encodingHint: {
+    color: light.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  secondaryButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: light.input,
+  },
+  secondaryButtonText: {
+    color: light.textSecondary,
     fontSize: 13,
     fontWeight: "700",
   },

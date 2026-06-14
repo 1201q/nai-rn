@@ -2,6 +2,8 @@ import type { NoiseSchedule } from "../constants/generation";
 
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
+const NOVELAI_VIBE_ENCODE_API_URL =
+  "https://image.novelai.net/ai/encode-vibe";
 const NOVELAI_SUBSCRIPTION_API_URL =
   "https://api.novelai.net/user/subscription";
 
@@ -14,10 +16,11 @@ export type NovelAiAnlasBalance = {
 export async function getNovelAiAnlasBalance(
   token: string,
 ): Promise<NovelAiAnlasBalance> {
+  const cleanToken = normalizeBearerToken(token);
   const response = await fetch(NOVELAI_SUBSCRIPTION_API_URL, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token.trim()}`,
+      Authorization: `Bearer ${cleanToken}`,
       "Content-Type": "application/json",
     },
   });
@@ -56,6 +59,10 @@ export type GenerateNovelAiImageInput = {
   i2iImageBase64?: string;
   i2iStrength?: number;
   i2iNoise?: number;
+  vibeEncodedImages?: string[];
+  vibeInformationExtracted?: number[];
+  vibeStrengths?: number[];
+  normalizeVibeStrengths?: boolean;
 };
 
 export type GenerateNovelAiCharacterPrompt = {
@@ -202,6 +209,13 @@ function isV4Model(model: string): boolean {
   return model.startsWith("nai-diffusion-4");
 }
 
+function normalizeBearerToken(token: string): string {
+  const trimmed = token.trim();
+  return trimmed.toLowerCase().startsWith("bearer ")
+    ? trimmed.slice(7).trim()
+    : trimmed;
+}
+
 type V4CharacterCaption = {
   char_caption: string;
   centers: [{ x: number; y: number }];
@@ -235,6 +249,47 @@ function stripBase64Header(value: string): string {
   return commaIndex === -1 ? value : value.slice(commaIndex + 1);
 }
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read vibe encoding."));
+    reader.onloadend = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Unexpected vibe encoding response."));
+        return;
+      }
+      resolve(stripBase64Header(reader.result));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function encodeNovelAiVibe(
+  token: string,
+  imageBase64: string,
+  informationExtracted: number,
+): Promise<string> {
+  const cleanToken = normalizeBearerToken(token);
+  const response = await fetch(NOVELAI_VIBE_ENCODE_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cleanToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      image: stripBase64Header(imageBase64),
+      model: "nai-diffusion-4-5-full",
+      information_extracted: informationExtracted,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vibe encode failed: HTTP ${response.status}`);
+  }
+
+  return blobToBase64(await response.blob());
+}
+
 function createImageGenerationBody({
   prompt,
   negativePrompt,
@@ -253,10 +308,15 @@ function createImageGenerationBody({
   i2iImageBase64,
   i2iStrength = 0.7,
   i2iNoise = 0,
+  vibeEncodedImages = [],
+  vibeInformationExtracted = [],
+  vibeStrengths = [],
+  normalizeVibeStrengths = true,
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
   const shouldUseV4Prompt = isV4Model(model);
   const isI2I = Boolean(i2iImageBase64);
+  const hasVibes = vibeEncodedImages.length > 0;
   const v4PromptCharacterCaptions = characterPrompts.map((item) =>
     createV4CharacterCaption(item.prompt),
   );
@@ -289,6 +349,14 @@ function createImageGenerationBody({
           image: stripBase64Header(i2iImageBase64),
           strength: i2iStrength,
           noise: i2iNoise,
+        }
+      : {}),
+    ...(hasVibes
+      ? {
+          reference_image_multiple: vibeEncodedImages.map(stripBase64Header),
+          reference_information_extracted_multiple: vibeInformationExtracted,
+          reference_strength_multiple: vibeStrengths,
+          normalize_reference_strength_multiple: normalizeVibeStrengths,
         }
       : {}),
     ...(shouldUseV4Prompt
@@ -414,6 +482,7 @@ export async function generateNovelAiImageStream(
 ): Promise<GenerateNovelAiImageStreamResult> {
   const { token, ...requestInput } = input;
   const { seed, body } = createImageGenerationBody(requestInput);
+  const cleanToken = normalizeBearerToken(token);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -453,7 +522,7 @@ export async function generateNovelAiImageStream(
     }
 
     xhr.open("POST", NOVELAI_IMAGE_STREAM_API_URL, true);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${cleanToken}`);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.setRequestHeader("Accept", "text/event-stream");
 

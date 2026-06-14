@@ -22,11 +22,26 @@ import {
 import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
+  encodeNovelAiVibe,
   generateNovelAiImageStream,
   getNovelAiAnlasBalance,
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
+import {
+  MAX_VIBE_REFERENCES,
+  addVibeReferenceFromImage,
+  deleteVibeReference as deleteStoredVibeReference,
+  initVibeReferenceStorage,
+  listVibeReferences,
+  readEncodedVibeReferenceBase64,
+  readVibeReferenceImageBase64,
+  replaceVibeReferenceImage,
+  saveEncodedVibeReference,
+  updateVibeReferenceSettings,
+  type VibeReference,
+  type VibeReferenceImageInput,
+} from "../lib/vibeReferences";
 import {
   DEFAULT_NAI_RESOLUTION,
   MAX_CHARACTER_PROMPTS,
@@ -69,6 +84,7 @@ type PersistedGenerationOptions = Partial<{
   outputCount: number;
   batchCount: number;
   varietyPlus: boolean;
+  normalizeVibeStrengths: boolean;
   optionTabIndex: number;
 }>;
 
@@ -93,6 +109,19 @@ function isNoiseSchedule(value: unknown): value is NoiseSchedule {
     value === "karras" ||
     value === "exponential" ||
     value === "polyexponential"
+  );
+}
+
+function isVibeSupportedModel(model: string): boolean {
+  return model.startsWith("nai-diffusion-4");
+}
+
+function replaceVibeInList(
+  references: VibeReference[],
+  nextReference: VibeReference,
+) {
+  return references.map((item) =>
+    item.id === nextReference.id ? nextReference : item,
   );
 }
 
@@ -201,6 +230,20 @@ export type GenerationState = {
   setBatchCount: (v: number) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
+  vibeReferences: VibeReference[];
+  normalizeVibeStrengths: boolean;
+  setNormalizeVibeStrengths: (v: boolean) => void;
+  addVibeReference: (
+    input: VibeReferenceImageInput,
+  ) => Promise<VibeReference | null>;
+  replaceVibeReference: (
+    id: string,
+    input: VibeReferenceImageInput,
+  ) => Promise<VibeReference | null>;
+  removeVibeReference: (id: string) => Promise<void>;
+  setVibeReferenceEnabled: (id: string, enabled: boolean) => void;
+  setVibeReferenceStrength: (id: string, strength: number) => void;
+  setVibeReferenceInformationExtracted: (id: string, value: number) => void;
   i2iSourceImage: I2ISourceImage | null;
   setI2ISourceImage: (v: I2ISourceImage) => void;
   i2iStrength: number;
@@ -261,6 +304,10 @@ type QueueParams = {
     sampler: string;
     nSamples: number;
     varietyPlus: boolean;
+    vibeEncodedImages?: string[];
+    vibeInformationExtracted?: number[];
+    vibeStrengths?: number[];
+    normalizeVibeStrengths?: boolean;
     i2iImageBase64?: string;
     i2iStrength?: number;
     i2iNoise?: number;
@@ -307,6 +354,117 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setBatchCount: (v) => set({ batchCount: v }),
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
+  vibeReferences: [],
+  normalizeVibeStrengths: true,
+  setNormalizeVibeStrengths: (v) => set({ normalizeVibeStrengths: v }),
+  addVibeReference: async (input) => {
+    try {
+      const reference = await addVibeReferenceFromImage(input);
+      set((state) => ({
+        vibeReferences: [...state.vibeReferences, reference],
+      }));
+      return reference;
+    } catch (error: unknown) {
+      set({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Vibe 이미지를 추가하지 못했습니다.",
+      });
+      return null;
+    }
+  },
+  replaceVibeReference: async (id, input) => {
+    try {
+      const reference = await replaceVibeReferenceImage(id, input);
+      if (!reference) return null;
+      set((state) => ({
+        vibeReferences: replaceVibeInList(state.vibeReferences, reference),
+      }));
+      return reference;
+    } catch (error: unknown) {
+      set({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Vibe 이미지를 교체하지 못했습니다.",
+      });
+      return null;
+    }
+  },
+  removeVibeReference: async (id) => {
+    try {
+      await deleteStoredVibeReference(id);
+      set((state) => ({
+        vibeReferences: state.vibeReferences.filter((item) => item.id !== id),
+      }));
+    } catch (error: unknown) {
+      set({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Vibe 이미지를 삭제하지 못했습니다.",
+      });
+    }
+  },
+  setVibeReferenceEnabled: (id, enabled) => {
+    set((state) => ({
+      vibeReferences: state.vibeReferences.map((item) =>
+        item.id === id ? { ...item, enabled } : item,
+      ),
+    }));
+    updateVibeReferenceSettings(id, { enabled })
+      .then((reference) => {
+        if (!reference) return;
+        set((state) => ({
+          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
+        }));
+      })
+      .catch((error: unknown) => {
+        set({ message: error instanceof Error ? error.message : String(error) });
+      });
+  },
+  setVibeReferenceStrength: (id, strength) => {
+    set((state) => ({
+      vibeReferences: state.vibeReferences.map((item) =>
+        item.id === id ? { ...item, strength } : item,
+      ),
+    }));
+    updateVibeReferenceSettings(id, { strength })
+      .then((reference) => {
+        if (!reference) return;
+        set((state) => ({
+          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
+        }));
+      })
+      .catch((error: unknown) => {
+        set({ message: error instanceof Error ? error.message : String(error) });
+      });
+  },
+  setVibeReferenceInformationExtracted: (id, value) => {
+    set((state) => ({
+      vibeReferences: state.vibeReferences.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              informationExtracted: value,
+              encodedPath: null,
+              encodedInformationExtracted: null,
+            }
+          : item,
+      ),
+    }));
+    updateVibeReferenceSettings(id, { informationExtracted: value })
+      .then((reference) => {
+        if (!reference) return;
+        set((state) => ({
+          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
+        }));
+      })
+      .catch((error: unknown) => {
+        set({ message: error instanceof Error ? error.message : String(error) });
+      });
+  },
   i2iSourceImage: null,
   setI2ISourceImage: (v) => set({ i2iSourceImage: v }),
   i2iStrength: DEFAULT_I2I_STRENGTH,
@@ -410,6 +568,89 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       }
     }
 
+    const activeVibes = s.vibeReferences
+      .filter((item) => item.enabled)
+      .slice(0, MAX_VIBE_REFERENCES);
+    let vibeEncodedImages: string[] | undefined;
+    let vibeInformationExtracted: number[] | undefined;
+    let vibeStrengths: number[] | undefined;
+
+    if (activeVibes.length > 0) {
+      if (!isVibeSupportedModel(s.model)) {
+        set({
+          message: "Vibe Transfer는 V4 이상 모델에서 사용할 수 있습니다.",
+        });
+        return;
+      }
+
+      set({
+        isLoading: true,
+        message: "Vibe 이미지를 인코딩하는 중입니다.",
+        streamingPreviewUri: null,
+        streamingStep: null,
+        streamingGenerationId: null,
+      });
+
+      try {
+        const encodedImages: string[] = [];
+        const updatedReferences: VibeReference[] = [];
+
+        for (const vibe of activeVibes) {
+          const canUseCachedEncoding =
+            vibe.encodedPath !== null &&
+            vibe.encodedInformationExtracted === vibe.informationExtracted;
+
+          if (canUseCachedEncoding) {
+            encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
+            continue;
+          }
+
+          const imageBase64 = await readVibeReferenceImageBase64(vibe);
+          const encodedBase64 = await encodeNovelAiVibe(
+            s.storedToken,
+            imageBase64,
+            vibe.informationExtracted,
+          );
+          encodedImages.push(encodedBase64);
+
+          const updatedReference = await saveEncodedVibeReference(
+            vibe.id,
+            encodedBase64,
+            vibe.informationExtracted,
+          );
+          if (updatedReference) {
+            updatedReferences.push(updatedReference);
+          }
+        }
+
+        if (updatedReferences.length > 0) {
+          const updatedById = new Map(
+            updatedReferences.map((item) => [item.id, item]),
+          );
+          set((state) => ({
+            vibeReferences: state.vibeReferences.map(
+              (item) => updatedById.get(item.id) ?? item,
+            ),
+          }));
+        }
+
+        vibeEncodedImages = encodedImages;
+        vibeInformationExtracted = activeVibes.map(
+          (item) => item.informationExtracted,
+        );
+        vibeStrengths = activeVibes.map((item) => item.strength);
+      } catch (error: unknown) {
+        set({
+          isLoading: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Vibe 이미지를 인코딩하지 못했습니다.",
+        });
+        return;
+      }
+    }
+
     pendingQueue = {
       token: s.storedToken,
       prompt: effPrompt,
@@ -426,6 +667,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         sampler: s.sampler,
         nSamples: s.outputCount,
         varietyPlus: s.varietyPlus,
+        ...(vibeEncodedImages
+          ? {
+              vibeEncodedImages,
+              vibeInformationExtracted,
+              vibeStrengths,
+              normalizeVibeStrengths: s.normalizeVibeStrengths,
+            }
+          : {}),
         ...(i2iImageBase64
           ? {
               i2iImageBase64,
@@ -645,6 +894,9 @@ export function useGenerationBootstrap() {
         if (isNumber(parsed.outputCount)) next.outputCount = parsed.outputCount;
         if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
         if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
+        if (isBoolean(parsed.normalizeVibeStrengths)) {
+          next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
+        }
         if (
           isNumber(parsed.optionTabIndex) &&
           (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
@@ -684,6 +936,17 @@ export function useGenerationBootstrap() {
           message: error instanceof Error ? error.message : String(error),
         });
       });
+
+    initVibeReferenceStorage()
+      .then(listVibeReferences)
+      .then((references) => {
+        setState({ vibeReferences: references });
+      })
+      .catch((error: unknown) => {
+        setState({
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
   }, []);
 
   // persist: 옵션 슬라이스 변경 시에만 write (이전 effect deps와 동일 집합)
@@ -710,6 +973,7 @@ export function useGenerationBootstrap() {
         outputCount: state.outputCount,
         batchCount: state.batchCount,
         varietyPlus: state.varietyPlus,
+        normalizeVibeStrengths: state.normalizeVibeStrengths,
         optionTabIndex: state.optionTabIndex,
       };
 
