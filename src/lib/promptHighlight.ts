@@ -25,6 +25,7 @@ export type PromptHighlightKind =
 export interface PromptHighlightSpan {
   text: string;
   kind: PromptHighlightKind;
+  weight?: number;
 }
 
 export interface ParsePromptHighlightsOptions {
@@ -60,10 +61,15 @@ export function parsePromptHighlights(
   const effectiveWeight = () =>
     numericStack.reduce((acc, n) => acc * n, bracketWeight);
 
+  const pushWeighted = (value: string) => {
+    const weight = effectiveWeight();
+    spans.push({ text: value, kind: weightKind(weight), weight });
+  };
+
   // 현재까지 모은 일반 텍스트를 현재 effective weight 기준으로 방출
   const flush = () => {
     if (!buf) return;
-    spans.push({ text: buf, kind: weightKind(effectiveWeight()) });
+    pushWeighted(buf);
     buf = "";
   };
 
@@ -95,7 +101,7 @@ export function parsePromptHighlights(
       flush();
       const num = parseFloat(m[1]);
       numericStack.push(num);
-      spans.push({ text: m[0], kind: "numericMark" });
+      pushWeighted(m[0]);
       i += m[0].length;
       continue;
     }
