@@ -19,6 +19,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
 import * as MediaLibrary from "expo-media-library";
+import * as Clipboard from "expo-clipboard";
+import { File } from "expo-file-system";
 
 import { useGenerationStore } from "../store/generationStore";
 import {
@@ -239,6 +241,51 @@ export function HistoryScreen({
       );
     } finally {
       setIsSavingSelected(false);
+    }
+  }
+
+  async function handleSavePreview(index: number) {
+    const record = generationHistory[index];
+    if (!record) return;
+
+    const permission = await MediaLibrary.requestPermissionsAsync(true, [
+      "photo",
+    ]);
+    if (!permission.granted) {
+      Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+      return;
+    }
+
+    try {
+      await MediaLibrary.saveToLibraryAsync(resolveGenerationImageUri(record));
+      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+    } catch {
+      Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleCopyPreview(index: number) {
+    const record = generationHistory[index];
+    if (!record) return;
+
+    try {
+      const base64 = await new File(resolveGenerationImageUri(record)).base64();
+      await Clipboard.setImageAsync(base64);
+      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
+    } catch {
+      Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
+    }
+  }
+
+  async function handleDeletePreview(index: number) {
+    const record = generationHistory[index];
+    if (!record) return;
+
+    try {
+      await deleteGenerations([record.id]);
+      closePreview();
+    } catch {
+      Alert.alert("삭제 실패", "이미지를 history에서 삭제하지 못했습니다.");
     }
   }
 
@@ -493,6 +540,9 @@ export function HistoryScreen({
         initialIndex={previewIndex}
         animation={previewAnimation}
         onClose={closePreview}
+        onSaveCurrent={isSelectionMode ? undefined : handleSavePreview}
+        onCopyCurrent={isSelectionMode ? undefined : handleCopyPreview}
+        onDeleteCurrent={isSelectionMode ? undefined : handleDeletePreview}
       />
     </View>
   );

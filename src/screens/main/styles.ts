@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { colors } from "../../styles/colors";
+import { light } from "../home/styles";
 
 export const MAIN_SEGMENT_WIDTH = 100;
 export const MAIN_SEGMENT_HEIGHT = 36;
@@ -191,15 +192,69 @@ export const styles = StyleSheet.create({
   previewGestureRoot: {
     flex: 1,
   },
+  // FloatingPillHeader 우측 pill(blur) 과 동일한 위치/모양
   previewCloseButton: {
     position: "absolute",
-    top: 48,
-    right: 16,
-    padding: 10,
+    left: 16,
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    shadowColor: "#000000",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  previewCloseText: {
-    color: colors.colorTextPrimary,
-    fontSize: 20,
-    opacity: 0.85,
+  previewCloseBg: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "rgba(25,27,49,0.78)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: light.border,
+  },
+  previewCloseTouch: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+  },
+  // HistoryScreen 선택모드 하단 pill 컨트롤바와 동일
+  previewActionWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 30,
+    elevation: 30,
+  },
+  previewActionShadow: {
+    borderRadius: 999,
+    shadowColor: "#00000076",
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  previewActionBar: {
+    flexDirection: "row",
+    borderRadius: 999,
+    padding: 4,
+    gap: 4,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: light.border,
+    backgroundColor: light.input,
+  },
+  previewActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+  },
+  previewActionButtonDisabled: {
+    opacity: 0.55,
   },
 });
