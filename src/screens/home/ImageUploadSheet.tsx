@@ -1,11 +1,9 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import Reanimated, {
+  interpolateColor,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
@@ -44,11 +42,16 @@ function CheckRow({
   indent?: boolean;
   onToggle: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress({ scaleTo: 0.96 });
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["rgba(25,27,49,0)", light.surface],
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
+    scaleTo: 0.96,
   });
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["rgba(25,27,49,0)", light.surface],
+    ),
+  }));
 
   return (
     <BottomSheetTouchableOpacity
@@ -61,12 +64,13 @@ function CheckRow({
         onToggle();
       }}
     >
-      <Animated.View
+      <Reanimated.View
         style={[
           sheetStyles.sheetModelItem,
           indent && styles.rowIndent,
           disabled && styles.rowDisabled,
-          { transform: [{ scale }], backgroundColor },
+          scaleStyle,
+          bgStyle,
         ]}
       >
         <Text
@@ -80,7 +84,7 @@ function CheckRow({
         {checked ? (
           <Ionicons name="checkmark" size={20} color={light.accent} />
         ) : null}
-      </Animated.View>
+      </Reanimated.View>
     </BottomSheetTouchableOpacity>
   );
 }

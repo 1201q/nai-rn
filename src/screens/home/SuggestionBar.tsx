@@ -1,4 +1,8 @@
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Reanimated, {
+  interpolateColor,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 
 import {
   useSuggestionBarActions,
@@ -23,20 +27,23 @@ function SuggestionChip({
   item: TagSuggestion;
   onPress: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress();
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [light.surface, light.surfaceAlt],
-  });
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress();
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [light.surface, light.surfaceAlt],
+    ),
+  }));
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
-      <Animated.View style={[barStyles.chip, { transform: [{ scale }], backgroundColor }]}>
+      <Reanimated.View style={[barStyles.chip, scaleStyle, bgStyle]}>
         <View style={[barStyles.dot, { backgroundColor: TAG_TYPE_COLORS[item.type] }]} />
         <Text style={barStyles.chipText} numberOfLines={1}>
           {item.label}
         </Text>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 }

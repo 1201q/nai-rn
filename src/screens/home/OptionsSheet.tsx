@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Animated as RNAnimated,
   BackHandler,
   StyleSheet,
   Text,
@@ -25,8 +24,10 @@ import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
   FadeIn,
+  interpolateColor,
   SlideInLeft,
   SlideInRight,
+  useAnimatedStyle,
 } from "react-native-reanimated";
 
 import {
@@ -1227,13 +1228,16 @@ function MenuRow({
   isToggle?: boolean;
   onPress?: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress({
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
     scaleTo: 0.96,
   });
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["rgba(0,0,0,0)", light.surfaceAlt],
-  });
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["rgba(0,0,0,0)", light.surfaceAlt],
+    ),
+  }));
 
   return (
     <BottomSheetTouchableOpacity
@@ -1243,12 +1247,7 @@ function MenuRow({
       onPressOut={onPressOut}
       onPress={onPress}
     >
-      <RNAnimated.View
-        style={[
-          styles.sheetMenuRow,
-          { transform: [{ scale }], backgroundColor },
-        ]}
-      >
+      <Reanimated.View style={[styles.sheetMenuRow, scaleStyle, bgStyle]}>
         <Text
           style={[
             styles.sheetMenuLabel,
@@ -1270,7 +1269,7 @@ function MenuRow({
             <Ionicons name="chevron-forward" size={18} color={light.textHint} />
           )}
         </View>
-      </RNAnimated.View>
+      </Reanimated.View>
     </BottomSheetTouchableOpacity>
   );
 }
@@ -1284,13 +1283,16 @@ function MenuTile({
   value: string;
   onPress: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress({
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
     scaleTo: 0.96,
   });
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["rgba(0,0,0,0)", light.surfaceAlt],
-  });
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["rgba(0,0,0,0)", light.surfaceAlt],
+    ),
+  }));
 
   return (
     <View style={styles.sheetMenuTileCell}>
@@ -1300,19 +1302,14 @@ function MenuTile({
         onPressOut={onPressOut}
         onPress={onPress}
       >
-        <RNAnimated.View
-          style={[
-            styles.sheetMenuTile,
-            { transform: [{ scale }], backgroundColor },
-          ]}
-        >
+        <Reanimated.View style={[styles.sheetMenuTile, scaleStyle, bgStyle]}>
           <Text style={styles.sheetMenuTileLabel} numberOfLines={1}>
             {label}
           </Text>
           <Text style={styles.sheetMenuTileValue} numberOfLines={1}>
             {value}
           </Text>
-        </RNAnimated.View>
+        </Reanimated.View>
       </BottomSheetTouchableOpacity>
     </View>
   );

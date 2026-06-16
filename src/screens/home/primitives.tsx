@@ -1,5 +1,9 @@
 import React, { useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
+import Reanimated, {
+  interpolateColor,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
@@ -55,9 +59,7 @@ export function VarietyChip({
   active: boolean;
   onPress: () => void;
 }) {
-  const { onPressIn, onPressOut, scale } = useScalePress({
-    useNativeDriver: true,
-  });
+  const { onPressIn, onPressOut, scaleStyle } = useScalePress();
 
   return (
     <Pressable
@@ -67,11 +69,11 @@ export function VarietyChip({
         onPress();
       }}
     >
-      <Animated.View
+      <Reanimated.View
         style={[
           styles.optionChip,
           active ? styles.optionChipActive : null,
-          { transform: [{ scale }] },
+          scaleStyle,
         ]}
       >
         <Ionicons
@@ -84,7 +86,7 @@ export function VarietyChip({
         >
           Variety+
         </Text>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 }
@@ -98,20 +100,21 @@ export function ImageActionChip({
   label: string;
   onPress?: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress();
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [light.bg, light.surfaceAlt],
-  });
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress();
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [light.bg, light.surfaceAlt],
+    ),
+  }));
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
-      <Animated.View
-        style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
-      >
+      <Reanimated.View style={[styles.optionChip, scaleStyle, bgStyle]}>
         <Ionicons name={icon} size={16} color={light.textSecondary} />
         <Text style={styles.optionChipText}>{label}</Text>
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 }
@@ -125,17 +128,18 @@ export const OptionChip = React.memo(function OptionChip({
   value: ChipValue;
   onPress?: () => void;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress();
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [light.bg, light.surfaceAlt],
-  });
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress();
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [light.bg, light.surfaceAlt],
+    ),
+  }));
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut} onPress={onPress}>
-      <Animated.View
-        style={[styles.optionChip, { transform: [{ scale }], backgroundColor }]}
-      >
+      <Reanimated.View style={[styles.optionChip, scaleStyle, bgStyle]}>
         <Ionicons name={opt.icon} size={16} color={light.textSecondary} />
         {value.unitBefore && value.unit ? (
           <Text style={styles.optionChipUnit}>{value.unit}</Text>
@@ -145,7 +149,7 @@ export const OptionChip = React.memo(function OptionChip({
           <Text style={styles.optionChipUnit}>{value.unit}</Text>
         ) : null}
         <Ionicons name="chevron-down" size={14} color={light.textSecondary} />
-      </Animated.View>
+      </Reanimated.View>
     </Pressable>
   );
 });
@@ -246,11 +250,16 @@ export function SheetItem({
   onPress: () => void;
   recommendedValue?: string;
 }) {
-  const { anim, onPressIn, onPressOut, scale } = useScalePress({ scaleTo: 0.96 });
-  const backgroundColor = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["rgba(25,27,49,0)", light.surface],
+  const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
+    scaleTo: 0.96,
   });
+  const bgStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["rgba(25,27,49,0)", light.surface],
+    ),
+  }));
 
   return (
     <BottomSheetTouchableOpacity
@@ -259,12 +268,7 @@ export function SheetItem({
       onPressOut={onPressOut}
       onPress={onPress}
     >
-      <Animated.View
-        style={[
-          styles.sheetModelItem,
-          { transform: [{ scale }], backgroundColor },
-        ]}
-      >
+      <Reanimated.View style={[styles.sheetModelItem, scaleStyle, bgStyle]}>
         <View style={styles.sheetModelItemLabelRow}>
           <Text
             style={[
@@ -283,7 +287,7 @@ export function SheetItem({
         {isActive && (
           <Ionicons name="checkmark" size={20} color={light.accent} />
         )}
-      </Animated.View>
+      </Reanimated.View>
     </BottomSheetTouchableOpacity>
   );
 }
