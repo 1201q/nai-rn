@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { File } from "expo-file-system";
 import { create } from "zustand";
 
@@ -28,6 +27,7 @@ import {
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
+import { storage } from "../lib/storage";
 import {
   MAX_VIBE_REFERENCES,
   addVibeReferenceFromImage,
@@ -366,6 +366,57 @@ type QueueParams = {
 let pendingQueue: QueueParams | null = null;
 let queueRunning = false;
 
+// 부팅 시 MMKV에서 저장된 옵션을 동기 읽기 → store 초기 state로 즉시 복원.
+// 손상/구버전 데이터 방어를 위해 필드별 타입 검증 후 통과한 값만 반환.
+function loadPersistedOptions(): Partial<GenerationState> {
+  const stored = storage.getString(GENERATION_OPTIONS_STORAGE_KEY);
+  if (!stored) return {};
+
+  try {
+    const parsed = JSON.parse(stored) as PersistedGenerationOptions;
+    const next: Partial<GenerationState> = {};
+    if (isString(parsed.prompt)) next.prompt = parsed.prompt;
+    if (isString(parsed.negativePrompt)) {
+      next.negativePrompt = parsed.negativePrompt;
+    }
+    next.characterPrompts = resolveStoredCharacterPrompts(
+      parsed.characterPrompts,
+    );
+    if (isString(parsed.model)) next.model = parsed.model;
+
+    const storedResolution = resolveStoredResolution(parsed.resolution);
+    if (storedResolution) next.resolution = storedResolution;
+
+    if (isNumber(parsed.steps)) next.steps = parsed.steps;
+    if (isNumber(parsed.promptGuidance)) {
+      next.promptGuidance = parsed.promptGuidance;
+    }
+    if (isNumber(parsed.promptGuidanceRescale)) {
+      next.promptGuidanceRescale = parsed.promptGuidanceRescale;
+    }
+    if (isNoiseSchedule(parsed.noiseSchedule)) {
+      next.noiseSchedule = parsed.noiseSchedule;
+    }
+    if (isString(parsed.sampler)) next.sampler = parsed.sampler;
+    if (isNumber(parsed.seed)) next.seed = parsed.seed;
+    if (isBoolean(parsed.seedLocked)) next.seedLocked = parsed.seedLocked;
+    if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
+    if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
+    if (isBoolean(parsed.normalizeVibeStrengths)) {
+      next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
+    }
+    if (
+      isNumber(parsed.optionTabIndex) &&
+      (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
+    ) {
+      next.optionTabIndex = parsed.optionTabIndex;
+    }
+    return next;
+  } catch {
+    return {};
+  }
+}
+
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   prompt:
     "silver-haired mage, under moonlight, arcane magic circle, purple runes, starry night",
@@ -697,7 +748,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }),
   optionTabIndex: 0,
   setOptionTabIndex: (v) => set({ optionTabIndex: v }),
-  hasLoadedOptions: false,
+  // MMKV 동기 읽기로 부팅 시점에 이미 복원 완료.
+  hasLoadedOptions: true,
+
+  // 저장된 옵션을 기본값 위에 덮어쓰기 (데이터 필드만, 메서드 미영향).
+  ...loadPersistedOptions(),
 
   storedToken: null,
   saveToken: async (token) => {
@@ -1132,57 +1187,8 @@ export function useGenerationBootstrap() {
   useEffect(() => {
     const { setState } = useGenerationStore;
 
-    AsyncStorage.getItem(GENERATION_OPTIONS_STORAGE_KEY)
-      .then((storedOptions) => {
-        if (!storedOptions) return;
-
-        const parsed = JSON.parse(storedOptions) as PersistedGenerationOptions;
-        const next: Partial<GenerationState> = {};
-        if (isString(parsed.prompt)) next.prompt = parsed.prompt;
-        if (isString(parsed.negativePrompt)) {
-          next.negativePrompt = parsed.negativePrompt;
-        }
-        next.characterPrompts = resolveStoredCharacterPrompts(
-          parsed.characterPrompts,
-        );
-        if (isString(parsed.model)) next.model = parsed.model;
-
-        const storedResolution = resolveStoredResolution(parsed.resolution);
-        if (storedResolution) next.resolution = storedResolution;
-
-        if (isNumber(parsed.steps)) next.steps = parsed.steps;
-        if (isNumber(parsed.promptGuidance)) {
-          next.promptGuidance = parsed.promptGuidance;
-        }
-        if (isNumber(parsed.promptGuidanceRescale)) {
-          next.promptGuidanceRescale = parsed.promptGuidanceRescale;
-        }
-        if (isNoiseSchedule(parsed.noiseSchedule)) {
-          next.noiseSchedule = parsed.noiseSchedule;
-        }
-        if (isString(parsed.sampler)) next.sampler = parsed.sampler;
-        if (isNumber(parsed.seed)) next.seed = parsed.seed;
-        if (isBoolean(parsed.seedLocked)) next.seedLocked = parsed.seedLocked;
-        if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
-        if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
-        if (isBoolean(parsed.normalizeVibeStrengths)) {
-          next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
-        }
-        if (
-          isNumber(parsed.optionTabIndex) &&
-          (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
-        ) {
-          next.optionTabIndex = parsed.optionTabIndex;
-        }
-        setState(next);
-      })
-      .catch((error: unknown) => {
-        setState({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      })
-      .finally(() => setState({ hasLoadedOptions: true }));
-
+    // 옵션은 store 생성 시 MMKV에서 동기 복원됨 (loadPersistedOptions).
+    // 여기서는 토큰/히스토리/레퍼런스 비동기 로드만 처리.
     getNovelAiToken()
       .then((token) => {
         setState({ storedToken: token });
@@ -1262,13 +1268,7 @@ export function useGenerationBootstrap() {
       if (json === lastJson) return;
       lastJson = json;
 
-      AsyncStorage.setItem(GENERATION_OPTIONS_STORAGE_KEY, json).catch(
-        (error: unknown) => {
-          useGenerationStore.setState({
-            message: error instanceof Error ? error.message : String(error),
-          });
-        },
-      );
+      storage.set(GENERATION_OPTIONS_STORAGE_KEY, json);
     });
 
     return unsubscribe;
