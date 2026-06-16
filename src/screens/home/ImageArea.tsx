@@ -4,7 +4,6 @@ import {
   Alert,
   Animated,
   BackHandler,
-  Image as ReactNativeImage,
   Pressable,
   TouchableOpacity,
   View,
@@ -12,7 +11,10 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
-import { Image as ExpoImage } from "expo-image";
+import {
+  Image as ExpoImage,
+  type ImageLoadEventData,
+} from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
   useAnimatedStyle,
@@ -63,26 +65,19 @@ export function ImageArea() {
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
 
+  // 이미지 교체 시 비율을 생성 해상도 기준값으로 리셋 (실측은 expo-image onLoad).
   useEffect(() => {
-    let cancelled = false;
     setImageAspect(generationAspect);
+  }, [displayedImageUri, generationAspect]);
 
-    if (!displayedImageUri || isStreamingPreview) return;
-
-    ReactNativeImage.getSize(
-      displayedImageUri,
-      (width, height) => {
-        if (!cancelled && width > 0 && height > 0) {
-          setImageAspect(width / height);
-        }
-      },
-      () => {},
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [displayedImageUri, generationAspect, isStreamingPreview]);
+  // expo-image가 로드한 실제 픽셀 크기로 비율 보정. 별도 getSize 재요청 없음.
+  const handleImageLoad = (e: ImageLoadEventData) => {
+    if (isStreamingPreview) return;
+    const { width, height } = e.source;
+    if (width > 0 && height > 0) {
+      setImageAspect(width / height);
+    }
+  };
 
   function openImagePreview() {
     if (!currentImageUri || isStreamingPreview) return;
@@ -210,6 +205,7 @@ export function ImageArea() {
                 cachePolicy="memory-disk"
                 transition={0}
                 style={styles.generatedImage}
+                onLoad={handleImageLoad}
               />
             </Pressable>
           ) : null}
