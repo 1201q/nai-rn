@@ -133,7 +133,7 @@ export function ImageArea() {
         return;
       }
 
-      await MediaLibrary.saveToLibraryAsync(currentImageUri);
+      await MediaLibrary.Asset.create(currentImageUri);
       Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
