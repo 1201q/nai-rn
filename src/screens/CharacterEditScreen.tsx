@@ -9,7 +9,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   type SharedValue,
@@ -23,7 +23,6 @@ import {
   type CharacterPrompt,
   useGenerationStore,
 } from "../store/generationStore";
-import type { CharacterEditScreenNavigationProp } from "../navigation/types";
 import { triggerSelectionHaptic, BADGE_COLORS } from "./option/helpers";
 import { light } from "./home/styles";
 
@@ -168,8 +167,7 @@ function DraggableRow({
 
 export function CharacterEditScreen() {
   const insets = useSafeAreaInsets();
-  const navigation =
-    useNavigation<CharacterEditScreenNavigationProp>();
+  const router = useRouter();
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
 
@@ -214,7 +212,7 @@ export function CharacterEditScreen() {
   function handleDelete() {
     setCharacterPrompts(items.filter((item) => !selectedIds.has(item.id)));
     triggerSelectionHaptic();
-    navigation.goBack();
+    router.back();
   }
 
   return (
@@ -227,7 +225,7 @@ export function CharacterEditScreen() {
           activeOpacity={0.78}
           accessibilityRole="button"
           accessibilityLabel="Back"
-          onPress={() => navigation.goBack()}
+          onPress={() => router.back()}
         >
           <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
         </TouchableOpacity>
@@ -261,7 +259,7 @@ export function CharacterEditScreen() {
             hasDeletions ? styles.deleteButton : styles.doneButton,
           ]}
           activeOpacity={0.85}
-          onPress={hasDeletions ? handleDelete : () => navigation.goBack()}
+          onPress={hasDeletions ? handleDelete : () => router.back()}
         >
           <Text
             style={[

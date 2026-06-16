@@ -12,16 +12,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 import { useGenerationStore } from "../store/generationStore";
-import type { SettingsScreenNavigationProp } from "../navigation/types";
 import { light } from "./home/styles";
 import { ScreenHeader } from "../components/ScreenHeader";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const router = useRouter();
   const storedToken = useGenerationStore((s) => s.storedToken);
   const saveToken = useGenerationStore((s) => s.saveToken);
   const [tokenInput, setTokenInput] = useState("");
@@ -57,7 +56,7 @@ export function SettingsScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
 
-      <ScreenHeader title="Settings" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Settings" onBack={() => router.back()} />
 
       <KeyboardAvoidingView
         style={styles.flex}

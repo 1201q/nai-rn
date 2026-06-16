@@ -13,9 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
-import type { MainScreenNavigationProp } from "../../navigation/types";
 import { light, styles } from "../home/styles";
 import { ImageArea } from "../home/ImageArea";
 import { OptionChips } from "../home/OptionChips";
@@ -30,7 +29,7 @@ export function MainPage({
   onSheetOpenChange?: (isOpen: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<MainScreenNavigationProp>();
+  const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const isLoading = useGenerationStore((s) => s.isLoading);
   const queueTotal = useGenerationStore((s) => s.queueTotal);
@@ -116,7 +115,7 @@ export function MainPage({
             activeOpacity={0.78}
             accessibilityRole="button"
             accessibilityLabel="Settings"
-            onPress={() => navigation.navigate("Settings")}
+            onPress={() => router.push("/settings")}
           >
             <Ionicons
               name="settings-outline"

@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
@@ -26,7 +26,6 @@ import {
   type CharacterPrompt,
   useGenerationStore,
 } from "../store/generationStore";
-import type { CharacterScreenNavigationProp } from "../navigation/types";
 import { MAX_CHARACTER_PROMPTS } from "../constants/generation";
 import { SuggestionBarProvider } from "../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../hooks/usePromptAutocomplete";
@@ -221,7 +220,7 @@ function CharacterPromptCard({
 
 export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<CharacterScreenNavigationProp>();
+  const router = useRouter();
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
@@ -346,7 +345,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
                 activeOpacity={0.78}
                 accessibilityRole="button"
                 accessibilityLabel="Back"
-                onPress={() => navigation.goBack()}
+                onPress={() => router.back()}
               >
                 <Ionicons
                   name="chevron-back"
@@ -363,7 +362,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
                 activeOpacity={0.78}
                 accessibilityRole="button"
                 accessibilityLabel="캐릭터 편집"
-                onPress={() => navigation.navigate("CharacterEdit")}
+                onPress={() => router.push("/character-edit")}
               >
                 <Ionicons
                   name="create-outline"

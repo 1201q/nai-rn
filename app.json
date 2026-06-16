@@ -3,6 +3,7 @@
     "name": "NovelAI - Image Generator",
     "slug": "nai-rn",
     "version": "1.0.0",
+    "scheme": "nairn",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -26,9 +27,11 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
+      "expo-router",
       "expo-secure-store",
       "expo-sqlite",
       "expo-image",
