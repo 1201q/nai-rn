@@ -37,7 +37,9 @@
         {
           "photosPermission": "사진을 선택하고 저장하기 위해 사진 보관함 접근 권한이 필요합니다.",
           "savePhotosPermission": "생성한 이미지를 사진 보관함에 저장하기 위해 권한이 필요합니다.",
-          "granularPermissions": ["photo"]
+          "granularPermissions": [
+            "photo"
+          ]
         }
       ],
       "expo-font",
@@ -53,11 +55,14 @@
         {
           "android": {
             "foregroundService": {
-              "types": ["dataSync"]
+              "types": [
+                "dataSync"
+              ]
             }
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
