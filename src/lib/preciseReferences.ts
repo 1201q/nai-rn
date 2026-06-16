@@ -171,7 +171,7 @@ function getImageExtension(input: PreciseReferenceImageInput) {
 async function copyImageToFile(sourceUri: string, destinationFile: File) {
   try {
     const sourceFile = new File(sourceUri);
-    sourceFile.copy(destinationFile);
+    await sourceFile.copy(destinationFile);
   } catch {
     const sourceFile = new File(sourceUri);
     const base64 = await sourceFile.base64();

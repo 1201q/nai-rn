@@ -206,7 +206,7 @@ export const styles = StyleSheet.create({
     elevation: 6,
   },
   previewCloseBg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 999,
     overflow: "hidden",
     backgroundColor: "rgba(25,27,49,0.78)",
@@ -214,7 +214,7 @@ export const styles = StyleSheet.create({
     borderColor: light.border,
   },
   previewCloseTouch: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999,

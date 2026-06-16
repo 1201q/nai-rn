@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pillBg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 999,
     shadowColor: "#000000",
     shadowOpacity: 0.1,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   pillBgClip: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 999,
     overflow: "hidden",
   },
