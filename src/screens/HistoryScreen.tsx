@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -85,7 +85,7 @@ const HistoryTile = memo(function HistoryTile({
         onOpenPreview(index);
       }}
       onLongPress={() => onEnterSelectionMode(item.id)}
-      delayLongPress={250}
+      delayLongPress={180}
       style={[
         styles.tile,
         {
@@ -149,6 +149,10 @@ export function HistoryScreen({
   const [bgMounted, setBgMounted] = useState(false);
   const [barMounted, setBarMounted] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const previewImages = useMemo(
+    () => generationHistory.map(resolveGenerationImageUri),
+    [generationHistory],
+  );
   const selectedCount = selectedIds.size;
   const hasSelection = selectedCount > 0;
   const allSelected =
@@ -379,6 +383,10 @@ export function HistoryScreen({
         numColumns={3}
         showsVerticalScrollIndicator={false}
         style={styles.list}
+        removeClippedSubviews
+        initialNumToRender={15}
+        maxToRenderPerBatch={9}
+        windowSize={7}
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -536,7 +544,7 @@ export function HistoryScreen({
 
       <ImagePreviewModal
         visible={isPreviewOpen}
-        images={generationHistory.map(resolveGenerationImageUri)}
+        images={previewImages}
         initialIndex={previewIndex}
         animation={previewAnimation}
         onClose={closePreview}
