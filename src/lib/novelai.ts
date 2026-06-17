@@ -425,20 +425,23 @@ function createImageGenerationBody({
   };
 }
 
+// NovelAI 스트림은 LF만 사용(실측 확인). regex 대신 indexOf로 경계 탐색하고,
+// scanOffset으로 이전 청크까지 스캔한 위치를 기억해 매 청크 전체 재스캔(O(n²))을 막는다.
 function parseSseEvents(
   buffer: string,
+  scanOffset: number,
   onEvent: (eventName: string, data: unknown) => void,
-) {
+): { rest: string; scanOffset: number } {
   let nextBuffer = buffer;
-  let separatorIndex = nextBuffer.search(/\r?\n\r?\n/);
+  let from = scanOffset;
+  let separatorIndex = nextBuffer.indexOf("\n\n", from);
 
   while (separatorIndex !== -1) {
     const rawEvent = nextBuffer.slice(0, separatorIndex);
-    nextBuffer = nextBuffer
-      .slice(separatorIndex)
-      .replace(/^\r?\n\r?\n/, "");
+    nextBuffer = nextBuffer.slice(separatorIndex + 2);
+    from = 0;
 
-    const lines = rawEvent.split(/\r?\n/);
+    const lines = rawEvent.split("\n");
     const eventName =
       lines
         .find((line) => line.startsWith("event:"))
@@ -460,10 +463,11 @@ function parseSseEvents(
 
     onEvent(eventName, data);
 
-    separatorIndex = nextBuffer.search(/\r?\n\r?\n/);
+    separatorIndex = nextBuffer.indexOf("\n\n", from);
   }
 
-  return nextBuffer;
+  // 경계 "\n\n"가 청크 사이에 걸칠 수 있어 1글자 겹쳐 다음 스캔 시작점을 잡는다.
+  return { rest: nextBuffer, scanOffset: Math.max(0, nextBuffer.length - 1) };
 }
 
 function getStreamErrorMessage(data: unknown): string {
@@ -530,6 +534,7 @@ export async function generateNovelAiImageStream(
     const xhr = new XMLHttpRequest();
     let responseOffset = 0;
     let buffer = "";
+    let scanOffset = 0;
     let finalImageBase64: string | null = null;
     let isSettled = false;
 
@@ -540,7 +545,7 @@ export async function generateNovelAiImageStream(
     }
 
     function handleStreamText(text: string) {
-      buffer = parseSseEvents(buffer + text, (_eventName, data) => {
+      const result = parseSseEvents(buffer + text, scanOffset, (_eventName, data) => {
         const streamEvent = toNovelAiImageStreamEvent(data);
         if (!streamEvent) return;
 
@@ -561,6 +566,8 @@ export async function generateNovelAiImageStream(
           xhr.abort();
         }
       });
+      buffer = result.rest;
+      scanOffset = result.scanOffset;
     }
 
     xhr.open("POST", NOVELAI_IMAGE_STREAM_API_URL, true);
