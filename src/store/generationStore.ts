@@ -65,6 +65,8 @@ import {
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
+// 알림 step 갱신 throttle (네이티브 displayNotification 호출 상한)
+const NOTIF_PROGRESS_THROTTLE_MS = 800;
 const DEFAULT_I2I_STRENGTH = 0.7;
 const DEFAULT_I2I_NOISE = 0;
 
@@ -320,6 +322,7 @@ export type GenerationState = {
   // 연속 생성 큐
   queueTotal: number;
   queueIndex: number;
+  queueSteps: number;
   queueCancelRequested: boolean;
   requestQueueCancel: () => void;
   generateImage: (
@@ -802,6 +805,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   queueTotal: 0,
   queueIndex: 0,
+  queueSteps: 0,
   queueCancelRequested: false,
   requestQueueCancel: () => set({ queueCancelRequested: true }),
 
@@ -1019,6 +1023,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       message: null,
       queueTotal: total,
       queueIndex: 0,
+      queueSteps: s.steps,
       queueCancelRequested: false,
       streamingPreviewUri: null,
       streamingStep: null,
@@ -1028,7 +1033,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
     // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
     // 또는 비-Android면 직접 구동(포그라운드 한정).
-    const started = await startGenerationService(total);
+    const started = await startGenerationService(total, s.steps);
     if (started) return;
     await get().runQueueTask();
   },
@@ -1041,6 +1046,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     const { token, prompt, negativePrompt, characterPrompts, opts, total } =
       params;
+    const steps = opts.steps;
+    const totalSteps = total * steps;
+    // 큐 전체에 걸친 알림 throttle 타임스탬프 (이미지 경계에서도 유지).
+    let lastNotifAt = 0;
 
     try {
       for (let i = 1; i <= total; i++) {
@@ -1052,7 +1061,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           streamingStep: null,
           streamingGenerationId: null,
         });
-        updateGenerationProgress(i, total);
+        // 이미지 경계: 직전 장 완료분까지 bar 강제 갱신.
+        lastNotifAt = Date.now();
+        updateGenerationProgress(i, total, (i - 1) * steps, totalSteps);
 
         // 이번 장 시드 확정 후, 잠금이 아니면 즉시 다음 시드로 advance (UI에 다음 시드 표시)
         let currentSeed = get().seed;
@@ -1075,6 +1086,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           },
           (event) => {
             if (event.type === "intermediate") {
+              // 알림 step % — 가벼움(정수 산술 + 네이티브 호출), fg/bg 모두, throttle.
+              const tNow = Date.now();
+              if (tNow - lastNotifAt > NOTIF_PROGRESS_THROTTLE_MS) {
+                lastNotifAt = tNow;
+                const doneSteps = (i - 1) * steps + (event.step ?? 0);
+                updateGenerationProgress(i, total, doneSteps, totalSteps);
+              }
+
               // 백그라운드에선 미리보기 base64 디코딩이 메모리 낭비 — 스킵
               if (AppState.currentState !== "active") {
                 return;
@@ -1146,6 +1165,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         isLoading: false,
         queueTotal: 0,
         queueIndex: 0,
+        queueSteps: 0,
         queueCancelRequested: false,
         streamingPreviewUri: null,
         streamingStep: null,
@@ -1154,6 +1174,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
   },
 }));
+
+// 전체 생성 진행률 (0~1). 완료 이미지 step + 현재 이미지 step 합산.
+export const selectOverallPercent = (s: GenerationState) => {
+  if (s.queueTotal === 0 || s.queueSteps === 0) return 0;
+  const done = (s.queueIndex - 1) * s.queueSteps + (s.streamingStep ?? 0);
+  return Math.min(1, Math.max(0, done / (s.queueTotal * s.queueSteps)));
+};
 
 // 초기 로드(옵션/토큰/히스토리) + persist 구독. Provider에서 1회 호출.
 export function useGenerationBootstrap() {
@@ -1178,6 +1205,7 @@ export function useGenerationBootstrap() {
         isLoading: false,
         queueTotal: 0,
         queueIndex: 0,
+        queueSteps: 0,
         queueCancelRequested: false,
       });
       void stopGenerationService();

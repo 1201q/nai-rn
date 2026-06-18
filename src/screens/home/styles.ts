@@ -139,6 +139,25 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     backgroundColor: light.accent,
+    overflow: "hidden",
+  },
+  // 생성 중 어두운 베이스 (채움 바가 그 위로 좌→우 진행)
+  generateButtonLoading: {
+    backgroundColor: "#7C7A54",
+  },
+  generateButtonFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: light.accent,
+  },
+  generateButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    zIndex: 1,
   },
   generateButtonText: {
     color: light.accentText,

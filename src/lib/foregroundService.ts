@@ -23,32 +23,42 @@ async function ensureNotifReady() {
   }
 }
 
-function progressBody(index: number, total: number) {
-  return total > 1 ? `${index}/${total} 생성중` : "생성중...";
+// body: 이미지 개수 + 전체 % (예: "4/5 · 45%"), bar: step 단위 전체 진행.
+function progressBody(
+  imageIndex: number,
+  imageTotal: number,
+  doneSteps: number,
+  totalSteps: number,
+) {
+  const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+  return imageTotal > 1 ? `${imageIndex}/${imageTotal} · ${pct}%` : `${pct}% 생성중`;
 }
 
-function progressConfig(index: number, total: number) {
-  return total > 1
-    ? { max: total, current: index }
+function progressConfig(doneSteps: number, totalSteps: number) {
+  return totalSteps > 0
+    ? { max: totalSteps, current: doneSteps }
     : { indeterminate: true };
 }
 
 // 반환값: foreground service 알림이 떠서 등록 태스크가 큐를 구동할지 여부.
 // false면 호출 측이 직접 큐를 돌려야 함(포그라운드 한정).
-export async function startGenerationService(total: number): Promise<boolean> {
+export async function startGenerationService(
+  total: number,
+  steps: number,
+): Promise<boolean> {
   if (!isAndroid) return false;
   try {
     await ensureNotifReady();
     await notifee.displayNotification({
       id: NOTIF_ID,
       title: "이미지 생성",
-      body: progressBody(0, total),
+      body: progressBody(0, total, 0, total * steps),
       android: {
         channelId: CHANNEL_ID,
         asForegroundService: true,
         onlyAlertOnce: true,
         ongoing: true,
-        progress: progressConfig(0, total),
+        progress: progressConfig(0, total * steps),
         pressAction: { id: "default" },
         actions: [{ title: "취소", pressAction: { id: CANCEL_ACTION_ID } }],
       },
@@ -60,19 +70,24 @@ export async function startGenerationService(total: number): Promise<boolean> {
   }
 }
 
-export async function updateGenerationProgress(index: number, total: number) {
+export async function updateGenerationProgress(
+  imageIndex: number,
+  imageTotal: number,
+  doneSteps: number,
+  totalSteps: number,
+) {
   if (!isAndroid) return;
   try {
     await notifee.displayNotification({
       id: NOTIF_ID,
       title: "이미지 생성",
-      body: progressBody(index, total),
+      body: progressBody(imageIndex, imageTotal, doneSteps, totalSteps),
       android: {
         channelId: CHANNEL_ID,
         asForegroundService: true,
         onlyAlertOnce: true,
         ongoing: true,
-        progress: progressConfig(index, total),
+        progress: progressConfig(doneSteps, totalSteps),
         pressAction: { id: "default" },
         actions: [{ title: "취소", pressAction: { id: CANCEL_ACTION_ID } }],
       },

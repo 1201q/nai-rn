@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   type LayoutChangeEvent,
   Text,
   TouchableOpacity,
@@ -19,6 +18,7 @@ import { light, styles } from "../home/styles";
 import { ImageArea } from "../home/ImageArea";
 import { OptionChips } from "../home/OptionChips";
 import { ScalePressable } from "../home/primitives";
+import { GenerateButton } from "./GenerateButton";
 import { useGenerationStore } from "../../store/generationStore";
 import { OptionSheets } from "../home/OptionSheets";
 import type { OptionRoute, OptionsSheetHandle } from "../home/OptionsSheet";
@@ -31,12 +31,7 @@ export function MainPage({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
-  const isLoading = useGenerationStore((s) => s.isLoading);
-  const queueTotal = useGenerationStore((s) => s.queueTotal);
-  const queueIndex = useGenerationStore((s) => s.queueIndex);
   const batchCount = useGenerationStore((s) => s.batchCount);
-  const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
-  const generateImage = useGenerationStore((s) => s.generateImage);
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
 
   const optionsRef = useRef<OptionsSheetHandle>(null);
@@ -80,14 +75,6 @@ export function MainPage({
     ),
     [],
   );
-
-  const handleGenerate = () => {
-    if (isLoading) {
-      requestQueueCancel();
-      return;
-    }
-    generateImage();
-  };
 
   const handleBottomAreaLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -148,24 +135,7 @@ export function MainPage({
             />
             <Text style={styles.batchCountButtonText}>{batchCount}장</Text>
           </ScalePressable>
-          <View style={styles.generateButtonWrap}>
-            <ScalePressable style={styles.generateButton} onPress={handleGenerate}>
-              {isLoading ? (
-                queueTotal > 1 ? (
-                  <Text style={styles.generateButtonText}>
-                    취소 ({queueIndex}/{queueTotal})
-                  </Text>
-                ) : (
-                  <ActivityIndicator color={light.accentText} size="small" />
-                )
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color={light.accentText} />
-                  <Text style={styles.generateButtonText}>생성</Text>
-                </>
-              )}
-            </ScalePressable>
-          </View>
+          <GenerateButton />
         </View>
       </View>
 
