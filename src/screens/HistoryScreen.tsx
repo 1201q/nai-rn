@@ -8,10 +8,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
+import Reanimated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Image as ExpoImage } from "expo-image";
@@ -31,7 +31,10 @@ import {
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
+import { useScalePress } from "./home/useScalePress";
 import { light } from "./home/styles";
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable);
 
 const TileImage = memo(function TileImage({
   item,
@@ -74,9 +77,13 @@ const HistoryTile = memo(function HistoryTile({
   onEnterSelectionMode: (id: string) => void;
   onToggleSelection: (id: string) => void;
 }) {
+  const { onPressIn, onPressOut, scaleStyle } = useScalePress({
+    scaleTo: 0.97,
+  });
   return (
-    <TouchableOpacity
-      activeOpacity={0.86}
+    <AnimatedPressable
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={() => {
         if (isSelectionMode) {
           onToggleSelection(item.id);
@@ -88,6 +95,7 @@ const HistoryTile = memo(function HistoryTile({
       delayLongPress={180}
       style={[
         styles.tile,
+        scaleStyle,
         {
           width: itemSize,
           height: itemSize,
@@ -97,6 +105,9 @@ const HistoryTile = memo(function HistoryTile({
       ]}
     >
       <TileImage item={item} />
+      {isSelected ? (
+        <View pointerEvents="none" style={styles.selectedDim} />
+      ) : null}
       {isSelectionMode ? (
         <>
           <View
@@ -114,11 +125,11 @@ const HistoryTile = memo(function HistoryTile({
             onPress={() => onOpenPreview(index)}
             hitSlop={4}
           >
-            <Ionicons name="expand-outline" size={14} color="#ffffff" />
+            <Ionicons name="expand-outline" size={12} color="#ffffff" />
           </Pressable>
         </>
       ) : null}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 });
 
@@ -158,16 +169,19 @@ export function HistoryScreen({
   const allSelected =
     generationHistory.length > 0 && selectedCount === generationHistory.length;
 
-  const openPreview = useCallback((index: number) => {
-    setPreviewIndex(index);
-    setIsPreviewOpen(true);
-    previewAnimation.setValue(0);
-    Animated.timing(previewAnimation, {
-      toValue: 1,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  }, [previewAnimation]);
+  const openPreview = useCallback(
+    (index: number) => {
+      setPreviewIndex(index);
+      setIsPreviewOpen(true);
+      previewAnimation.setValue(0);
+      Animated.timing(previewAnimation, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    },
+    [previewAnimation],
+  );
 
   function closePreview() {
     Animated.timing(previewAnimation, {
@@ -303,7 +317,10 @@ export function HistoryScreen({
       await deleteGenerations(ids);
       exitSelectionMode();
     } catch {
-      Alert.alert("삭제 실패", "선택한 이미지를 history에서 삭제하지 못했습니다.");
+      Alert.alert(
+        "삭제 실패",
+        "선택한 이미지를 history에서 삭제하지 못했습니다.",
+      );
     } finally {
       setIsDeletingSelected(false);
     }
@@ -446,7 +463,11 @@ export function HistoryScreen({
                 onPress={toggleSelectAll}
               >
                 {allSelected ? (
-                  <Ionicons name="checkmark" size={14} color={light.accentText} />
+                  <Ionicons
+                    name="checkmark"
+                    size={14}
+                    color={light.accentText}
+                  />
                 ) : null}
               </Pressable>
               <Text style={styles.selectionHeaderCount}>{selectedCount}</Text>
@@ -589,6 +610,14 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  selectedDim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
   selectionCircle: {
     position: "absolute",
     top: 8,
@@ -610,9 +639,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 6,
     right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 5,
     backgroundColor: "rgba(0,0,0,0.38)",
     alignItems: "center",
     justifyContent: "center",
