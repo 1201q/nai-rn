@@ -27,6 +27,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { ImagePreviewModal } from "../main/ImagePreviewModal";
+import { MetadataSheet, type MetadataSheetHandle } from "./MetadataSheet";
 import { light, styles } from "./styles";
 
 const IMAGE_SLOT_HORIZONTAL_PADDING = 32;
@@ -58,6 +59,7 @@ export function ImageArea() {
       : 16 / 9;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
+  const metadataSheetRef = useRef<MetadataSheetHandle>(null);
   const slotWidth = useSharedValue(0);
   const slotHeight = useSharedValue(0);
   const [imageAspect, setImageAspect] = useState(generationAspect);
@@ -217,6 +219,20 @@ export function ImageArea() {
               <TouchableOpacity
                 style={styles.imageOverlayButton}
                 activeOpacity={0.82}
+                onPress={() =>
+                  currentGeneration &&
+                  metadataSheetRef.current?.open(currentGeneration)
+                }
+              >
+                <Ionicons
+                  name="information-circle-outline"
+                  size={20}
+                  color="#ffffff"
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.imageOverlayButton}
+                activeOpacity={0.82}
                 onPress={handleSaveImage}
                 disabled={isSavingImage}
               >
@@ -254,6 +270,8 @@ export function ImageArea() {
         animation={previewAnimation}
         onClose={closeImagePreview}
       />
+
+      <MetadataSheet ref={metadataSheetRef} />
     </>
   );
 }

@@ -572,6 +572,7 @@ export function HistoryScreen({
         onSaveCurrent={isSelectionMode ? undefined : handleSavePreview}
         onCopyCurrent={isSelectionMode ? undefined : handleCopyPreview}
         onDeleteCurrent={isSelectionMode ? undefined : handleDeletePreview}
+        metadataRecords={isSelectionMode ? undefined : generationHistory}
       />
     </View>
   );

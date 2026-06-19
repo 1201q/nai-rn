@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GenerationRecord } from "../../lib/generationHistory";
+import {
+  MetadataSheet,
+  type MetadataSheetHandle,
+} from "../home/MetadataSheet";
 import {
   ActivityIndicator,
   Animated,
@@ -28,6 +33,7 @@ export function ImagePreviewModal({
   onSaveCurrent,
   onCopyCurrent,
   onDeleteCurrent,
+  metadataRecords,
 }: {
   visible: boolean;
   images: string[];
@@ -37,6 +43,7 @@ export function ImagePreviewModal({
   onSaveCurrent?: (index: number) => void | Promise<void>;
   onCopyCurrent?: (index: number) => void | Promise<void>;
   onDeleteCurrent?: (index: number) => void | Promise<void>;
+  metadataRecords?: GenerationRecord[];
 }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -44,6 +51,7 @@ export function ImagePreviewModal({
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const controlsVisibleRef = useRef(true);
+  const metadataSheetRef = useRef<MetadataSheetHandle>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -87,6 +95,12 @@ export function ImagePreviewModal({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleMetadata = () => {
+    const record = metadataRecords?.[currentIndex];
+    if (!record) return;
+    metadataSheetRef.current?.open(record);
   };
 
   // 안정 ref: Gallery 의 React.memo(onTap 비교) 때문에 매 렌더 새 함수면
@@ -141,7 +155,10 @@ export function ImagePreviewModal({
       transparent
       statusBarTranslucent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (metadataSheetRef.current?.requestCloseIfOpen()) return;
+        onClose();
+      }}
     >
       <GestureHandlerRootView style={styles.previewGestureRoot}>
         <Animated.View
@@ -186,7 +203,7 @@ export function ImagePreviewModal({
             </TouchableOpacity>
           </Animated.View>
 
-          {onSaveCurrent || onCopyCurrent || onDeleteCurrent ? (
+          {onSaveCurrent || onCopyCurrent || onDeleteCurrent || metadataRecords ? (
             <Animated.View
               pointerEvents={controlsVisible ? "box-none" : "none"}
               style={[
@@ -283,10 +300,29 @@ export function ImagePreviewModal({
                       )}
                     </Pressable>
                   ) : null}
+                  {metadataRecords ? (
+                    <Pressable
+                      style={[
+                        styles.previewActionButton,
+                        busy && styles.previewActionButtonDisabled,
+                      ]}
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={handleMetadata}
+                    >
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={20}
+                        color={light.textPrimary}
+                      />
+                    </Pressable>
+                  ) : null}
                 </BlurView>
               </View>
             </Animated.View>
           ) : null}
+
+          <MetadataSheet ref={metadataSheetRef} />
         </Animated.View>
       </GestureHandlerRootView>
     </Modal>
