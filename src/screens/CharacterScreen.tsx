@@ -17,6 +17,7 @@ import {
   type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 import Animated, {
+  Easing,
   FadeIn,
   FadeOut,
   LinearTransition,
@@ -37,7 +38,9 @@ import { renderPromptHighlights } from "../components/highlightPromptSpans";
 import { light } from "./home/styles";
 
 const TEXTAREA_MIN_HEIGHT = 88;
-const CHARACTER_LAYOUT = LinearTransition.duration(220);
+const CHARACTER_LAYOUT = LinearTransition.duration(240).easing(
+  Easing.out(Easing.cubic),
+);
 const CHARACTER_BODY_ENTERING = FadeIn.duration(140);
 const CHARACTER_BODY_EXITING = FadeOut.duration(100);
 
