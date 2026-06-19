@@ -350,12 +350,11 @@ const styles = StyleSheet.create({
     backgroundColor: light.accent,
   },
   badge: {
-    minWidth: 26,
+    width: 24,
     height: 24,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 7,
-    paddingHorizontal: 6,
   },
   badgeText: {
     color: light.accentText,

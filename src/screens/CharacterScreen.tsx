@@ -205,12 +205,12 @@ function CharacterPromptCard({
           style={styles.characterCardBody}
         >
           <LabeledPromptInput
-            label="Base"
+            label="Prompt"
             value={item.prompt}
             onCommit={(next) => onUpdate({ prompt: next })}
           />
           <LabeledPromptInput
-            label="Negative"
+            label="Negative Prompt"
             negative
             value={item.negativePrompt}
             onCommit={(next) => onUpdate({ negativePrompt: next })}
@@ -455,12 +455,11 @@ const styles = StyleSheet.create({
     backgroundColor: light.surfaceAlt,
   },
   characterBadge: {
-    minWidth: 24,
+    width: 22,
     height: 22,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 7,
-    paddingHorizontal: 6,
   },
   characterBadgeText: {
     color: light.accentText,
@@ -485,28 +484,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   labeledInput: {
-    gap: 6,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: light.textSecondary,
-  },
-  negativeLabel: {
-    color: light.accent,
-  },
-  textArea: {
-    minHeight: TEXTAREA_MIN_HEIGHT,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: light.border,
     backgroundColor: light.bg,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
+    color: light.textSecondary,
+  },
+  negativeLabel: {},
+  textArea: {
+    minHeight: TEXTAREA_MIN_HEIGHT,
     fontSize: 14,
     lineHeight: 20,
     includeFontPadding: false,
     color: light.textPrimary,
+    padding: 0,
   },
   addCharacterButton: {
     flexDirection: "row",
