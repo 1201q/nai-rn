@@ -108,7 +108,7 @@ const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   resolution: "Resolution",
   batchCount: "Batch Count",
   metadata: "Metadata Extract",
-  i2i: "I2I",
+  i2i: "Image2Image",
   vibe: "Vibe Transfer",
   precise: "Precise Ref",
 };
@@ -1434,7 +1434,7 @@ function OptionsMenu({
         <MenuRow label="Metadata Extract" onPress={() => onSelect("metadata")} />
         <View style={styles.sheetCardDivider} />
         <MenuRow
-          label="I2I"
+          label="Image2Image"
           value={i2iSourceImage ? "On" : "Off"}
           active={Boolean(i2iSourceImage)}
           onPress={() => onSelect("i2i")}

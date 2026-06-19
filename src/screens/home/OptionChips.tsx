@@ -42,7 +42,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const resolutionText = i2iSourceImage
     ? (() => {
         const effectiveResolution = getI2IEffectiveResolution(i2iSourceImage);
-        return `I2I ${effectiveResolution.width}x${effectiveResolution.height}`;
+        return `Image2Image ${effectiveResolution.width}x${effectiveResolution.height}`;
       })()
     : `${resolution.width}x${resolution.height}`;
   const summary = [
