@@ -17,6 +17,7 @@ import BottomSheet, {
   BottomSheetScrollView,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
+  type BottomSheetScrollViewMethods,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
@@ -1469,6 +1470,7 @@ export const OptionsSheet = forwardRef<
   ref,
 ) {
   const sheetRef = useRef<BottomSheet>(null);
+  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   const [route, setRoute] = useState<OptionRoute>("menu");
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
@@ -1488,6 +1490,10 @@ export const OptionsSheet = forwardRef<
       openAt: (next = "menu") => {
         goTo(next, next === "menu" ? "back" : "forward");
         sheetRef.current?.snapToIndex(0);
+        // 같은 라우트 재진입은 key remount 가 안 일어나 스크롤이 잔류 → top 리셋.
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ y: 0, animated: false });
+        });
       },
       close: () => sheetRef.current?.close(),
     }),
@@ -1567,6 +1573,7 @@ export const OptionsSheet = forwardRef<
       </Reanimated.View>
 
       <BottomSheetScrollView
+        ref={scrollRef}
         key={route}
         contentContainerStyle={styles.sheetScrollContent}
         showsVerticalScrollIndicator={false}

@@ -17,6 +17,7 @@ import {
 import BottomSheet, {
   BottomSheetBackdrop,
   type BottomSheetBackdropProps,
+  type BottomSheetScrollViewMethods,
 } from "@gorhom/bottom-sheet";
 
 import { renderPromptHighlights } from "../../components/highlightPromptSpans";
@@ -53,6 +54,7 @@ function Field({ label, value }: { label: string; value: string }) {
 export const MetadataSheet = forwardRef<MetadataSheetHandle>(
   function MetadataSheet(_props, ref) {
     const sheetRef = useRef<BottomSheet>(null);
+    const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
     const openRef = useRef(false);
     const { height } = useWindowDimensions();
     const [record, setRecord] = useState<GenerationRecord | null>(null);
@@ -63,7 +65,11 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
         open: (next) => {
           setRecord(next);
           // state 반영 후 측정되도록 다음 프레임에 펼침 (dynamic sizing).
-          requestAnimationFrame(() => sheetRef.current?.expand());
+          // 이전 record 스크롤 위치 잔류 방지로 top 리셋 후 펼침.
+          requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({ y: 0, animated: false });
+            sheetRef.current?.expand();
+          });
         },
         close: () => sheetRef.current?.close(),
         requestCloseIfOpen: () => {
@@ -169,6 +175,7 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
     return (
       <BaseSheet
         sheetRef={sheetRef}
+        scrollRef={scrollRef}
         sheetKey="metadata"
         onSheetChange={(_key, index) => {
           openRef.current = index >= 0;

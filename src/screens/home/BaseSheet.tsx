@@ -2,6 +2,7 @@ import React, { type ComponentProps } from "react";
 import BottomSheet, {
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
+  type BottomSheetScrollViewMethods,
 } from "@gorhom/bottom-sheet";
 
 import { styles } from "./styles";
@@ -14,6 +15,7 @@ type BSProps = ComponentProps<typeof BottomSheet>;
 // 그대로 패스스루. enableDynamicSizing 은 필수 — 호출측이 반드시 명시해 측정 버그 방지.
 export function BaseSheet({
   sheetRef,
+  scrollRef,
   sheetKey,
   onSheetChange,
   renderBackdrop,
@@ -26,6 +28,7 @@ export function BaseSheet({
   children,
 }: {
   sheetRef: React.RefObject<BottomSheet | null>;
+  scrollRef?: React.RefObject<BottomSheetScrollViewMethods | null>;
   sheetKey: string;
   onSheetChange: (sheet: string, index: number) => void;
   renderBackdrop: (props: BottomSheetBackdropProps) => React.ReactElement;
@@ -55,6 +58,7 @@ export function BaseSheet({
       onChange={(index) => onSheetChange(sheetKey, index)}
     >
       <BottomSheetScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.sheetScrollContent}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={stickyHeaderIndices}
