@@ -91,7 +91,7 @@ export type OptionsSheetHandle = {
 };
 
 // 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
-type TransitionDirection = "forward" | "back";
+type TransitionDirection = "forward" | "back" | "none";
 
 const SNAP_POINTS = ["60%", "92%"];
 const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
@@ -1471,24 +1471,56 @@ export const OptionsSheet = forwardRef<
 ) {
   const sheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
-  const [route, setRoute] = useState<OptionRoute>("menu");
+  // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입은 길이 1 → 뒤로가기 시
+  // 닫힘, 메뉴 경유 진입은 push 로 쌓여 뒤로가기 시 pop(이전으로 복귀).
+  const [stack, setStack] = useState<OptionRoute[]>(["menu"]);
+  const stackRef = useRef<OptionRoute[]>(["menu"]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
-  const routeRef = useRef<OptionRoute>("menu");
   const openRef = useRef(false);
 
-  const goTo = useCallback((next: OptionRoute, direction?: TransitionDirection) => {
-    if (routeRef.current === next) return;
-    setTransitionDirection(direction ?? (next === "menu" ? "back" : "forward"));
-    routeRef.current = next;
-    setRoute(next);
-  }, []);
+  const apply = useCallback(
+    (next: OptionRoute[], direction: TransitionDirection) => {
+      stackRef.current = next;
+      setTransitionDirection(direction);
+      setStack(next);
+    },
+    [],
+  );
+
+  // 스택 초기화(직접 진입). next 가 menu 면 루트(기존 등장 애니), 아니면 단일
+  // 상세 — 이전 화면이 없으므로 슬라이드 전환 없음("none").
+  const reset = useCallback(
+    (next: OptionRoute) => {
+      apply([next], next === "menu" ? "back" : "none");
+    },
+    [apply],
+  );
+
+  // 메뉴에서 상세로 진입 — 스택에 쌓아 뒤로가기 가능 상태로.
+  const push = useCallback(
+    (next: OptionRoute) => {
+      if (stackRef.current[stackRef.current.length - 1] === next) return;
+      apply([...stackRef.current, next], "forward");
+    },
+    [apply],
+  );
+
+  // 헤더 백 / Android 백 공통: 쌓인 게 있으면 pop, 없으면 시트 닫기.
+  const back = useCallback(() => {
+    const s = stackRef.current;
+    if (s.length > 1) {
+      apply(s.slice(0, -1), "back");
+    } else {
+      sheetRef.current?.close();
+    }
+  }, [apply]);
 
   useImperativeHandle(
     ref,
     () => ({
       openAt: (next = "menu") => {
-        goTo(next, next === "menu" ? "back" : "forward");
+        reset(next);
         sheetRef.current?.snapToIndex(0);
         // 같은 라우트 재진입은 key remount 가 안 일어나 스크롤이 잔류 → top 리셋.
         requestAnimationFrame(() => {
@@ -1497,7 +1529,7 @@ export const OptionsSheet = forwardRef<
       },
       close: () => sheetRef.current?.close(),
     }),
-    [goTo],
+    [reset],
   );
 
   const handleChange = useCallback(
@@ -1507,21 +1539,11 @@ export const OptionsSheet = forwardRef<
         openRef.current = open;
         onOpenChange(open);
       }
-      if (!open) goTo("menu", "back");
-      // 닫힐 때 다음 열림은 항상 메뉴부터
-      if (!open) goTo("menu");
+      // 닫힐 때 다음 열림 기본값은 항상 메뉴부터.
+      if (!open) reset("menu");
     },
-    [goTo, onOpenChange],
+    [reset, onOpenChange],
   );
-
-  // 헤더 백 / Android 백 공통: 상세면 메뉴로, 메뉴면 시트 닫기.
-  const back = useCallback(() => {
-    if (routeRef.current !== "menu") {
-      goTo("menu", "back");
-    } else {
-      sheetRef.current?.close();
-    }
-  }, [goTo]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -1532,9 +1554,14 @@ export const OptionsSheet = forwardRef<
     return () => sub.remove();
   }, [back]);
 
-  const backToMenu = useCallback(() => goTo("menu", "back"), [goTo]);
+  const route = stack[stack.length - 1];
+  const canBack = stack.length > 1;
   const routeEntering =
-    transitionDirection === "forward" ? ROUTE_ENTER_FORWARD : ROUTE_ENTER_BACK;
+    transitionDirection === "forward"
+      ? ROUTE_ENTER_FORWARD
+      : transitionDirection === "back"
+        ? ROUTE_ENTER_BACK
+        : undefined;
 
   return (
     <BottomSheet
@@ -1558,7 +1585,7 @@ export const OptionsSheet = forwardRef<
         style={styles.sheetRouteContent}
       >
         <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
-          {route !== "menu" && (
+          {canBack && (
             <BottomSheetTouchableOpacity
               style={styles.sheetBackButton}
               onPress={back}
@@ -1585,15 +1612,13 @@ export const OptionsSheet = forwardRef<
         >
           <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetRouteContent}>
             {route === "menu" ? (
-              <OptionsMenu
-                onSelect={(next) => goTo(next, "forward")}
-              />
+              <OptionsMenu onSelect={push} />
             ) : route === "model" ? (
-              <ModelSheet onClose={backToMenu} showTitle={false} />
+              <ModelSheet onClose={back} showTitle={false} />
             ) : route === "sampler" ? (
-              <SamplerSheet onClose={backToMenu} showTitle={false} />
+              <SamplerSheet onClose={back} showTitle={false} />
             ) : route === "schedule" ? (
-              <ScheduleSheet onClose={backToMenu} showTitle={false} />
+              <ScheduleSheet onClose={back} showTitle={false} />
             ) : route === "steps" ? (
               <StepsSheet />
             ) : route === "cfg" ? (
@@ -1603,7 +1628,7 @@ export const OptionsSheet = forwardRef<
             ) : route === "seed" ? (
               <SeedSheet />
             ) : route === "resolution" ? (
-              <ResolutionSheet onClose={backToMenu} />
+              <ResolutionSheet onClose={back} />
             ) : route === "batchCount" ? (
               <BatchCountSheet />
             ) : route === "metadata" ? (
