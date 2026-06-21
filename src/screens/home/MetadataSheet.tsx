@@ -56,20 +56,33 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
     const sheetRef = useRef<BottomSheet>(null);
     const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
     const openRef = useRef(false);
+    const pendingExpandRef = useRef(false);
     const { height } = useWindowDimensions();
     const [record, setRecord] = useState<GenerationRecord | null>(null);
+    // open() 마다 증가 → 컨텐츠 remount 키. onLayout 발화를 보장한다.
+    const [openSeq, setOpenSeq] = useState(0);
+
+    // 새 record 컨텐츠 레이아웃 완료 신호. 측정이 gorhom 에 반영되도록 한 프레임
+    // 양보한 뒤 펼친다 (이중 측정 방지). pendingExpandRef 로 open 당 1회만.
+    const handleContentLayout = useCallback(() => {
+      if (!pendingExpandRef.current) return;
+      pendingExpandRef.current = false;
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+        sheetRef.current?.expand();
+      });
+    }, []);
 
     useImperativeHandle(
       ref,
       () => ({
         open: (next) => {
           setRecord(next);
-          // state 반영 후 측정되도록 다음 프레임에 펼침 (dynamic sizing).
-          // 이전 record 스크롤 위치 잔류 방지로 top 리셋 후 펼침.
-          requestAnimationFrame(() => {
-            scrollRef.current?.scrollTo({ y: 0, animated: false });
-            sheetRef.current?.expand();
-          });
+          // expand 는 open() 에서 직접 호출하지 않는다. openSeq 를 올려 컨텐츠를
+          // remount → 새 record 가 레이아웃된 뒤 onLayout 에서 측정 완료 시점에
+          // 펼친다 (blind rAF 의 "작게 열렸다 커짐" 이중 측정 깜빡임 제거).
+          pendingExpandRef.current = true;
+          setOpenSeq((n) => n + 1);
         },
         close: () => sheetRef.current?.close(),
         requestCloseIfOpen: () => {
@@ -189,49 +202,51 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
           <Text style={homeStyles.sheetTitle}>메타데이터</Text>
         </View>
 
-        {isEmpty ? (
-          <Text style={ms.emptyText}>메타데이터가 없습니다.</Text>
-        ) : (
-          <>
-            {hasPrompts ? (
-              <View style={ms.section}>
-                <Text style={ms.sectionLabel}>프롬프트</Text>
-                {parsed!.prompt ? (
-                  <Field label="Prompt" value={parsed!.prompt} />
-                ) : null}
-                {parsed!.negativePrompt ? (
-                  <Field
-                    label="Undesired Content (UC)"
-                    value={parsed!.negativePrompt}
-                  />
-                ) : null}
-                {parsed!.characters?.map((character, index) => (
-                  <View key={character.id} style={ms.character}>
-                    <Text style={ms.characterLabel}>캐릭터 {index + 1}</Text>
-                    {character.prompt ? (
-                      <Field label="Prompt" value={character.prompt} />
-                    ) : null}
-                    {character.negativePrompt ? (
-                      <Field label="UC" value={character.negativePrompt} />
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            ) : null}
+        <View key={openSeq} onLayout={handleContentLayout}>
+          {isEmpty ? (
+            <Text style={ms.emptyText}>메타데이터가 없습니다.</Text>
+          ) : (
+            <>
+              {hasPrompts ? (
+                <View style={ms.section}>
+                  <Text style={ms.sectionLabel}>프롬프트</Text>
+                  {parsed!.prompt ? (
+                    <Field label="Prompt" value={parsed!.prompt} />
+                  ) : null}
+                  {parsed!.negativePrompt ? (
+                    <Field
+                      label="Undesired Content (UC)"
+                      value={parsed!.negativePrompt}
+                    />
+                  ) : null}
+                  {parsed!.characters?.map((character, index) => (
+                    <View key={character.id} style={ms.character}>
+                      <Text style={ms.characterLabel}>캐릭터 {index + 1}</Text>
+                      {character.prompt ? (
+                        <Field label="Prompt" value={character.prompt} />
+                      ) : null}
+                      {character.negativePrompt ? (
+                        <Field label="UC" value={character.negativePrompt} />
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
-            {settingRows.length > 0 ? (
-              <View style={ms.section}>
-                <Text style={ms.sectionLabel}>설정</Text>
-                {settingRows.map((row) => (
-                  <View key={row.label} style={ms.settingRow}>
-                    <Text style={ms.settingLabel}>{row.label}</Text>
-                    <Text style={ms.settingValue}>{row.value}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </>
-        )}
+              {settingRows.length > 0 ? (
+                <View style={ms.section}>
+                  <Text style={ms.sectionLabel}>설정</Text>
+                  {settingRows.map((row) => (
+                    <View key={row.label} style={ms.settingRow}>
+                      <Text style={ms.settingLabel}>{row.label}</Text>
+                      <Text style={ms.settingValue}>{row.value}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          )}
+        </View>
       </BaseSheet>
     );
   },
