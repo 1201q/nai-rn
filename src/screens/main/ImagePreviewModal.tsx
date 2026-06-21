@@ -1,26 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GenerationRecord } from "../../lib/generationHistory";
 import {
-  MetadataSheet,
-  type MetadataSheetHandle,
-} from "../home/MetadataSheet";
-import {
   ActivityIndicator,
   Animated,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Portal } from "@gorhom/portal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { Gallery } from "react-native-zoom-toolkit";
 
+import { useAppSheet } from "../../context/AppSheetContext";
 import { light } from "../home/styles";
 import { styles } from "./styles";
 
@@ -48,10 +44,10 @@ export function ImagePreviewModal({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
+  const { open: openSheet } = useAppSheet();
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const controlsVisibleRef = useRef(true);
-  const metadataSheetRef = useRef<MetadataSheetHandle>(null);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -100,7 +96,8 @@ export function ImagePreviewModal({
   const handleMetadata = () => {
     const record = metadataRecords?.[currentIndex];
     if (!record) return;
-    metadataSheetRef.current?.open(record);
+    // 전역 호스트의 metadataView 라우트로 — preview 위에 시트가 뜬다(뒤로 시 preview 복귀).
+    openSheet("metadataView", record);
   };
 
   // 안정 ref: Gallery 의 React.memo(onTap 비교) 때문에 매 렌더 새 함수면
@@ -149,35 +146,30 @@ export function ImagePreviewModal({
     [images, initialIndex, toggleControls, handleIndexChange, renderItem],
   );
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      statusBarTranslucent
-      animationType="fade"
-      onRequestClose={() => {
-        if (metadataSheetRef.current?.requestCloseIfOpen()) return;
-        onClose();
-      }}
-    >
-      <GestureHandlerRootView style={styles.previewGestureRoot}>
-        <Animated.View
-          style={[
-            styles.previewBackdrop,
-            {
-              opacity: animation,
-              transform: [
-                {
-                  scale: animation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.94, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          {visible ? gallery : null}
+    // RN Modal 대신 전역 Portal 오버레이 — pager 위로 탈출하되 같은 트리(hero/시트
+    // 호스트와 좌표계 공유). 전역 호스트(metadataView 시트)가 이 위에 뜬다.
+    <Portal>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.previewBackdrop,
+          {
+            opacity: animation,
+            transform: [
+              {
+                scale: animation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.94, 1],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {gallery}
           <Animated.View
             style={[
               styles.previewCloseButton,
@@ -321,10 +313,7 @@ export function ImagePreviewModal({
               </View>
             </Animated.View>
           ) : null}
-
-          <MetadataSheet ref={metadataSheetRef} />
-        </Animated.View>
-      </GestureHandlerRootView>
-    </Modal>
+      </Animated.View>
+    </Portal>
   );
 }

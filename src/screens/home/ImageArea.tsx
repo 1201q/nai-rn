@@ -59,7 +59,7 @@ export function ImageArea() {
       : 16 / 9;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
-  const { open: openSheet } = useAppSheet();
+  const { open: openSheet, isOpen: isSheetOpen } = useAppSheet();
   const slotWidth = useSharedValue(0);
   const slotHeight = useSharedValue(0);
   const [imageAspect, setImageAspect] = useState(generationAspect);
@@ -106,7 +106,8 @@ export function ImageArea() {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (isImagePreviewOpen) {
+        // 시트(metadataView 등)가 preview 위에 떠 있으면 시트가 먼저 닫히도록 양보.
+        if (isImagePreviewOpen && !isSheetOpen) {
           closeImagePreview();
           return true;
         }
@@ -114,7 +115,7 @@ export function ImageArea() {
       },
     );
     return () => subscription.remove();
-  }, [isImagePreviewOpen]);
+  }, [isImagePreviewOpen, isSheetOpen]);
 
   async function handleSaveImage() {
     if (!currentImageUri || isSavingImage) return;

@@ -29,6 +29,7 @@ import {
   resolveGenerationThumbnailUri,
 } from "../lib/generationHistory";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
+import { useAppSheet } from "../context/AppSheetContext";
 import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { useScalePress } from "./home/useScalePress";
@@ -141,6 +142,7 @@ export function HistoryScreen({
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
   const deleteGenerations = useGenerationStore((s) => s.deleteGenerations);
+  const { isOpen: isSheetOpen } = useAppSheet();
 
   const { width } = useWindowDimensions();
   const gap = 2;
@@ -337,6 +339,22 @@ export function HistoryScreen({
     );
     return () => subscription.remove();
   }, [isSelectionMode]);
+
+  // 미리보기 하드웨어 백(이전 RN Modal onRequestClose 대체). 시트가 preview 위에
+  // 떠 있으면 시트가 먼저 닫히도록 양보(전역 호스트 핸들러로 넘김).
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (isPreviewOpen && !isSheetOpen) {
+          closePreview();
+          return true;
+        }
+        return false;
+      },
+    );
+    return () => subscription.remove();
+  }, [isPreviewOpen, isSheetOpen]);
 
   useEffect(() => {
     onSelectionModeChange?.(isSelectionMode);

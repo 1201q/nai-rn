@@ -186,11 +186,7 @@ export const styles = StyleSheet.create({
     fontSize: 13,
   },
   previewBackdrop: {
-    flex: 1,
     backgroundColor: "#000",
-  },
-  previewGestureRoot: {
-    flex: 1,
   },
   // FloatingPillHeader 우측 pill(blur) 과 동일한 위치/모양
   previewCloseButton: {
