@@ -1,33 +1,12 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
-import {
-  ActivityIndicator,
-  BackHandler,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import BottomSheet, {
-  BottomSheetScrollView,
-  TouchableOpacity as BottomSheetTouchableOpacity,
-  type BottomSheetBackdropProps,
-  type BottomSheetScrollViewMethods,
-} from "@gorhom/bottom-sheet";
+import React, { useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
-  FadeIn,
   interpolateColor,
-  SlideInLeft,
-  SlideInRight,
   useAnimatedStyle,
 } from "react-native-reanimated";
 
@@ -85,20 +64,8 @@ export type OptionRoute =
   | "vibe"
   | "precise";
 
-export type OptionsSheetHandle = {
-  openAt: (route?: OptionRoute) => void;
-  close: () => void;
-};
-
-// 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
-type TransitionDirection = "forward" | "back" | "none";
-
-const SNAP_POINTS = ["60%", "92%"];
-const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
-const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
-const ROUTE_FADE_IN = FadeIn.duration(100);
 const IMAGE_PREVIEW_FRAME_ASPECT = 1.58;
-const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
+export const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   model: "Model",
   sampler: "Sampler",
   schedule: "Noise Schedule",
@@ -1457,198 +1424,54 @@ function OptionsMenu({
   );
 }
 
-// --- 라우티드 단일 시트 ---
+// --- 라우트 본문 렌더 (호스트는 AppSheetContext) ---
 
-export const OptionsSheet = forwardRef<
-  OptionsSheetHandle,
+// 옵션 라우트의 본문을 반환. 제목/헤더/스택/스크롤은 호스트(AppSheetContext)가 담당.
+export function renderOptionRoute(
+  route: OptionRoute,
   {
-    onOpenChange: (open: boolean) => void;
-    renderBackdrop: (props: BottomSheetBackdropProps) => React.ReactElement;
-  }
->(function OptionsSheet(
-  { onOpenChange, renderBackdrop },
-  ref,
+    back,
+    close,
+    push,
+  }: {
+    back: () => void;
+    close: () => void;
+    push: (route: OptionRoute) => void;
+  },
 ) {
-  const sheetRef = useRef<BottomSheet>(null);
-  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
-  // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입은 길이 1 → 뒤로가기 시
-  // 닫힘, 메뉴 경유 진입은 push 로 쌓여 뒤로가기 시 pop(이전으로 복귀).
-  const [stack, setStack] = useState<OptionRoute[]>(["menu"]);
-  const stackRef = useRef<OptionRoute[]>(["menu"]);
-  const [transitionDirection, setTransitionDirection] =
-    useState<TransitionDirection>("forward");
-  const openRef = useRef(false);
-
-  const apply = useCallback(
-    (next: OptionRoute[], direction: TransitionDirection) => {
-      stackRef.current = next;
-      setTransitionDirection(direction);
-      setStack(next);
-    },
-    [],
-  );
-
-  // 스택 초기화(직접 진입). next 가 menu 면 루트(기존 등장 애니), 아니면 단일
-  // 상세 — 이전 화면이 없으므로 슬라이드 전환 없음("none").
-  const reset = useCallback(
-    (next: OptionRoute) => {
-      apply([next], next === "menu" ? "back" : "none");
-    },
-    [apply],
-  );
-
-  // 메뉴에서 상세로 진입 — 스택에 쌓아 뒤로가기 가능 상태로.
-  const push = useCallback(
-    (next: OptionRoute) => {
-      if (stackRef.current[stackRef.current.length - 1] === next) return;
-      apply([...stackRef.current, next], "forward");
-    },
-    [apply],
-  );
-
-  // 헤더 백 / Android 백 공통: 쌓인 게 있으면 pop, 없으면 시트 닫기.
-  const back = useCallback(() => {
-    const s = stackRef.current;
-    if (s.length > 1) {
-      apply(s.slice(0, -1), "back");
-    } else {
-      sheetRef.current?.close();
-    }
-  }, [apply]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      openAt: (next = "menu") => {
-        reset(next);
-        sheetRef.current?.snapToIndex(0);
-        // 같은 라우트 재진입은 key remount 가 안 일어나 스크롤이 잔류 → top 리셋.
-        requestAnimationFrame(() => {
-          scrollRef.current?.scrollTo({ y: 0, animated: false });
-        });
-      },
-      close: () => sheetRef.current?.close(),
-    }),
-    [reset],
-  );
-
-  const handleChange = useCallback(
-    (index: number) => {
-      const open = index >= 0;
-      if (open !== openRef.current) {
-        openRef.current = open;
-        onOpenChange(open);
-      }
-      // 닫힐 때 다음 열림 기본값은 항상 메뉴부터.
-      if (!open) reset("menu");
-    },
-    [reset, onOpenChange],
-  );
-
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!openRef.current) return false;
-      back();
-      return true;
-    });
-    return () => sub.remove();
-  }, [back]);
-
-  const route = stack[stack.length - 1];
-  const canBack = stack.length > 1;
-  const routeEntering =
-    transitionDirection === "forward"
-      ? ROUTE_ENTER_FORWARD
-      : transitionDirection === "back"
-        ? ROUTE_ENTER_BACK
-        : undefined;
-
-  return (
-    <BottomSheet
-      ref={sheetRef}
-      index={-1}
-      snapPoints={SNAP_POINTS}
-      enablePanDownToClose
-      backdropComponent={renderBackdrop}
-      style={styles.sheetContainer}
-      containerStyle={styles.sheetContainer}
-      backgroundStyle={styles.sheetBackground}
-      handleIndicatorStyle={styles.sheetHandle}
-      enableDynamicSizing={false}
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      onChange={handleChange}
-    >
-      <Reanimated.View
-        key={`header-${route}`}
-        entering={routeEntering}
-        style={styles.sheetRouteContent}
-      >
-        <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
-          {canBack && (
-            <BottomSheetTouchableOpacity
-              style={styles.sheetBackButton}
-              onPress={back}
-            >
-              <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-            </BottomSheetTouchableOpacity>
-          )}
-          <Text style={styles.sheetBackTitle} numberOfLines={1}>
-            {route === "menu" ? "Options" : DETAIL_TITLES[route]}
-          </Text>
-        </Reanimated.View>
-      </Reanimated.View>
-
-      <BottomSheetScrollView
-        ref={scrollRef}
-        key={route}
-        contentContainerStyle={styles.sheetScrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Reanimated.View
-          key={route}
-          entering={routeEntering}
-          style={styles.sheetRouteContent}
-        >
-          <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetRouteContent}>
-            {route === "menu" ? (
-              <OptionsMenu onSelect={push} />
-            ) : route === "model" ? (
-              <ModelSheet onClose={back} showTitle={false} />
-            ) : route === "sampler" ? (
-              <SamplerSheet onClose={back} showTitle={false} />
-            ) : route === "schedule" ? (
-              <ScheduleSheet onClose={back} showTitle={false} />
-            ) : route === "steps" ? (
-              <StepsSheet />
-            ) : route === "cfg" ? (
-              <CfgSheet />
-            ) : route === "cfgRescale" ? (
-              <CfgRescaleSheet />
-            ) : route === "seed" ? (
-              <SeedSheet />
-            ) : route === "resolution" ? (
-              <ResolutionSheet onClose={back} />
-            ) : route === "batchCount" ? (
-              <BatchCountSheet />
-            ) : route === "metadata" ? (
-              <ImageUploadSheet
-                onClose={() => sheetRef.current?.close()}
-                showTitle={false}
-              />
-            ) : route === "i2i" ? (
-              <I2ISheet />
-            ) : route === "vibe" ? (
-              <VibeSheet />
-            ) : route === "precise" ? (
-              <PreciseReferenceSheet />
-            ) : null}
-          </Reanimated.View>
-        </Reanimated.View>
-      </BottomSheetScrollView>
-    </BottomSheet>
-  );
-});
+  switch (route) {
+    case "menu":
+      return <OptionsMenu onSelect={push} />;
+    case "model":
+      return <ModelSheet onClose={back} showTitle={false} />;
+    case "sampler":
+      return <SamplerSheet onClose={back} showTitle={false} />;
+    case "schedule":
+      return <ScheduleSheet onClose={back} showTitle={false} />;
+    case "steps":
+      return <StepsSheet />;
+    case "cfg":
+      return <CfgSheet />;
+    case "cfgRescale":
+      return <CfgRescaleSheet />;
+    case "seed":
+      return <SeedSheet />;
+    case "resolution":
+      return <ResolutionSheet onClose={back} />;
+    case "batchCount":
+      return <BatchCountSheet />;
+    case "metadata":
+      return <ImageUploadSheet onClose={close} showTitle={false} />;
+    case "i2i":
+      return <I2ISheet />;
+    case "vibe":
+      return <VibeSheet />;
+    case "precise":
+      return <PreciseReferenceSheet />;
+    default:
+      return null;
+  }
+}
 
 const i2iStyles = StyleSheet.create({
   uploadCard: {

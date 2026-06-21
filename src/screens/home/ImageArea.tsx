@@ -27,7 +27,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { ImagePreviewModal } from "../main/ImagePreviewModal";
-import { MetadataSheet, type MetadataSheetHandle } from "./MetadataSheet";
+import { useAppSheet } from "../../context/AppSheetContext";
 import { light, styles } from "./styles";
 
 const IMAGE_SLOT_HORIZONTAL_PADDING = 32;
@@ -59,7 +59,7 @@ export function ImageArea() {
       : 16 / 9;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
-  const metadataSheetRef = useRef<MetadataSheetHandle>(null);
+  const { open: openSheet } = useAppSheet();
   const slotWidth = useSharedValue(0);
   const slotHeight = useSharedValue(0);
   const [imageAspect, setImageAspect] = useState(generationAspect);
@@ -221,7 +221,7 @@ export function ImageArea() {
                 activeOpacity={0.82}
                 onPress={() =>
                   currentGeneration &&
-                  metadataSheetRef.current?.open(currentGeneration)
+                  openSheet("metadataView", currentGeneration)
                 }
               >
                 <Ionicons
@@ -270,8 +270,6 @@ export function ImageArea() {
         animation={previewAnimation}
         onClose={closeImagePreview}
       />
-
-      <MetadataSheet ref={metadataSheetRef} />
     </>
   );
 }

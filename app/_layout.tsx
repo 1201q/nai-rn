@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
+import { AppSheetProvider } from "../src/context/AppSheetContext";
 import { colors } from "../src/styles/colors";
 
 LogBox.ignoreLogs([
@@ -21,13 +22,15 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <KeyboardProvider>
           <GenerationOptionsProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: "ios_from_right",
-                contentStyle: { backgroundColor: colors.appBackground },
-              }}
-            />
+            <AppSheetProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: "ios_from_right",
+                  contentStyle: { backgroundColor: colors.appBackground },
+                }}
+              />
+            </AppSheetProvider>
           </GenerationOptionsProvider>
         </KeyboardProvider>
       </SafeAreaProvider>

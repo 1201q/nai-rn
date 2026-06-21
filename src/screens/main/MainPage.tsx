@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   type LayoutChangeEvent,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  BottomSheetBackdrop,
-  type BottomSheetBackdropProps,
-} from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,60 +16,22 @@ import { OptionChips } from "../home/OptionChips";
 import { ScalePressable } from "../home/primitives";
 import { GenerateButton } from "./GenerateButton";
 import { useGenerationStore } from "../../store/generationStore";
-import { OptionSheets } from "../home/OptionSheets";
-import type { OptionRoute, OptionsSheetHandle } from "../home/OptionsSheet";
+import { useAppSheet } from "../../context/AppSheetContext";
+import type { OptionRoute } from "../home/OptionsSheet";
 
-export function MainPage({
-  onSheetOpenChange,
-}: {
-  onSheetOpenChange?: (isOpen: boolean) => void;
-}) {
+export function MainPage() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const batchCount = useGenerationStore((s) => s.batchCount);
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
+  const { open } = useAppSheet();
 
-  const optionsRef = useRef<OptionsSheetHandle>(null);
-  const openSheetsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    return () => {
-      onSheetOpenChange?.(false);
-    };
-  }, [onSheetOpenChange]);
-
-  const setSheetOpen = useCallback(
-    (id: string, open: boolean) => {
-      const set = openSheetsRef.current;
-      const had = set.size > 0;
-      if (open) set.add(id);
-      else set.delete(id);
-      const has = set.size > 0;
-      if (had !== has) onSheetOpenChange?.(has);
+  const openOptions = useCallback(
+    (route?: OptionRoute) => {
+      open(route ?? "menu");
     },
-    [onSheetOpenChange],
-  );
-
-  const handleOptionsOpenChange = useCallback(
-    (open: boolean) => setSheetOpen("options", open),
-    [setSheetOpen],
-  );
-
-  const openOptions = useCallback((route?: OptionRoute) => {
-    optionsRef.current?.openAt(route);
-  }, []);
-
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        pressBehavior="close"
-      />
-    ),
-    [],
+    [open],
   );
 
   const handleBottomAreaLayout = useCallback((event: LayoutChangeEvent) => {
@@ -138,12 +96,6 @@ export function MainPage({
           <GenerateButton />
         </View>
       </View>
-
-      <OptionSheets
-        optionsRef={optionsRef}
-        onOptionsOpenChange={handleOptionsOpenChange}
-        renderBackdrop={renderBackdrop}
-      />
     </View>
   );
 }

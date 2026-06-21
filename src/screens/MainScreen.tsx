@@ -5,11 +5,12 @@ import PagerView from "react-native-pager-view";
 import { MainPage } from "./main/MainPage";
 import { PromptPage } from "./main/PromptPage";
 import { HistoryScreen } from "./HistoryScreen";
+import { useAppSheet } from "../context/AppSheetContext";
 
 export function MainScreen() {
   const [isHistorySelectionMode, setIsHistorySelectionMode] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [isMainSheetOpen, setIsMainSheetOpen] = useState(false);
+  const { isOpen: isSheetOpen } = useAppSheet();
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener("keyboardDidShow", () => {
@@ -36,7 +37,7 @@ export function MainScreen() {
   const mainPage = useMemo(
     () => (
       <View key="main" style={styles.page}>
-        <MainPage onSheetOpenChange={setIsMainSheetOpen} />
+        <MainPage />
       </View>
     ),
     [],
@@ -55,7 +56,7 @@ export function MainScreen() {
       style={styles.pager}
       initialPage={1}
       scrollEnabled={
-        !isHistorySelectionMode && !isKeyboardVisible && !isMainSheetOpen
+        !isHistorySelectionMode && !isKeyboardVisible && !isSheetOpen
       }
     >
       {promptPage}
