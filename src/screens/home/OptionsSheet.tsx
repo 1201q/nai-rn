@@ -1356,8 +1356,6 @@ function OptionsMenu({
 
   return (
     <>
-      <Text style={styles.sheetTitle}>Options</Text>
-
       <Text style={styles.sheetMenuGroupLabel}>Core</Text>
       <View style={styles.sheetCard}>
         <View style={styles.sheetMenuTileRow}>
@@ -1548,25 +1546,25 @@ export const OptionsSheet = forwardRef<
       keyboardBlurBehavior="restore"
       onChange={handleChange}
     >
-      {route !== "menu" && (
-        <Reanimated.View
-          key={`header-${route}`}
-          entering={routeEntering}
-          style={styles.sheetRouteContent}
-        >
-          <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
+      <Reanimated.View
+        key={`header-${route}`}
+        entering={routeEntering}
+        style={styles.sheetRouteContent}
+      >
+        <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
+          {route !== "menu" && (
             <BottomSheetTouchableOpacity
               style={styles.sheetBackButton}
               onPress={back}
             >
               <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
             </BottomSheetTouchableOpacity>
-            <Text style={styles.sheetBackTitle} numberOfLines={1}>
-              {DETAIL_TITLES[route]}
-            </Text>
-          </Reanimated.View>
+          )}
+          <Text style={styles.sheetBackTitle} numberOfLines={1}>
+            {route === "menu" ? "Options" : DETAIL_TITLES[route]}
+          </Text>
         </Reanimated.View>
-      )}
+      </Reanimated.View>
 
       <BottomSheetScrollView
         key={route}

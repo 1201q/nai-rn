@@ -477,7 +477,7 @@ export const styles = StyleSheet.create({
   sheetBackHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 4,
     marginBottom: 10,
     minHeight: 44,
@@ -496,7 +496,7 @@ export const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "800",
     includeFontPadding: false,
-    marginLeft: 0,
+    paddingLeft: 3,
   },
   sheetMenuGroupLabel: {
     color: light.purple,

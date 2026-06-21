@@ -176,8 +176,11 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
         renderBackdrop={renderBackdrop}
         enableDynamicSizing
         maxDynamicContentSize={height * 0.9}
+        stickyHeaderIndices={[0]}
       >
-        <Text style={homeStyles.sheetTitle}>메타데이터</Text>
+        <View style={ms.stickyHeader}>
+          <Text style={homeStyles.sheetTitle}>메타데이터</Text>
+        </View>
 
         {isEmpty ? (
           <Text style={ms.emptyText}>메타데이터가 없습니다.</Text>
@@ -228,6 +231,9 @@ export const MetadataSheet = forwardRef<MetadataSheetHandle>(
 );
 
 const ms = StyleSheet.create({
+  stickyHeader: {
+    backgroundColor: light.bg,
+  },
   emptyText: {
     paddingVertical: 24,
     textAlign: "center",
