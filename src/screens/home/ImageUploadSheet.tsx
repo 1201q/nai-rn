@@ -357,7 +357,6 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     width: "100%",
-    maxHeight: 220,
     minHeight: 150,
     borderRadius: 18,
     backgroundColor: light.surface,
