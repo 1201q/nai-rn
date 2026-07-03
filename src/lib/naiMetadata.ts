@@ -65,15 +65,37 @@ function mapSourceToModel(
   return undefined;
 }
 
-type CaptionEntry = { char_caption?: unknown };
+type CaptionEntry = {
+  char_caption?: unknown;
+  centers?: unknown;
+};
 
-function extractCharCaptions(value: unknown): string[] {
+function normalizeCenter(value: unknown): { x: number; y: number } {
+  const center = value as { x?: unknown; y?: unknown };
+  return {
+    x: isNumber(center.x) ? Math.max(0, Math.min(1, center.x)) : 0.5,
+    y: isNumber(center.y) ? Math.max(0, Math.min(1, center.y)) : 0.5,
+  };
+}
+
+function extractCenters(value: unknown): Array<{ x: number; y: number }> {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [{ x: 0.5, y: 0.5 }];
+  }
+
+  return value.map(normalizeCenter);
+}
+
+function extractCharCaptions(
+  value: unknown,
+): Array<{ prompt: string; centers: Array<{ x: number; y: number }> }> {
   const captions = (value as { caption?: { char_captions?: unknown } })?.caption
     ?.char_captions;
   if (!Array.isArray(captions)) return [];
-  return captions.map((item: CaptionEntry) =>
-    isNonEmptyString(item?.char_caption) ? item.char_caption : "",
-  );
+  return captions.map((item: CaptionEntry) => ({
+    prompt: isNonEmptyString(item?.char_caption) ? item.char_caption : "",
+    centers: extractCenters(item?.centers),
+  }));
 }
 
 function buildCharacters(comment: Record<string, unknown>): CharacterPrompt[] {
@@ -85,16 +107,27 @@ function buildCharacters(comment: Record<string, unknown>): CharacterPrompt[] {
   );
 
   const characters: CharacterPrompt[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const prompt = prompts[index] ?? "";
-    const negativePrompt = negatives[index] ?? "";
+  for (
+    let index = 0;
+    index < count && characters.length < MAX_CHARACTER_PROMPTS;
+    index += 1
+  ) {
+    const prompt = prompts[index]?.prompt ?? "";
+    const negativePrompt = negatives[index]?.prompt ?? "";
     if (!prompt && !negativePrompt) continue;
-    characters.push({
-      id: `import-${Date.now()}-${index}`,
-      prompt,
-      negativePrompt,
-      enabled: true,
-    });
+    const centers = prompts[index]?.centers ?? negatives[index]?.centers ?? [
+      { x: 0.5, y: 0.5 },
+    ];
+    for (let centerIndex = 0; centerIndex < centers.length; centerIndex += 1) {
+      if (characters.length >= MAX_CHARACTER_PROMPTS) break;
+      characters.push({
+        id: `import-${Date.now()}-${index}-${centerIndex}`,
+        prompt,
+        negativePrompt,
+        enabled: true,
+        position: centers[centerIndex],
+      });
+    }
   }
   return characters;
 }

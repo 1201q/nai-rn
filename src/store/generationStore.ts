@@ -75,6 +75,7 @@ export type CharacterPrompt = {
   prompt: string;
   negativePrompt: string;
   enabled: boolean;
+  position: { x: number; y: number };
 };
 
 export type I2ISourceImage = {
@@ -87,6 +88,7 @@ type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
   characterPrompts: CharacterPrompt[];
+  characterPositionEnabled: boolean;
   model: string;
   resolution: NaiResolution;
   steps: number;
@@ -193,6 +195,16 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
     }
 
     const candidate = item as Partial<CharacterPrompt>;
+    const position =
+      candidate.position &&
+      isNumber(candidate.position.x) &&
+      isNumber(candidate.position.y)
+        ? {
+            x: Math.max(0, Math.min(1, candidate.position.x)),
+            y: Math.max(0, Math.min(1, candidate.position.y)),
+          }
+        : { x: 0.5, y: 0.5 };
+
     return [
       {
         id: isString(candidate.id)
@@ -203,6 +215,7 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
           ? candidate.negativePrompt
           : "",
         enabled: isBoolean(candidate.enabled) ? candidate.enabled : true,
+        position,
       },
     ];
   });
@@ -222,7 +235,7 @@ function resolveActiveCharacterPrompts(
       return [];
     }
 
-    return [{ prompt, negativePrompt }];
+    return [{ prompt, negativePrompt, position: item.position }];
   });
 }
 
@@ -234,6 +247,9 @@ export type GenerationState = {
   setNegativePrompt: (v: string) => void;
   characterPrompts: CharacterPrompt[];
   setCharacterPrompts: (v: CharacterPrompt[]) => void;
+  characterPositionEnabled: boolean;
+  setCharacterPositionEnabled: (v: boolean) => void;
+  setCharacterPromptPosition: (id: string, x: number, y: number) => void;
 
   // 옵션
   model: string;
@@ -348,6 +364,7 @@ type QueueParams = {
     noiseSchedule: NoiseSchedule;
     sampler: string;
     varietyPlus: boolean;
+    characterPositionEnabled: boolean;
     vibeEncodedImages?: string[];
     vibeInformationExtracted?: number[];
     vibeStrengths?: number[];
@@ -385,6 +402,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
     next.characterPrompts = resolveStoredCharacterPrompts(
       parsed.characterPrompts,
     );
+    if (isBoolean(parsed.characterPositionEnabled)) {
+      next.characterPositionEnabled = parsed.characterPositionEnabled;
+    }
     if (isString(parsed.model)) next.model = parsed.model;
 
     const storedResolution = resolveStoredResolution(parsed.resolution);
@@ -428,6 +448,19 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setNegativePrompt: (v) => set({ negativePrompt: v }),
   characterPrompts: [],
   setCharacterPrompts: (v) => set({ characterPrompts: v }),
+  characterPositionEnabled: false,
+  setCharacterPositionEnabled: (v) => set({ characterPositionEnabled: v }),
+  setCharacterPromptPosition: (id, x, y) => {
+    const clampedX = Math.max(0, Math.min(1, x));
+    const clampedY = Math.max(0, Math.min(1, y));
+    set((state) => ({
+      characterPrompts: state.characterPrompts.map((item) =>
+        item.id === id
+          ? { ...item, position: { x: clampedX, y: clampedY } }
+          : item,
+      ),
+    }));
+  },
 
   model: "nai-diffusion-4-5-full",
   setModel: (v) => set({ model: v }),
@@ -990,6 +1023,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         noiseSchedule: s.noiseSchedule,
         sampler: s.sampler,
         varietyPlus: s.varietyPlus,
+        characterPositionEnabled: s.characterPositionEnabled,
         ...(vibeEncodedImages
           ? {
               vibeEncodedImages,
@@ -1276,6 +1310,7 @@ export function useGenerationBootstrap() {
         prompt: state.prompt,
         negativePrompt: state.negativePrompt,
         characterPrompts: state.characterPrompts,
+        characterPositionEnabled: state.characterPositionEnabled,
         model: state.model,
         resolution: state.resolution,
         steps: state.steps,

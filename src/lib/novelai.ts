@@ -50,6 +50,7 @@ export type GenerateNovelAiImageInput = {
   prompt: string;
   negativePrompt: string;
   characterPrompts?: GenerateNovelAiCharacterPrompt[];
+  characterPositionEnabled?: boolean;
   model: string;
   width: number;
   height: number;
@@ -76,6 +77,7 @@ export type GenerateNovelAiImageInput = {
 export type GenerateNovelAiCharacterPrompt = {
   prompt: string;
   negativePrompt: string;
+  position: { x: number; y: number };
 };
 
 export type GenerateNovelAiImageStreamResult = {
@@ -229,16 +231,20 @@ type V4CharacterCaption = {
   centers: [{ x: number; y: number }];
 };
 
-function createV4CharacterCaption(prompt: string): V4CharacterCaption {
+function createV4CharacterCaption(
+  prompt: string,
+  position: { x: number; y: number },
+): V4CharacterCaption {
   return {
     char_caption: prompt,
-    centers: [{ x: 0.5, y: 0.5 }],
+    centers: [{ x: position.x, y: position.y }],
   };
 }
 
 function createV4Prompt(
   prompt: string,
   useOrder: boolean,
+  useCoords: boolean,
   characterCaptions: V4CharacterCaption[] = [],
 ) {
   return {
@@ -246,7 +252,7 @@ function createV4Prompt(
       base_caption: prompt,
       char_captions: characterCaptions,
     },
-    use_coords: false,
+    use_coords: useCoords,
     use_order: useOrder,
     legacy_uc: false,
   };
@@ -302,6 +308,7 @@ function createImageGenerationBody({
   prompt,
   negativePrompt,
   characterPrompts = [],
+  characterPositionEnabled = false,
   model,
   width,
   height,
@@ -329,6 +336,8 @@ function createImageGenerationBody({
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
   const hasPreciseReferences = preciseReferenceImages.length > 0;
+  const useCharacterCoords =
+    shouldUseV4Prompt && characterPositionEnabled && characterPrompts.length > 0;
   const preciseStrengthValues =
     preciseReferenceStrengths.length === preciseReferenceImages.length
       ? preciseReferenceStrengths
@@ -342,10 +351,16 @@ function createImageGenerationBody({
       ? preciseReferenceTypes
       : preciseReferenceImages.map(() => "character&style" as const);
   const v4PromptCharacterCaptions = characterPrompts.map((item) =>
-    createV4CharacterCaption(item.prompt),
+    createV4CharacterCaption(
+      item.prompt,
+      useCharacterCoords ? item.position : { x: 0.5, y: 0.5 },
+    ),
   );
   const v4NegativePromptCharacterCaptions = characterPrompts.map((item) =>
-    createV4CharacterCaption(item.negativePrompt),
+    createV4CharacterCaption(
+      item.negativePrompt,
+      useCharacterCoords ? item.position : { x: 0.5, y: 0.5 },
+    ),
   );
   const parameters = {
     width,
@@ -367,6 +382,7 @@ function createImageGenerationBody({
     prefer_brownian: true,
     ucPreset: 0,
     image_format: "png",
+    use_coords: useCharacterCoords,
     skip_cfg_above_sigma: varietyPlus ? 58 : null,
     ...(i2iImageBase64
       ? {
@@ -404,9 +420,15 @@ function createImageGenerationBody({
     ...(shouldUseV4Prompt
       ? {
           legacy_v3_extend: false,
-          v4_prompt: createV4Prompt(prompt, true, v4PromptCharacterCaptions),
+          v4_prompt: createV4Prompt(
+            prompt,
+            true,
+            useCharacterCoords,
+            v4PromptCharacterCaptions,
+          ),
           v4_negative_prompt: createV4Prompt(
             negativePrompt,
+            false,
             false,
             v4NegativePromptCharacterCaptions,
           ),

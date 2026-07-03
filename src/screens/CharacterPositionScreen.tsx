@@ -1,0 +1,544 @@
+import { useMemo, useRef, useState } from "react";
+import {
+  LayoutChangeEvent,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type GestureResponderEvent,
+} from "react-native";
+import Reanimated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useDerivedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import {
+  type CharacterPrompt,
+  useGenerationStore,
+} from "../store/generationStore";
+import { BADGE_COLORS, triggerSelectionHaptic } from "./option/helpers";
+import { light } from "./home/styles";
+
+type CanvasMetrics = {
+  width: number;
+  height: number;
+  pageX: number;
+  pageY: number;
+};
+
+const ZONES = [
+  { label: "LT", x: 0.17, y: 0.15 },
+  { label: "T", x: 0.5, y: 0.15 },
+  { label: "RT", x: 0.83, y: 0.15 },
+  { label: "L", x: 0.17, y: 0.5 },
+  { label: "C", x: 0.5, y: 0.5 },
+  { label: "R", x: 0.83, y: 0.5 },
+  { label: "LB", x: 0.17, y: 0.85 },
+  { label: "B", x: 0.5, y: 0.85 },
+  { label: "RB", x: 0.83, y: 0.85 },
+];
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function characterTitle(item: CharacterPrompt, index: number) {
+  const promptTitle = item.prompt.split(",")[0]?.trim();
+  return promptTitle || `Character ${index + 1}`;
+}
+
+function ToggleSwitch({ value }: { value: boolean }) {
+  const progress = useDerivedValue(() =>
+    withTiming(value ? 1 : 0, { duration: 180 }),
+  );
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [light.surfaceAlt, light.accent],
+    ),
+  }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * 18 }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["#FFFFFF", light.accentText],
+    ),
+  }));
+  return (
+    <Reanimated.View style={[styles.toggleTrack, trackStyle]}>
+      <Reanimated.View style={[styles.toggleThumb, thumbStyle]} />
+    </Reanimated.View>
+  );
+}
+
+function CharacterMarker({
+  item,
+  index,
+  metrics,
+  selected,
+  onSelect,
+  onPositionChange,
+}: {
+  item: CharacterPrompt;
+  index: number;
+  metrics: CanvasMetrics | null;
+  selected: boolean;
+  onSelect: () => void;
+  onPositionChange: (id: string, x: number, y: number) => void;
+}) {
+  const color = BADGE_COLORS[index % BADGE_COLORS.length];
+
+  const updateFromEvent = (event: GestureResponderEvent) => {
+    if (!metrics) return;
+    const { pageX, pageY } = event.nativeEvent;
+    const x = clamp01((pageX - metrics.pageX) / metrics.width);
+    const y = clamp01((pageY - metrics.pageY) / metrics.height);
+    onPositionChange(item.id, x, y);
+  };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          onSelect();
+          triggerSelectionHaptic();
+          updateFromEvent(event);
+        },
+        onPanResponderMove: updateFromEvent,
+      }),
+    [metrics, onSelect, onPositionChange, item.id],
+  );
+
+  if (!metrics) return null;
+
+  return (
+    <View
+      {...panResponder.panHandlers}
+      style={[
+        styles.marker,
+        selected && styles.markerSelected,
+        {
+          backgroundColor: color,
+          left: item.position.x * metrics.width - 18,
+          top: item.position.y * metrics.height - 18,
+        },
+      ]}
+    >
+      <Text style={styles.markerText}>{index + 1}</Text>
+    </View>
+  );
+}
+
+export function CharacterPositionScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const canvasRef = useRef<View>(null);
+  const [canvasMetrics, setCanvasMetrics] = useState<CanvasMetrics | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const resolution = useGenerationStore((s) => s.resolution);
+  const characterPrompts = useGenerationStore((s) => s.characterPrompts);
+  const positionEnabled = useGenerationStore((s) => s.characterPositionEnabled);
+  const setPositionEnabled = useGenerationStore(
+    (s) => s.setCharacterPositionEnabled,
+  );
+  const setCharacterPromptPosition = useGenerationStore(
+    (s) => s.setCharacterPromptPosition,
+  );
+  const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
+
+  const activeCharacters = characterPrompts.filter((item) => item.enabled);
+  const aspectRatio = resolution.width / resolution.height;
+
+  const measureCanvas = () => {
+    requestAnimationFrame(() => {
+      canvasRef.current?.measureInWindow((pageX, pageY, width, height) => {
+        if (width > 0 && height > 0) {
+          setCanvasMetrics({ pageX, pageY, width, height });
+        }
+      });
+    });
+  };
+
+  const handleCanvasLayout = (_event: LayoutChangeEvent) => {
+    measureCanvas();
+  };
+
+  const toggleCharacterEnabled = (id: string) => {
+    setCharacterPrompts(
+      useGenerationStore
+        .getState()
+        .characterPrompts.map((item) =>
+          item.id === id ? { ...item, enabled: !item.enabled } : item,
+        ),
+    );
+  };
+
+  return (
+    <View style={styles.screen}>
+      <StatusBar style="light" />
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.headerCircleButton}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>캐릭터 위치</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.summaryRow}>
+          <View>
+            <Text style={styles.summaryLabel}>Coordinate Prompting</Text>
+            <Text style={styles.summaryText}>
+              {positionEnabled
+                ? "생성 시 캐릭터 좌표를 NovelAI에 전달합니다."
+                : "좌표는 저장되지만 생성에는 아직 쓰지 않습니다."}
+            </Text>
+          </View>
+          <View style={styles.summaryAction}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={8}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: positionEnabled }}
+              accessibilityLabel="Coordinate Prompting"
+              onPress={() => {
+                triggerSelectionHaptic();
+                setPositionEnabled(!positionEnabled);
+              }}
+            >
+              <ToggleSwitch value={positionEnabled} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.canvasShell}>
+          <View
+            ref={canvasRef}
+            onLayout={handleCanvasLayout}
+            style={[styles.canvas, { aspectRatio }]}
+          >
+            <View pointerEvents="none" style={styles.grid}>
+              {Array.from({ length: 9 }).map((_, index) => (
+                <View key={index} style={styles.gridCell} />
+              ))}
+            </View>
+            {canvasMetrics
+              ? ZONES.map((zone) => (
+                  <Text
+                    key={zone.label}
+                    pointerEvents="none"
+                    style={[
+                      styles.zoneLabel,
+                      {
+                        left: zone.x * canvasMetrics.width - 14,
+                        top: zone.y * canvasMetrics.height - 9,
+                      },
+                    ]}
+                  >
+                    {zone.label}
+                  </Text>
+                ))
+              : null}
+            {activeCharacters.map((item) => {
+              const index = characterPrompts.findIndex(
+                (character) => character.id === item.id,
+              );
+              return (
+                <CharacterMarker
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  metrics={canvasMetrics}
+                  selected={selectedId === item.id}
+                  onSelect={() => setSelectedId(item.id)}
+                  onPositionChange={setCharacterPromptPosition}
+                />
+              );
+            })}
+            {activeCharacters.length === 0 ? (
+              <View pointerEvents="none" style={styles.emptyCanvas}>
+                <Ionicons
+                  name="location-outline"
+                  size={36}
+                  color={light.textHint}
+                />
+                <Text style={styles.emptyCanvasText}>활성 캐릭터가 없습니다</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 18 },
+          ]}
+        >
+          {characterPrompts.map((item, index) => {
+            const color = BADGE_COLORS[index % BADGE_COLORS.length];
+            const selected = selectedId === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.78}
+                style={[
+                  styles.characterRow,
+                  selected && styles.characterRowSelected,
+                  !item.enabled && styles.characterRowDisabled,
+                ]}
+                onPress={() => setSelectedId(item.id)}
+              >
+                <View style={[styles.rowBadge, { backgroundColor: color }]}>
+                  <Text style={styles.rowBadgeText}>{index + 1}</Text>
+                </View>
+                <View style={styles.rowMain}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>
+                    {characterTitle(item, index)}
+                  </Text>
+                  <Text style={styles.rowCoords}>
+                    X {item.position.x.toFixed(2)} / Y{" "}
+                    {item.position.y.toFixed(2)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.rowIconButton}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    item.enabled ? "캐릭터 비활성화" : "캐릭터 활성화"
+                  }
+                  onPress={() => toggleCharacterEnabled(item.id)}
+                >
+                  <Ionicons
+                    name={item.enabled ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={item.enabled ? light.textPrimary : light.textHint}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: light.bg,
+  },
+  header: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerCircleButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surface,
+  },
+  headerTitle: {
+    color: light.textPrimary,
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  headerSpacer: {
+    width: 46,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  summaryRow: {
+    minHeight: 68,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: light.surface,
+  },
+  summaryLabel: {
+    color: light.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  summaryText: {
+    marginTop: 4,
+    maxWidth: 260,
+    color: light.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  summaryAction: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  toggleTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: "center",
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  canvasShell: {
+    flex: 1,
+    minHeight: 320,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  canvas: {
+    width: "100%",
+    maxHeight: "100%",
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: light.input,
+    borderWidth: 1,
+    borderColor: light.border,
+  },
+  grid: {
+    ...StyleSheet.absoluteFill,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  gridCell: {
+    width: "33.3333%",
+    height: "33.3333%",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(247,247,247,0.12)",
+  },
+  zoneLabel: {
+    position: "absolute",
+    width: 28,
+    color: "rgba(247,247,247,0.28)",
+    fontSize: 11,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  marker: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  markerSelected: {
+    borderWidth: 2,
+    borderColor: light.textPrimary,
+    transform: [{ scale: 1.08 }],
+  },
+  markerText: {
+    color: light.accentText,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  emptyCanvas: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  emptyCanvasText: {
+    color: light.textHint,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  list: {
+    maxHeight: 220,
+  },
+  listContent: {
+    gap: 8,
+  },
+  characterRow: {
+    minHeight: 58,
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: light.surface,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  characterRowSelected: {
+    borderColor: light.accent,
+    backgroundColor: "rgba(245,243,194,0.08)",
+  },
+  characterRowDisabled: {
+    opacity: 0.55,
+  },
+  rowBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowBadgeText: {
+    color: light.accentText,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  rowMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTitle: {
+    color: light.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  rowCoords: {
+    marginTop: 4,
+    color: light.textHint,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  rowIconButton: {
+    width: 40,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

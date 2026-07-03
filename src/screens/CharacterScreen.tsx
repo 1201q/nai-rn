@@ -246,7 +246,13 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
     const id = `character-${Date.now()}-${characterPrompts.length}`;
     setCharacterPrompts([
       ...characterPrompts,
-      { id, prompt: "", negativePrompt: "", enabled: true },
+      {
+        id,
+        prompt: "",
+        negativePrompt: "",
+        enabled: true,
+        position: { x: 0.5, y: 0.5 },
+      },
     ]);
     setExpandedIds((current) => [...current, id]);
     triggerSelectionHaptic();
@@ -360,21 +366,37 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
           }
           right={
             characterPrompts.length > 0 ? (
-              <TouchableOpacity
-                style={styles.headerEditButton}
-                activeOpacity={0.78}
-                accessibilityRole="button"
-                accessibilityLabel="캐릭터 편집"
-                onPress={() => router.push("/character-edit")}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={22}
-                  color={light.textPrimary}
-                />
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.headerEditButton}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityLabel="캐릭터 위치 지정"
+                  onPress={() => router.push("/character-position")}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={22}
+                    color={light.textPrimary}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.headerEditButton}
+                  activeOpacity={0.78}
+                  accessibilityRole="button"
+                  accessibilityLabel="캐릭터 편집"
+                  onPress={() => router.push("/character-edit")}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={22}
+                    color={light.textPrimary}
+                  />
+                </TouchableOpacity>
+              </View>
             ) : undefined
           }
+          rightCircle
         />
 
         <KeyboardStickyView
@@ -407,6 +429,11 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   scrollContent: {
     paddingHorizontal: 16,
