@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -38,6 +38,7 @@ import {
   type PreciseReference,
   type PreciseReferenceType,
 } from "../../lib/preciseReferences";
+import { useSetOptionDetailHeader } from "../optionDetailHeader";
 import { formatDecimal, triggerSelectionHaptic } from "../option/helpers";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
@@ -703,27 +704,23 @@ function VibeSheet() {
 
   const canAdd = references.length < MAX_VIBE_REFERENCES;
 
+  // 이미지 추가 버튼/카운트는 상세 헤더로 올린다.
+  const setHeader = useSetOptionDetailHeader();
+  useEffect(() => {
+    setHeader({
+      subtitle: `${references.length}/${MAX_VIBE_REFERENCES}`,
+      action: {
+        label: "이미지 추가",
+        onPress: () => void pickVibeImage(),
+        disabled: !canAdd,
+        busy: adding,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [references.length, canAdd, adding]);
+
   return (
     <View style={vibeStyles.sheet}>
-      <View style={vibeStyles.topRow}>
-        <TouchableOpacity
-          activeOpacity={0.82}
-          disabled={!canAdd || adding}
-          onPress={() => pickVibeImage()}
-          style={[vibeStyles.addButton, !canAdd && vibeStyles.addButtonDisabled]}
-        >
-          {adding ? (
-            <ActivityIndicator size="small" color={light.accentText} />
-          ) : (
-            <Ionicons name="add" size={22} color={light.accentText} />
-          )}
-          <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
-        </TouchableOpacity>
-        <Text style={vibeStyles.countText}>
-          {references.length}/{MAX_VIBE_REFERENCES}
-        </Text>
-      </View>
-
       <TouchableOpacity
         activeOpacity={0.82}
         onPress={() => {
@@ -1086,30 +1083,23 @@ function PreciseReferenceSheet() {
     modelSupported &&
     !blockedByVibe;
 
+  // 이미지 추가 버튼/카운트는 상세 헤더로 올린다.
+  const setHeader = useSetOptionDetailHeader();
+  useEffect(() => {
+    setHeader({
+      subtitle: `${references.length}/${MAX_PRECISE_REFERENCES}`,
+      action: {
+        label: "이미지 추가",
+        onPress: () => void pickPreciseImage(),
+        disabled: !canAdd,
+        busy: adding,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [references.length, canAdd, adding]);
+
   return (
     <View style={vibeStyles.sheet}>
-      <View style={vibeStyles.topRow}>
-        <TouchableOpacity
-          activeOpacity={0.82}
-          disabled={!canAdd || adding}
-          onPress={() => pickPreciseImage()}
-          style={[
-            vibeStyles.addButton,
-            (!canAdd || adding) && vibeStyles.addButtonDisabled,
-          ]}
-        >
-          {adding ? (
-            <ActivityIndicator size="small" color={light.accentText} />
-          ) : (
-            <Ionicons name="add" size={22} color={light.accentText} />
-          )}
-          <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
-        </TouchableOpacity>
-        <Text style={vibeStyles.countText}>
-          {references.length}/{MAX_PRECISE_REFERENCES}
-        </Text>
-      </View>
-
       {!modelSupported ? (
         <Text style={vibeStyles.encodingHint}>
           Precise Reference는 V4.5 모델에서 사용할 수 있습니다.
@@ -1522,35 +1512,6 @@ const i2iStyles = StyleSheet.create({
 const vibeStyles = StyleSheet.create({
   sheet: {
     gap: 12,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  addButton: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: light.accent,
-  },
-  addButtonDisabled: {
-    opacity: 0.5,
-  },
-  addButtonText: {
-    color: light.accentText,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  countText: {
-    color: light.textHint,
-    fontSize: 13,
-    fontWeight: "700",
   },
   normalizeRow: {
     minHeight: 42,
