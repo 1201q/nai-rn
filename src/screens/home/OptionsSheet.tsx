@@ -11,6 +11,10 @@ import Slider from "@react-native-community/slider";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   interpolateColor,
   useAnimatedStyle,
 } from "react-native-reanimated";
@@ -66,6 +70,13 @@ export type OptionRoute =
   | "precise";
 
 const IMAGE_PREVIEW_FRAME_ASPECT = 1.58;
+// 캐릭터 프롬프트 카드와 동일한 펼침/접힘 애니메이션. 카드 높이 변화 시
+// 아래 형제 카드들이 layout 으로 자연스럽게 밀려남.
+const REF_LAYOUT = LinearTransition.duration(240).easing(
+  Easing.out(Easing.cubic),
+);
+const REF_BODY_ENTERING = FadeIn.duration(140);
+const REF_BODY_EXITING = FadeOut.duration(100);
 export const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   model: "Model",
   sampler: "Sampler",
@@ -524,7 +535,7 @@ function VibeReferenceCard({
     reference.encodedInformationExtracted !== reference.informationExtracted;
 
   return (
-    <View style={vibeStyles.card}>
+    <Reanimated.View layout={REF_LAYOUT} style={vibeStyles.card}>
       <TouchableOpacity
         activeOpacity={0.82}
         onPress={onToggleExpanded}
@@ -573,7 +584,12 @@ function VibeReferenceCard({
       </TouchableOpacity>
 
       {expanded ? (
-        <View style={vibeStyles.expandedBody}>
+        <Reanimated.View
+          entering={REF_BODY_ENTERING}
+          exiting={REF_BODY_EXITING}
+          layout={REF_LAYOUT}
+          style={vibeStyles.expandedBody}
+        >
           <View
             style={[
               vibeStyles.previewCard,
@@ -631,9 +647,9 @@ function VibeReferenceCard({
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Reanimated.View>
       ) : null}
-    </View>
+    </Reanimated.View>
   );
 }
 
@@ -650,8 +666,8 @@ function VibeSheet() {
     (s) => s.setVibeReferenceInformationExtracted,
   );
   const setMessage = useGenerationStore((s) => s.setMessage);
-  const [expandedId, setExpandedId] = useState<string | null>(
-    references[0]?.id ?? null,
+  const [expandedIds, setExpandedIds] = useState<string[]>(
+    references[0] ? [references[0].id] : [],
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -692,7 +708,11 @@ function VibeSheet() {
         ? await replaceReference(targetId, input)
         : await addReference(input);
       if (reference) {
-        setExpandedId(reference.id);
+        setExpandedIds((current) =>
+          current.includes(reference.id)
+            ? current
+            : [...current, reference.id],
+        );
       }
     } catch {
       setMessage("Vibe 이미지를 선택하지 못했습니다.");
@@ -757,12 +777,13 @@ function VibeSheet() {
             <VibeReferenceCard
               key={reference.id}
               reference={reference}
-              expanded={expandedId === reference.id}
+              expanded={expandedIds.includes(reference.id)}
               busy={busyId === reference.id}
               onToggleExpanded={() => {
-                triggerSelectionHaptic();
-                setExpandedId((current) =>
-                  current === reference.id ? null : reference.id,
+                setExpandedIds((current) =>
+                  current.includes(reference.id)
+                    ? current.filter((value) => value !== reference.id)
+                    : [...current, reference.id],
                 );
               }}
               onToggleEnabled={() => {
@@ -776,9 +797,9 @@ function VibeSheet() {
               onReplace={() => pickVibeImage(reference.id)}
               onRemove={() => {
                 triggerSelectionHaptic();
-                if (expandedId === reference.id) {
-                  setExpandedId(null);
-                }
+                setExpandedIds((current) =>
+                  current.filter((value) => value !== reference.id),
+                );
                 void removeReference(reference.id);
               }}
             />
@@ -880,7 +901,7 @@ function PreciseReferenceCard({
   const toggleDisabled = !reference.enabled && enableBlocked;
 
   return (
-    <View style={vibeStyles.card}>
+    <Reanimated.View layout={REF_LAYOUT} style={vibeStyles.card}>
       <TouchableOpacity
         activeOpacity={0.82}
         onPress={onToggleExpanded}
@@ -932,7 +953,12 @@ function PreciseReferenceCard({
       </TouchableOpacity>
 
       {expanded ? (
-        <View style={vibeStyles.expandedBody}>
+        <Reanimated.View
+          entering={REF_BODY_ENTERING}
+          exiting={REF_BODY_EXITING}
+          layout={REF_LAYOUT}
+          style={vibeStyles.expandedBody}
+        >
           <View
             style={[
               vibeStyles.previewCard,
@@ -992,9 +1018,9 @@ function PreciseReferenceCard({
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Reanimated.View>
       ) : null}
-    </View>
+    </Reanimated.View>
   );
 }
 
@@ -1012,8 +1038,8 @@ function PreciseReferenceSheet() {
   const setFidelity = useGenerationStore((s) => s.setPreciseReferenceFidelity);
   const setType = useGenerationStore((s) => s.setPreciseReferenceType);
   const setMessage = useGenerationStore((s) => s.setMessage);
-  const [expandedId, setExpandedId] = useState<string | null>(
-    references[0]?.id ?? null,
+  const [expandedIds, setExpandedIds] = useState<string[]>(
+    references[0] ? [references[0].id] : [],
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1068,7 +1094,11 @@ function PreciseReferenceSheet() {
         ? await replaceReference(targetId, input)
         : await addReference(input);
       if (reference) {
-        setExpandedId(reference.id);
+        setExpandedIds((current) =>
+          current.includes(reference.id)
+            ? current
+            : [...current, reference.id],
+        );
       }
     } catch {
       setMessage("Precise Reference 이미지를 선택하지 못했습니다.");
@@ -1124,13 +1154,14 @@ function PreciseReferenceSheet() {
             <PreciseReferenceCard
               key={reference.id}
               reference={reference}
-              expanded={expandedId === reference.id}
+              expanded={expandedIds.includes(reference.id)}
               busy={busyId === reference.id}
               enableBlocked={blockedByVibe || !modelSupported}
               onToggleExpanded={() => {
-                triggerSelectionHaptic();
-                setExpandedId((current) =>
-                  current === reference.id ? null : reference.id,
+                setExpandedIds((current) =>
+                  current.includes(reference.id)
+                    ? current.filter((value) => value !== reference.id)
+                    : [...current, reference.id],
                 );
               }}
               onToggleEnabled={() => {
@@ -1143,9 +1174,9 @@ function PreciseReferenceSheet() {
               onReplace={() => pickPreciseImage(reference.id)}
               onRemove={() => {
                 triggerSelectionHaptic();
-                if (expandedId === reference.id) {
-                  setExpandedId(null);
-                }
+                setExpandedIds((current) =>
+                  current.filter((value) => value !== reference.id),
+                );
                 void removeReference(reference.id);
               }}
             />
