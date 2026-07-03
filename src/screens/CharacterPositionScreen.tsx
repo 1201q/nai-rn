@@ -1,18 +1,19 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
-  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  type GestureResponderEvent,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   interpolateColor,
+  runOnJS,
   useAnimatedStyle,
   useDerivedValue,
+  useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,6 +48,7 @@ const ZONES = [
 ];
 
 function clamp01(value: number) {
+  "worklet";
   return Math.max(0, Math.min(1, value));
 }
 
@@ -98,46 +100,62 @@ function CharacterMarker({
 }) {
   const color = BADGE_COLORS[index % BADGE_COLORS.length];
 
-  const updateFromEvent = (event: GestureResponderEvent) => {
-    if (!metrics) return;
-    const { pageX, pageY } = event.nativeEvent;
-    const x = clamp01((pageX - metrics.pageX) / metrics.width);
-    const y = clamp01((pageY - metrics.pageY) / metrics.height);
-    onPositionChange(item.id, x, y);
+  const x = useSharedValue(item.position.x);
+  const y = useSharedValue(item.position.y);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+
+  // 스토어에서 좌표가 바뀌면 shared value 동기화 (드래그 중엔 미발생)
+  useEffect(() => {
+    x.value = item.position.x;
+    y.value = item.position.y;
+  }, [item.position.x, item.position.y, x, y]);
+
+  const handleGrant = () => {
+    onSelect();
+    triggerSelectionHaptic();
   };
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (event) => {
-          onSelect();
-          triggerSelectionHaptic();
-          updateFromEvent(event);
-        },
-        onPanResponderMove: updateFromEvent,
-      }),
-    [metrics, onSelect, onPositionChange, item.id],
-  );
+  const width = metrics?.width ?? 0;
+  const height = metrics?.height ?? 0;
+
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      startX.value = x.value;
+      startY.value = y.value;
+      runOnJS(handleGrant)();
+    })
+    .onUpdate((event) => {
+      x.value = clamp01(startX.value + event.translationX / width);
+      y.value = clamp01(startY.value + event.translationY / height);
+    })
+    .onEnd(() => {
+      runOnJS(onPositionChange)(item.id, x.value, y.value);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: x.value * width - 18 },
+      { translateY: y.value * height - 18 },
+      { scale: selected ? 1.08 : 1 },
+    ],
+  }));
 
   if (!metrics) return null;
 
   return (
-    <View
-      {...panResponder.panHandlers}
-      style={[
-        styles.marker,
-        selected && styles.markerSelected,
-        {
-          backgroundColor: color,
-          left: item.position.x * metrics.width - 18,
-          top: item.position.y * metrics.height - 18,
-        },
-      ]}
-    >
-      <Text style={styles.markerText}>{index + 1}</Text>
-    </View>
+    <GestureDetector gesture={pan}>
+      <Reanimated.View
+        style={[
+          styles.marker,
+          selected && styles.markerSelected,
+          { backgroundColor: color },
+          animatedStyle,
+        ]}
+      >
+        <Text style={styles.markerText}>{index + 1}</Text>
+      </Reanimated.View>
+    </GestureDetector>
   );
 }
 
@@ -466,7 +484,6 @@ const styles = StyleSheet.create({
   markerSelected: {
     borderWidth: 2,
     borderColor: light.textPrimary,
-    transform: [{ scale: 1.08 }],
   },
   markerText: {
     color: light.accentText,
