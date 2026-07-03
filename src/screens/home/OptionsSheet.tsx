@@ -17,6 +17,8 @@ import Reanimated, {
   LinearTransition,
   interpolateColor,
   useAnimatedStyle,
+  useDerivedValue,
+  withTiming,
 } from "react-native-reanimated";
 
 import {
@@ -1189,12 +1191,41 @@ function PreciseReferenceSheet() {
 
 // --- 루트 메뉴 ---
 
+function ToggleSwitch({ value }: { value: boolean }) {
+  const progress = useDerivedValue(() =>
+    withTiming(value ? 1 : 0, { duration: 180 }),
+  );
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      [light.surfaceAlt, light.accent],
+    ),
+  }));
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: progress.value * 18 }],
+    backgroundColor: interpolateColor(
+      progress.value,
+      [0, 1],
+      ["#FFFFFF", light.accentText],
+    ),
+  }));
+  return (
+    <Reanimated.View style={[styles.toggleTrack, trackStyle]}>
+      <Reanimated.View style={[styles.toggleThumb, thumbStyle]} />
+    </Reanimated.View>
+  );
+}
+
 function MenuRow({
   label,
   value,
   active,
   disabled,
   isToggle,
+  rightToggle,
+  toggleOn,
+  onToggle,
   onPress,
 }: {
   label: string;
@@ -1202,6 +1233,9 @@ function MenuRow({
   active?: boolean;
   disabled?: boolean;
   isToggle?: boolean;
+  rightToggle?: boolean;
+  toggleOn?: boolean;
+  onToggle?: () => void;
   onPress?: () => void;
 }) {
   const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
@@ -1233,16 +1267,40 @@ function MenuRow({
           {label}
         </Text>
         <View style={styles.sheetMenuValueRow}>
-          {value ? (
-            <Text
-              style={[styles.sheetMenuValue, active && styles.sheetMenuValueActive]}
-              numberOfLines={1}
-            >
-              {value}
-            </Text>
-          ) : null}
-          {!disabled && !isToggle && (
-            <Ionicons name="chevron-forward" size={18} color={light.textHint} />
+          {isToggle ? (
+            <ToggleSwitch value={!!active} />
+          ) : (
+            <>
+              {value ? (
+                <Text
+                  style={[
+                    styles.sheetMenuValue,
+                    active && styles.sheetMenuValueActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {value}
+                </Text>
+              ) : null}
+              {rightToggle ? (
+                <>
+                  <View style={styles.sheetMenuToggleDivider} />
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    hitSlop={8}
+                    onPress={onToggle}
+                  >
+                    <ToggleSwitch value={!!toggleOn} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={light.textHint}
+                />
+              )}
+            </>
           )}
         </View>
       </Reanimated.View>
@@ -1315,6 +1373,15 @@ function OptionsMenu({
   );
   const activePreciseCount = useGenerationStore(
     (s) => s.preciseReferences.filter((item) => item.enabled).length,
+  );
+  const clearI2I = useGenerationStore((s) => s.clearI2I);
+  const vibeReferences = useGenerationStore((s) => s.vibeReferences);
+  const setVibeReferenceEnabled = useGenerationStore(
+    (s) => s.setVibeReferenceEnabled,
+  );
+  const preciseReferences = useGenerationStore((s) => s.preciseReferences);
+  const setPreciseReferenceEnabled = useGenerationStore(
+    (s) => s.setPreciseReferenceEnabled,
   );
 
   const modelText = MODELS.find((m) => m.value === model)?.label ?? model;
@@ -1392,7 +1459,6 @@ function OptionsMenu({
         <View style={styles.sheetCardDivider} />
         <MenuRow
           label="Variety+"
-          value={varietyPlus ? "On" : "Off"}
           active={varietyPlus}
           isToggle
           onPress={() => {
@@ -1408,22 +1474,61 @@ function OptionsMenu({
         <View style={styles.sheetCardDivider} />
         <MenuRow
           label="Image2Image"
-          value={i2iSourceImage ? "On" : "Off"}
           active={Boolean(i2iSourceImage)}
+          rightToggle
+          toggleOn={Boolean(i2iSourceImage)}
+          onToggle={() => {
+            triggerSelectionHaptic();
+            if (i2iSourceImage) {
+              clearI2I();
+            } else {
+              onSelect("i2i");
+            }
+          }}
           onPress={() => onSelect("i2i")}
         />
         <View style={styles.sheetCardDivider} />
         <MenuRow
           label="Vibe Transfer"
-          value={activeVibeCount > 0 ? `${activeVibeCount}` : "Off"}
+          value={activeVibeCount > 0 ? `${activeVibeCount}` : undefined}
           active={activeVibeCount > 0}
+          rightToggle
+          toggleOn={activeVibeCount > 0}
+          onToggle={() => {
+            triggerSelectionHaptic();
+            if (activeVibeCount > 0) {
+              vibeReferences.forEach(
+                (r) => r.enabled && setVibeReferenceEnabled(r.id, false),
+              );
+            } else if (vibeReferences.length > 0) {
+              vibeReferences.forEach((r) => setVibeReferenceEnabled(r.id, true));
+            } else {
+              onSelect("vibe");
+            }
+          }}
           onPress={() => onSelect("vibe")}
         />
         <View style={styles.sheetCardDivider} />
         <MenuRow
           label="Precise Ref"
-          value={activePreciseCount > 0 ? `${activePreciseCount}` : "Off"}
+          value={activePreciseCount > 0 ? `${activePreciseCount}` : undefined}
           active={activePreciseCount > 0}
+          rightToggle
+          toggleOn={activePreciseCount > 0}
+          onToggle={() => {
+            triggerSelectionHaptic();
+            if (activePreciseCount > 0) {
+              preciseReferences.forEach(
+                (r) => r.enabled && setPreciseReferenceEnabled(r.id, false),
+              );
+            } else if (preciseReferences.length > 0) {
+              preciseReferences.forEach((r) =>
+                setPreciseReferenceEnabled(r.id, true),
+              );
+            } else {
+              onSelect("precise");
+            }
+          }}
           onPress={() => onSelect("precise")}
         />
       </View>

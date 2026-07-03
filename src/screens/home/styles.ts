@@ -583,6 +583,25 @@ export const styles = StyleSheet.create({
   sheetMenuValueActive: {
     color: light.accent,
   },
+  sheetMenuToggleDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: light.border,
+    marginLeft: 6,
+    marginRight: 2,
+  },
+  toggleTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: "center",
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
 
   // Steps 바텀시트
   stepsValueRow: {
