@@ -12,6 +12,7 @@ import { BackHandler, Text } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
+  BottomSheetTextInput,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
   type BottomSheetScrollViewMethods,
@@ -24,16 +25,30 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import type { GenerationRecord } from "../lib/generationHistory";
-import {
-  DETAIL_TITLES,
-  renderOptionRoute,
-  type OptionRoute,
-} from "../screens/home/OptionsSheet";
+import { useGenerationStore } from "../store/generationStore";
+import { NumericSheetContent } from "../screens/home/NumericSheet";
+import { BATCH_COUNT_CONFIG } from "../screens/home/constants";
 import { MetadataViewContent } from "../screens/home/MetadataViewContent";
 import { light, styles } from "../screens/home/styles";
 
-// 전역 단일 바텀시트의 모든 라우트. 옵션 라우트 + 메타데이터 뷰어.
-export type SheetRoute = OptionRoute | "metadataView";
+// 전역 단일 바텀시트 라우트. 옵션은 프롬프트 옵션 탭으로 이전됨 —
+// 시트엔 연속 생성(batchCount) + 메타데이터 뷰어만 남음.
+export type SheetRoute = "batchCount" | "metadataView";
+
+// batchCount 는 시트 유지 → 시트 키보드 회피 위해 BottomSheetTextInput 주입.
+function BatchCountSheet() {
+  const batchCount = useGenerationStore((s) => s.batchCount);
+  const setBatchCount = useGenerationStore((s) => s.setBatchCount);
+  return (
+    <NumericSheetContent
+      value={batchCount}
+      onChange={setBatchCount}
+      cfg={BATCH_COUNT_CONFIG}
+      showTitle={false}
+      InputComponent={BottomSheetTextInput}
+    />
+  );
+}
 
 type StackEntry = { route: SheetRoute; params?: GenerationRecord };
 type TransitionDirection = "forward" | "back" | "none";
@@ -63,9 +78,8 @@ const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
 const ROUTE_FADE_IN = FadeIn.duration(100);
 
 function titleFor(route: SheetRoute) {
-  if (route === "menu") return "Options";
   if (route === "metadataView") return "메타데이터";
-  return DETAIL_TITLES[route] ?? "";
+  return "연속 생성";
 }
 
 export function AppSheetProvider({ children }: { children: ReactNode }) {
@@ -73,8 +87,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
-  const [stack, setStack] = useState<StackEntry[]>([{ route: "menu" }]);
-  const stackRef = useRef<StackEntry[]>([{ route: "menu" }]);
+  const [stack, setStack] = useState<StackEntry[]>([{ route: "batchCount" }]);
+  const stackRef = useRef<StackEntry[]>([{ route: "batchCount" }]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
   const [isOpen, setIsOpen] = useState(false);
@@ -89,11 +103,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // 직접 진입: 스택 초기화. menu 면 루트(기존 등장 애니), 아니면 단일 상세 —
-  // 이전 화면이 없으므로 슬라이드 전환 없음("none").
+  // 직접 진입: 스택 초기화. 시트는 단일 상세만 → 슬라이드 전환 없음("none").
   const resetTo = useCallback(
     (entry: StackEntry) => {
-      apply([entry], entry.route === "menu" ? "back" : "none");
+      apply([entry], "none");
     },
     [apply],
   );
@@ -142,8 +155,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         openRef.current = nextOpen;
         setIsOpen(nextOpen);
       }
-      // 닫힐 때 다음 열림 기본값은 항상 메뉴부터.
-      if (!nextOpen) resetTo({ route: "menu" });
+      // 닫힐 때 스택 초기화(기본 batchCount).
+      if (!nextOpen) resetTo({ route: "batchCount" });
     },
     [resetTo],
   );
@@ -246,11 +259,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   <MetadataViewContent record={current.params} />
                 ) : null
               ) : (
-                renderOptionRoute(route, {
-                  back,
-                  close,
-                  push: (r) => push(r),
-                })
+                <BatchCountSheet />
               )}
             </Reanimated.View>
           </Reanimated.View>

@@ -1,10 +1,6 @@
-import { Text, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import {
-  BottomSheetTextInput,
-  TouchableOpacity as BottomSheetTouchableOpacity,
-} from "@gorhom/bottom-sheet";
 
 import { light, styles } from "./styles";
 
@@ -25,7 +21,7 @@ export function SeedSheetContent({
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Seed</Text> : null}
       <View style={styles.seedSheetRow}>
-        <BottomSheetTextInput
+        <TextInput
           style={[styles.seedSheetInput, locked && styles.seedSheetInputLocked]}
           value={seed === 0 ? "" : String(seed)}
           onChangeText={(t) => {
@@ -37,7 +33,7 @@ export function SeedSheetContent({
           placeholder="Random"
           placeholderTextColor={light.textHint}
         />
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           style={[
             styles.seedSheetButton,
             locked && styles.seedSheetButtonActive,
@@ -52,8 +48,8 @@ export function SeedSheetContent({
             size={20}
             color={locked ? light.accent : light.textSecondary}
           />
-        </BottomSheetTouchableOpacity>
-        <BottomSheetTouchableOpacity
+        </TouchableOpacity>
+        <TouchableOpacity
           style={styles.seedSheetButton}
           disabled={locked}
           onPress={() => {
@@ -66,7 +62,7 @@ export function SeedSheetContent({
             size={20}
             color={locked ? light.textHint : light.textSecondary}
           />
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
       </View>
       <Text style={styles.seedSheetHint}>
         비우면 매 생성마다 랜덤. 잠그면 시드 고정.

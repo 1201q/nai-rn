@@ -1,11 +1,10 @@
 import React, { useRef } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, TouchableOpacity, View } from "react-native";
 import Reanimated, {
   interpolateColor,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
 
 import { light, styles } from "./styles";
@@ -262,7 +261,7 @@ export function SheetItem({
   }));
 
   return (
-    <BottomSheetTouchableOpacity
+    <TouchableOpacity
       activeOpacity={1}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
@@ -288,6 +287,6 @@ export function SheetItem({
           <Ionicons name="checkmark" size={20} color={light.accent} />
         )}
       </Reanimated.View>
-    </BottomSheetTouchableOpacity>
+    </TouchableOpacity>
   );
 }

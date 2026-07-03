@@ -25,6 +25,7 @@ import {
 
 import { useGenerationStore } from "../../store/generationStore";
 import { CharacterScreen } from "../CharacterScreen";
+import { OptionsTab } from "./OptionsTab";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { StickySuggestionBar } from "../home/SuggestionBar";
@@ -33,7 +34,7 @@ import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import { renderPromptHighlights } from "../../components/highlightPromptSpans";
 import { light } from "../home/styles";
 
-type PromptTab = "prompt" | "character";
+type PromptTab = "prompt" | "character" | "options";
 
 const TABS: {
   key: PromptTab;
@@ -41,7 +42,8 @@ const TABS: {
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { key: "prompt", label: "프롬프트", icon: "document-text-outline" },
-  { key: "character", label: "캐릭터 프롬프트", icon: "person-outline" },
+  { key: "character", label: "캐릭터", icon: "person-outline" },
+  { key: "options", label: "옵션", icon: "options-outline" },
 ];
 
 // base/negative 입력도 고빈도 편집. PromptCard 와 동일하게 로컬 state 로 보유,
@@ -183,12 +185,17 @@ function PromptTabContent() {
 const TAB_BAR_PADDING = 4;
 const PILL_TIMING = { duration: 200, easing: Easing.bezier(0.4, 0, 0.2, 1) };
 
-export function PromptPage() {
+export function PromptPage({
+  focusOptionsSignal,
+}: {
+  focusOptionsSignal: number;
+}) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<PromptTab>("prompt");
-  // 캐릭터 탭은 최초 진입 시점에 mount. display:none 상태로 미리 mount 하면
+  // 캐릭터/옵션 탭은 최초 진입 시점에 mount. display:none 상태로 미리 mount 하면
   // 첫 노출 때 layout 애니메이션이 0 → 실제위치로 튀어 "위에서 내려오는" 현상 발생.
   const [characterMounted, setCharacterMounted] = useState(false);
+  const [optionsMounted, setOptionsMounted] = useState(false);
   const activeTabRef = useRef<PromptTab>("prompt");
   const tabLayouts = useRef<
     Partial<Record<PromptTab, { x: number; width: number }>>
@@ -215,6 +222,7 @@ export function PromptPage() {
   const handleTabPress = (key: PromptTab) => {
     activeTabRef.current = key;
     if (key === "character") setCharacterMounted(true);
+    if (key === "options") setOptionsMounted(true);
     setTab(key);
     const layout = tabLayouts.current[key];
     if (layout) {
@@ -222,6 +230,13 @@ export function PromptPage() {
       pillWidth.value = withTiming(layout.width, PILL_TIMING);
     }
   };
+
+  // 메인 옵션 패널에서 진입 시 옵션 탭으로 전환 (seq 증가로 트리거).
+  useEffect(() => {
+    if (focusOptionsSignal > 0) handleTabPress("options");
+    // handleTabPress 는 매 렌더 새 함수지만 최신 클로저 사용이 의도 → deps 는 신호만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusOptionsSignal]);
 
   return (
     <View style={styles.screen}>
@@ -236,6 +251,11 @@ export function PromptPage() {
         {characterMounted ? (
           <View style={[styles.fill, tab !== "character" && styles.hidden]}>
             <CharacterScreen embedded />
+          </View>
+        ) : null}
+        {optionsMounted ? (
+          <View style={[styles.fill, tab !== "options" && styles.hidden]}>
+            <OptionsTab />
           </View>
         ) : null}
       </View>

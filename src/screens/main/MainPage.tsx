@@ -17,22 +17,14 @@ import { ScalePressable } from "../home/primitives";
 import { GenerateButton } from "./GenerateButton";
 import { useGenerationStore } from "../../store/generationStore";
 import { useAppSheet } from "../../context/AppSheetContext";
-import type { OptionRoute } from "../home/OptionsSheet";
 
-export function MainPage() {
+export function MainPage({ requestOptions }: { requestOptions: () => void }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const batchCount = useGenerationStore((s) => s.batchCount);
   const [bottomSpacerHeight, setBottomSpacerHeight] = useState(0);
   const { open } = useAppSheet();
-
-  const openOptions = useCallback(
-    (route?: OptionRoute) => {
-      open(route ?? "menu");
-    },
-    [open],
-  );
 
   const handleBottomAreaLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -80,11 +72,12 @@ export function MainPage() {
         onLayout={handleBottomAreaLayout}
         style={[styles.bottomArea, { paddingBottom: insets.bottom + 16 }]}
       >
-        <OptionChips openOptions={openOptions} />
+        {/* 옵션 요약 클릭 → 프롬프트 옵션 탭으로 이동 (시트 아님) */}
+        <OptionChips openOptions={requestOptions} />
         <View style={styles.generateControlsRow}>
           <ScalePressable
             style={styles.batchCountButton}
-            onPress={() => openOptions("batchCount")}
+            onPress={() => open("batchCount")}
           >
             <Ionicons
               name="albums-outline"

@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Reanimated, {
   interpolateColor,
   useAnimatedStyle,
 } from "react-native-reanimated";
-import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { File } from "expo-file-system";
@@ -54,7 +59,7 @@ function CheckRow({
   }));
 
   return (
-    <BottomSheetTouchableOpacity
+    <TouchableOpacity
       activeOpacity={1}
       disabled={disabled}
       onPressIn={onPressIn}
@@ -85,7 +90,7 @@ function CheckRow({
           <Ionicons name="checkmark" size={20} color={light.accent} />
         ) : null}
       </Reanimated.View>
-    </BottomSheetTouchableOpacity>
+    </TouchableOpacity>
   );
 }
 
@@ -221,7 +226,7 @@ export function ImageUploadSheet({
           />
         </View>
       ) : (
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.8}
           disabled={busy}
           onPress={handlePick}
@@ -239,11 +244,11 @@ export function ImageUploadSheet({
               <Text style={styles.uploadText}>이미지 선택</Text>
             </>
           )}
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
       )}
 
       {pickedUri ? (
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.7}
           disabled={busy}
           onPress={handlePick}
@@ -257,7 +262,7 @@ export function ImageUploadSheet({
               <Text style={styles.reselectText}>다시 선택</Text>
             </>
           )}
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
       ) : null}
 
       {pickedUri ? (
@@ -315,13 +320,13 @@ export function ImageUploadSheet({
               />
             ) : null}
 
-            <BottomSheetTouchableOpacity
+            <TouchableOpacity
               activeOpacity={0.85}
               onPress={applyImport}
               style={styles.importButton}
             >
               <Text style={styles.importButtonText}>메타데이터 가져오기</Text>
-            </BottomSheetTouchableOpacity>
+            </TouchableOpacity>
           </>
         ) : (
           <Text style={styles.emptyText}>

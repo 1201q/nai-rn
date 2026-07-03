@@ -1,9 +1,14 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useLayoutEffect, useRef, useState, type ComponentType } from "react";
+import {
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+} from "react-native";
 import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Reanimated, {
   useAnimatedProps,
   useSharedValue,
@@ -77,11 +82,14 @@ export function NumericSheetContent({
   onChange,
   cfg,
   showTitle = true,
+  // 페이지에선 기본 TextInput, 바텀시트(batchCount)에선 BottomSheetTextInput 주입.
+  InputComponent = TextInput,
 }: {
   value: number;
   onChange: (v: number) => void;
   cfg: NumericConfig;
   showTitle?: boolean;
+  InputComponent?: ComponentType<TextInputProps>;
 }) {
   const [inputText, setInputText] = useState(
     formatNumeric(value, cfg.precision),
@@ -138,7 +146,7 @@ export function NumericSheetContent({
 
         <View style={styles.stepsValueCenter}>
           {editing ? (
-            <BottomSheetTextInput
+            <InputComponent
               style={styles.stepsValueInput}
               value={inputText}
               onChangeText={(t) => setInputText(t.replace(filter, ""))}

@@ -1,6 +1,11 @@
 import React, { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { TouchableOpacity as BottomSheetTouchableOpacity } from "@gorhom/bottom-sheet";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { Image as ExpoImage } from "expo-image";
@@ -41,12 +46,7 @@ import { NumericSheetContent } from "./NumericSheet";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
 import { ImageUploadSheet } from "./ImageUploadSheet";
-import {
-  BATCH_COUNT_CONFIG,
-  CFG_CONFIG,
-  CFG_RESCALE_CONFIG,
-  STEPS_CONFIG,
-} from "./constants";
+import { CFG_CONFIG, CFG_RESCALE_CONFIG, STEPS_CONFIG } from "./constants";
 
 export type OptionRoute =
   | "menu"
@@ -256,19 +256,6 @@ function StepsSheet() {
   );
 }
 
-function BatchCountSheet() {
-  const batchCount = useGenerationStore((s) => s.batchCount);
-  const setBatchCount = useGenerationStore((s) => s.setBatchCount);
-  return (
-    <NumericSheetContent
-      value={batchCount}
-      onChange={setBatchCount}
-      cfg={BATCH_COUNT_CONFIG}
-      showTitle={false}
-    />
-  );
-}
-
 function CfgSheet() {
   const promptGuidance = useGenerationStore((s) => s.promptGuidance);
   const setPromptGuidance = useGenerationStore((s) => s.setPromptGuidance);
@@ -392,7 +379,7 @@ function I2ISheet() {
           />
         </View>
       ) : (
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.82}
           disabled={busy}
           onPress={handlePick}
@@ -410,13 +397,13 @@ function I2ISheet() {
               <Text style={i2iStyles.uploadText}>이미지 선택</Text>
             </>
           )}
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
       )}
 
       {sourceImage ? (
         <>
           <View style={i2iStyles.actionRow}>
-            <BottomSheetTouchableOpacity
+            <TouchableOpacity
               activeOpacity={0.72}
               disabled={busy}
               onPress={handlePick}
@@ -430,8 +417,8 @@ function I2ISheet() {
                   <Text style={i2iStyles.secondaryButtonText}>다시 선택</Text>
                 </>
               )}
-            </BottomSheetTouchableOpacity>
-            <BottomSheetTouchableOpacity
+            </TouchableOpacity>
+            <TouchableOpacity
               activeOpacity={0.72}
               onPress={() => {
                 triggerSelectionHaptic();
@@ -441,7 +428,7 @@ function I2ISheet() {
             >
               <Ionicons name="close" size={15} color={light.textSecondary} />
               <Text style={i2iStyles.secondaryButtonText}>끄기</Text>
-            </BottomSheetTouchableOpacity>
+            </TouchableOpacity>
           </View>
           {effectiveResolution ? (
             <Text style={i2iStyles.sizeText}>
@@ -537,7 +524,7 @@ function VibeReferenceCard({
 
   return (
     <View style={vibeStyles.card}>
-      <BottomSheetTouchableOpacity
+      <TouchableOpacity
         activeOpacity={0.82}
         onPress={onToggleExpanded}
         style={vibeStyles.cardHeader}
@@ -563,7 +550,7 @@ function VibeReferenceCard({
             <Ionicons name="diamond" size={12} color={light.accent} />
           </View>
         ) : null}
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.72}
           onPress={onToggleEnabled}
           style={[
@@ -576,13 +563,13 @@ function VibeReferenceCard({
             size={18}
             color={reference.enabled ? light.accentText : light.textHint}
           />
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
         <Ionicons
           name={expanded ? "chevron-up" : "chevron-down"}
           size={18}
           color={light.textHint}
         />
-      </BottomSheetTouchableOpacity>
+      </TouchableOpacity>
 
       {expanded ? (
         <View style={vibeStyles.expandedBody}>
@@ -620,7 +607,7 @@ function VibeReferenceCard({
             <Text style={vibeStyles.encodingHint}>Encoded vibe cached.</Text>
           )}
           <View style={vibeStyles.actionRow}>
-            <BottomSheetTouchableOpacity
+            <TouchableOpacity
               activeOpacity={0.72}
               disabled={busy}
               onPress={onReplace}
@@ -632,8 +619,8 @@ function VibeReferenceCard({
                 <Ionicons name="refresh" size={15} color={light.textSecondary} />
               )}
               <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
-            </BottomSheetTouchableOpacity>
-            <BottomSheetTouchableOpacity
+            </TouchableOpacity>
+            <TouchableOpacity
               activeOpacity={0.72}
               disabled={busy}
               onPress={onRemove}
@@ -641,7 +628,7 @@ function VibeReferenceCard({
             >
               <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
-            </BottomSheetTouchableOpacity>
+            </TouchableOpacity>
           </View>
         </View>
       ) : null}
@@ -719,7 +706,7 @@ function VibeSheet() {
   return (
     <View style={vibeStyles.sheet}>
       <View style={vibeStyles.topRow}>
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.82}
           disabled={!canAdd || adding}
           onPress={() => pickVibeImage()}
@@ -731,13 +718,13 @@ function VibeSheet() {
             <Ionicons name="add" size={22} color={light.accentText} />
           )}
           <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
         <Text style={vibeStyles.countText}>
           {references.length}/{MAX_VIBE_REFERENCES}
         </Text>
       </View>
 
-      <BottomSheetTouchableOpacity
+      <TouchableOpacity
         activeOpacity={0.82}
         onPress={() => {
           triggerSelectionHaptic();
@@ -758,7 +745,7 @@ function VibeSheet() {
         <Text style={vibeStyles.normalizeText}>
           Normalize Reference Strength Values
         </Text>
-      </BottomSheetTouchableOpacity>
+      </TouchableOpacity>
 
       {references.length === 0 ? (
         <View style={vibeStyles.emptyCard}>
@@ -838,7 +825,7 @@ function PreciseReferenceTypeSelector({
       {PRECISE_REFERENCE_TYPES.map((item) => {
         const active = item.value === value;
         return (
-          <BottomSheetTouchableOpacity
+          <TouchableOpacity
             key={item.value}
             activeOpacity={0.78}
             onPress={() => {
@@ -858,7 +845,7 @@ function PreciseReferenceTypeSelector({
             >
               {item.label}
             </Text>
-          </BottomSheetTouchableOpacity>
+          </TouchableOpacity>
         );
       })}
     </View>
@@ -897,7 +884,7 @@ function PreciseReferenceCard({
 
   return (
     <View style={vibeStyles.card}>
-      <BottomSheetTouchableOpacity
+      <TouchableOpacity
         activeOpacity={0.82}
         onPress={onToggleExpanded}
         style={vibeStyles.cardHeader}
@@ -924,7 +911,7 @@ function PreciseReferenceCard({
             <Ionicons name="diamond" size={12} color={light.accent} />
           </View>
         ) : null}
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.72}
           disabled={toggleDisabled}
           onPress={onToggleEnabled}
@@ -939,13 +926,13 @@ function PreciseReferenceCard({
             size={18}
             color={reference.enabled ? light.accentText : light.textHint}
           />
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
         <Ionicons
           name={expanded ? "chevron-up" : "chevron-down"}
           size={18}
           color={light.textHint}
         />
-      </BottomSheetTouchableOpacity>
+      </TouchableOpacity>
 
       {expanded ? (
         <View style={vibeStyles.expandedBody}>
@@ -985,7 +972,7 @@ function PreciseReferenceCard({
             </Text>
           ) : null}
           <View style={vibeStyles.actionRow}>
-            <BottomSheetTouchableOpacity
+            <TouchableOpacity
               activeOpacity={0.72}
               disabled={busy}
               onPress={onReplace}
@@ -997,8 +984,8 @@ function PreciseReferenceCard({
                 <Ionicons name="refresh" size={15} color={light.textSecondary} />
               )}
               <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
-            </BottomSheetTouchableOpacity>
-            <BottomSheetTouchableOpacity
+            </TouchableOpacity>
+            <TouchableOpacity
               activeOpacity={0.72}
               disabled={busy}
               onPress={onRemove}
@@ -1006,7 +993,7 @@ function PreciseReferenceCard({
             >
               <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
-            </BottomSheetTouchableOpacity>
+            </TouchableOpacity>
           </View>
         </View>
       ) : null}
@@ -1102,7 +1089,7 @@ function PreciseReferenceSheet() {
   return (
     <View style={vibeStyles.sheet}>
       <View style={vibeStyles.topRow}>
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           activeOpacity={0.82}
           disabled={!canAdd || adding}
           onPress={() => pickPreciseImage()}
@@ -1117,7 +1104,7 @@ function PreciseReferenceSheet() {
             <Ionicons name="add" size={22} color={light.accentText} />
           )}
           <Text style={vibeStyles.addButtonText}>이미지 추가</Text>
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
         <Text style={vibeStyles.countText}>
           {references.length}/{MAX_PRECISE_REFERENCES}
         </Text>
@@ -1208,7 +1195,7 @@ function MenuRow({
   }));
 
   return (
-    <BottomSheetTouchableOpacity
+    <TouchableOpacity
       activeOpacity={1}
       disabled={disabled}
       onPressIn={onPressIn}
@@ -1238,7 +1225,7 @@ function MenuRow({
           )}
         </View>
       </Reanimated.View>
-    </BottomSheetTouchableOpacity>
+    </TouchableOpacity>
   );
 }
 
@@ -1264,7 +1251,7 @@ function MenuTile({
 
   return (
     <View style={styles.sheetMenuTileCell}>
-      <BottomSheetTouchableOpacity
+      <TouchableOpacity
         activeOpacity={1}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -1278,7 +1265,7 @@ function MenuTile({
             {value}
           </Text>
         </Reanimated.View>
-      </BottomSheetTouchableOpacity>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -1324,7 +1311,6 @@ function OptionsMenu({
 
   return (
     <>
-      <Text style={styles.sheetMenuGroupLabel}>Core</Text>
       <View style={styles.sheetCard}>
         <View style={styles.sheetMenuTileRow}>
           <MenuTile
@@ -1458,8 +1444,6 @@ export function renderOptionRoute(
       return <SeedSheet />;
     case "resolution":
       return <ResolutionSheet onClose={back} />;
-    case "batchCount":
-      return <BatchCountSheet />;
     case "metadata":
       return <ImageUploadSheet onClose={close} showTitle={false} />;
     case "i2i":

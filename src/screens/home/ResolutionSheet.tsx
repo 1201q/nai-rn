@@ -1,10 +1,6 @@
-import { Text, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import {
-  BottomSheetTextInput,
-  TouchableOpacity as BottomSheetTouchableOpacity,
-} from "@gorhom/bottom-sheet";
 
 import { NAI_RESOLUTIONS, type NaiResolution } from "../../constants/generation";
 import { light, styles } from "./styles";
@@ -61,7 +57,7 @@ export function ResolutionSheetContent({
       <View style={styles.resolutionInputRow}>
         <View style={styles.resolutionInputBox}>
           <Text style={styles.resolutionInputLabel}>W</Text>
-          <BottomSheetTextInput
+          <TextInput
             style={styles.resolutionInput}
             value={resolution.width ? String(resolution.width) : ""}
             onChangeText={(t) => setDimension("width", t)}
@@ -71,7 +67,7 @@ export function ResolutionSheetContent({
             placeholderTextColor={light.textHint}
           />
         </View>
-        <BottomSheetTouchableOpacity
+        <TouchableOpacity
           style={styles.resolutionSwapButton}
           onPress={() => {
             Haptics.selectionAsync().catch(() => {});
@@ -83,10 +79,10 @@ export function ResolutionSheetContent({
             size={20}
             color={light.textSecondary}
           />
-        </BottomSheetTouchableOpacity>
+        </TouchableOpacity>
         <View style={styles.resolutionInputBox}>
           <Text style={styles.resolutionInputLabel}>H</Text>
-          <BottomSheetTextInput
+          <TextInput
             style={styles.resolutionInput}
             value={resolution.height ? String(resolution.height) : ""}
             onChangeText={(t) => setDimension("height", t)}
