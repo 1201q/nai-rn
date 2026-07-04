@@ -63,6 +63,7 @@ export type OptionRoute =
   | "steps"
   | "cfg"
   | "cfgRescale"
+  | "parameters"
   | "seed"
   | "resolution"
   | "batchCount"
@@ -86,6 +87,7 @@ export const DETAIL_TITLES: Partial<Record<OptionRoute, string>> = {
   steps: "Steps",
   cfg: "CFG Scale",
   cfgRescale: "CFG Rescale",
+  parameters: "Parameters",
   seed: "Seed",
   resolution: "Resolution",
   batchCount: "Batch Count",
@@ -297,6 +299,44 @@ function CfgRescaleSheet() {
       cfg={CFG_RESCALE_CONFIG}
       showTitle={false}
     />
+  );
+}
+
+function ParametersSheet() {
+  const steps = useGenerationStore((s) => s.steps);
+  const setSteps = useGenerationStore((s) => s.setSteps);
+  const promptGuidance = useGenerationStore((s) => s.promptGuidance);
+  const setPromptGuidance = useGenerationStore((s) => s.setPromptGuidance);
+  const promptGuidanceRescale = useGenerationStore(
+    (s) => s.promptGuidanceRescale,
+  );
+  const setPromptGuidanceRescale = useGenerationStore(
+    (s) => s.setPromptGuidanceRescale,
+  );
+  return (
+    <View style={paramStyles.sheet}>
+      <View style={paramStyles.block}>
+        <NumericSheetContent
+          value={steps}
+          onChange={setSteps}
+          cfg={STEPS_CONFIG}
+        />
+      </View>
+      <View style={paramStyles.block}>
+        <NumericSheetContent
+          value={promptGuidance}
+          onChange={setPromptGuidance}
+          cfg={CFG_CONFIG}
+        />
+      </View>
+      <View style={paramStyles.block}>
+        <NumericSheetContent
+          value={promptGuidanceRescale}
+          onChange={setPromptGuidanceRescale}
+          cfg={CFG_RESCALE_CONFIG}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -1308,7 +1348,7 @@ function MenuRow({
   );
 }
 
-function MenuTile({
+function StackedMenuRow({
   label,
   value,
   onPress,
@@ -1329,23 +1369,24 @@ function MenuTile({
   }));
 
   return (
-    <View style={styles.sheetMenuTileCell}>
-      <TouchableOpacity
-        activeOpacity={1}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        onPress={onPress}
+    <TouchableOpacity
+      activeOpacity={1}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={onPress}
+    >
+      <Reanimated.View
+        style={[styles.sheetMenuRow, paramStyles.row, scaleStyle, bgStyle]}
       >
-        <Reanimated.View style={[styles.sheetMenuTile, scaleStyle, bgStyle]}>
-          <Text style={styles.sheetMenuTileLabel} numberOfLines={1}>
-            {label}
-          </Text>
-          <Text style={styles.sheetMenuTileValue} numberOfLines={1}>
+        <View style={paramStyles.rowText}>
+          <Text style={styles.sheetMenuLabel}>{label}</Text>
+          <Text style={paramStyles.rowSubtitle} numberOfLines={1}>
             {value}
           </Text>
-        </Reanimated.View>
-      </TouchableOpacity>
-    </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={light.textHint} />
+      </Reanimated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -1397,25 +1438,27 @@ function OptionsMenu({
     seedText = `${seed} Lock`;
   }
 
+  const parametersText = `Steps ${steps} · CFG ${formatDecimal(
+    promptGuidance,
+  )} · Rescale ${formatDecimal(promptGuidanceRescale, 2)}`;
+
   return (
     <>
       <View style={styles.sheetCard}>
-        <View style={styles.sheetMenuTileRow}>
-          <MenuTile
-            label="Model"
-            value={modelText}
-            onPress={() => onSelect("model")}
-          />
-          <View style={styles.sheetTileDivider} />
-          <MenuTile
-            label="Resolution"
-            value={`${resolution.width}x${resolution.height}`}
-            onPress={() => onSelect("resolution")}
-          />
-        </View>
+        <StackedMenuRow
+          label="Model"
+          value={modelText}
+          onPress={() => onSelect("model")}
+        />
+        <View style={styles.sheetCardDivider} />
+        <StackedMenuRow
+          label="Resolution"
+          value={`${resolution.width}x${resolution.height}`}
+          onPress={() => onSelect("resolution")}
+        />
       </View>
       <View style={styles.sheetCard}>
-        <MenuRow
+        <StackedMenuRow
           label="Seed"
           value={seedText}
           onPress={() => onSelect("seed")}
@@ -1424,34 +1467,20 @@ function OptionsMenu({
 
       <Text style={styles.sheetMenuGroupLabel}>Parameter Options</Text>
       <View style={styles.sheetCard}>
-        <View style={styles.sheetMenuTileRow}>
-          <MenuTile
-            label="Steps"
-            value={`${steps}`}
-            onPress={() => onSelect("steps")}
-          />
-          <View style={styles.sheetTileDivider} />
-          <MenuTile
-            label="CFG Scale"
-            value={formatDecimal(promptGuidance)}
-            onPress={() => onSelect("cfg")}
-          />
-          <View style={styles.sheetTileDivider} />
-          <MenuTile
-            label="CFG Rescale"
-            value={formatDecimal(promptGuidanceRescale, 2)}
-            onPress={() => onSelect("cfgRescale")}
-          />
-        </View>
+        <StackedMenuRow
+          label="Parameters"
+          value={parametersText}
+          onPress={() => onSelect("parameters")}
+        />
       </View>
       <View style={styles.sheetCard}>
-        <MenuRow
+        <StackedMenuRow
           label="Sampler"
           value={samplerText}
           onPress={() => onSelect("sampler")}
         />
         <View style={styles.sheetCardDivider} />
-        <MenuRow
+        <StackedMenuRow
           label="Schedule"
           value={scheduleText}
           onPress={() => onSelect("schedule")}
@@ -1566,6 +1595,8 @@ export function renderOptionRoute(
       return <CfgSheet />;
     case "cfgRescale":
       return <CfgRescaleSheet />;
+    case "parameters":
+      return <ParametersSheet />;
     case "seed":
       return <SeedSheet />;
     case "resolution":
@@ -1641,6 +1672,32 @@ const i2iStyles = StyleSheet.create({
     color: light.textHint,
     fontSize: 13,
     fontWeight: "700",
+  },
+});
+
+const paramStyles = StyleSheet.create({
+  sheet: {
+    gap: 12,
+  },
+  block: {
+    borderRadius: 18,
+    backgroundColor: light.surface,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  row: {
+    paddingVertical: 12,
+  },
+  rowText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  rowSubtitle: {
+    color: light.textHint,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });
 
