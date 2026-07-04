@@ -235,9 +235,7 @@ function ScheduleSheet({
   const setNoiseSchedule = useGenerationStore((s) => s.setNoiseSchedule);
   return (
     <>
-      {showTitle ? (
-        <Text style={styles.sheetTitle}>Noise Schedule</Text>
-      ) : null}
+      {showTitle ? <Text style={styles.sheetTitle}>Noise Schedule</Text> : null}
       {NOISE_SCHEDULES.flatMap((item, index) => {
         const el = (
           <SheetItem
@@ -388,7 +386,8 @@ function I2ISheet() {
     if (busy) return;
     try {
       setBusy(true);
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         return;
       }
@@ -467,7 +466,11 @@ function I2ISheet() {
                 <ActivityIndicator size="small" color={light.textSecondary} />
               ) : (
                 <>
-                  <Ionicons name="refresh" size={15} color={light.textSecondary} />
+                  <Ionicons
+                    name="refresh"
+                    size={15}
+                    color={light.textSecondary}
+                  />
                   <Text style={i2iStyles.secondaryButtonText}>다시 선택</Text>
                 </>
               )}
@@ -675,7 +678,11 @@ function VibeReferenceCard({
               {busy ? (
                 <ActivityIndicator size="small" color={light.textSecondary} />
               ) : (
-                <Ionicons name="refresh" size={15} color={light.textSecondary} />
+                <Ionicons
+                  name="refresh"
+                  size={15}
+                  color={light.textSecondary}
+                />
               )}
               <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
             </TouchableOpacity>
@@ -685,7 +692,11 @@ function VibeReferenceCard({
               onPress={onRemove}
               style={vibeStyles.secondaryButton}
             >
-              <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
+              <Ionicons
+                name="trash-outline"
+                size={15}
+                color={light.textSecondary}
+              />
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
             </TouchableOpacity>
           </View>
@@ -723,7 +734,8 @@ function VibeSheet() {
         setAdding(true);
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         return;
       }
@@ -751,9 +763,7 @@ function VibeSheet() {
         : await addReference(input);
       if (reference) {
         setExpandedIds((current) =>
-          current.includes(reference.id)
-            ? current
-            : [...current, reference.id],
+          current.includes(reference.id) ? current : [...current, reference.id],
         );
       }
     } catch {
@@ -792,10 +802,7 @@ function VibeSheet() {
         style={vibeStyles.normalizeRow}
       >
         <View
-          style={[
-            vibeStyles.checkbox,
-            normalize && vibeStyles.checkboxActive,
-          ]}
+          style={[vibeStyles.checkbox, normalize && vibeStyles.checkboxActive]}
         >
           {normalize ? (
             <Ionicons name="checkmark" size={15} color={light.accentText} />
@@ -808,7 +815,11 @@ function VibeSheet() {
 
       {references.length === 0 ? (
         <View style={vibeStyles.emptyCard}>
-          <Ionicons name="images-outline" size={28} color={light.textSecondary} />
+          <Ionicons
+            name="images-outline"
+            size={28}
+            color={light.textSecondary}
+          />
           <Text style={vibeStyles.emptyText}>
             Vibe로 사용할 이미지를 추가하세요.
           </Text>
@@ -854,8 +865,7 @@ function VibeSheet() {
 
 function isPreciseReferenceSupportedModel(model: string) {
   return (
-    model === "nai-diffusion-4-5-full" ||
-    model === "nai-diffusion-4-5-curated"
+    model === "nai-diffusion-4-5-full" || model === "nai-diffusion-4-5-curated"
   );
 }
 
@@ -1046,7 +1056,11 @@ function PreciseReferenceCard({
               {busy ? (
                 <ActivityIndicator size="small" color={light.textSecondary} />
               ) : (
-                <Ionicons name="refresh" size={15} color={light.textSecondary} />
+                <Ionicons
+                  name="refresh"
+                  size={15}
+                  color={light.textSecondary}
+                />
               )}
               <Text style={vibeStyles.secondaryButtonText}>다시 선택</Text>
             </TouchableOpacity>
@@ -1056,7 +1070,11 @@ function PreciseReferenceCard({
               onPress={onRemove}
               style={vibeStyles.secondaryButton}
             >
-              <Ionicons name="trash-outline" size={15} color={light.textSecondary} />
+              <Ionicons
+                name="trash-outline"
+                size={15}
+                color={light.textSecondary}
+              />
               <Text style={vibeStyles.secondaryButtonText}>삭제</Text>
             </TouchableOpacity>
           </View>
@@ -1109,7 +1127,8 @@ function PreciseReferenceSheet() {
         setAdding(true);
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         return;
       }
@@ -1137,9 +1156,7 @@ function PreciseReferenceSheet() {
         : await addReference(input);
       if (reference) {
         setExpandedIds((current) =>
-          current.includes(reference.id)
-            ? current
-            : [...current, reference.id],
+          current.includes(reference.id) ? current : [...current, reference.id],
         );
       }
     } catch {
@@ -1185,7 +1202,11 @@ function PreciseReferenceSheet() {
 
       {references.length === 0 ? (
         <View style={vibeStyles.emptyCard}>
-          <Ionicons name="person-outline" size={28} color={light.textSecondary} />
+          <Ionicons
+            name="person-outline"
+            size={28}
+            color={light.textSecondary}
+          />
           <Text style={vibeStyles.emptyText}>
             Precise Reference로 사용할 이미지를 추가하세요.
           </Text>
@@ -1258,6 +1279,7 @@ function ToggleSwitch({ value }: { value: boolean }) {
 }
 
 function MenuRow({
+  icon,
   label,
   value,
   active,
@@ -1268,6 +1290,7 @@ function MenuRow({
   onToggle,
   onPress,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
   active?: boolean;
@@ -1298,14 +1321,20 @@ function MenuRow({
       onPress={onPress}
     >
       <Reanimated.View style={[styles.sheetMenuRow, scaleStyle, bgStyle]}>
-        <Text
-          style={[
-            styles.sheetMenuLabel,
-            disabled && styles.sheetMenuLabelDisabled,
-          ]}
-        >
-          {label}
-        </Text>
+        <View style={styles.sheetMenuLeft}>
+          <View style={styles.sheetMenuIconBox}>
+            <Ionicons name={icon} size={16} color={light.textSecondary} />
+          </View>
+          <Text
+            style={[
+              styles.sheetMenuLabel,
+              disabled && styles.sheetMenuLabelDisabled,
+            ]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </View>
         <View style={styles.sheetMenuValueRow}>
           {isToggle ? (
             <ToggleSwitch value={!!active} />
@@ -1349,10 +1378,12 @@ function MenuRow({
 }
 
 function StackedMenuRow({
+  icon,
   label,
   value,
   onPress,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   onPress: () => void;
@@ -1378,6 +1409,9 @@ function StackedMenuRow({
       <Reanimated.View
         style={[styles.sheetMenuRow, paramStyles.row, scaleStyle, bgStyle]}
       >
+        <View style={styles.sheetMenuIconBox}>
+          <Ionicons name={icon} size={21} color={light.textSecondary} />
+        </View>
         <View style={paramStyles.rowText}>
           <Text style={styles.sheetMenuLabel}>{label}</Text>
           <Text style={paramStyles.rowSubtitle} numberOfLines={1}>
@@ -1390,11 +1424,7 @@ function StackedMenuRow({
   );
 }
 
-function OptionsMenu({
-  onSelect,
-}: {
-  onSelect: (route: OptionRoute) => void;
-}) {
+function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
   const model = useGenerationStore((s) => s.model);
   const resolution = useGenerationStore((s) => s.resolution);
   const seed = useGenerationStore((s) => s.seed);
@@ -1444,122 +1474,154 @@ function OptionsMenu({
 
   return (
     <>
-      <View style={styles.sheetCard}>
-        <StackedMenuRow
-          label="Model"
-          value={modelText}
-          onPress={() => onSelect("model")}
-        />
-        <View style={styles.sheetCardDivider} />
-        <StackedMenuRow
-          label="Resolution"
-          value={`${resolution.width}x${resolution.height}`}
-          onPress={() => onSelect("resolution")}
-        />
+      <View style={styles.sheetCardGroup}>
+        <View style={[styles.sheetCard, styles.sheetCardTop]}>
+          <StackedMenuRow
+            icon="cube-outline"
+            label="Model"
+            value={modelText}
+            onPress={() => onSelect("model")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardBottom]}>
+          <StackedMenuRow
+            icon="resize-outline"
+            label="Resolution"
+            value={`${resolution.width}x${resolution.height}`}
+            onPress={() => onSelect("resolution")}
+          />
+        </View>
       </View>
-      <View style={styles.sheetCard}>
-        <StackedMenuRow
-          label="Seed"
-          value={seedText}
-          onPress={() => onSelect("seed")}
-        />
+      <View style={styles.sheetCardGroup}>
+        <View style={styles.sheetCard}>
+          <StackedMenuRow
+            icon="dice-outline"
+            label="Seed"
+            value={seedText}
+            onPress={() => onSelect("seed")}
+          />
+        </View>
       </View>
 
       <Text style={styles.sheetMenuGroupLabel}>Parameter Options</Text>
-      <View style={styles.sheetCard}>
-        <StackedMenuRow
-          label="Parameters"
-          value={parametersText}
-          onPress={() => onSelect("parameters")}
-        />
+      <View style={styles.sheetCardGroup}>
+        <View style={styles.sheetCard}>
+          <StackedMenuRow
+            icon="construct-outline"
+            label="Parameters"
+            value={parametersText}
+            onPress={() => onSelect("parameters")}
+          />
+        </View>
       </View>
-      <View style={styles.sheetCard}>
-        <StackedMenuRow
-          label="Sampler"
-          value={samplerText}
-          onPress={() => onSelect("sampler")}
-        />
-        <View style={styles.sheetCardDivider} />
-        <StackedMenuRow
-          label="Schedule"
-          value={scheduleText}
-          onPress={() => onSelect("schedule")}
-        />
-        <View style={styles.sheetCardDivider} />
-        <MenuRow
-          label="Variety+"
-          active={varietyPlus}
-          isToggle
-          onPress={() => {
-            triggerSelectionHaptic();
-            setVarietyPlus(!varietyPlus);
-          }}
-        />
+      <View style={styles.sheetCardGroup}>
+        <View style={[styles.sheetCard, styles.sheetCardTop]}>
+          <StackedMenuRow
+            icon="shuffle-outline"
+            label="Sampler"
+            value={samplerText}
+            onPress={() => onSelect("sampler")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardMiddle]}>
+          <StackedMenuRow
+            icon="pulse-outline"
+            label="Schedule"
+            value={scheduleText}
+            onPress={() => onSelect("schedule")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardBottom]}>
+          <MenuRow
+            icon="sparkles-outline"
+            label="Variety+"
+            active={varietyPlus}
+            isToggle
+            onPress={() => {
+              triggerSelectionHaptic();
+              setVarietyPlus(!varietyPlus);
+            }}
+          />
+        </View>
       </View>
 
       <Text style={styles.sheetMenuGroupLabel}>Reference</Text>
-      <View style={styles.sheetCard}>
-        <MenuRow label="Metadata Extract" onPress={() => onSelect("metadata")} />
-        <View style={styles.sheetCardDivider} />
-        <MenuRow
-          label="Image2Image"
-          active={Boolean(i2iSourceImage)}
-          rightToggle
-          toggleOn={Boolean(i2iSourceImage)}
-          onToggle={() => {
-            triggerSelectionHaptic();
-            if (i2iSourceImage) {
-              clearI2I();
-            } else {
-              onSelect("i2i");
-            }
-          }}
-          onPress={() => onSelect("i2i")}
-        />
-        <View style={styles.sheetCardDivider} />
-        <MenuRow
-          label="Vibe Transfer"
-          value={activeVibeCount > 0 ? `${activeVibeCount}` : undefined}
-          active={activeVibeCount > 0}
-          rightToggle
-          toggleOn={activeVibeCount > 0}
-          onToggle={() => {
-            triggerSelectionHaptic();
-            if (activeVibeCount > 0) {
-              vibeReferences.forEach(
-                (r) => r.enabled && setVibeReferenceEnabled(r.id, false),
-              );
-            } else if (vibeReferences.length > 0) {
-              vibeReferences.forEach((r) => setVibeReferenceEnabled(r.id, true));
-            } else {
-              onSelect("vibe");
-            }
-          }}
-          onPress={() => onSelect("vibe")}
-        />
-        <View style={styles.sheetCardDivider} />
-        <MenuRow
-          label="Precise Ref"
-          value={activePreciseCount > 0 ? `${activePreciseCount}` : undefined}
-          active={activePreciseCount > 0}
-          rightToggle
-          toggleOn={activePreciseCount > 0}
-          onToggle={() => {
-            triggerSelectionHaptic();
-            if (activePreciseCount > 0) {
-              preciseReferences.forEach(
-                (r) => r.enabled && setPreciseReferenceEnabled(r.id, false),
-              );
-            } else if (preciseReferences.length > 0) {
-              preciseReferences.forEach((r) =>
-                setPreciseReferenceEnabled(r.id, true),
-              );
-            } else {
-              onSelect("precise");
-            }
-          }}
-          onPress={() => onSelect("precise")}
-        />
+      <View style={styles.sheetCardGroup}>
+        <View style={[styles.sheetCard, styles.sheetCardTop]}>
+          <MenuRow
+            icon="scan-outline"
+            label="Metadata Extract"
+            onPress={() => onSelect("metadata")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardMiddle]}>
+          <MenuRow
+            icon="image-outline"
+            label="Image2Image"
+            active={Boolean(i2iSourceImage)}
+            rightToggle
+            toggleOn={Boolean(i2iSourceImage)}
+            onToggle={() => {
+              triggerSelectionHaptic();
+              if (i2iSourceImage) {
+                clearI2I();
+              } else {
+                onSelect("i2i");
+              }
+            }}
+            onPress={() => onSelect("i2i")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardMiddle]}>
+          <MenuRow
+            icon="color-palette-outline"
+            label="Vibe Transfer"
+            value={activeVibeCount > 0 ? `${activeVibeCount}` : undefined}
+            active={activeVibeCount > 0}
+            rightToggle
+            toggleOn={activeVibeCount > 0}
+            onToggle={() => {
+              triggerSelectionHaptic();
+              if (activeVibeCount > 0) {
+                vibeReferences.forEach(
+                  (r) => r.enabled && setVibeReferenceEnabled(r.id, false),
+                );
+              } else if (vibeReferences.length > 0) {
+                vibeReferences.forEach((r) =>
+                  setVibeReferenceEnabled(r.id, true),
+                );
+              } else {
+                onSelect("vibe");
+              }
+            }}
+            onPress={() => onSelect("vibe")}
+          />
+        </View>
+        <View style={[styles.sheetCard, styles.sheetCardBottom]}>
+          <MenuRow
+            icon="person-outline"
+            label="Precise Ref"
+            value={activePreciseCount > 0 ? `${activePreciseCount}` : undefined}
+            active={activePreciseCount > 0}
+            rightToggle
+            toggleOn={activePreciseCount > 0}
+            onToggle={() => {
+              triggerSelectionHaptic();
+              if (activePreciseCount > 0) {
+                preciseReferences.forEach(
+                  (r) => r.enabled && setPreciseReferenceEnabled(r.id, false),
+                );
+              } else if (preciseReferences.length > 0) {
+                preciseReferences.forEach((r) =>
+                  setPreciseReferenceEnabled(r.id, true),
+                );
+              } else {
+                onSelect("precise");
+              }
+            }}
+            onPress={() => onSelect("precise")}
+          />
+        </View>
       </View>
     </>
   );

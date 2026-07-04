@@ -506,19 +506,30 @@ export const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 8,
   },
-  // 테두리로 묶는 그룹 카드
+  // 좁은 마진으로 구분되는 카드 묶음 (사이 배경이 드러남)
+  sheetCardGroup: {
+    gap: 3,
+    marginBottom: 12,
+  },
   sheetCard: {
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: light.border,
     backgroundColor: light.surface,
     overflow: "hidden",
-    marginBottom: 8,
   },
-  sheetCardDivider: {
-    height: 1,
-    backgroundColor: light.border,
-    marginHorizontal: 14,
+  sheetCardTop: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+  },
+  sheetCardMiddle: {
+    borderRadius: 4,
+  },
+  sheetCardBottom: {
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   sheetTileDivider: {
     width: 1,
@@ -532,6 +543,21 @@ export const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
     gap: 12,
+  },
+  sheetMenuLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sheetMenuIconBox: {
+    width: 22,
+    height: 22,
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    // backgroundColor: "red",
   },
   sheetMenuTileRow: {
     flexDirection: "row",
