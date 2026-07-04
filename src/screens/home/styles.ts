@@ -434,14 +434,30 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     includeFontPadding: false,
   },
+  sheetSectionDescription: {
+    color: light.textHint,
+    fontSize: 14,
+    lineHeight: 20,
+    backgroundColor: light.surfaceAlt,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
   sheetModelItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     minHeight: 50,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     marginHorizontal: -8,
     borderRadius: 14,
+  },
+  sheetModelItemContent: {
+    flex: 1,
+    gap: 4,
   },
   sheetModelItemLabelRow: {
     flexDirection: "row",
@@ -466,6 +482,11 @@ export const styles = StyleSheet.create({
     color: light.textHint,
     fontSize: 11,
     fontWeight: "700",
+  },
+  sheetModelItemDescription: {
+    color: light.textHint,
+    fontSize: 13,
+    lineHeight: 17,
   },
   sheetDivider: {
     height: 1,

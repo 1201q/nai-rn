@@ -2,7 +2,10 @@ import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
-import { NAI_RESOLUTIONS, type NaiResolution } from "../../constants/generation";
+import {
+  NAI_RESOLUTIONS,
+  type NaiResolution,
+} from "../../constants/generation";
 import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
 
@@ -53,6 +56,10 @@ export function ResolutionSheetContent({
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Resolution</Text> : null}
+      <Text style={styles.sheetSectionDescription}>
+        생성할 이미지의 가로세로 크기를 정합니다. 해상도가 높을수록 디테일은
+        좋아지지만 Anals 소모와 생성 시간이 늘어납니다.
+      </Text>
 
       <View style={styles.resolutionInputRow}>
         <View style={styles.resolutionInputBox}>

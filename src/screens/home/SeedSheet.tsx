@@ -20,6 +20,9 @@ export function SeedSheetContent({
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Seed</Text> : null}
+      <Text style={styles.sheetSectionDescription}>
+        이미지 생성에 사용되는 노이즈 패턴의 시작값입니다. 같은 시드와 설정이면 비슷한 방향의 결과를 재현할 수 있습니다.
+      </Text>
       <View style={styles.seedSheetRow}>
         <TextInput
           style={[styles.seedSheetInput, locked && styles.seedSheetInputLocked]}

@@ -244,7 +244,7 @@ export function SheetItem({
   onPress,
   recommendedValue,
 }: {
-  item: { value: string; label: string };
+  item: { value: string; label: string; description?: string };
   isActive: boolean;
   onPress: () => void;
   recommendedValue?: string;
@@ -268,19 +268,26 @@ export function SheetItem({
       onPress={onPress}
     >
       <Reanimated.View style={[styles.sheetModelItem, scaleStyle, bgStyle]}>
-        <View style={styles.sheetModelItemLabelRow}>
-          <Text
-            style={[
-              styles.sheetModelItemLabel,
-              isActive && styles.sheetModelItemLabelActive,
-            ]}
-          >
-            {item.label}
-          </Text>
-          {item.value === recommendedValue && (
-            <View style={styles.sheetModelItemBadge}>
-              <Text style={styles.sheetModelItemBadgeText}>권장</Text>
-            </View>
+        <View style={styles.sheetModelItemContent}>
+          <View style={styles.sheetModelItemLabelRow}>
+            <Text
+              style={[
+                styles.sheetModelItemLabel,
+                isActive && styles.sheetModelItemLabelActive,
+              ]}
+            >
+              {item.label}
+            </Text>
+            {item.value === recommendedValue && (
+              <View style={styles.sheetModelItemBadge}>
+                <Text style={styles.sheetModelItemBadgeText}>권장</Text>
+              </View>
+            )}
+          </View>
+          {item.description && (
+            <Text style={styles.sheetModelItemDescription}>
+              {item.description}
+            </Text>
           )}
         </View>
         {isActive && (

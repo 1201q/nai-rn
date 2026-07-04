@@ -170,6 +170,9 @@ function ModelSheet({
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Model</Text> : null}
+      <Text style={styles.sheetSectionDescription}>
+        이미지를 생성할 AI 모델을 선택합니다. 모델마다 화풍과 표현 범위, 학습된 데이터가 다릅니다.
+      </Text>
       {MODELS.flatMap((item, index) => {
         const el = (
           <SheetItem
@@ -203,6 +206,9 @@ function SamplerSheet({
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Sampler</Text> : null}
+      <Text style={styles.sheetSectionDescription}>
+        노이즈를 제거해 이미지를 완성하는 알고리즘을 선택합니다. 종류에 따라 속도와 결과물의 느낌이 달라집니다.
+      </Text>
       {SAMPLERS.flatMap((item, index) => {
         const el = (
           <SheetItem
@@ -236,6 +242,9 @@ function ScheduleSheet({
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>Noise Schedule</Text> : null}
+      <Text style={styles.sheetSectionDescription}>
+        생성 과정에서 스텝마다 노이즈를 얼마나, 어떻게 제거할지 정합니다. 디테일과 결과의 안정감이 달라집니다.
+      </Text>
       {NOISE_SCHEDULES.flatMap((item, index) => {
         const el = (
           <SheetItem
