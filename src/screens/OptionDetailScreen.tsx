@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -21,6 +21,8 @@ import {
   OptionDetailHeaderProvider,
   type OptionDetailHeaderState,
 } from "./optionDetailHeader";
+import { DetailPillHeader } from "../components/DetailPillHeader";
+import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
 
 // 옵션 상세 선택 화면. 옵션 탭에서 router.push 로 진입 — CharacterEditScreen 처럼
@@ -32,6 +34,7 @@ export function OptionDetailScreen() {
   const route = params.route as OptionRoute | undefined;
 
   const [header, setHeader] = useState<OptionDetailHeaderState>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const back = useCallback(() => router.back(), [router]);
   const push = useCallback(
@@ -47,53 +50,51 @@ export function OptionDetailScreen() {
 
   return (
     <OptionDetailHeaderProvider value={setHeader}>
-      <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <View style={styles.screen}>
         <StatusBar style="light" />
 
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerPillButton}
-            activeOpacity={0.78}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={back}
-          >
-            <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{DETAIL_TITLES[route] ?? ""}</Text>
-            {header?.subtitle ? (
-              <Text style={styles.headerSubtitle}>{header.subtitle}</Text>
-            ) : null}
-          </View>
-          {action ? (
-            <TouchableOpacity
-              style={[
-                styles.headerPillButton,
-                (action.disabled || action.busy) && styles.headerActionDisabled,
-              ]}
-              activeOpacity={0.78}
-              disabled={action.disabled || action.busy}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
-              onPress={action.onPress}
-            >
-              {action.busy ? (
-                <ActivityIndicator size="small" color={light.textPrimary} />
-              ) : (
-                <Ionicons name="add" size={24} color={light.textPrimary} />
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-        </View>
+        <ScreenEdgeFade topHeight={insets.top + 64} />
+
+        <DetailPillHeader
+          title={DETAIL_TITLES[route] ?? ""}
+          subtitle={header?.subtitle ?? undefined}
+          scrollY={scrollY}
+          topInset={insets.top}
+          onBack={back}
+          right={
+            action ? (
+              <TouchableOpacity
+                style={[
+                  styles.headerAction,
+                  (action.disabled || action.busy) &&
+                    styles.headerActionDisabled,
+                ]}
+                activeOpacity={0.78}
+                disabled={action.disabled || action.busy}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                onPress={action.onPress}
+              >
+                {action.busy ? (
+                  <ActivityIndicator size="small" color={light.textPrimary} />
+                ) : (
+                  <Ionicons name="add" size={24} color={light.textPrimary} />
+                )}
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
 
         <KeyboardAwareScrollView
           bottomOffset={72}
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: insets.bottom + 48 },
+            { paddingTop: insets.top + 56 + 8, paddingBottom: insets.bottom + 48 },
           ]}
           keyboardShouldPersistTaps="handled"
         >
@@ -109,50 +110,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: light.bg,
   },
-  // CharacterEditScreen 헤더 복제.
-  header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  headerPillButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 999,
+  // pill 내부 액션 아이콘 — 배경은 DetailPillHeader 의 Pill 이 담당. pillHeader 와 동일 30.
+  headerAction: {
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: light.surface,
-    shadowColor: "#000000",
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: light.textPrimary,
-  },
-  headerSubtitle: {
-    marginTop: -1,
-    fontSize: 12,
-    fontWeight: "700",
-    color: light.textHint,
   },
   headerActionDisabled: {
     opacity: 0.5,
   },
-  headerSpacer: {
-    width: 46,
-  },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 8,
   },
 });

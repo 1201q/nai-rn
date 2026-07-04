@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,11 +17,13 @@ import { useRouter } from "expo-router";
 
 import { useGenerationStore } from "../store/generationStore";
 import { light } from "./home/styles";
-import { ScreenHeader } from "../components/ScreenHeader";
+import { DetailPillHeader } from "../components/DetailPillHeader";
+import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((s) => s.storedToken);
   const saveToken = useGenerationStore((s) => s.saveToken);
   const [tokenInput, setTokenInput] = useState("");
@@ -53,10 +56,17 @@ export function SettingsScreen() {
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScreenHeader title="Settings" onBack={() => router.back()} />
+      <ScreenEdgeFade topHeight={insets.top + 64} />
+
+      <DetailPillHeader
+        title="Settings"
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -64,9 +74,17 @@ export function SettingsScreen() {
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false },
+          )}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: insets.bottom + 28 },
+            {
+              paddingTop: insets.top + 56 + 12,
+              paddingBottom: insets.bottom + 28,
+            },
           ]}
         >
           <View style={styles.sectionHeader}>

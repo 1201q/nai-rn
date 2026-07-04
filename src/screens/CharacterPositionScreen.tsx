@@ -26,6 +26,8 @@ import {
   useGenerationStore,
 } from "../store/generationStore";
 import { BADGE_COLORS, triggerSelectionHaptic } from "./option/helpers";
+import { DetailPillHeader } from "../components/DetailPillHeader";
+import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
 import { light } from "./home/styles";
 
 type CanvasMetrics = {
@@ -207,21 +209,15 @@ export function CharacterPositionScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.headerCircleButton}
-          activeOpacity={0.78}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back" size={22} color={light.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>캐릭터 위치</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenEdgeFade topHeight={insets.top + 64} />
 
-      <View style={styles.content}>
+      <DetailPillHeader
+        title="캐릭터 위치"
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
+
+      <View style={[styles.content, { paddingTop: insets.top + 56 }]}>
         <View style={styles.summaryRow}>
           <View>
             <Text style={styles.summaryLabel}>Coordinate Prompting</Text>
@@ -366,30 +362,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: light.bg,
-  },
-  header: {
-    minHeight: 56,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerCircleButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.surface,
-  },
-  headerTitle: {
-    color: light.textPrimary,
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  headerSpacer: {
-    width: 46,
   },
   content: {
     flex: 1,

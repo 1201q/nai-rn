@@ -9,7 +9,7 @@ type Variant = "blur" | "solid";
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // 스크롤 0 → 콘텐츠만, 스크롤 시작 → 패딩 자라며 배경 fade-in 하는 플로팅 pill.
-function Pill({
+export function Pill({
   scrollY,
   variant,
   circle,
