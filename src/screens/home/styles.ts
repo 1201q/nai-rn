@@ -539,9 +539,15 @@ export const styles = StyleSheet.create({
   sheetMenuRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     minHeight: 52,
     paddingHorizontal: 14,
+  },
+  // 배경(누름 시 색만 변경)과 분리되는 콘텐츠 레이어. 이 레이어만 scale 적용.
+  sheetMenuRowContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   sheetMenuLeft: {

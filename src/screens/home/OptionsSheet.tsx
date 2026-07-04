@@ -1302,7 +1302,7 @@ function MenuRow({
   onPress?: () => void;
 }) {
   const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
-    scaleTo: 0.96,
+    scaleTo: 0.98,
   });
   const bgStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -1320,59 +1320,65 @@ function MenuRow({
       onPressOut={onPressOut}
       onPress={onPress}
     >
-      <Reanimated.View style={[styles.sheetMenuRow, scaleStyle, bgStyle]}>
-        <View style={styles.sheetMenuLeft}>
-          <View style={styles.sheetMenuIconBox}>
-            <Ionicons name={icon} size={16} color={light.textSecondary} />
+      <View style={styles.sheetMenuRow}>
+        <Reanimated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, bgStyle]}
+        />
+        <Reanimated.View style={[styles.sheetMenuRowContent, scaleStyle]}>
+          <View style={styles.sheetMenuLeft}>
+            <View style={styles.sheetMenuIconBox}>
+              <Ionicons name={icon} size={16} color={light.textSecondary} />
+            </View>
+            <Text
+              style={[
+                styles.sheetMenuLabel,
+                disabled && styles.sheetMenuLabelDisabled,
+              ]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
           </View>
-          <Text
-            style={[
-              styles.sheetMenuLabel,
-              disabled && styles.sheetMenuLabelDisabled,
-            ]}
-            numberOfLines={1}
-          >
-            {label}
-          </Text>
-        </View>
-        <View style={styles.sheetMenuValueRow}>
-          {isToggle ? (
-            <ToggleSwitch value={!!active} />
-          ) : (
-            <>
-              {value ? (
-                <Text
-                  style={[
-                    styles.sheetMenuValue,
-                    active && styles.sheetMenuValueActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {value}
-                </Text>
-              ) : null}
-              {rightToggle ? (
-                <>
-                  <View style={styles.sheetMenuToggleDivider} />
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={8}
-                    onPress={onToggle}
+          <View style={styles.sheetMenuValueRow}>
+            {isToggle ? (
+              <ToggleSwitch value={!!active} />
+            ) : (
+              <>
+                {value ? (
+                  <Text
+                    style={[
+                      styles.sheetMenuValue,
+                      active && styles.sheetMenuValueActive,
+                    ]}
+                    numberOfLines={1}
                   >
-                    <ToggleSwitch value={!!toggleOn} />
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={light.textHint}
-                />
-              )}
-            </>
-          )}
-        </View>
-      </Reanimated.View>
+                    {value}
+                  </Text>
+                ) : null}
+                {rightToggle ? (
+                  <>
+                    <View style={styles.sheetMenuToggleDivider} />
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      hitSlop={8}
+                      onPress={onToggle}
+                    >
+                      <ToggleSwitch value={!!toggleOn} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={light.textHint}
+                  />
+                )}
+              </>
+            )}
+          </View>
+        </Reanimated.View>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -1389,7 +1395,7 @@ function StackedMenuRow({
   onPress: () => void;
 }) {
   const { progress, onPressIn, onPressOut, scaleStyle } = useScalePress({
-    scaleTo: 0.96,
+    scaleTo: 0.98,
   });
   const bgStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
@@ -1406,20 +1412,24 @@ function StackedMenuRow({
       onPressOut={onPressOut}
       onPress={onPress}
     >
-      <Reanimated.View
-        style={[styles.sheetMenuRow, paramStyles.row, scaleStyle, bgStyle]}
-      >
-        <View style={styles.sheetMenuIconBox}>
-          <Ionicons name={icon} size={21} color={light.textSecondary} />
-        </View>
-        <View style={paramStyles.rowText}>
-          <Text style={styles.sheetMenuLabel}>{label}</Text>
-          <Text style={paramStyles.rowSubtitle} numberOfLines={1}>
-            {value}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={light.textHint} />
-      </Reanimated.View>
+      <View style={[styles.sheetMenuRow, paramStyles.row]}>
+        <Reanimated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, bgStyle]}
+        />
+        <Reanimated.View style={[styles.sheetMenuRowContent, scaleStyle]}>
+          <View style={styles.sheetMenuIconBox}>
+            <Ionicons name={icon} size={21} color={light.textSecondary} />
+          </View>
+          <View style={paramStyles.rowText}>
+            <Text style={styles.sheetMenuLabel}>{label}</Text>
+            <Text style={paramStyles.rowSubtitle} numberOfLines={1}>
+              {value}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={light.textHint} />
+        </Reanimated.View>
+      </View>
     </TouchableOpacity>
   );
 }
