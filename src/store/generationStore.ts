@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { File } from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import { create } from "zustand";
 
 import {
@@ -112,10 +113,20 @@ export function roundI2IDimensionTo64(value: number): number {
   return Math.max(64, Math.round(value / 64) * 64);
 }
 
+// NAI i2i 픽셀 상한. 초과 시 비율 유지 축소 (hard max 1536x2048보다 보수적).
+const NAI_I2I_MAX_PIXELS = 1216 * 1216;
+
 export function getI2IEffectiveResolution(sourceImage: I2ISourceImage) {
+  let width = sourceImage.width;
+  let height = sourceImage.height;
+  if (width * height > NAI_I2I_MAX_PIXELS) {
+    const scale = Math.sqrt(NAI_I2I_MAX_PIXELS / (width * height));
+    width *= scale;
+    height *= scale;
+  }
   return {
-    width: roundI2IDimensionTo64(sourceImage.width),
-    height: roundI2IDimensionTo64(sourceImage.height),
+    width: roundI2IDimensionTo64(width),
+    height: roundI2IDimensionTo64(height),
   };
 }
 
@@ -134,8 +145,7 @@ function isVibeSupportedModel(model: string): boolean {
 
 function isPreciseReferenceSupportedModel(model: string): boolean {
   return (
-    model === "nai-diffusion-4-5-full" ||
-    model === "nai-diffusion-4-5-curated"
+    model === "nai-diffusion-4-5-full" || model === "nai-diffusion-4-5-curated"
   );
 }
 
@@ -207,9 +217,7 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
 
     return [
       {
-        id: isString(candidate.id)
-          ? candidate.id
-          : `stored-character-${index}`,
+        id: isString(candidate.id) ? candidate.id : `stored-character-${index}`,
         prompt: isString(candidate.prompt) ? candidate.prompt : "",
         negativePrompt: isString(candidate.negativePrompt)
           ? candidate.negativePrompt
@@ -490,8 +498,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   addVibeReference: async (input) => {
     if (get().preciseReferences.some((item) => item.enabled)) {
       set({
-        message:
-          "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       return null;
     }
@@ -548,8 +555,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setVibeReferenceEnabled: (id, enabled) => {
     if (enabled && get().preciseReferences.some((item) => item.enabled)) {
       set({
-        message:
-          "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       return;
     }
@@ -567,7 +573,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   setVibeReferenceStrength: (id, strength) => {
@@ -584,7 +592,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   setVibeReferenceInformationExtracted: (id, value) => {
@@ -608,15 +618,16 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   preciseReferences: [],
   addPreciseReference: async (input) => {
     if (get().vibeReferences.some((item) => item.enabled)) {
       set({
-        message:
-          "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       return null;
     }
@@ -678,8 +689,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setPreciseReferenceEnabled: (id, enabled) => {
     if (enabled && get().vibeReferences.some((item) => item.enabled)) {
       set({
-        message:
-          "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       return;
     }
@@ -707,7 +717,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   setPreciseReferenceStrength: (id, strength) => {
@@ -727,7 +739,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   setPreciseReferenceFidelity: (id, fidelity) => {
@@ -747,7 +761,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   setPreciseReferenceType: (id, referenceType) => {
@@ -767,7 +783,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
-        set({ message: error instanceof Error ? error.message : String(error) });
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
   },
   i2iSourceImage: null,
@@ -822,7 +840,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       );
       const currentGeneration =
         state.currentGeneration && deletedIds.has(state.currentGeneration.id)
-          ? generationHistory[0] ?? null
+          ? (generationHistory[0] ?? null)
           : state.currentGeneration;
 
       return { generationHistory, currentGeneration };
@@ -868,10 +886,16 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     let i2iImageBase64: string | undefined;
     if (s.i2iSourceImage) {
       try {
-        i2iImageBase64 = await new File(s.i2iSourceImage.uri).base64();
         const effectiveResolution = getI2IEffectiveResolution(s.i2iSourceImage);
         width = effectiveResolution.width;
         height = effectiveResolution.height;
+        // NAI는 소스 이미지 크기 == width/height를 요구. 원본을 유효 해상도로 리사이즈.
+        const resized = await ImageManipulator.manipulateAsync(
+          s.i2iSourceImage.uri,
+          [{ resize: { width, height } }],
+          { format: ImageManipulator.SaveFormat.PNG },
+        );
+        i2iImageBase64 = await new File(resized.uri).base64();
       } catch {
         set({ message: "I2I 이미지를 읽지 못했습니다." });
         return;
@@ -894,8 +918,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     if (activeVibes.length > 0 && activePreciseReferences.length > 0) {
       set({
-        message:
-          "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       return;
     }
