@@ -3,7 +3,6 @@ import type { GenerationRecord } from "../../lib/generationHistory";
 import {
   ActivityIndicator,
   Animated,
-  Image,
   Pressable,
   StyleSheet,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 import { Portal } from "@gorhom/portal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image as ExpoImage } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { Gallery } from "react-native-zoom-toolkit";
@@ -48,7 +48,9 @@ export function ImagePreviewModal({
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const controlsVisibleRef = useRef(true);
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  // 인덱스는 스와이프마다 바뀌지만 JSX가 읽지 않음(액션 호출 시점에만 참조).
+  // state 로 두면 매 스와이프 모달 전체 리렌더 → 프레임 드랍. ref 로 고정.
+  const currentIndexRef = useRef(initialIndex);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -59,7 +61,7 @@ export function ImagePreviewModal({
       controlsVisibleRef.current = true;
       setControlsVisible(true);
       controlsAnim.setValue(1);
-      setCurrentIndex(initialIndex);
+      currentIndexRef.current = initialIndex;
     }
   }, [visible, initialIndex, controlsAnim]);
 
@@ -67,7 +69,7 @@ export function ImagePreviewModal({
     if (busy || !onSaveCurrent) return;
     try {
       setIsSaving(true);
-      await onSaveCurrent(currentIndex);
+      await onSaveCurrent(currentIndexRef.current);
     } finally {
       setIsSaving(false);
     }
@@ -77,7 +79,7 @@ export function ImagePreviewModal({
     if (busy || !onCopyCurrent) return;
     try {
       setIsCopying(true);
-      await onCopyCurrent(currentIndex);
+      await onCopyCurrent(currentIndexRef.current);
     } finally {
       setIsCopying(false);
     }
@@ -87,14 +89,14 @@ export function ImagePreviewModal({
     if (busy || !onDeleteCurrent) return;
     try {
       setIsDeleting(true);
-      await onDeleteCurrent(currentIndex);
+      await onDeleteCurrent(currentIndexRef.current);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleMetadata = () => {
-    const record = metadataRecords?.[currentIndex];
+    const record = metadataRecords?.[currentIndexRef.current];
     if (!record) return;
     // 전역 호스트의 metadataView 라우트로 — preview 위에 시트가 뜬다(뒤로 시 preview 복귀).
     openSheet("metadataView", record);
@@ -113,16 +115,19 @@ export function ImagePreviewModal({
     }).start();
   }, [controlsAnim]);
 
+  // ref 만 갱신 — 리렌더 없음. Gallery(windowSize=5)가 이미 ±2 이웃을 마운트/디코딩함.
   const handleIndexChange = useCallback((index: number) => {
-    setCurrentIndex(index);
+    currentIndexRef.current = index;
   }, []);
 
   const renderItem = useCallback(
     (item: string) => (
       <View style={{ width, height }}>
-        <Image
+        <ExpoImage
           source={{ uri: item }}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
+          recyclingKey={item}
           style={{ width, height }}
         />
       </View>
