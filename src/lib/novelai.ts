@@ -263,19 +263,14 @@ function stripBase64Header(value: string): string {
   return commaIndex === -1 ? value : value.slice(commaIndex + 1);
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Failed to read vibe encoding."));
-    reader.onloadend = () => {
-      if (typeof reader.result !== "string") {
-        reject(new Error("Unexpected vibe encoding response."));
-        return;
-      }
-      resolve(stripBase64Header(reader.result));
-    };
-    reader.readAsDataURL(blob);
-  });
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 export async function encodeNovelAiVibe(
@@ -284,24 +279,32 @@ export async function encodeNovelAiVibe(
   informationExtracted: number,
 ): Promise<string> {
   const cleanToken = normalizeBearerToken(token);
-  const response = await fetch(NOVELAI_VIBE_ENCODE_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${cleanToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      image: stripBase64Header(imageBase64),
-      model: "nai-diffusion-4-5-full",
-      information_extracted: informationExtracted,
-    }),
+  const requestBody = JSON.stringify({
+    image: stripBase64Header(imageBase64),
+    model: "nai-diffusion-4-5-full",
+    information_extracted: informationExtracted,
   });
 
-  if (!response.ok) {
-    throw new Error(`Vibe encode failed: HTTP ${response.status}`);
-  }
+  // RN에서 fetch().blob() 은 바이너리 응답에서 resolve되지 않아(hang) 생성이 멈춘다.
+  // 스트림과 동일하게 XHR arraybuffer로 바이너리를 받아 base64 변환한다.
+  const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", NOVELAI_VIBE_ENCODE_API_URL, true);
+    xhr.responseType = "arraybuffer";
+    xhr.setRequestHeader("Authorization", `Bearer ${cleanToken}`);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`Vibe encode failed: HTTP ${xhr.status}`));
+        return;
+      }
+      resolve(xhr.response as ArrayBuffer);
+    };
+    xhr.onerror = () => reject(new Error("Vibe encode network error."));
+    xhr.send(requestBody);
+  });
 
-  return blobToBase64(await response.blob());
+  return arrayBufferToBase64(buffer);
 }
 
 function createImageGenerationBody({
