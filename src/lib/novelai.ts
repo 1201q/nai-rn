@@ -5,7 +5,7 @@ const NOVELAI_IMAGE_STREAM_API_URL =
 const NOVELAI_VIBE_ENCODE_API_URL =
   "https://image.novelai.net/ai/encode-vibe";
 const NOVELAI_SUBSCRIPTION_API_URL =
-  "https://api.novelai.net/user/subscription";
+  "https://image.novelai.net/user/subscription";
 
 export type NovelAiAnlasBalance = {
   fixed: number;
