@@ -23,7 +23,10 @@ import {
   type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  type PromptWorkspaceTab,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { CharacterScreen } from "../CharacterScreen";
 import { OptionsTab } from "./OptionsTab";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
@@ -34,7 +37,7 @@ import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import { renderPromptHighlights } from "../../components/highlightPromptSpans";
 import { light } from "../home/styles";
 
-type PromptTab = "prompt" | "character" | "options";
+type PromptTab = PromptWorkspaceTab;
 
 const TABS: {
   key: PromptTab;
@@ -191,12 +194,16 @@ export function PromptPage({
   focusOptionsSignal: number;
 }) {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<PromptTab>("prompt");
+  const storedTab = useGenerationStore((s) => s.promptWorkspaceTab);
+  const setStoredTab = useGenerationStore((s) => s.setPromptWorkspaceTab);
+  const [tab, setTab] = useState<PromptTab>(storedTab);
   // 캐릭터/옵션 탭은 최초 진입 시점에 mount. display:none 상태로 미리 mount 하면
   // 첫 노출 때 layout 애니메이션이 0 → 실제위치로 튀어 "위에서 내려오는" 현상 발생.
-  const [characterMounted, setCharacterMounted] = useState(false);
-  const [optionsMounted, setOptionsMounted] = useState(false);
-  const activeTabRef = useRef<PromptTab>("prompt");
+  const [characterMounted, setCharacterMounted] = useState(
+    storedTab === "character",
+  );
+  const [optionsMounted, setOptionsMounted] = useState(storedTab === "options");
+  const activeTabRef = useRef<PromptTab>(storedTab);
   const tabLayouts = useRef<
     Partial<Record<PromptTab, { x: number; width: number }>>
   >({});
@@ -224,6 +231,7 @@ export function PromptPage({
     if (key === "character") setCharacterMounted(true);
     if (key === "options") setOptionsMounted(true);
     setTab(key);
+    setStoredTab(key);
     const layout = tabLayouts.current[key];
     if (layout) {
       pillX.value = withTiming(layout.x, PILL_TIMING);

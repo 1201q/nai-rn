@@ -241,12 +241,26 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
   const positionEnabled = useGenerationStore((s) => s.characterPositionEnabled);
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const expandedIds = useGenerationStore((s) => s.characterPromptExpandedIds);
+  const setExpandedIds = useGenerationStore(
+    (s) => s.setCharacterPromptExpandedIds,
+  );
   const scrollY = useRef(new RNAnimated.Value(0)).current;
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
 
+  useEffect(() => {
+    const characterIds = new Set(characterPrompts.map((item) => item.id));
+    const nextExpandedIds = expandedIds.filter(
+      (id, index) => characterIds.has(id) && expandedIds.indexOf(id) === index,
+    );
+    if (nextExpandedIds.length !== expandedIds.length) {
+      setExpandedIds(nextExpandedIds);
+    }
+  }, [characterPrompts, expandedIds, setExpandedIds]);
+
   function toggleExpand(id: string) {
-    setExpandedIds((current) =>
+    const current = useGenerationStore.getState().characterPromptExpandedIds;
+    setExpandedIds(
       current.includes(id)
         ? current.filter((value) => value !== id)
         : [...current, id],
@@ -259,7 +273,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
     }
 
     const id = `character-${Date.now()}-${characterPrompts.length}`;
-    setCharacterPrompts([
+    const nextCharacterPrompts = [
       ...characterPrompts,
       {
         id,
@@ -268,8 +282,9 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
         enabled: true,
         position: { x: 0.5, y: 0.5 },
       },
-    ]);
-    setExpandedIds((current) => [...current, id]);
+    ];
+    setCharacterPrompts(nextCharacterPrompts);
+    setExpandedIds([...expandedIds, id]);
     triggerSelectionHaptic();
   }
 

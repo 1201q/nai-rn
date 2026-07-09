@@ -764,8 +764,9 @@ function VibeSheet() {
     (s) => s.setVibeReferenceInformationExtracted,
   );
   const setMessage = useGenerationStore((s) => s.setMessage);
-  const [expandedIds, setExpandedIds] = useState<string[]>(
-    references[0] ? [references[0].id] : [],
+  const expandedIds = useGenerationStore((s) => s.vibeReferenceExpandedIds);
+  const setExpandedIds = useGenerationStore(
+    (s) => s.setVibeReferenceExpandedIds,
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -807,7 +808,8 @@ function VibeSheet() {
         ? await replaceReference(targetId, input)
         : await addReference(input);
       if (reference) {
-        setExpandedIds((current) =>
+        const current = useGenerationStore.getState().vibeReferenceExpandedIds;
+        setExpandedIds(
           current.includes(reference.id) ? current : [...current, reference.id],
         );
       }
@@ -919,7 +921,9 @@ function VibeSheet() {
               expanded={expandedIds.includes(reference.id)}
               busy={busyId === reference.id}
               onToggleExpanded={() => {
-                setExpandedIds((current) =>
+                const current =
+                  useGenerationStore.getState().vibeReferenceExpandedIds;
+                setExpandedIds(
                   current.includes(reference.id)
                     ? current.filter((value) => value !== reference.id)
                     : [...current, reference.id],
@@ -936,8 +940,12 @@ function VibeSheet() {
               onReplace={() => pickVibeImage(reference.id)}
               onRemove={() => {
                 triggerSelectionHaptic();
-                setExpandedIds((current) =>
-                  current.filter((value) => value !== reference.id),
+                setExpandedIds(
+                  useGenerationStore
+                    .getState()
+                    .vibeReferenceExpandedIds.filter(
+                      (value) => value !== reference.id,
+                    ),
                 );
                 void removeReference(reference.id);
               }}
@@ -1184,8 +1192,9 @@ function PreciseReferenceSheet() {
   const setFidelity = useGenerationStore((s) => s.setPreciseReferenceFidelity);
   const setType = useGenerationStore((s) => s.setPreciseReferenceType);
   const setMessage = useGenerationStore((s) => s.setMessage);
-  const [expandedIds, setExpandedIds] = useState<string[]>(
-    references[0] ? [references[0].id] : [],
+  const expandedIds = useGenerationStore((s) => s.preciseReferenceExpandedIds);
+  const setExpandedIds = useGenerationStore(
+    (s) => s.setPreciseReferenceExpandedIds,
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1252,7 +1261,9 @@ function PreciseReferenceSheet() {
         ? await replaceReference(targetId, input)
         : await addReference(input);
       if (reference) {
-        setExpandedIds((current) =>
+        const current =
+          useGenerationStore.getState().preciseReferenceExpandedIds;
+        setExpandedIds(
           current.includes(reference.id) ? current : [...current, reference.id],
         );
       }
@@ -1356,7 +1367,9 @@ function PreciseReferenceSheet() {
               busy={busyId === reference.id}
               enableBlocked={blockedByVibe || !modelSupported}
               onToggleExpanded={() => {
-                setExpandedIds((current) =>
+                const current =
+                  useGenerationStore.getState().preciseReferenceExpandedIds;
+                setExpandedIds(
                   current.includes(reference.id)
                     ? current.filter((value) => value !== reference.id)
                     : [...current, reference.id],
@@ -1372,8 +1385,12 @@ function PreciseReferenceSheet() {
               onReplace={() => pickPreciseImage(reference.id)}
               onRemove={() => {
                 triggerSelectionHaptic();
-                setExpandedIds((current) =>
-                  current.filter((value) => value !== reference.id),
+                setExpandedIds(
+                  useGenerationStore
+                    .getState()
+                    .preciseReferenceExpandedIds.filter(
+                      (value) => value !== reference.id,
+                    ),
                 );
                 void removeReference(reference.id);
               }}

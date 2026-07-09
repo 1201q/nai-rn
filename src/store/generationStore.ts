@@ -85,10 +85,13 @@ export type I2ISourceImage = {
   height: number;
 };
 
+export type PromptWorkspaceTab = "prompt" | "character" | "options";
+
 type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
   characterPrompts: CharacterPrompt[];
+  characterPromptExpandedIds: string[];
   characterPositionEnabled: boolean;
   model: string;
   resolution: NaiResolution;
@@ -103,6 +106,9 @@ type PersistedGenerationOptions = Partial<{
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
   optionTabIndex: number;
+  promptWorkspaceTab: PromptWorkspaceTab;
+  vibeReferenceExpandedIds: string[];
+  preciseReferenceExpandedIds: string[];
 }>;
 
 function generateRandomSeed(): number {
@@ -137,6 +143,10 @@ function isNoiseSchedule(value: unknown): value is NoiseSchedule {
     value === "exponential" ||
     value === "polyexponential"
   );
+}
+
+function isPromptWorkspaceTab(value: unknown): value is PromptWorkspaceTab {
+  return value === "prompt" || value === "character" || value === "options";
 }
 
 function isVibeSupportedModel(model: string): boolean {
@@ -255,6 +265,8 @@ export type GenerationState = {
   setNegativePrompt: (v: string) => void;
   characterPrompts: CharacterPrompt[];
   setCharacterPrompts: (v: CharacterPrompt[]) => void;
+  characterPromptExpandedIds: string[];
+  setCharacterPromptExpandedIds: (v: string[]) => void;
   characterPositionEnabled: boolean;
   setCharacterPositionEnabled: (v: boolean) => void;
   setCharacterPromptPosition: (id: string, x: number, y: number) => void;
@@ -296,6 +308,8 @@ export type GenerationState = {
   setVibeReferenceEnabled: (id: string, enabled: boolean) => void;
   setVibeReferenceStrength: (id: string, strength: number) => void;
   setVibeReferenceInformationExtracted: (id: string, value: number) => void;
+  vibeReferenceExpandedIds: string[];
+  setVibeReferenceExpandedIds: (v: string[]) => void;
   preciseReferences: PreciseReference[];
   addPreciseReference: (
     input: PreciseReferenceImageInput,
@@ -312,6 +326,8 @@ export type GenerationState = {
     id: string,
     referenceType: PreciseReferenceType,
   ) => void;
+  preciseReferenceExpandedIds: string[];
+  setPreciseReferenceExpandedIds: (v: string[]) => void;
   i2iSourceImage: I2ISourceImage | null;
   setI2ISourceImage: (v: I2ISourceImage) => void;
   i2iStrength: number;
@@ -321,6 +337,8 @@ export type GenerationState = {
   clearI2I: () => void;
   optionTabIndex: number;
   setOptionTabIndex: (v: number) => void;
+  promptWorkspaceTab: PromptWorkspaceTab;
+  setPromptWorkspaceTab: (v: PromptWorkspaceTab) => void;
   hasLoadedOptions: boolean;
 
   // 토큰
@@ -410,6 +428,10 @@ function loadPersistedOptions(): Partial<GenerationState> {
     next.characterPrompts = resolveStoredCharacterPrompts(
       parsed.characterPrompts,
     );
+    if (Array.isArray(parsed.characterPromptExpandedIds)) {
+      next.characterPromptExpandedIds =
+        parsed.characterPromptExpandedIds.filter(isString);
+    }
     if (isBoolean(parsed.characterPositionEnabled)) {
       next.characterPositionEnabled = parsed.characterPositionEnabled;
     }
@@ -442,6 +464,17 @@ function loadPersistedOptions(): Partial<GenerationState> {
     ) {
       next.optionTabIndex = parsed.optionTabIndex;
     }
+    if (isPromptWorkspaceTab(parsed.promptWorkspaceTab)) {
+      next.promptWorkspaceTab = parsed.promptWorkspaceTab;
+    }
+    if (Array.isArray(parsed.vibeReferenceExpandedIds)) {
+      next.vibeReferenceExpandedIds =
+        parsed.vibeReferenceExpandedIds.filter(isString);
+    }
+    if (Array.isArray(parsed.preciseReferenceExpandedIds)) {
+      next.preciseReferenceExpandedIds =
+        parsed.preciseReferenceExpandedIds.filter(isString);
+    }
     return next;
   } catch {
     return {};
@@ -456,6 +489,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setNegativePrompt: (v) => set({ negativePrompt: v }),
   characterPrompts: [],
   setCharacterPrompts: (v) => set({ characterPrompts: v }),
+  characterPromptExpandedIds: [],
+  setCharacterPromptExpandedIds: (v) => set({ characterPromptExpandedIds: v }),
   characterPositionEnabled: false,
   setCharacterPositionEnabled: (v) => set({ characterPositionEnabled: v }),
   setCharacterPromptPosition: (id, x, y) => {
@@ -493,6 +528,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
   vibeReferences: [],
+  vibeReferenceExpandedIds: [],
+  setVibeReferenceExpandedIds: (v) => set({ vibeReferenceExpandedIds: v }),
   normalizeVibeStrengths: true,
   setNormalizeVibeStrengths: (v) => set({ normalizeVibeStrengths: v }),
   addVibeReference: async (input) => {
@@ -542,6 +579,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       await deleteStoredVibeReference(id);
       set((state) => ({
         vibeReferences: state.vibeReferences.filter((item) => item.id !== id),
+        vibeReferenceExpandedIds: state.vibeReferenceExpandedIds.filter(
+          (value) => value !== id,
+        ),
       }));
     } catch (error: unknown) {
       set({
@@ -624,6 +664,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       });
   },
   preciseReferences: [],
+  preciseReferenceExpandedIds: [],
+  setPreciseReferenceExpandedIds: (v) =>
+    set({ preciseReferenceExpandedIds: v }),
   addPreciseReference: async (input) => {
     if (get().vibeReferences.some((item) => item.enabled)) {
       set({
@@ -675,6 +718,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       set((state) => ({
         preciseReferences: state.preciseReferences.filter(
           (item) => item.id !== id,
+        ),
+        preciseReferenceExpandedIds: state.preciseReferenceExpandedIds.filter(
+          (value) => value !== id,
         ),
       }));
     } catch (error: unknown) {
@@ -802,6 +848,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }),
   optionTabIndex: 0,
   setOptionTabIndex: (v) => set({ optionTabIndex: v }),
+  promptWorkspaceTab: "prompt",
+  setPromptWorkspaceTab: (v) => set({ promptWorkspaceTab: v }),
   // MMKV 동기 읽기로 부팅 시점에 이미 복원 완료.
   hasLoadedOptions: true,
 
@@ -1302,7 +1350,15 @@ export function useGenerationBootstrap() {
     initVibeReferenceStorage()
       .then(listVibeReferences)
       .then((references) => {
-        setState({ vibeReferences: references });
+        setState((state) => {
+          const referenceIds = new Set(references.map((item) => item.id));
+          return {
+            vibeReferences: references,
+            vibeReferenceExpandedIds: state.vibeReferenceExpandedIds.filter(
+              (id) => referenceIds.has(id),
+            ),
+          };
+        });
       })
       .catch((error: unknown) => {
         setState({
@@ -1313,7 +1369,16 @@ export function useGenerationBootstrap() {
     initPreciseReferenceStorage()
       .then(listPreciseReferences)
       .then((references) => {
-        setState({ preciseReferences: references });
+        setState((state) => {
+          const referenceIds = new Set(references.map((item) => item.id));
+          return {
+            preciseReferences: references,
+            preciseReferenceExpandedIds:
+              state.preciseReferenceExpandedIds.filter((id) =>
+                referenceIds.has(id),
+              ),
+          };
+        });
       })
       .catch((error: unknown) => {
         setState({
@@ -1333,6 +1398,7 @@ export function useGenerationBootstrap() {
         prompt: state.prompt,
         negativePrompt: state.negativePrompt,
         characterPrompts: state.characterPrompts,
+        characterPromptExpandedIds: state.characterPromptExpandedIds,
         characterPositionEnabled: state.characterPositionEnabled,
         model: state.model,
         resolution: state.resolution,
@@ -1348,6 +1414,9 @@ export function useGenerationBootstrap() {
         varietyPlus: state.varietyPlus,
         normalizeVibeStrengths: state.normalizeVibeStrengths,
         optionTabIndex: state.optionTabIndex,
+        promptWorkspaceTab: state.promptWorkspaceTab,
+        vibeReferenceExpandedIds: state.vibeReferenceExpandedIds,
+        preciseReferenceExpandedIds: state.preciseReferenceExpandedIds,
       };
 
       const json = JSON.stringify(nextOptions);
