@@ -715,8 +715,44 @@ function VibeReferenceCard({
   );
 }
 
+function ReferenceSummaryToggle({
+  label,
+  status,
+  value,
+  onToggle,
+}: {
+  label: string;
+  status: string;
+  value: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={vibeStyles.summaryRow}>
+      <View style={vibeStyles.summaryCopy}>
+        <Text style={vibeStyles.summaryLabel}>{label}</Text>
+        <Text style={vibeStyles.summaryText}>{status}</Text>
+      </View>
+      <View style={vibeStyles.summaryAction}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value }}
+          accessibilityLabel={label}
+          onPress={onToggle}
+        >
+          <ToggleSwitch value={value} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function VibeSheet() {
   const references = useGenerationStore((s) => s.vibeReferences);
+  const activePreciseCount = useGenerationStore(
+    (s) => s.preciseReferences.filter((item) => item.enabled).length,
+  );
   const normalize = useGenerationStore((s) => s.normalizeVibeStrengths);
   const setNormalize = useGenerationStore((s) => s.setNormalizeVibeStrengths);
   const addReference = useGenerationStore((s) => s.addVibeReference);
@@ -784,12 +820,41 @@ function VibeSheet() {
   }
 
   const canAdd = references.length < MAX_VIBE_REFERENCES;
+  const activeVibeCount = references.filter((item) => item.enabled).length;
+  const vibeEnabled = activeVibeCount > 0;
+  const vibeStatus =
+    activePreciseCount > 0
+      ? "Blocked by Precise Reference"
+      : references.length > 0
+        ? `${activeVibeCount}/${references.length} enabled`
+        : "No references";
+
+  function toggleVibeReferences() {
+    triggerSelectionHaptic();
+    if (vibeEnabled) {
+      references.forEach(
+        (reference) => reference.enabled && setEnabled(reference.id, false),
+      );
+      return;
+    }
+
+    if (references.length === 0) {
+      setMessage("Add a Vibe image first.");
+      return;
+    }
+
+    if (activePreciseCount > 0) {
+      setMessage("Vibe Transfer cannot be used with Precise Reference.");
+      return;
+    }
+
+    references.forEach((reference) => setEnabled(reference.id, true));
+  }
 
   // 이미지 추가 버튼/카운트는 상세 헤더로 올린다.
   const setHeader = useSetOptionDetailHeader();
   useEffect(() => {
     setHeader({
-      subtitle: `${references.length}/${MAX_VIBE_REFERENCES}`,
       action: {
         label: "이미지 추가",
         onPress: () => void pickVibeImage(),
@@ -798,10 +863,17 @@ function VibeSheet() {
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [references.length, canAdd, adding]);
+  }, [canAdd, adding]);
 
   return (
     <View style={vibeStyles.sheet}>
+      <ReferenceSummaryToggle
+        label="Vibe Transfer"
+        status={vibeStatus}
+        value={vibeEnabled}
+        onToggle={toggleVibeReferences}
+      />
+
       <TouchableOpacity
         activeOpacity={0.82}
         onPress={() => {
@@ -823,7 +895,12 @@ function VibeSheet() {
       </TouchableOpacity>
 
       {references.length === 0 ? (
-        <View style={vibeStyles.emptyCard}>
+        <TouchableOpacity
+          activeOpacity={0.82}
+          disabled={adding || !canAdd}
+          onPress={() => void pickVibeImage()}
+          style={vibeStyles.emptyCard}
+        >
           <Ionicons
             name="images-outline"
             size={28}
@@ -832,7 +909,7 @@ function VibeSheet() {
           <Text style={vibeStyles.emptyText}>
             Vibe로 사용할 이미지를 추가하세요.
           </Text>
-        </View>
+        </TouchableOpacity>
       ) : (
         <View style={vibeStyles.list}>
           {references.map((reference) => (
@@ -1115,6 +1192,17 @@ function PreciseReferenceSheet() {
 
   const modelSupported = isPreciseReferenceSupportedModel(model);
   const blockedByVibe = activeVibeCount > 0;
+  const activePreciseCount = references.filter((item) => item.enabled).length;
+  const preciseEnabled = activePreciseCount > 0;
+  const preciseStatus = preciseEnabled
+    ? `${activePreciseCount}/${references.length} enabled`
+    : !modelSupported
+      ? "Requires V4.5 model"
+      : blockedByVibe
+        ? "Blocked by Vibe Transfer"
+        : references.length > 0
+          ? `0/${references.length} enabled`
+          : "No references";
 
   async function pickPreciseImage(targetId?: string) {
     if (adding || busyId) return;
@@ -1181,11 +1269,37 @@ function PreciseReferenceSheet() {
     modelSupported &&
     !blockedByVibe;
 
+  function togglePreciseReferences() {
+    triggerSelectionHaptic();
+    if (preciseEnabled) {
+      references.forEach(
+        (reference) => reference.enabled && setEnabled(reference.id, false),
+      );
+      return;
+    }
+
+    if (references.length === 0) {
+      setMessage("Add a Precise Reference image first.");
+      return;
+    }
+
+    if (!modelSupported) {
+      setMessage("Precise Reference requires a V4.5 model.");
+      return;
+    }
+
+    if (blockedByVibe) {
+      setMessage("Precise Reference cannot be used with Vibe Transfer.");
+      return;
+    }
+
+    references.forEach((reference) => setEnabled(reference.id, true));
+  }
+
   // 이미지 추가 버튼/카운트는 상세 헤더로 올린다.
   const setHeader = useSetOptionDetailHeader();
   useEffect(() => {
     setHeader({
-      subtitle: `${references.length}/${MAX_PRECISE_REFERENCES}`,
       action: {
         label: "이미지 추가",
         onPress: () => void pickPreciseImage(),
@@ -1194,10 +1308,17 @@ function PreciseReferenceSheet() {
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [references.length, canAdd, adding]);
+  }, [canAdd, adding]);
 
   return (
     <View style={vibeStyles.sheet}>
+      <ReferenceSummaryToggle
+        label="Precise Reference"
+        status={preciseStatus}
+        value={preciseEnabled}
+        onToggle={togglePreciseReferences}
+      />
+
       {!modelSupported ? (
         <Text style={vibeStyles.encodingHint}>
           Precise Reference는 V4.5 모델에서 사용할 수 있습니다.
@@ -1210,7 +1331,12 @@ function PreciseReferenceSheet() {
       ) : null}
 
       {references.length === 0 ? (
-        <View style={vibeStyles.emptyCard}>
+        <TouchableOpacity
+          activeOpacity={0.82}
+          disabled={adding || !canAdd}
+          onPress={() => void pickPreciseImage()}
+          style={[vibeStyles.emptyCard, !canAdd && vibeStyles.disabledControl]}
+        >
           <Ionicons
             name="person-outline"
             size={28}
@@ -1219,7 +1345,7 @@ function PreciseReferenceSheet() {
           <Text style={vibeStyles.emptyText}>
             Precise Reference로 사용할 이미지를 추가하세요.
           </Text>
-        </View>
+        </TouchableOpacity>
       ) : (
         <View style={vibeStyles.list}>
           {references.map((reference) => (
@@ -1785,6 +1911,36 @@ const paramStyles = StyleSheet.create({
 const vibeStyles = StyleSheet.create({
   sheet: {
     gap: 12,
+  },
+  summaryRow: {
+    minHeight: 68,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    backgroundColor: light.surface,
+  },
+  summaryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryLabel: {
+    color: light.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  summaryText: {
+    marginTop: 4,
+    color: light.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  summaryAction: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   normalizeRow: {
     minHeight: 42,
