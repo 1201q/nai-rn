@@ -322,8 +322,22 @@ export function CharacterPositionScreen() {
                 ]}
                 onPress={() => setSelectedId(item.id)}
               >
-                <View style={[styles.rowBadge, { backgroundColor: color }]}>
-                  <Text style={styles.rowBadgeText}>{index + 1}</Text>
+                <View
+                  style={[
+                    styles.rowBadge,
+                    positionEnabled
+                      ? { backgroundColor: color }
+                      : styles.rowBadgeMuted,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.rowBadgeText,
+                      !positionEnabled && styles.rowBadgeTextMuted,
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
                 </View>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
@@ -504,10 +518,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  rowBadgeMuted: {
+    backgroundColor: light.surfaceAlt,
+  },
   rowBadgeText: {
     color: light.accentText,
     fontSize: 12,
     fontWeight: "900",
+  },
+  rowBadgeTextMuted: {
+    color: light.textHint,
   },
   rowMain: {
     flex: 1,

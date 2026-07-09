@@ -129,12 +129,14 @@ function CharacterPromptCard({
   item,
   index,
   expanded,
+  positionEnabled,
   onToggleExpand,
   onUpdate,
 }: {
   item: CharacterPrompt;
   index: number;
   expanded: boolean;
+  positionEnabled: boolean;
   onToggleExpand: () => void;
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
 }) {
@@ -163,9 +165,21 @@ function CharacterPromptCard({
             />
           </View>
           <View
-            style={[styles.characterBadge, { backgroundColor: badgeColor }]}
+            style={[
+              styles.characterBadge,
+              positionEnabled
+                ? { backgroundColor: badgeColor }
+                : styles.characterBadgeMuted,
+            ]}
           >
-            <Text style={styles.characterBadgeText}>{index + 1}</Text>
+            <Text
+              style={[
+                styles.characterBadgeText,
+                !positionEnabled && styles.characterBadgeTextMuted,
+              ]}
+            >
+              {index + 1}
+            </Text>
           </View>
           <Text style={styles.characterCardTitle} numberOfLines={1}>
             {title}
@@ -225,6 +239,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const characterPrompts = useGenerationStore((s) => s.characterPrompts);
+  const positionEnabled = useGenerationStore((s) => s.characterPositionEnabled);
   const setCharacterPrompts = useGenerationStore((s) => s.setCharacterPrompts);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const scrollY = useRef(new RNAnimated.Value(0)).current;
@@ -310,6 +325,7 @@ export function CharacterScreen({ embedded }: { embedded?: boolean } = {}) {
               item={item}
               index={index}
               expanded={expandedIds.includes(item.id)}
+              positionEnabled={positionEnabled}
               onToggleExpand={() => toggleExpand(item.id)}
               onUpdate={(values) => updateCharacterPrompt(item.id, values)}
             />
@@ -488,10 +504,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 7,
   },
+  characterBadgeMuted: {
+    backgroundColor: light.surfaceAlt,
+  },
   characterBadgeText: {
     color: light.accentText,
     fontSize: 12,
     fontWeight: "800",
+  },
+  characterBadgeTextMuted: {
+    color: light.textHint,
   },
   characterCardTitle: {
     flex: 1,
