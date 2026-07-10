@@ -7,7 +7,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Slider from "@react-native-community/slider";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import Reanimated, {
@@ -50,6 +49,7 @@ import { light, styles } from "./styles";
 import { SheetItem } from "./primitives";
 import { useScalePress } from "./useScalePress";
 import { NumericSheetContent } from "./NumericSheet";
+import { CustomSlider } from "./CustomSlider";
 import { SeedSheetContent } from "./SeedSheet";
 import { ResolutionSheetContent } from "./ResolutionSheet";
 import { ImageUploadSheet } from "./ImageUploadSheet";
@@ -321,26 +321,29 @@ function ParametersSheet() {
     (s) => s.setPromptGuidanceRescale,
   );
   return (
-    <View style={paramStyles.sheet}>
-      <View style={paramStyles.block}>
+    <View style={styles.sheetCardGroup}>
+      <View style={[styles.sheetCard, styles.sheetCardTop, paramStyles.block]}>
         <NumericSheetContent
           value={steps}
           onChange={setSteps}
           cfg={STEPS_CONFIG}
+          compact
         />
       </View>
-      <View style={paramStyles.block}>
+      <View style={[styles.sheetCard, styles.sheetCardMiddle, paramStyles.block]}>
         <NumericSheetContent
           value={promptGuidance}
           onChange={setPromptGuidance}
           cfg={CFG_CONFIG}
+          compact
         />
       </View>
-      <View style={paramStyles.block}>
+      <View style={[styles.sheetCard, styles.sheetCardBottom, paramStyles.block]}>
         <NumericSheetContent
           value={promptGuidanceRescale}
           onChange={setPromptGuidanceRescale}
           cfg={CFG_RESCALE_CONFIG}
+          compact
         />
       </View>
     </View>
@@ -542,19 +545,18 @@ function VibeCompactSlider({
         <Text style={vibeStyles.sliderLabel}>{label}</Text>
         <Text style={vibeStyles.sliderValue}>{formatVibeValue(value)}</Text>
       </View>
-      <Slider
+      <CustomSlider
         style={vibeStyles.slider}
         value={value}
-        minimumValue={config.min}
-        maximumValue={config.max}
+        min={config.min}
+        max={config.max}
         step={config.step}
-        minimumTrackTintColor={light.accent}
-        maximumTrackTintColor={light.input}
-        thumbTintColor={light.accent}
-        onSlidingComplete={(next) => {
-          triggerSelectionHaptic();
-          onChange(Number(next.toFixed(config.precision)));
-        }}
+        precision={config.precision}
+        trackHeight={5}
+        thumbSize={20}
+        trackBg={light.input}
+        pill
+        onSlidingComplete={onChange}
       />
     </View>
   );
@@ -1591,11 +1593,6 @@ function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
   const resolution = useGenerationStore((s) => s.resolution);
   const seed = useGenerationStore((s) => s.seed);
   const seedLocked = useGenerationStore((s) => s.seedLocked);
-  const steps = useGenerationStore((s) => s.steps);
-  const promptGuidance = useGenerationStore((s) => s.promptGuidance);
-  const promptGuidanceRescale = useGenerationStore(
-    (s) => s.promptGuidanceRescale,
-  );
   const sampler = useGenerationStore((s) => s.sampler);
   const noiseSchedule = useGenerationStore((s) => s.noiseSchedule);
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
@@ -1630,10 +1627,6 @@ function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
     seedText = `${seed} Lock`;
   }
 
-  const parametersText = `Steps ${steps} · CFG ${formatDecimal(
-    promptGuidance,
-  )} · Rescale ${formatDecimal(promptGuidanceRescale, 2)}`;
-
   return (
     <>
       <View style={styles.sheetCardGroup}>
@@ -1666,16 +1659,7 @@ function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
       </View>
 
       <Text style={styles.sheetMenuGroupLabel}>Parameter Options</Text>
-      <View style={styles.sheetCardGroup}>
-        <View style={styles.sheetCard}>
-          <StackedMenuRow
-            icon="construct-outline"
-            label="Parameters"
-            value={parametersText}
-            onPress={() => onSelect("parameters")}
-          />
-        </View>
-      </View>
+      <ParametersSheet />
       <View style={styles.sheetCardGroup}>
         <View style={[styles.sheetCard, styles.sheetCardTop]}>
           <StackedMenuRow
@@ -1900,15 +1884,10 @@ const i2iStyles = StyleSheet.create({
 });
 
 const paramStyles = StyleSheet.create({
-  sheet: {
-    gap: 12,
-  },
   block: {
-    borderRadius: 18,
-    backgroundColor: light.surface,
     paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   row: {
     paddingVertical: 12,

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ComponentType } from "react";
+import { useLayoutEffect, useState, type ComponentType } from "react";
 import {
   Pressable,
   Text,
@@ -6,7 +6,6 @@ import {
   View,
   type TextInputProps,
 } from "react-native";
-import Slider from "@react-native-community/slider";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Reanimated, {
@@ -16,7 +15,8 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { light, styles } from "./styles";
-import { hapticTick, ScalePressable } from "./primitives";
+import { ScalePressable } from "./primitives";
+import { CustomSlider } from "./CustomSlider";
 import type { NumericConfig } from "./constants";
 
 const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
@@ -46,33 +46,17 @@ function NumericSlider({
   onCommit: (v: number) => void;
   cfg: NumericConfig;
 }) {
-  const lastPreviewRef = useRef(value);
-
-  useLayoutEffect(() => {
-    lastPreviewRef.current = value;
-  }, [value]);
-
-  const previewValue = (nextRaw: number) => {
-    const next = snapValue(nextRaw, cfg);
-    display.value = next;
-    if (next !== lastPreviewRef.current) {
-      lastPreviewRef.current = next;
-      hapticTick();
-    }
-  };
-
   return (
-    <Slider
+    <CustomSlider
       style={styles.stepsNativeSlider}
       value={value}
-      minimumValue={cfg.min}
-      maximumValue={cfg.max}
+      min={cfg.min}
+      max={cfg.max}
       step={cfg.step}
-      minimumTrackTintColor={light.accent}
-      maximumTrackTintColor={light.surfaceAlt}
-      thumbTintColor={light.accent}
-      onValueChange={previewValue}
-      onSlidingComplete={(next) => onCommit(snapValue(next, cfg))}
+      precision={cfg.precision}
+      display={display}
+      pill
+      onSlidingComplete={onCommit}
     />
   );
 }
@@ -82,6 +66,7 @@ export function NumericSheetContent({
   onChange,
   cfg,
   showTitle = true,
+  compact = false,
   // 페이지에선 기본 TextInput, 바텀시트(batchCount)에선 BottomSheetTextInput 주입.
   InputComponent = TextInput,
 }: {
@@ -89,6 +74,7 @@ export function NumericSheetContent({
   onChange: (v: number) => void;
   cfg: NumericConfig;
   showTitle?: boolean;
+  compact?: boolean;
   InputComponent?: ComponentType<TextInputProps>;
 }) {
   const [inputText, setInputText] = useState(
@@ -129,6 +115,75 @@ export function NumericSheetContent({
 
   const filter = cfg.precision > 0 ? /[^0-9.]/g : /[^0-9]/g;
 
+  const valueField = editing ? (
+    <InputComponent
+      style={compact ? styles.numCompactValue : styles.stepsValueInput}
+      value={inputText}
+      onChangeText={(t) => setInputText(t.replace(filter, ""))}
+      onBlur={commitInput}
+      onSubmitEditing={commitInput}
+      keyboardType={cfg.precision > 0 ? "decimal-pad" : "number-pad"}
+      maxLength={6}
+      autoFocus
+    />
+  ) : (
+    <Pressable onPress={() => setEditing(true)}>
+      <AnimatedTextInput
+        key={cfg.title}
+        style={
+          compact ? styles.numCompactValue : [styles.stepsValueInput, { padding: 0 }]
+        }
+        editable={false}
+        pointerEvents="none"
+        defaultValue={formatNumeric(value, cfg.precision)}
+        animatedProps={animatedProps}
+      />
+    </Pressable>
+  );
+
+  if (compact) {
+    return (
+      <>
+        <View style={styles.numCompactHeader}>
+          <Text style={styles.numCompactLabel}>{cfg.title}</Text>
+          <View style={styles.numCompactControls}>
+            <ScalePressable
+              style={[
+                styles.numCompactButton,
+                value <= cfg.min && styles.stepsButtonDisabled,
+              ]}
+              onPress={() => step(-cfg.step)}
+            >
+              <Ionicons name="remove" size={16} color={light.accent} />
+            </ScalePressable>
+            {valueField}
+            <ScalePressable
+              style={[
+                styles.numCompactButton,
+                value >= cfg.max && styles.stepsButtonDisabled,
+              ]}
+              onPress={() => step(cfg.step)}
+            >
+              <Ionicons name="add" size={16} color={light.accent} />
+            </ScalePressable>
+          </View>
+        </View>
+        <CustomSlider
+          value={value}
+          min={cfg.min}
+          max={cfg.max}
+          step={cfg.step}
+          precision={cfg.precision}
+          display={display}
+          trackHeight={5}
+          thumbSize={18}
+          pill
+          onSlidingComplete={onChange}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {showTitle ? <Text style={styles.sheetTitle}>{cfg.title}</Text> : null}
@@ -145,29 +200,7 @@ export function NumericSheetContent({
         </ScalePressable>
 
         <View style={styles.stepsValueCenter}>
-          {editing ? (
-            <InputComponent
-              style={styles.stepsValueInput}
-              value={inputText}
-              onChangeText={(t) => setInputText(t.replace(filter, ""))}
-              onBlur={commitInput}
-              onSubmitEditing={commitInput}
-              keyboardType={cfg.precision > 0 ? "decimal-pad" : "number-pad"}
-              maxLength={6}
-              autoFocus
-            />
-          ) : (
-            <Pressable onPress={() => setEditing(true)}>
-              <AnimatedTextInput
-                key={cfg.title}
-                style={[styles.stepsValueInput, { padding: 0 }]}
-                editable={false}
-                pointerEvents="none"
-                defaultValue={formatNumeric(value, cfg.precision)}
-                animatedProps={animatedProps}
-              />
-            </Pressable>
-          )}
+          {valueField}
           <Text style={styles.stepsValueUnit}>{cfg.unit}</Text>
         </View>
 

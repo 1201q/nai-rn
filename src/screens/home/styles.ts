@@ -714,6 +714,41 @@ export const styles = StyleSheet.create({
     color: light.textHint,
   },
 
+  // Numeric 컴팩트(파라미터 페이지)
+  numCompactHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 0,
+  },
+  numCompactLabel: {
+    color: light.textSecondary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  numCompactControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  numCompactButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: light.surfaceAlt,
+  },
+  numCompactValue: {
+    minWidth: 46,
+    textAlign: "center",
+    color: light.accent,
+    fontSize: 17,
+    fontWeight: "800",
+    padding: 0,
+  },
+
   // Seed 바텀시트
   seedSheetRow: {
     flexDirection: "row",
