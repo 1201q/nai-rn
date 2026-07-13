@@ -1,0 +1,166 @@
+import { useEffect } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import {
+  RendraIconButton,
+  RendraPrimaryButton,
+} from "../../components/rendra/RendraButtons";
+import {
+  selectOverallPercent,
+  useGenerationStore,
+} from "../../store/generationStore";
+import { tokens } from "../../styles/tokens";
+import { GenerationCanvas } from "./GenerationCanvas";
+
+function GenerateAction() {
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const queueTotal = useGenerationStore((s) => s.queueTotal);
+  const queueIndex = useGenerationStore((s) => s.queueIndex);
+  const percent = useGenerationStore(selectOverallPercent);
+  const generateImage = useGenerationStore((s) => s.generateImage);
+  const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = isLoading
+      ? withTiming(percent, { duration: 300, easing: Easing.linear })
+      : 0;
+  }, [isLoading, percent, progress]);
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
+
+  const label = isLoading
+    ? queueTotal > 1
+      ? `취소 (${queueIndex}/${queueTotal}) · ${Math.round(percent * 100)}%`
+      : `취소 · ${Math.round(percent * 100)}%`
+    : "생성";
+
+  return (
+    <RendraPrimaryButton
+      label={label}
+      loading={false}
+      icon={
+        <Ionicons
+          name={isLoading ? "stop" : "sparkles"}
+          size={18}
+          color={tokens.color.onAccent}
+        />
+      }
+      background={
+        isLoading ? (
+          <Reanimated.View style={[styles.progressFill, progressStyle]} />
+        ) : undefined
+      }
+      onPress={() => {
+        if (isLoading) {
+          requestQueueCancel();
+          return;
+        }
+        generateImage();
+      }}
+    />
+  );
+}
+
+export function RendraMainScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const anlasBalance = useGenerationStore((s) => s.anlasBalance);
+
+  return (
+    <View
+      style={[
+        styles.screen,
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 },
+      ]}
+    >
+      <StatusBar style="light" />
+
+      <View style={styles.balanceRow}>
+        <View style={styles.balancePill}>
+          <Ionicons
+            name="diamond-outline"
+            size={15}
+            color={tokens.color.accent}
+          />
+          <Text style={styles.balanceText}>
+            {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
+          </Text>
+        </View>
+      </View>
+
+      <GenerationCanvas />
+
+      <View style={styles.bottomActions}>
+        <RendraIconButton
+          icon="settings-outline"
+          label="이미지 세팅"
+          onPress={() => router.push("/image-settings")}
+        />
+        <GenerateAction />
+        <RendraIconButton
+          icon="time-outline"
+          label="History"
+          onPress={() => router.push("/history")}
+        />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    paddingHorizontal: tokens.space[10],
+    backgroundColor: tokens.color.app,
+    gap: tokens.space[5],
+  },
+  balanceRow: {
+    height: 40,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  balancePill: {
+    height: 36,
+    paddingHorizontal: tokens.space[6],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[4],
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.overlay,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    ...tokens.shadow.floatSm,
+  },
+  balanceText: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.sm,
+  },
+  bottomActions: {
+    height: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
+    marginTop: tokens.space[8],
+  },
+  progressFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: tokens.color.accentActive,
+  },
+});

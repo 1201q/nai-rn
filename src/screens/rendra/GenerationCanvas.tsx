@@ -1,0 +1,314 @@
+import { memo, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
+import * as Clipboard from "expo-clipboard";
+import { File } from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
+
+import { useAppSheet } from "../../context/AppSheetContext";
+import { resolveGenerationImageUri } from "../../lib/generationHistory";
+import { useGenerationStore } from "../../store/generationStore";
+import { monoFont, tokens } from "../../styles/tokens";
+
+const TOOLBAR_COLLAPSED_WIDTH = 42;
+const TOOLBAR_EXPANDED_WIDTH = 220;
+const STRIPES = Array.from({ length: 52 }, (_, index) => index);
+
+const StripePlaceholder = memo(function StripePlaceholder() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {STRIPES.map((stripe) => (
+        <View
+          key={stripe}
+          style={[styles.stripe, { top: stripe * 20 - 220 }]}
+        />
+      ))}
+      <View style={styles.placeholderLabelWrap}>
+        <Text style={styles.placeholderLabel}>generated image</Text>
+      </View>
+    </View>
+  );
+});
+
+export function GenerationCanvas() {
+  const currentGeneration = useGenerationStore((s) => s.currentGeneration);
+  const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const { open } = useAppSheet();
+  const [expanded, setExpanded] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const [toolbarAnimation] = useState(() => new Animated.Value(1));
+
+  const currentImageUri = currentGeneration
+    ? resolveGenerationImageUri(currentGeneration)
+    : null;
+  const displayedImageUri = streamingPreviewUri ?? currentImageUri;
+  const imageSource = useMemo(
+    () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
+    [displayedImageUri],
+  );
+  const canUseImageActions = Boolean(currentImageUri) && !isLoading;
+
+  function toggleToolbar() {
+    const nextExpanded = !expanded;
+    setExpanded(nextExpanded);
+    Animated.timing(toolbarAnimation, {
+      toValue: nextExpanded ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }
+
+  async function saveImage() {
+    if (!currentImageUri || isSaving) return;
+    setIsSaving(true);
+    try {
+      const permission = await MediaLibrary.requestPermissionsAsync(true, [
+        "photo",
+      ]);
+      if (!permission.granted) {
+        Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+        return;
+      }
+      await MediaLibrary.Asset.create(currentImageUri);
+      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+    } catch {
+      Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function copyImage() {
+    if (!currentImageUri || isCopying) return;
+    setIsCopying(true);
+    try {
+      const base64Image = await new File(currentImageUri).base64();
+      await Clipboard.setImageAsync(base64Image);
+      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
+    } catch {
+      Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
+    } finally {
+      setIsCopying(false);
+    }
+  }
+
+  const toolbarWidth = toolbarAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [TOOLBAR_COLLAPSED_WIDTH, TOOLBAR_EXPANDED_WIDTH],
+  });
+  const actionOpacity = toolbarAnimation.interpolate({
+    inputRange: [0.25, 1],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.canvas}>
+        {!displayedImageUri ? <StripePlaceholder /> : null}
+        {displayedImageUri ? (
+          <ExpoImage
+            source={imageSource}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            transition={0}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+        {isLoading && !streamingPreviewUri ? (
+          <ActivityIndicator
+            color={tokens.color.textPrimary}
+            size="large"
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+      </View>
+
+      <View style={styles.toolbarRow}>
+        <Animated.View style={[styles.toolbar, { width: toolbarWidth }]}>
+          <Animated.View
+            pointerEvents={expanded ? "auto" : "none"}
+            style={[styles.toolbarActions, { opacity: actionOpacity }]}
+          >
+            <ToolbarAction
+              icon={isSaving ? undefined : "download-outline"}
+              label="이미지 다운로드"
+              disabled={!canUseImageActions || isSaving}
+              loading={isSaving}
+              onPress={saveImage}
+            />
+            <ToolbarAction
+              icon={isCopying ? undefined : "copy-outline"}
+              label="이미지 복사"
+              disabled={!canUseImageActions || isCopying}
+              loading={isCopying}
+              onPress={copyImage}
+            />
+            <ToolbarAction icon="dice-outline" label="시드" onPress={() => {}} />
+            <ToolbarAction
+              icon="information-circle-outline"
+              label="메타데이터 정보"
+              disabled={!canUseImageActions}
+              onPress={() =>
+                currentGeneration && open("metadataView", currentGeneration)
+              }
+            />
+          </Animated.View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? "이미지 도구 접기" : "이미지 도구 펼치기"}
+            accessibilityState={{ expanded }}
+            hitSlop={4}
+            onPress={toggleToolbar}
+            style={({ pressed }) => [
+              styles.toolbarToggle,
+              pressed && styles.toolbarPressed,
+            ]}
+          >
+            <Ionicons
+              name={expanded ? "chevron-forward" : "chevron-back"}
+              size={18}
+              color={tokens.color.textPrimary}
+            />
+          </Pressable>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+const ToolbarAction = memo(function ToolbarAction({
+  icon,
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={2}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.toolbarAction,
+        disabled && styles.toolbarActionDisabled,
+        pressed && styles.toolbarPressed,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={tokens.color.textPrimary} size="small" />
+      ) : icon ? (
+        <Ionicons name={icon} size={17} color={tokens.color.textPrimary} />
+      ) : null}
+    </Pressable>
+  );
+});
+
+const styles = StyleSheet.create({
+  section: {
+    flex: 1,
+    minHeight: 0,
+    gap: tokens.space[5],
+  },
+  canvas: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+    borderRadius: tokens.radius["3xl"],
+    backgroundColor: tokens.color.card,
+  },
+  stripe: {
+    position: "absolute",
+    left: -300,
+    width: 1000,
+    height: 2,
+    backgroundColor: tokens.color.placeholderStripe,
+    transform: [{ rotate: "-45deg" }],
+  },
+  placeholderLabelWrap: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeholderLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: monoFont,
+    fontSize: tokens.type["2xs"],
+    letterSpacing: 0.4,
+  },
+  toolbarRow: {
+    height: 42,
+    alignItems: "flex-end",
+  },
+  toolbar: {
+    height: 42,
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.overlay,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    ...tokens.shadow.floatSm,
+  },
+  toolbarActions: {
+    position: "absolute",
+    left: 4,
+    right: 42,
+    top: 2,
+    height: 36,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  toolbarAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toolbarActionDisabled: {
+    opacity: 0.35,
+  },
+  toolbarToggle: {
+    position: "absolute",
+    right: -1,
+    top: -1,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.card,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+  },
+  toolbarPressed: {
+    opacity: 0.65,
+  },
+});
