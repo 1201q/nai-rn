@@ -55,6 +55,8 @@ function clamp01(value: number) {
 }
 
 function characterTitle(item: CharacterPrompt, index: number) {
+  const customName = item.name?.trim();
+  if (customName) return customName;
   const promptTitle = item.prompt.split(",")[0]?.trim();
   return promptTitle || `Character ${index + 1}`;
 }

@@ -85,7 +85,8 @@ function DraggableRow({
 }) {
   const startY = useSharedValue(0);
   const badgeColor = BADGE_COLORS[index % BADGE_COLORS.length];
-  const title = item.prompt.trim() || `Character ${index + 1}`;
+  const title =
+    item.name?.trim() || item.prompt.trim() || `Character ${index + 1}`;
 
   const panGesture = useMemo(
     () =>

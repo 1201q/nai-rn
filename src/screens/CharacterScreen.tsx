@@ -141,7 +141,8 @@ function CharacterPromptCard({
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
 }) {
   const badgeColor = BADGE_COLORS[index % BADGE_COLORS.length];
-  const title = item.prompt.trim() || `Character ${index + 1}`;
+  const title =
+    item.name?.trim() || item.prompt.trim() || `Character ${index + 1}`;
 
   return (
     <Animated.View

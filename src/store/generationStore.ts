@@ -73,6 +73,7 @@ const DEFAULT_I2I_NOISE = 0;
 
 export type CharacterPrompt = {
   id: string;
+  name?: string;
   prompt: string;
   negativePrompt: string;
   enabled: boolean;
@@ -228,6 +229,7 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
     return [
       {
         id: isString(candidate.id) ? candidate.id : `stored-character-${index}`,
+        ...(isString(candidate.name) ? { name: candidate.name } : {}),
         prompt: isString(candidate.prompt) ? candidate.prompt : "",
         negativePrompt: isString(candidate.negativePrompt)
           ? candidate.negativePrompt

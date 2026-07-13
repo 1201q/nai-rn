@@ -1,10 +1,19 @@
-import { useCallback, useRef, useState } from "react";
-import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
+import { RendraCharacterCard } from "../../components/rendra/RendraCharacterCard";
 import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import {
   RendraParameterSlider,
@@ -18,11 +27,15 @@ import {
   type RendraSettingsTab,
 } from "../../components/rendra/RendraSettingsNavigation";
 import {
+  MAX_CHARACTER_PROMPTS,
   MODELS,
   NOISE_SCHEDULES,
   SAMPLERS,
 } from "../../constants/generation";
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  type CharacterPrompt,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import type { OptionRoute } from "../home/OptionsSheet";
 import {
@@ -218,6 +231,165 @@ function PromptTabContent() {
   );
 }
 
+function CharacterTabContent() {
+  const router = useRouter();
+  const characterPrompts = useGenerationStore(
+    (state) => state.characterPrompts,
+  );
+  const setCharacterPrompts = useGenerationStore(
+    (state) => state.setCharacterPrompts,
+  );
+  const expandedIds = useGenerationStore(
+    (state) => state.characterPromptExpandedIds,
+  );
+  const setExpandedIds = useGenerationStore(
+    (state) => state.setCharacterPromptExpandedIds,
+  );
+  const positionEnabled = useGenerationStore(
+    (state) => state.characterPositionEnabled,
+  );
+  const setPositionEnabled = useGenerationStore(
+    (state) => state.setCharacterPositionEnabled,
+  );
+
+  useEffect(() => {
+    const ids = new Set(characterPrompts.map((item) => item.id));
+    const next = expandedIds.filter(
+      (id, index) => ids.has(id) && expandedIds.indexOf(id) === index,
+    );
+    if (next.length !== expandedIds.length) setExpandedIds(next);
+  }, [characterPrompts, expandedIds, setExpandedIds]);
+
+  function updateCharacter(
+    id: string,
+    values: Partial<Omit<CharacterPrompt, "id">>,
+  ) {
+    const current = useGenerationStore.getState().characterPrompts;
+    setCharacterPrompts(
+      current.map((item) => (item.id === id ? { ...item, ...values } : item)),
+    );
+  }
+
+  function toggleExpanded(id: string) {
+    const current = useGenerationStore.getState().characterPromptExpandedIds;
+    setExpandedIds(
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
+  }
+
+  function addCharacter() {
+    const current = useGenerationStore.getState().characterPrompts;
+    if (current.length >= MAX_CHARACTER_PROMPTS) return;
+    const id = `character-${Date.now()}-${current.length}`;
+    const next: CharacterPrompt = {
+      id,
+      prompt: "",
+      negativePrompt: "",
+      enabled: true,
+      position: { x: 0.5, y: 0.5 },
+    };
+    setCharacterPrompts([...current, next]);
+    setExpandedIds([
+      ...useGenerationStore.getState().characterPromptExpandedIds,
+      id,
+    ]);
+  }
+
+  function copyCharacter(id: string) {
+    const current = useGenerationStore.getState().characterPrompts;
+    if (current.length >= MAX_CHARACTER_PROMPTS) return;
+    const sourceIndex = current.findIndex((item) => item.id === id);
+    if (sourceIndex < 0) return;
+    const source = current[sourceIndex];
+    const copiedId = `character-copy-${Date.now()}-${current.length}`;
+    const copied: CharacterPrompt = {
+      ...source,
+      id: copiedId,
+      position: { ...source.position },
+    };
+    const next = [...current];
+    next.splice(sourceIndex + 1, 0, copied);
+    setCharacterPrompts(next);
+    setExpandedIds([
+      ...useGenerationStore.getState().characterPromptExpandedIds,
+      copiedId,
+    ]);
+  }
+
+  function deleteCharacter(id: string) {
+    const current = useGenerationStore.getState().characterPrompts;
+    setCharacterPrompts(current.filter((item) => item.id !== id));
+    setExpandedIds(
+      useGenerationStore
+        .getState()
+        .characterPromptExpandedIds.filter((value) => value !== id),
+    );
+  }
+
+  const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
+
+  return (
+    <>
+      <Text style={styles.characterSectionLabel}>
+        캐릭터 ({characterPrompts.length})
+      </Text>
+      <View style={styles.characterCards}>
+        {characterPrompts.map((item, index) => (
+          <RendraCharacterCard
+            key={item.id}
+            item={item}
+            index={index}
+            expanded={expandedIds.includes(item.id)}
+            canCopy={canAdd}
+            onToggleExpand={() => toggleExpanded(item.id)}
+            onUpdate={(values) => updateCharacter(item.id, values)}
+            onRename={(name) =>
+              updateCharacter(item.id, { name: name || undefined })
+            }
+            onCopy={() => copyCharacter(item.id)}
+            onDelete={() => deleteCharacter(item.id)}
+            onOpenPosition={() => router.push("/character-position")}
+          />
+        ))}
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
+        accessibilityState={{ disabled: !canAdd }}
+        disabled={!canAdd}
+        onPress={addCharacter}
+        style={({ pressed }) => [
+          styles.addCharacterButton,
+          !canAdd && styles.addCharacterButtonDisabled,
+          pressed && styles.controlPressed,
+        ]}
+      >
+        <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
+        <Text style={styles.addCharacterText}>
+          Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
+        </Text>
+      </Pressable>
+
+      <View style={styles.characterPositionRow}>
+        <Ionicons
+          name="location-outline"
+          size={19}
+          color={tokens.color.textTertiary}
+        />
+        <Text style={styles.characterPositionLabel}>Character Positions</Text>
+        <RendraToggle
+          value={positionEnabled}
+          label="Character Positions"
+          onChange={setPositionEnabled}
+        />
+      </View>
+    </>
+  );
+}
+
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -281,6 +453,7 @@ export function ImageSettingsScreen() {
           <SettingsTabContent openDetail={openDetail} />
         ) : null}
         {activeTab === "prompt" ? <PromptTabContent /> : null}
+        {activeTab === "character" ? <CharacterTabContent /> : null}
       </Animated.ScrollView>
 
       <Animated.View
@@ -366,6 +539,54 @@ const styles = StyleSheet.create({
   },
   promptRows: {
     marginTop: 20,
+  },
+  characterSectionLabel: {
+    marginBottom: 10,
+    paddingHorizontal: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type["3xs"],
+    letterSpacing: tokens.tracking.wide,
+  },
+  characterCards: {
+    gap: 12,
+  },
+  addCharacterButton: {
+    height: 54,
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.card,
+  },
+  addCharacterButtonDisabled: {
+    opacity: 0.4,
+  },
+  addCharacterText: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
+  },
+  characterPositionRow: {
+    minHeight: 64,
+    marginTop: 10,
+    paddingHorizontal: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  characterPositionLabel: {
+    flex: 1,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.md,
+  },
+  controlPressed: {
+    opacity: 0.65,
   },
   edgeFade: {
     position: "absolute",

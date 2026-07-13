@@ -188,6 +188,44 @@ export const RendraPromptField = memo(function RendraPromptField({
   );
 });
 
+export const RendraSegmentedControl = memo(function RendraSegmentedControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { value: string; label: string }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <View style={styles.segmentedControl}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityLabel={option.label}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.segment,
+              active && styles.segmentActive,
+              pressed && styles.segmentPressed,
+            ]}
+          >
+            <Text
+              style={[styles.segmentLabel, active && styles.segmentLabelActive]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+});
+
 const styles = StyleSheet.create({
   toggleTrack: {
     width: 44,
@@ -272,5 +310,35 @@ const styles = StyleSheet.create({
     color: tokens.color.textMuted,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type["2xs"],
+  },
+  segmentedControl: {
+    height: 42,
+    padding: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.card,
+  },
+  segment: {
+    height: 36,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+  },
+  segmentActive: {
+    backgroundColor: tokens.color.accent,
+  },
+  segmentPressed: {
+    opacity: 0.7,
+  },
+  segmentLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
+  },
+  segmentLabelActive: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.bold,
   },
 });
