@@ -26,6 +26,10 @@ export function CustomSlider({
   thumbSize = 22,
   pill = false,
   trackBg = light.surfaceAlt,
+  trackFill = light.accent,
+  thumbColor = light.accent,
+  thumbBorderColor = light.surface,
+  thumbBorderWidth,
   style,
 }: {
   value: number;
@@ -40,6 +44,10 @@ export function CustomSlider({
   thumbSize?: number;
   pill?: boolean;
   trackBg?: string;
+  trackFill?: string;
+  thumbColor?: string;
+  thumbBorderColor?: string;
+  thumbBorderWidth?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   const [width, setWidth] = useState(0);
@@ -48,6 +56,7 @@ export function CustomSlider({
   const thumbW = pill ? Math.round(thumbSize * 0.6) : thumbSize;
   const half = thumbW / 2;
   const usable = Math.max(1, width - thumbW);
+  const resolvedThumbBorderWidth = thumbBorderWidth ?? (pill ? 2 : 3);
 
   const active = useSharedValue(false);
   // thumb 중심 x. 드래그 중엔 손가락, 정지 땐 value에서 동기화.
@@ -146,7 +155,7 @@ export function CustomSlider({
               left: 0,
               height: trackHeight,
               borderRadius: trackHeight / 2,
-              backgroundColor: light.accent,
+              backgroundColor: trackFill,
             },
             fillStyle,
           ]}
@@ -159,9 +168,9 @@ export function CustomSlider({
               width: thumbW,
               height: thumbH,
               borderRadius: thumbW / 2,
-              backgroundColor: light.accent,
-              borderWidth: pill ? 2 : 3,
-              borderColor: light.surface,
+              backgroundColor: thumbColor,
+              borderWidth: resolvedThumbBorderWidth,
+              borderColor: thumbBorderColor,
             },
             thumbStyle,
           ]}

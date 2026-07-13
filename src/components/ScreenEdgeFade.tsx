@@ -8,23 +8,27 @@ import { light } from "../screens/home/styles";
 export function ScreenEdgeFade({
   topHeight = 0,
   bottomHeight = 0,
+  color = light.bg,
+  transparentColor = "rgba(19,20,44,0)",
 }: {
   topHeight?: number;
   bottomHeight?: number;
+  color?: string;
+  transparentColor?: string;
 }) {
   return (
     <>
       {topHeight > 0 ? (
         <LinearGradient
           pointerEvents="none"
-          colors={[light.bg, "rgba(19,20,44,0)"]}
+          colors={[color, transparentColor]}
           style={[styles.top, { height: topHeight }]}
         />
       ) : null}
       {bottomHeight > 0 ? (
         <LinearGradient
           pointerEvents="none"
-          colors={["rgba(19,20,44,0)", light.bg]}
+          colors={[transparentColor, color]}
           style={[styles.bottom, { height: bottomHeight }]}
         />
       ) : null}
