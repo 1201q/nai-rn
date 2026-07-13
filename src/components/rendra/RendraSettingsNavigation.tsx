@@ -56,12 +56,14 @@ export const RendraSettingsRow = memo(function RendraSettingsRow({
   value,
   onPress,
   trailing,
+  showChevron = false,
 }: {
   icon: IconName;
   label: string;
   value?: string;
   onPress?: () => void;
   trailing?: ReactNode;
+  showChevron?: boolean;
 }) {
   const content = (
     <>
@@ -73,7 +75,7 @@ export const RendraSettingsRow = memo(function RendraSettingsRow({
         </Text>
       ) : null}
       {trailing ??
-        (onPress ? (
+        (onPress || showChevron ? (
           <Ionicons
             name="chevron-forward"
             size={16}

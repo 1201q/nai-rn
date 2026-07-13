@@ -1,4 +1,10 @@
-import { memo, useLayoutEffect } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Reanimated, {
   useAnimatedProps,
@@ -112,6 +118,76 @@ export const RendraParameterSlider = memo(function RendraParameterSlider({
   );
 });
 
+export const RendraPromptField = memo(function RendraPromptField({
+  label,
+  value,
+  placeholder,
+  minHeight,
+  negative = false,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  minHeight: number;
+  negative?: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const focusedRef = useRef(false);
+  const latestRef = useRef(value);
+  const [text, setText] = useState(value);
+
+  useEffect(() => {
+    if (focusedRef.current) return;
+    latestRef.current = value;
+    setText(value);
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      onCommit(latestRef.current);
+    },
+    [onCommit],
+  );
+
+  return (
+    <View style={styles.promptField}>
+      <Text style={styles.promptLabel}>{label}</Text>
+      <View
+        style={[
+          styles.promptCard,
+          { minHeight },
+          negative && styles.promptCardNegative,
+        ]}
+      >
+        <TextInput
+          accessibilityLabel={label}
+          value={text}
+          multiline
+          textAlignVertical="top"
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder={placeholder}
+          placeholderTextColor={tokens.color.textMuted}
+          onFocus={() => {
+            focusedRef.current = true;
+          }}
+          onBlur={() => {
+            focusedRef.current = false;
+            onCommit(latestRef.current);
+          }}
+          onChangeText={(next) => {
+            latestRef.current = next;
+            setText(next);
+          }}
+          style={styles.promptInput}
+        />
+        <Text style={styles.promptCount}>{text.length}자</Text>
+      </View>
+    </View>
+  );
+});
+
 const styles = StyleSheet.create({
   toggleTrack: {
     width: 44,
@@ -157,5 +233,44 @@ const styles = StyleSheet.create({
   },
   sliderTrack: {
     height: 14,
+  },
+  promptField: {
+    gap: 12,
+  },
+  promptLabel: {
+    paddingHorizontal: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type["3xs"],
+    letterSpacing: tokens.tracking.wide,
+    textTransform: "uppercase",
+  },
+  promptCard: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 14,
+    gap: 10,
+    borderRadius: tokens.radius.xl,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.card,
+  },
+  promptCardNegative: {
+    borderColor: tokens.color.borderNegative,
+  },
+  promptInput: {
+    flex: 1,
+    minHeight: 80,
+    padding: 0,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.base,
+    lineHeight: 22,
+  },
+  promptCount: {
+    alignSelf: "flex-end",
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["2xs"],
   },
 });

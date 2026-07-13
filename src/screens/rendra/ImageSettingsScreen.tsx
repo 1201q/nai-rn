@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { RendraIconButton } from "../../components/rendra/RendraButtons";
 import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import {
   RendraParameterSlider,
+  RendraPromptField,
   RendraToggle,
 } from "../../components/rendra/RendraFormControls";
 import {
@@ -165,10 +166,63 @@ function SettingsTabContent({
   );
 }
 
+function PromptTabContent() {
+  const prompt = useGenerationStore((state) => state.prompt);
+  const setPrompt = useGenerationStore((state) => state.setPrompt);
+  const negativePrompt = useGenerationStore((state) => state.negativePrompt);
+  const setNegativePrompt = useGenerationStore(
+    (state) => state.setNegativePrompt,
+  );
+  const [qualityTags, setQualityTags] = useState(true);
+
+  return (
+    <>
+      <View style={styles.promptFields}>
+        <RendraPromptField
+          label="Prompt"
+          value={prompt}
+          placeholder="1girl, ..."
+          minHeight={250}
+          onCommit={setPrompt}
+        />
+        <RendraPromptField
+          label="Negative Prompt"
+          value={negativePrompt}
+          placeholder="lowres, bad anatomy, ..."
+          minHeight={168}
+          negative
+          onCommit={setNegativePrompt}
+        />
+      </View>
+
+      <View style={styles.promptRows}>
+        <RendraSettingsRow
+          icon="pricetag-outline"
+          label="Quality Tags"
+          trailing={
+            <RendraToggle
+              value={qualityTags}
+              label="Quality Tags"
+              onChange={setQualityTags}
+            />
+          }
+        />
+        <RendraSettingsRow
+          icon="shield-outline"
+          label="UC Preset"
+          value="Heavy"
+          showChevron
+        />
+      </View>
+    </>
+  );
+}
+
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
+  const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleOpacity = scrollY.interpolate({
     inputRange: [0, 56],
@@ -188,11 +242,21 @@ export function ImageSettingsScreen() {
     [router],
   );
 
+  const handleTabChange = useCallback(
+    (key: string) => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      scrollY.setValue(0);
+      setActiveTab(key as SettingsTabKey);
+    },
+    [scrollY],
+  );
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
 
       <Animated.ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
@@ -206,6 +270,8 @@ export function ImageSettingsScreen() {
           { useNativeDriver: true },
         )}
         scrollEventThrottle={16}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
@@ -214,6 +280,7 @@ export function ImageSettingsScreen() {
         {activeTab === "settings" ? (
           <SettingsTabContent openDetail={openDetail} />
         ) : null}
+        {activeTab === "prompt" ? <PromptTabContent /> : null}
       </Animated.ScrollView>
 
       <Animated.View
@@ -240,7 +307,7 @@ export function ImageSettingsScreen() {
         <RendraSettingsTabBar
           tabs={TABS}
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as SettingsTabKey)}
+          onChange={handleTabChange}
         />
       </View>
     </View>
@@ -293,6 +360,12 @@ const styles = StyleSheet.create({
   },
   selectionRows: {
     marginTop: 18,
+  },
+  promptFields: {
+    gap: 28,
+  },
+  promptRows: {
+    marginTop: 20,
   },
   edgeFade: {
     position: "absolute",
