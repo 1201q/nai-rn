@@ -10,6 +10,10 @@ import { PortalProvider } from "@gorhom/portal";
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
 import { colors } from "../src/styles/colors";
+import { applyGlobalFont } from "../src/styles/applyGlobalFont";
+
+// Pretendard 를 앱 전역 기본 폰트로 적용
+applyGlobalFont();
 
 LogBox.ignoreLogs([
   "InteractionManager has been deprecated and will be removed in a future release.",

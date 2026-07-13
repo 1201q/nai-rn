@@ -55,7 +55,18 @@ export default {
           granularPermissions: ["photo"],
         },
       ],
-      "expo-font",
+      [
+        "expo-font",
+        {
+          fonts: [
+            "./assets/fonts/Pretendard-Regular.otf",
+            "./assets/fonts/Pretendard-Medium.otf",
+            "./assets/fonts/Pretendard-SemiBold.otf",
+            "./assets/fonts/Pretendard-Bold.otf",
+            "./assets/fonts/Pretendard-ExtraBold.otf",
+          ],
+        },
+      ],
       "expo-asset",
       [
         "expo-image-picker",
