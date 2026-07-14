@@ -391,11 +391,7 @@ function CharacterTabContent() {
   );
 }
 
-function ImageReferenceTabContent({
-  openDetail,
-}: {
-  openDetail: (route: OptionRoute) => void;
-}) {
+function ImageReferenceTabContent() {
   const router = useRouter();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const clearI2I = useGenerationStore((state) => state.clearI2I);
@@ -463,7 +459,7 @@ function ImageReferenceTabContent({
       <RendraReferenceRow
         icon="scan-outline"
         label="Metadata Extract"
-        onPress={() => openDetail("metadata")}
+        onPress={() => router.push("/metadata-extract")}
       />
     </View>
   );
@@ -533,9 +529,7 @@ export function ImageSettingsScreen() {
         ) : null}
         {activeTab === "prompt" ? <PromptTabContent /> : null}
         {activeTab === "character" ? <CharacterTabContent /> : null}
-        {activeTab === "imageRef" ? (
-          <ImageReferenceTabContent openDetail={openDetail} />
-        ) : null}
+        {activeTab === "imageRef" ? <ImageReferenceTabContent /> : null}
       </Animated.ScrollView>
 
       <Animated.View
