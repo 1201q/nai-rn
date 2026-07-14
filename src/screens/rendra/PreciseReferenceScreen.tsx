@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
   cards: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   controlLabel: {
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
   modeSelector: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   },
   modeValue: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   modeOptions: {
@@ -348,12 +348,12 @@ const styles = StyleSheet.create({
   },
   modeOptionLabel: {
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type.sm,
   },
   modeOptionLabelSelected: {
     color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
   },
   pressed: {
     opacity: 0.68,

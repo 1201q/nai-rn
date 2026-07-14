@@ -56,8 +56,8 @@ export function applyGlobalFont() {
       if (flat.fontFamily) return element;
 
       const fontFamily = familyForWeight(flat.fontWeight);
-      // 기본 폰트를 맨 앞에 두어 개별 스타일(fontSize 등)이 덮어쓰도록.
-      const nextStyle = [{ fontFamily }, style];
+      // 각 weight 파일이 독립 family이므로 네이티브의 추가 face 선택을 막는다.
+      const nextStyle = [style, { fontFamily, fontWeight: undefined }];
       return {
         ...element,
         props: { ...element.props, style: nextStyle },

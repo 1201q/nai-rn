@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   primaryLabel: {
     color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
   },
 });

@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
   },
   normalizeTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   normalizeDescription: {
     marginTop: 4,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 17,
   },
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
   cards: {

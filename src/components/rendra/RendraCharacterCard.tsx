@@ -399,13 +399,13 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.sm,
   },
   title: {
     flex: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
   },
   headerIcon: {
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   },
   actionMenuLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
   actionMenuLabelDestructive: {

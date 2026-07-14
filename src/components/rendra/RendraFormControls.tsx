@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   sliderLabel: {
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
   sliderValue: {
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     padding: 0,
     textAlign: "right",
     color: tokens.color.accent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
   },
   sliderTrack: {
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   promptLabel: {
     paddingHorizontal: 4,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
     textTransform: "uppercase",
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   promptCount: {
     alignSelf: "flex-end",
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   segmentedControl: {
@@ -344,11 +344,11 @@ const styles = StyleSheet.create({
   },
   segmentLabel: {
     color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   segmentLabelActive: {
     color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
   },
 });

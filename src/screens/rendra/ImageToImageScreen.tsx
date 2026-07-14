@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.xl,
     letterSpacing: tokens.tracking.tight,
   },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
   },
   toggleControl: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   },
   toggleState: {
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   imageSection: {
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   },
   uploadLabel: {
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.xs,
   },
   removeButton: {

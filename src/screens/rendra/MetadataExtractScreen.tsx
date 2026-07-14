@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     lineHeight: 48,
     textAlignVertical: "center",
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.xl,
     letterSpacing: tokens.tracking.tight,
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   uploadLabel: {
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.xs,
   },
   previewCard: {
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     paddingHorizontal: 4,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
   },
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   metadataText: {
     color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type.sm,
     lineHeight: 21,
   },
@@ -421,14 +421,14 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   settingValue: {
     flex: 1,
     textAlign: "right",
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   settingValueActive: {
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   emptyHint: {
     marginTop: 10,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 18,
   },

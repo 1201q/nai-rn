@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.xl,
     letterSpacing: tokens.tracking.tight,
   },
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
   },
   summaryControl: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   },
   summaryState: {
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   referenceCard: {
@@ -342,13 +342,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
   },
   cardSubtitle: {
     marginTop: 2,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   chevronButton: {
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   },
   addButtonLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   disabled: {

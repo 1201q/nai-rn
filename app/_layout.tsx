@@ -1,5 +1,6 @@
 import "react-native-gesture-handler";
 
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -11,6 +12,15 @@ import { GenerationOptionsProvider } from "../src/context/GenerationOptionsConte
 import { AppSheetProvider } from "../src/context/AppSheetContext";
 import { colors } from "../src/styles/colors";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
+import { tokens } from "../src/styles/tokens";
+
+const PRETENDARD_FONTS = {
+  [tokens.font.regular]: require("../assets/fonts/Pretendard-Regular.otf"),
+  [tokens.font.medium]: require("../assets/fonts/Pretendard-Medium.otf"),
+  [tokens.font.semibold]: require("../assets/fonts/Pretendard-SemiBold.otf"),
+  [tokens.font.bold]: require("../assets/fonts/Pretendard-Bold.otf"),
+  [tokens.font.extrabold]: require("../assets/fonts/Pretendard-ExtraBold.otf"),
+};
 
 // Pretendard 를 앱 전역 기본 폰트로 적용
 applyGlobalFont();
@@ -20,6 +30,11 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(PRETENDARD_FONTS);
+
+  if (fontError) throw fontError;
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: colors.appBackground }}

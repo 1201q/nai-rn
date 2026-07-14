@@ -632,8 +632,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.extrabold,
-    fontWeight: "800",
+    fontFamily: tokens.font.bold,
     fontSize: tokens.type["2xl"],
     letterSpacing: tokens.tracking.tight,
   },
@@ -658,7 +657,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     marginBottom: 16,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
   },
@@ -678,7 +677,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 4,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
   },
@@ -705,7 +704,7 @@ const styles = StyleSheet.create({
   },
   addCharacterText: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
   },
   characterPositionRow: {
@@ -719,7 +718,7 @@ const styles = StyleSheet.create({
   characterPositionLabel: {
     flex: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.md,
   },
   referenceRows: {

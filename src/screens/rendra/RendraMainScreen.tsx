@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   balanceText: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.sm,
   },
   balancePillPressed: {

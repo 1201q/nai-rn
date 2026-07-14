@@ -140,24 +140,23 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
     pillOpacity.value = withTiming(1, { duration: 80 });
   }, [activeKey, pillOpacity, pillWidth, pillX]);
 
-  const handleTabLayout =
-    (key: string) => (event: LayoutChangeEvent) => {
-      const { x, width } = event.nativeEvent.layout;
-      tabLayouts.current[key] = { x, width };
-      if (key !== activeKey) return;
+  const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    tabLayouts.current[key] = { x, width };
+    if (key !== activeKey) return;
 
-      if (!pillReady.current) {
-        pillReady.current = true;
-        pillX.value = x;
-        pillWidth.value = width;
-        pillOpacity.value = 1;
-        return;
-      }
+    if (!pillReady.current) {
+      pillReady.current = true;
+      pillX.value = x;
+      pillWidth.value = width;
+      pillOpacity.value = 1;
+      return;
+    }
 
-      pillX.value = withTiming(x, TAB_TIMING);
-      pillWidth.value = withTiming(width, TAB_TIMING);
-      pillOpacity.value = withTiming(1, { duration: 80 });
-    };
+    pillX.value = withTiming(x, TAB_TIMING);
+    pillWidth.value = withTiming(width, TAB_TIMING);
+    pillOpacity.value = withTiming(1, { duration: 80 });
+  };
 
   return (
     <BlurView intensity={60} tint="dark" style={styles.tabBar}>
@@ -179,25 +178,17 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected: active }}
                 onPress={() => onChange(tab.key)}
-                style={({ pressed }) => [
-                  styles.tab,
-                  pressed && styles.pressed,
-                ]}
+                style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
               >
                 <Ionicons
                   name={tab.icon}
                   size={18}
                   color={
-                    active
-                      ? tokens.color.onAccent
-                      : tokens.color.textSecondary
+                    active ? tokens.color.onAccent : tokens.color.textSecondary
                   }
                 />
                 <Text
-                  style={[
-                    styles.tabLabel,
-                    !active && styles.tabLabelInactive,
-                  ]}
+                  style={[styles.tabLabel, !active && styles.tabLabelInactive]}
                   numberOfLines={1}
                 >
                   {tab.label}
@@ -226,12 +217,12 @@ const styles = StyleSheet.create({
   },
   optionCardLabel: {
     color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   optionCardValue: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.lg,
     letterSpacing: -0.3,
   },
@@ -245,13 +236,13 @@ const styles = StyleSheet.create({
   rowLabel: {
     flex: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.md,
   },
   rowValue: {
     maxWidth: "48%",
     color: tokens.color.textTertiary,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type.base,
   },
   pressed: {
@@ -298,9 +289,8 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: 9,
-    fontWeight: "700",
     lineHeight: 10,
   },
   tabLabelInactive: {

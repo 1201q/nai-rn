@@ -119,13 +119,13 @@ const styles = StyleSheet.create({
   },
   label: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
   },
   state: {
     marginTop: 2,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
   trailing: {
