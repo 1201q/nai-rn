@@ -1,0 +1,327 @@
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import {
+  RendraParameterSlider,
+  RendraToggle,
+} from "../../components/rendra/RendraFormControls";
+import { useGenerationStore } from "../../store/generationStore";
+import { tokens } from "../../styles/tokens";
+
+export function ImageToImageScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
+  const setSourceImage = useGenerationStore(
+    (state) => state.setI2ISourceImage,
+  );
+  const clearI2I = useGenerationStore((state) => state.clearI2I);
+  const strength = useGenerationStore((state) => state.i2iStrength);
+  const setStrength = useGenerationStore((state) => state.setI2IStrength);
+  const noise = useGenerationStore((state) => state.i2iNoise);
+  const setNoise = useGenerationStore((state) => state.setI2INoise);
+  const setMessage = useGenerationStore((state) => state.setMessage);
+  const [busy, setBusy] = useState(false);
+
+  async function pickImage() {
+    if (busy) return;
+
+    try {
+      setBusy(true);
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setMessage("이미지를 선택하려면 사진 접근 권한이 필요합니다.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        base64: false,
+      });
+      const asset = result.canceled ? undefined : result.assets[0];
+      if (!asset) return;
+
+      setSourceImage({
+        uri: asset.uri,
+        width: asset.width || 64,
+        height: asset.height || 64,
+      });
+    } catch {
+      setMessage("I2I 이미지를 선택하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleToggle(value: boolean) {
+    if (value) {
+      void pickImage();
+      return;
+    }
+    clearI2I();
+  }
+
+  return (
+    <View style={styles.screen}>
+      <StatusBar style="light" />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 14,
+            paddingBottom: insets.bottom + 32,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로"
+            hitSlop={4}
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={23}
+              color={tokens.color.textPrimary}
+            />
+          </Pressable>
+          <Text style={styles.title}>Image2Image</Text>
+        </View>
+
+        <View style={styles.toggleCard}>
+          <Text style={styles.toggleLabel}>Image2Image</Text>
+          <View style={styles.toggleControl}>
+            <Text style={styles.toggleState}>
+              {sourceImage ? "켜짐" : "꺼짐"}
+            </Text>
+            <RendraToggle
+              value={Boolean(sourceImage)}
+              label="Image2Image"
+              onChange={handleToggle}
+            />
+          </View>
+        </View>
+
+        <View style={styles.imageSection}>
+          {sourceImage ? (
+            <View style={styles.previewCard}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="I2I 이미지 교체"
+                disabled={busy}
+                onPress={() => void pickImage()}
+                style={StyleSheet.absoluteFill}
+              >
+                <ExpoImage
+                  source={{ uri: sourceImage.uri }}
+                  contentFit="cover"
+                  contentPosition="center"
+                  transition={120}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="I2I 이미지 제거"
+                onPress={clearI2I}
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={tokens.color.textPrimary}
+                />
+              </Pressable>
+              {busy ? (
+                <View pointerEvents="none" style={styles.busyOverlay}>
+                  <ActivityIndicator color={tokens.color.textPrimary} />
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="I2I 이미지 추가"
+              disabled={busy}
+              onPress={() => void pickImage()}
+              style={({ pressed }) => [
+                styles.uploadCard,
+                pressed && styles.pressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={tokens.color.textMuted} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={32}
+                    color={tokens.color.textMuted}
+                  />
+                  <Text style={styles.uploadLabel}>이미지 추가</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.parameters}>
+          <RendraParameterSlider
+            label="Strength"
+            value={strength}
+            min={0.01}
+            max={0.99}
+            step={0.01}
+            precision={2}
+            onChange={setStrength}
+          />
+          <RendraParameterSlider
+            label="Noise"
+            value={noise}
+            min={0}
+            max={0.99}
+            step={0.01}
+            precision={2}
+            onChange={setNoise}
+          />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: tokens.color.app,
+  },
+  content: {
+    paddingHorizontal: tokens.space[10],
+  },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.color.card,
+  },
+  title: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.xl,
+    letterSpacing: tokens.tracking.tight,
+  },
+  toggleCard: {
+    height: 72,
+    marginTop: 24,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.color.card,
+  },
+  toggleLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.base,
+  },
+  toggleControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  toggleState: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["2xs"],
+  },
+  imageSection: {
+    marginTop: 24,
+  },
+  previewCard: {
+    width: "100%",
+    aspectRatio: 1,
+    overflow: "hidden",
+    borderRadius: tokens.radius.xl,
+    backgroundColor: tokens.color.card,
+  },
+  uploadCard: {
+    width: "100%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: tokens.radius.xl,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: tokens.color.borderSubtleStrong,
+    backgroundColor: tokens.color.card,
+  },
+  uploadLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
+  },
+  removeButton: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+    backgroundColor: "rgba(23,23,26,0.82)",
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+  },
+  busyOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.scrim,
+  },
+  parameters: {
+    marginTop: 24,
+    gap: 26,
+  },
+  pressed: {
+    opacity: 0.68,
+  },
+});

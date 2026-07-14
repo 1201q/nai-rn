@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
 import { RendraCharacterCard } from "../../components/rendra/RendraCharacterCard";
+import { RendraReferenceRow } from "../../components/rendra/RendraReferenceRow";
 import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import {
   RendraParameterSlider,
@@ -390,6 +391,84 @@ function CharacterTabContent() {
   );
 }
 
+function ImageReferenceTabContent({
+  openDetail,
+}: {
+  openDetail: (route: OptionRoute) => void;
+}) {
+  const router = useRouter();
+  const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
+  const clearI2I = useGenerationStore((state) => state.clearI2I);
+  const vibeReferences = useGenerationStore((state) => state.vibeReferences);
+  const setVibeEnabled = useGenerationStore(
+    (state) => state.setVibeReferenceEnabled,
+  );
+  const preciseReferences = useGenerationStore(
+    (state) => state.preciseReferences,
+  );
+  const setPreciseEnabled = useGenerationStore(
+    (state) => state.setPreciseReferenceEnabled,
+  );
+
+  const vibeEnabled = vibeReferences.some((item) => item.enabled);
+  const preciseEnabled = preciseReferences.some((item) => item.enabled);
+
+  function toggleVibe(value: boolean) {
+    if (value && vibeReferences.length === 0) {
+      openDetail("vibe");
+      return;
+    }
+    vibeReferences.forEach((item) => {
+      if (item.enabled !== value) setVibeEnabled(item.id, value);
+    });
+  }
+
+  function togglePrecise(value: boolean) {
+    if (value && preciseReferences.length === 0) {
+      openDetail("precise");
+      return;
+    }
+    preciseReferences.forEach((item) => {
+      if (item.enabled !== value) setPreciseEnabled(item.id, value);
+    });
+  }
+
+  return (
+    <View style={styles.referenceRows}>
+      <RendraReferenceRow
+        icon="image-outline"
+        label="Image2Image"
+        enabled={Boolean(sourceImage)}
+        thumbnailUri={sourceImage?.uri}
+        onPress={() => router.push("/image-to-image")}
+        onToggle={(value) => {
+          if (value) router.push("/image-to-image");
+          else clearI2I();
+        }}
+      />
+      <RendraReferenceRow
+        icon="color-palette-outline"
+        label="Vibe Transfer"
+        enabled={vibeEnabled}
+        onPress={() => openDetail("vibe")}
+        onToggle={toggleVibe}
+      />
+      <RendraReferenceRow
+        icon="person-outline"
+        label="Precise Reference"
+        enabled={preciseEnabled}
+        onPress={() => openDetail("precise")}
+        onToggle={togglePrecise}
+      />
+      <RendraReferenceRow
+        icon="scan-outline"
+        label="Metadata Extract"
+        onPress={() => openDetail("metadata")}
+      />
+    </View>
+  );
+}
+
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -454,6 +533,9 @@ export function ImageSettingsScreen() {
         ) : null}
         {activeTab === "prompt" ? <PromptTabContent /> : null}
         {activeTab === "character" ? <CharacterTabContent /> : null}
+        {activeTab === "imageRef" ? (
+          <ImageReferenceTabContent openDetail={openDetail} />
+        ) : null}
       </Animated.ScrollView>
 
       <Animated.View
@@ -584,6 +666,9 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
+  },
+  referenceRows: {
+    gap: 12,
   },
   controlPressed: {
     opacity: 0.65,
