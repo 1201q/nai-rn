@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
   },
   segmentedControl: {
-    height: 42,
+    height: 32,
     padding: 3,
     flexDirection: "row",
     alignItems: "center",
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.card,
   },
   segment: {
-    height: 36,
-    paddingHorizontal: 16,
+    height: 26,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: tokens.radius.pill,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   segmentLabel: {
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.medium,
-    fontSize: tokens.type.sm,
+    fontSize: tokens.type["3xs"],
   },
   segmentLabelActive: {
     color: tokens.color.onAccent,

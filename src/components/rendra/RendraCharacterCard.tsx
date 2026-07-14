@@ -263,7 +263,9 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
               {displayName}
             </Text>
             <Text style={styles.coordinates} numberOfLines={1}>
-              X {item.position.x.toFixed(2)} · Y {item.position.y.toFixed(2)}
+              {positionEnabled
+                ? `X ${item.position.x.toFixed(2)} · Y ${item.position.y.toFixed(2)}`
+                : "위치 미지정"}
             </Text>
           </View>
         </Pressable>
@@ -365,6 +367,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
               ref={menuAnchorRef}
               accessibilityRole="button"
               accessibilityLabel="캐릭터 메뉴"
+              hitSlop={5}
               onPress={openMenu}
               style={({ pressed }) => [
                 styles.moreButton,
@@ -373,7 +376,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             >
               <Ionicons
                 name="ellipsis-horizontal"
-                size={19}
+                size={15}
                 color={tokens.color.textTertiary}
               />
             </Pressable>
@@ -517,11 +520,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   moreButton: {
-    width: 38,
-    height: 38,
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 11,
+    borderRadius: 9,
     backgroundColor: tokens.color.card,
   },
   modalRoot: {
