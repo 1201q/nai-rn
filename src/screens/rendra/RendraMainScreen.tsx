@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -89,7 +89,15 @@ export function RendraMainScreen() {
       <StatusBar style="light" />
 
       <View style={styles.balanceRow}>
-        <View style={styles.balancePill}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="ANLAS 토큰 설정"
+          onPress={() => router.push("/settings")}
+          style={({ pressed }) => [
+            styles.balancePill,
+            pressed && styles.balancePillPressed,
+          ]}
+        >
           <Ionicons
             name="diamond-outline"
             size={15}
@@ -98,7 +106,7 @@ export function RendraMainScreen() {
           <Text style={styles.balanceText}>
             {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       <GenerationCanvas />
@@ -148,6 +156,9 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.bold,
     fontSize: tokens.type.sm,
+  },
+  balancePillPressed: {
+    opacity: 0.68,
   },
   bottomActions: {
     height: 54,
