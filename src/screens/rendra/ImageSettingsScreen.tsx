@@ -10,10 +10,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Reanimated, {
-  Easing,
-  LinearTransition,
-} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
@@ -50,10 +46,6 @@ import {
 } from "../home/constants";
 
 type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
-
-const CHARACTER_FOLLOW_LAYOUT = LinearTransition.duration(180).easing(
-  Easing.out(Easing.cubic),
-);
 
 const TABS: readonly RendraSettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
@@ -240,9 +232,8 @@ function PromptTabContent() {
   );
 }
 
-function CharacterTabContent({ active }: { active: boolean }) {
+function CharacterTabContent() {
   const router = useRouter();
-  const [layoutAnimationReady, setLayoutAnimationReady] = useState(false);
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
@@ -261,15 +252,6 @@ function CharacterTabContent({ active }: { active: boolean }) {
   const setPositionEnabled = useGenerationStore(
     (state) => state.setCharacterPositionEnabled,
   );
-  const layoutAnimationEnabled = active && layoutAnimationReady;
-
-  useEffect(() => {
-    setLayoutAnimationReady(false);
-    if (!active) return;
-
-    const frame = requestAnimationFrame(() => setLayoutAnimationReady(true));
-    return () => cancelAnimationFrame(frame);
-  }, [active]);
 
   useEffect(() => {
     const ids = new Set(characterPrompts.map((item) => item.id));
@@ -361,7 +343,6 @@ function CharacterTabContent({ active }: { active: boolean }) {
             item={item}
             index={index}
             expanded={expandedIds.includes(item.id)}
-            layoutAnimationEnabled={layoutAnimationEnabled}
             canCopy={canAdd}
             onToggleExpand={() => toggleExpanded(item.id)}
             onUpdate={(values) => updateCharacter(item.id, values)}
@@ -375,34 +356,27 @@ function CharacterTabContent({ active }: { active: boolean }) {
         ))}
       </View>
 
-      <Reanimated.View
-        layout={layoutAnimationEnabled ? CHARACTER_FOLLOW_LAYOUT : undefined}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
+        accessibilityState={{ disabled: !canAdd }}
+        disabled={!canAdd}
+        onPress={addCharacter}
+        style={({ pressed }) => [
+          styles.addCharacterButton,
+          characterPrompts.length === 0 &&
+            styles.addCharacterButtonWithoutCards,
+          !canAdd && styles.addCharacterButtonDisabled,
+          pressed && styles.controlPressed,
+        ]}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
-          accessibilityState={{ disabled: !canAdd }}
-          disabled={!canAdd}
-          onPress={addCharacter}
-          style={({ pressed }) => [
-            styles.addCharacterButton,
-            characterPrompts.length === 0 &&
-              styles.addCharacterButtonWithoutCards,
-            !canAdd && styles.addCharacterButtonDisabled,
-            pressed && styles.controlPressed,
-          ]}
-        >
-          <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
-          <Text style={styles.addCharacterText}>
-            Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
-          </Text>
-        </Pressable>
-      </Reanimated.View>
+        <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
+        <Text style={styles.addCharacterText}>
+          Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
+        </Text>
+      </Pressable>
 
-      <Reanimated.View
-        layout={layoutAnimationEnabled ? CHARACTER_FOLLOW_LAYOUT : undefined}
-        style={styles.characterPositionRow}
-      >
+      <View style={styles.characterPositionRow}>
         <Ionicons
           name="location-outline"
           size={19}
@@ -414,7 +388,7 @@ function CharacterTabContent({ active }: { active: boolean }) {
           label="Character Positions"
           onChange={setPositionEnabled}
         />
-      </Reanimated.View>
+      </View>
     </>
   );
 }
@@ -576,7 +550,7 @@ export function ImageSettingsScreen() {
         ) : null}
         {mountedTabs.character ? (
           <View style={activeTab !== "character" && styles.hiddenTab}>
-            <CharacterTabContent active={activeTab === "character"} />
+            <CharacterTabContent />
           </View>
         ) : null}
         {mountedTabs.imageRef ? (
