@@ -1,4 +1,4 @@
-import { memo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useRef, type ReactNode } from "react";
 import {
   type LayoutChangeEvent,
   Pressable,
@@ -10,8 +10,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import Reanimated, {
   Easing,
-  FadeIn,
-  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -20,6 +18,11 @@ import Reanimated, {
 import { tokens } from "../../styles/tokens";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+const TAB_TIMING = {
+  duration: 180,
+  easing: Easing.out(Easing.cubic),
+};
 
 export const RendraOptionCard = memo(function RendraOptionCard({
   icon,
@@ -120,10 +123,7 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
   const pillWidth = useSharedValue(0);
   const pillOpacity = useSharedValue(0);
   const pillReady = useRef(false);
-  const timing = {
-    duration: 180,
-    easing: Easing.out(Easing.cubic),
-  };
+  const tabLayouts = useRef<Record<string, { x: number; width: number }>>({});
 
   const pillStyle = useAnimatedStyle(() => ({
     left: pillX.value,
@@ -131,10 +131,20 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
     opacity: pillOpacity.value,
   }));
 
+  useEffect(() => {
+    const layout = tabLayouts.current[activeKey];
+    if (!layout) return;
+
+    pillX.value = withTiming(layout.x, TAB_TIMING);
+    pillWidth.value = withTiming(layout.width, TAB_TIMING);
+    pillOpacity.value = withTiming(1, { duration: 80 });
+  }, [activeKey, pillOpacity, pillWidth, pillX]);
+
   const handleTabLayout =
     (key: string) => (event: LayoutChangeEvent) => {
-      if (key !== activeKey) return;
       const { x, width } = event.nativeEvent.layout;
+      tabLayouts.current[key] = { x, width };
+      if (key !== activeKey) return;
 
       if (!pillReady.current) {
         pillReady.current = true;
@@ -144,8 +154,8 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
         return;
       }
 
-      pillX.value = withTiming(x, timing);
-      pillWidth.value = withTiming(width, timing);
+      pillX.value = withTiming(x, TAB_TIMING);
+      pillWidth.value = withTiming(width, TAB_TIMING);
       pillOpacity.value = withTiming(1, { duration: 80 });
     };
 
@@ -161,9 +171,8 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
           return (
             <Reanimated.View
               key={tab.key}
-              layout={LinearTransition.duration(180)}
               onLayout={handleTabLayout(tab.key)}
-              style={[styles.tabSlot, active && styles.tabSlotActive]}
+              style={styles.tabSlot}
             >
               <Pressable
                 accessibilityRole="tab"
@@ -177,21 +186,22 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
               >
                 <Ionicons
                   name={tab.icon}
-                  size={20}
+                  size={18}
                   color={
                     active
                       ? tokens.color.onAccent
                       : tokens.color.textSecondary
                   }
                 />
-                {active ? (
-                  <Reanimated.Text
-                    entering={FadeIn.delay(50).duration(140)}
-                    style={styles.tabLabel}
-                  >
-                    {tab.label}
-                  </Reanimated.Text>
-                ) : null}
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    !active && styles.tabLabelInactive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
               </Pressable>
             </Reanimated.View>
           );
@@ -249,7 +259,7 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flex: 1,
-    height: 52,
+    height: 48,
     overflow: "hidden",
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
@@ -259,13 +269,13 @@ const styles = StyleSheet.create({
   },
   tabBarContent: {
     position: "absolute",
-    top: 5,
-    right: 5,
-    bottom: 5,
-    left: 5,
+    top: 4,
+    right: 4,
+    bottom: 4,
+    left: 4,
     flexDirection: "row",
     alignItems: "stretch",
-    gap: 3,
+    gap: 2,
   },
   slidingPill: {
     position: "absolute",
@@ -278,20 +288,22 @@ const styles = StyleSheet.create({
     flex: 1,
     zIndex: 1,
   },
-  tabSlotActive: {
-    flex: 1.72,
-  },
   tab: {
     flex: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 1,
     borderRadius: tokens.radius.pill,
   },
   tabLabel: {
     color: tokens.color.onAccent,
     fontFamily: tokens.font.bold,
-    fontSize: tokens.type.xs,
+    fontSize: 9,
+    fontWeight: "700",
+    lineHeight: 10,
+  },
+  tabLabelInactive: {
+    color: tokens.color.textTertiary,
   },
 });

@@ -13,6 +13,7 @@ import Reanimated, {
   Easing,
   FadeIn,
   FadeOut,
+  LayoutAnimationConfig,
   LinearTransition,
 } from "react-native-reanimated";
 
@@ -45,6 +46,8 @@ const BADGE_COLORS = [
 const CARD_LAYOUT = LinearTransition.duration(180).easing(
   Easing.out(Easing.cubic),
 );
+const CARD_BODY_ENTERING = FadeIn.duration(140);
+const CARD_BODY_EXITING = FadeOut.duration(100);
 
 function CharacterActionMenu({
   visible,
@@ -137,6 +140,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   item,
   index,
   expanded,
+  layoutAnimationEnabled = true,
   canCopy,
   onToggleExpand,
   onUpdate,
@@ -148,6 +152,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   item: CharacterPrompt;
   index: number;
   expanded: boolean;
+  layoutAnimationEnabled?: boolean;
   canCopy: boolean;
   onToggleExpand: () => void;
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
@@ -208,7 +213,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
 
   return (
     <Reanimated.View
-      layout={CARD_LAYOUT}
+      layout={layoutAnimationEnabled ? CARD_LAYOUT : undefined}
       style={[styles.card, !item.enabled && styles.cardDisabled]}
     >
       <View style={styles.header}>
@@ -285,59 +290,67 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
         </Reanimated.View>
       ) : null}
 
-      {expanded ? (
-        <Reanimated.View
-          entering={FadeIn.duration(140)}
-          exiting={FadeOut.duration(90)}
-          style={[
-            styles.editor,
-            mode === "negative" && styles.editorNegative,
-          ]}
-        >
-          <TextInput
-            accessibilityLabel={mode === "base" ? "Base prompt" : "Negative prompt"}
-            value={mode === "base" ? baseText : negativeText}
-            multiline
-            textAlignVertical="top"
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="..."
-            placeholderTextColor={tokens.color.textMuted}
-            onFocus={() => {
-              focusedRef.current = true;
-            }}
-            onBlur={() => {
-              focusedRef.current = false;
-              commitMode(mode);
-            }}
-            onChangeText={(text) => {
-              if (mode === "base") setBaseText(text);
-              else setNegativeText(text);
-            }}
-            style={styles.promptInput}
-          />
-          <View style={styles.editorFooter}>
-            <RendraSegmentedControl
-              options={MODES}
-              value={mode}
-              onChange={changeMode}
+      <LayoutAnimationConfig skipEntering>
+        {expanded ? (
+          <Reanimated.View
+            entering={CARD_BODY_ENTERING}
+            exiting={CARD_BODY_EXITING}
+            layout={layoutAnimationEnabled ? CARD_LAYOUT : undefined}
+            style={[
+              styles.editor,
+              mode === "negative" && styles.editorNegative,
+            ]}
+          >
+            <TextInput
+              accessibilityLabel={
+                mode === "base" ? "Base prompt" : "Negative prompt"
+              }
+              value={mode === "base" ? baseText : negativeText}
+              multiline
+              textAlignVertical="top"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="..."
+              placeholderTextColor={tokens.color.textMuted}
+              onFocus={() => {
+                focusedRef.current = true;
+              }}
+              onBlur={() => {
+                focusedRef.current = false;
+                commitMode(mode);
+              }}
+              onChangeText={(text) => {
+                if (mode === "base") setBaseText(text);
+                else setNegativeText(text);
+              }}
+              style={styles.promptInput}
             />
-            <Pressable
-              ref={menuAnchorRef}
-              accessibilityRole="button"
-              accessibilityLabel="캐릭터 메뉴"
-              onPress={openMenu}
-              style={({ pressed }) => [styles.moreButton, pressed && styles.pressed]}
-            >
-              <Ionicons
-                name="ellipsis-horizontal"
-                size={19}
-                color={tokens.color.textTertiary}
+            <View style={styles.editorFooter}>
+              <RendraSegmentedControl
+                options={MODES}
+                value={mode}
+                onChange={changeMode}
               />
-            </Pressable>
-          </View>
-        </Reanimated.View>
-      ) : null}
+              <Pressable
+                ref={menuAnchorRef}
+                accessibilityRole="button"
+                accessibilityLabel="캐릭터 메뉴"
+                onPress={openMenu}
+                style={({ pressed }) => [
+                  styles.moreButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={19}
+                  color={tokens.color.textTertiary}
+                />
+              </Pressable>
+            </View>
+          </Reanimated.View>
+        ) : null}
+      </LayoutAnimationConfig>
 
       <CharacterActionMenu
         visible={menuVisible}
@@ -355,7 +368,8 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: tokens.radius.lg,
+    overflow: "hidden",
+    borderRadius: tokens.radius.xl,
     backgroundColor: tokens.color.card,
   },
   cardDisabled: {

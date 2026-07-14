@@ -10,6 +10,10 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import Reanimated, {
+  Easing,
+  LinearTransition,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
@@ -46,6 +50,10 @@ import {
 } from "../home/constants";
 
 type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
+
+const CHARACTER_FOLLOW_LAYOUT = LinearTransition.duration(180).easing(
+  Easing.out(Easing.cubic),
+);
 
 const TABS: readonly RendraSettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
@@ -232,8 +240,9 @@ function PromptTabContent() {
   );
 }
 
-function CharacterTabContent() {
+function CharacterTabContent({ active }: { active: boolean }) {
   const router = useRouter();
+  const [layoutAnimationReady, setLayoutAnimationReady] = useState(false);
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
@@ -252,6 +261,15 @@ function CharacterTabContent() {
   const setPositionEnabled = useGenerationStore(
     (state) => state.setCharacterPositionEnabled,
   );
+  const layoutAnimationEnabled = active && layoutAnimationReady;
+
+  useEffect(() => {
+    setLayoutAnimationReady(false);
+    if (!active) return;
+
+    const frame = requestAnimationFrame(() => setLayoutAnimationReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [active]);
 
   useEffect(() => {
     const ids = new Set(characterPrompts.map((item) => item.id));
@@ -343,6 +361,7 @@ function CharacterTabContent() {
             item={item}
             index={index}
             expanded={expandedIds.includes(item.id)}
+            layoutAnimationEnabled={layoutAnimationEnabled}
             canCopy={canAdd}
             onToggleExpand={() => toggleExpanded(item.id)}
             onUpdate={(values) => updateCharacter(item.id, values)}
@@ -356,25 +375,34 @@ function CharacterTabContent() {
         ))}
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
-        accessibilityState={{ disabled: !canAdd }}
-        disabled={!canAdd}
-        onPress={addCharacter}
-        style={({ pressed }) => [
-          styles.addCharacterButton,
-          !canAdd && styles.addCharacterButtonDisabled,
-          pressed && styles.controlPressed,
-        ]}
+      <Reanimated.View
+        layout={layoutAnimationEnabled ? CHARACTER_FOLLOW_LAYOUT : undefined}
       >
-        <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
-        <Text style={styles.addCharacterText}>
-          Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
-        </Text>
-      </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
+          accessibilityState={{ disabled: !canAdd }}
+          disabled={!canAdd}
+          onPress={addCharacter}
+          style={({ pressed }) => [
+            styles.addCharacterButton,
+            characterPrompts.length === 0 &&
+              styles.addCharacterButtonWithoutCards,
+            !canAdd && styles.addCharacterButtonDisabled,
+            pressed && styles.controlPressed,
+          ]}
+        >
+          <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
+          <Text style={styles.addCharacterText}>
+            Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
+          </Text>
+        </Pressable>
+      </Reanimated.View>
 
-      <View style={styles.characterPositionRow}>
+      <Reanimated.View
+        layout={layoutAnimationEnabled ? CHARACTER_FOLLOW_LAYOUT : undefined}
+        style={styles.characterPositionRow}
+      >
         <Ionicons
           name="location-outline"
           size={19}
@@ -386,7 +414,7 @@ function CharacterTabContent() {
           label="Character Positions"
           onChange={setPositionEnabled}
         />
-      </View>
+      </Reanimated.View>
     </>
   );
 }
@@ -469,6 +497,14 @@ export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
+  const [mountedTabs, setMountedTabs] = useState<
+    Record<SettingsTabKey, boolean>
+  >({
+    settings: true,
+    prompt: false,
+    character: false,
+    imageRef: false,
+  });
   const scrollRef = useRef<ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleOpacity = scrollY.interpolate({
@@ -491,9 +527,13 @@ export function ImageSettingsScreen() {
 
   const handleTabChange = useCallback(
     (key: string) => {
+      const nextTab = key as SettingsTabKey;
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
-      setActiveTab(key as SettingsTabKey);
+      setMountedTabs((current) =>
+        current[nextTab] ? current : { ...current, [nextTab]: true },
+      );
+      setActiveTab(nextTab);
     },
     [scrollY],
   );
@@ -524,12 +564,26 @@ export function ImageSettingsScreen() {
         <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
           <Text style={styles.title}>{TITLES[activeTab]}</Text>
         </Animated.View>
-        {activeTab === "settings" ? (
-          <SettingsTabContent openDetail={openDetail} />
+        {mountedTabs.settings ? (
+          <View style={activeTab !== "settings" && styles.hiddenTab}>
+            <SettingsTabContent openDetail={openDetail} />
+          </View>
         ) : null}
-        {activeTab === "prompt" ? <PromptTabContent /> : null}
-        {activeTab === "character" ? <CharacterTabContent /> : null}
-        {activeTab === "imageRef" ? <ImageReferenceTabContent /> : null}
+        {mountedTabs.prompt ? (
+          <View style={activeTab !== "prompt" && styles.hiddenTab}>
+            <PromptTabContent />
+          </View>
+        ) : null}
+        {mountedTabs.character ? (
+          <View style={activeTab !== "character" && styles.hiddenTab}>
+            <CharacterTabContent active={activeTab === "character"} />
+          </View>
+        ) : null}
+        {mountedTabs.imageRef ? (
+          <View style={activeTab !== "imageRef" && styles.hiddenTab}>
+            <ImageReferenceTabContent />
+          </View>
+        ) : null}
       </Animated.ScrollView>
 
       <Animated.View
@@ -568,6 +622,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.color.app,
   },
+  hiddenTab: {
+    display: "none",
+  },
   header: {
     height: 58,
     marginBottom: tokens.space[8],
@@ -575,7 +632,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.extrabold,
+    fontWeight: "800",
     fontSize: tokens.type["2xl"],
     letterSpacing: tokens.tracking.tight,
   },
@@ -617,7 +675,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   characterSectionLabel: {
-    marginBottom: 10,
+    marginBottom: 12,
     paddingHorizontal: 4,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.bold,
@@ -638,6 +696,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.card,
+  },
+  addCharacterButtonWithoutCards: {
+    marginTop: 0,
   },
   addCharacterButtonDisabled: {
     opacity: 0.4,
@@ -680,7 +741,7 @@ const styles = StyleSheet.create({
     left: tokens.space[10],
     right: tokens.space[10],
     zIndex: 4,
-    height: 52,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[5],
