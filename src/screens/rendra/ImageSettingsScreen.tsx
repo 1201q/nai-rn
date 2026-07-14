@@ -397,7 +397,8 @@ function CharacterTabContent() {
 function ImageReferenceTabContent() {
   const router = useRouter();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
-  const clearI2I = useGenerationStore((state) => state.clearI2I);
+  const i2iEnabled = useGenerationStore((state) => state.i2iEnabled);
+  const setI2IEnabled = useGenerationStore((state) => state.setI2IEnabled);
   const vibeReferences = useGenerationStore((state) => state.vibeReferences);
   const setVibeEnabled = useGenerationStore(
     (state) => state.setVibeReferenceEnabled,
@@ -437,12 +438,12 @@ function ImageReferenceTabContent() {
       <RendraReferenceRow
         icon="image-outline"
         label="Image2Image"
-        enabled={Boolean(sourceImage)}
+        enabled={i2iEnabled}
         thumbnailUri={sourceImage?.uri}
         onPress={() => router.push("/image-to-image")}
         onToggle={(value) => {
-          if (value) router.push("/image-to-image");
-          else clearI2I();
+          if (value && !sourceImage) router.push("/image-to-image");
+          else setI2IEnabled(value);
         }}
       />
       <RendraReferenceRow

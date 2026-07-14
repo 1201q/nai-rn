@@ -226,7 +226,7 @@ export function VibeTransferScreen() {
 const styles = StyleSheet.create({
   normalizeCard: {
     minHeight: 88,
-    marginTop: 20,
+    marginTop: 12,
     paddingHorizontal: 18,
     paddingVertical: 16,
     flexDirection: "row",

@@ -176,7 +176,7 @@ export function MetadataExtractScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 94,
+            paddingTop: insets.top + 86,
             paddingBottom: insets.bottom + 32,
           },
         ]}
@@ -276,7 +276,7 @@ export function MetadataExtractScreen() {
         style={[
           styles.fixedHeader,
           {
-            height: insets.top + 78,
+            height: insets.top + 70,
             paddingTop: insets.top + 14,
           },
         ]}
@@ -284,7 +284,7 @@ export function MetadataExtractScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="뒤로"
-          hitSlop={4}
+          hitSlop={6}
           onPress={() => router.back()}
           style={({ pressed }) => [
             styles.backButton,
@@ -293,7 +293,7 @@ export function MetadataExtractScreen() {
         >
           <Ionicons
             name="chevron-back"
-            size={23}
+            size={18}
             color={tokens.color.textPrimary}
           />
         </Pressable>
@@ -324,16 +324,16 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   backButton: {
-    width: 48,
-    height: 48,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.md,
     backgroundColor: tokens.color.card,
   },
   title: {
-    height: 48,
-    lineHeight: 48,
+    height: 40,
+    lineHeight: 40,
     textAlignVertical: "center",
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,

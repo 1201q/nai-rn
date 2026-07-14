@@ -57,7 +57,7 @@ export function RendraReferenceDetailLayout({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="뒤로"
-            hitSlop={4}
+            hitSlop={6}
             onPress={() => router.back()}
             style={({ pressed }) => [
               styles.backButton,
@@ -66,7 +66,7 @@ export function RendraReferenceDetailLayout({
           >
             <Ionicons
               name="chevron-back"
-              size={23}
+              size={18}
               color={tokens.color.textPrimary}
             />
           </Pressable>
@@ -195,6 +195,7 @@ export const RendraReferenceImageCard = memo(
                 accessibilityRole="button"
                 accessibilityLabel={`Reference ${index + 1} 삭제`}
                 disabled={busy}
+                hitSlop={5}
                 onPress={onRemove}
                 style={({ pressed }) => [
                   styles.removeButton,
@@ -203,7 +204,7 @@ export const RendraReferenceImageCard = memo(
               >
                 <Ionicons
                   name="trash-outline"
-                  size={19}
+                  size={16}
                   color={tokens.color.negative}
                 />
               </Pressable>
@@ -264,17 +265,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[10],
   },
   header: {
-    height: 56,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
   },
   backButton: {
-    width: 48,
-    height: 48,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.md,
     backgroundColor: tokens.color.card,
   },
   title: {
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
     letterSpacing: tokens.tracking.tight,
   },
   summaryCard: {
-    height: 72,
+    height: 56,
     marginTop: 24,
     paddingHorizontal: 18,
     flexDirection: "row",
@@ -372,11 +373,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    width: 42,
-    height: 42,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 21,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: "rgba(23,23,26,0.86)",

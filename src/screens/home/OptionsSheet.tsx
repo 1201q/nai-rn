@@ -382,11 +382,12 @@ function ResolutionSheet({ onClose }: { onClose: () => void }) {
 function I2ISheet() {
   const sourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const setSourceImage = useGenerationStore((s) => s.setI2ISourceImage);
+  const enabled = useGenerationStore((s) => s.i2iEnabled);
+  const setEnabled = useGenerationStore((s) => s.setI2IEnabled);
   const strength = useGenerationStore((s) => s.i2iStrength);
   const setStrength = useGenerationStore((s) => s.setI2IStrength);
   const noise = useGenerationStore((s) => s.i2iNoise);
   const setNoise = useGenerationStore((s) => s.setI2INoise);
-  const clearI2I = useGenerationStore((s) => s.clearI2I);
   const setMessage = useGenerationStore((s) => s.setMessage);
   const [busy, setBusy] = useState(false);
 
@@ -414,10 +415,12 @@ function I2ISheet() {
       }
 
       const asset = result.assets[0];
-      setSourceImage({
+      await setSourceImage({
         uri: asset.uri,
         width: asset.width || 64,
         height: asset.height || 64,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
       });
     } catch {
       setMessage("I2I 이미지를 선택하지 못했습니다.");
@@ -491,12 +494,14 @@ function I2ISheet() {
               activeOpacity={0.72}
               onPress={() => {
                 triggerSelectionHaptic();
-                clearI2I();
+                setEnabled(!enabled);
               }}
               style={i2iStyles.secondaryButton}
             >
               <Ionicons name="close" size={15} color={light.textSecondary} />
-              <Text style={i2iStyles.secondaryButtonText}>끄기</Text>
+              <Text style={i2iStyles.secondaryButtonText}>
+                {enabled ? "끄기" : "켜기"}
+              </Text>
             </TouchableOpacity>
           </View>
           {effectiveResolution ? (
@@ -1598,13 +1603,14 @@ function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
   const setVarietyPlus = useGenerationStore((s) => s.setVarietyPlus);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
+  const setI2IEnabled = useGenerationStore((s) => s.setI2IEnabled);
   const activeVibeCount = useGenerationStore(
     (s) => s.vibeReferences.filter((item) => item.enabled).length,
   );
   const activePreciseCount = useGenerationStore(
     (s) => s.preciseReferences.filter((item) => item.enabled).length,
   );
-  const clearI2I = useGenerationStore((s) => s.clearI2I);
   const vibeReferences = useGenerationStore((s) => s.vibeReferences);
   const setVibeReferenceEnabled = useGenerationStore(
     (s) => s.setVibeReferenceEnabled,
@@ -1704,15 +1710,15 @@ function OptionsMenu({ onSelect }: { onSelect: (route: OptionRoute) => void }) {
           <MenuRow
             icon="image-outline"
             label="Image2Image"
-            active={Boolean(i2iSourceImage)}
+            active={i2iEnabled}
             rightToggle
-            toggleOn={Boolean(i2iSourceImage)}
+            toggleOn={i2iEnabled}
             onToggle={() => {
               triggerSelectionHaptic();
-              if (i2iSourceImage) {
-                clearI2I();
-              } else {
+              if (!i2iSourceImage) {
                 onSelect("i2i");
+              } else {
+                setI2IEnabled(!i2iEnabled);
               }
             }}
             onPress={() => onSelect("i2i")}

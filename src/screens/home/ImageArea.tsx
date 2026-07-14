@@ -38,6 +38,7 @@ export function ImageArea() {
   const isLoading = useGenerationStore((s) => s.isLoading);
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
@@ -49,7 +50,7 @@ export function ImageArea() {
     () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
     [displayedImageUri],
   );
-  const streamingResolution = i2iSourceImage
+  const streamingResolution = i2iEnabled && i2iSourceImage
     ? getI2IEffectiveResolution(i2iSourceImage)
     : resolution;
   const generationAspect = isStreamingPreview

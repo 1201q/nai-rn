@@ -25,9 +25,9 @@ export function ImageToImageScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
-  const setSourceImage = useGenerationStore(
-    (state) => state.setI2ISourceImage,
-  );
+  const setSourceImage = useGenerationStore((state) => state.setI2ISourceImage);
+  const enabled = useGenerationStore((state) => state.i2iEnabled);
+  const setEnabled = useGenerationStore((state) => state.setI2IEnabled);
   const clearI2I = useGenerationStore((state) => state.clearI2I);
   const strength = useGenerationStore((state) => state.i2iStrength);
   const setStrength = useGenerationStore((state) => state.setI2IStrength);
@@ -56,10 +56,12 @@ export function ImageToImageScreen() {
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
 
-      setSourceImage({
+      await setSourceImage({
         uri: asset.uri,
         width: asset.width || 64,
         height: asset.height || 64,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
       });
     } catch {
       setMessage("I2I 이미지를 선택하지 못했습니다.");
@@ -70,10 +72,11 @@ export function ImageToImageScreen() {
 
   function handleToggle(value: boolean) {
     if (value) {
-      void pickImage();
+      if (sourceImage) setEnabled(true);
+      else void pickImage();
       return;
     }
-    clearI2I();
+    setEnabled(false);
   }
 
   return (
@@ -93,7 +96,7 @@ export function ImageToImageScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="뒤로"
-            hitSlop={4}
+            hitSlop={6}
             onPress={() => router.back()}
             style={({ pressed }) => [
               styles.backButton,
@@ -102,7 +105,7 @@ export function ImageToImageScreen() {
           >
             <Ionicons
               name="chevron-back"
-              size={23}
+              size={18}
               color={tokens.color.textPrimary}
             />
           </Pressable>
@@ -113,10 +116,10 @@ export function ImageToImageScreen() {
           <Text style={styles.toggleLabel}>Image2Image</Text>
           <View style={styles.toggleControl}>
             <Text style={styles.toggleState}>
-              {sourceImage ? "켜짐" : "꺼짐"}
+              {enabled ? "켜짐" : "꺼짐"}
             </Text>
             <RendraToggle
-              value={Boolean(sourceImage)}
+              value={enabled}
               label="Image2Image"
               onChange={handleToggle}
             />
@@ -144,6 +147,7 @@ export function ImageToImageScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="I2I 이미지 제거"
+                hitSlop={5}
                 onPress={clearI2I}
                 style={({ pressed }) => [
                   styles.removeButton,
@@ -151,9 +155,9 @@ export function ImageToImageScreen() {
                 ]}
               >
                 <Ionicons
-                  name="close"
-                  size={22}
-                  color={tokens.color.textPrimary}
+                  name="trash-outline"
+                  size={16}
+                  color={tokens.color.negative}
                 />
               </Pressable>
               {busy ? (
@@ -223,17 +227,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[10],
   },
   header: {
-    height: 56,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
   },
   backButton: {
-    width: 48,
-    height: 48,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.md,
     backgroundColor: tokens.color.card,
   },
   title: {
@@ -243,7 +247,7 @@ const styles = StyleSheet.create({
     letterSpacing: tokens.tracking.tight,
   },
   toggleCard: {
-    height: 72,
+    height: 56,
     marginTop: 24,
     paddingHorizontal: 18,
     flexDirection: "row",
@@ -296,14 +300,14 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     position: "absolute",
-    top: 14,
-    right: 14,
-    width: 44,
-    height: 44,
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 22,
-    backgroundColor: "rgba(23,23,26,0.82)",
+    borderRadius: 17,
+    backgroundColor: "rgba(23,23,26,0.86)",
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
   },

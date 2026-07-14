@@ -26,7 +26,7 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
   const hasToggle = enabled !== undefined && onToggle !== undefined;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, !hasToggle && styles.rowCompact]}>
       {thumbnailUri ? (
         <>
           <ExpoImage
@@ -90,12 +90,15 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
 
 const styles = StyleSheet.create({
   row: {
-    height: 72,
+    height: 64,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     borderRadius: tokens.radius.lg,
     backgroundColor: tokens.color.card,
+  },
+  rowCompact: {
+    height: 56,
   },
   imageScrim: {
     position: "absolute",

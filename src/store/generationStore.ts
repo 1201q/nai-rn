@@ -28,6 +28,12 @@ import {
 } from "../lib/novelai";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
+import {
+  deleteStoredI2IReference,
+  resolveStoredI2IReference,
+  saveI2IReferenceImage,
+  type I2IReferenceImageInput,
+} from "../lib/i2iReference";
 import { storage } from "../lib/storage";
 import {
   MAX_VIBE_REFERENCES,
@@ -82,9 +88,13 @@ export type CharacterPrompt = {
 
 export type I2ISourceImage = {
   uri: string;
+  storagePath: string;
   width: number;
   height: number;
 };
+
+export type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
+  Pick<I2IReferenceImageInput, "fileName" | "mimeType">;
 
 export type PromptWorkspaceTab = "prompt" | "character" | "options";
 
@@ -110,6 +120,13 @@ type PersistedGenerationOptions = Partial<{
   promptWorkspaceTab: PromptWorkspaceTab;
   vibeReferenceExpandedIds: string[];
   preciseReferenceExpandedIds: string[];
+  i2iSourceImage: Pick<
+    I2ISourceImage,
+    "storagePath" | "width" | "height"
+  >;
+  i2iEnabled: boolean;
+  i2iStrength: number;
+  i2iNoise: number;
 }>;
 
 function generateRandomSeed(): number {
@@ -148,6 +165,26 @@ function isNoiseSchedule(value: unknown): value is NoiseSchedule {
 
 function isPromptWorkspaceTab(value: unknown): value is PromptWorkspaceTab {
   return value === "prompt" || value === "character" || value === "options";
+}
+
+function resolveStoredI2ISourceImage(value: unknown): I2ISourceImage | null {
+  if (!value || typeof value !== "object") return null;
+  const image = value as Partial<I2ISourceImage>;
+  if (
+    !isString(image.storagePath) ||
+    !isNumber(image.width) ||
+    !isNumber(image.height) ||
+    image.width <= 0 ||
+    image.height <= 0
+  ) {
+    return null;
+  }
+
+  return resolveStoredI2IReference({
+    storagePath: image.storagePath,
+    width: image.width,
+    height: image.height,
+  });
 }
 
 function isVibeSupportedModel(model: string): boolean {
@@ -331,7 +368,11 @@ export type GenerationState = {
   preciseReferenceExpandedIds: string[];
   setPreciseReferenceExpandedIds: (v: string[]) => void;
   i2iSourceImage: I2ISourceImage | null;
-  setI2ISourceImage: (v: I2ISourceImage) => void;
+  setI2ISourceImage: (
+    v: I2ISourceImageInput,
+  ) => Promise<I2ISourceImage | null>;
+  i2iEnabled: boolean;
+  setI2IEnabled: (v: boolean) => void;
   i2iStrength: number;
   setI2IStrength: (v: number) => void;
   i2iNoise: number;
@@ -477,6 +518,17 @@ function loadPersistedOptions(): Partial<GenerationState> {
       next.preciseReferenceExpandedIds =
         parsed.preciseReferenceExpandedIds.filter(isString);
     }
+    const storedI2IImage = resolveStoredI2ISourceImage(parsed.i2iSourceImage);
+    if (storedI2IImage) {
+      next.i2iSourceImage = storedI2IImage;
+      next.i2iEnabled = isBoolean(parsed.i2iEnabled)
+        ? parsed.i2iEnabled
+        : true;
+    }
+    if (isNumber(parsed.i2iStrength)) {
+      next.i2iStrength = parsed.i2iStrength;
+    }
+    if (isNumber(parsed.i2iNoise)) next.i2iNoise = parsed.i2iNoise;
     return next;
   } catch {
     return {};
@@ -837,17 +889,42 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       });
   },
   i2iSourceImage: null,
-  setI2ISourceImage: (v) => set({ i2iSourceImage: v }),
+  setI2ISourceImage: async (v) => {
+    const previousPath = get().i2iSourceImage?.storagePath;
+    try {
+      const storedImage = await saveI2IReferenceImage(v);
+      set({ i2iSourceImage: storedImage, i2iEnabled: true });
+      if (previousPath !== storedImage.storagePath) {
+        deleteStoredI2IReference(previousPath);
+      }
+      return storedImage;
+    } catch (error: unknown) {
+      set({
+        message:
+          error instanceof Error
+            ? error.message
+            : "I2I 이미지를 저장하지 못했습니다.",
+      });
+      return null;
+    }
+  },
+  i2iEnabled: false,
+  setI2IEnabled: (v) =>
+    set((state) => ({ i2iEnabled: v && Boolean(state.i2iSourceImage) })),
   i2iStrength: DEFAULT_I2I_STRENGTH,
   setI2IStrength: (v) => set({ i2iStrength: v }),
   i2iNoise: DEFAULT_I2I_NOISE,
   setI2INoise: (v) => set({ i2iNoise: v }),
-  clearI2I: () =>
+  clearI2I: () => {
+    const storagePath = get().i2iSourceImage?.storagePath;
     set({
       i2iSourceImage: null,
+      i2iEnabled: false,
       i2iStrength: DEFAULT_I2I_STRENGTH,
       i2iNoise: DEFAULT_I2I_NOISE,
-    }),
+    });
+    deleteStoredI2IReference(storagePath);
+  },
   optionTabIndex: 0,
   setOptionTabIndex: (v) => set({ optionTabIndex: v }),
   promptWorkspaceTab: "prompt",
@@ -934,7 +1011,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     let width = s.resolution.width;
     let height = s.resolution.height;
     let i2iImageBase64: string | undefined;
-    if (s.i2iSourceImage) {
+    if (s.i2iEnabled && s.i2iSourceImage) {
       try {
         const effectiveResolution = getI2IEffectiveResolution(s.i2iSourceImage);
         width = effectiveResolution.width;
@@ -1419,6 +1496,18 @@ export function useGenerationBootstrap() {
         promptWorkspaceTab: state.promptWorkspaceTab,
         vibeReferenceExpandedIds: state.vibeReferenceExpandedIds,
         preciseReferenceExpandedIds: state.preciseReferenceExpandedIds,
+        ...(state.i2iSourceImage
+          ? {
+              i2iSourceImage: {
+                storagePath: state.i2iSourceImage.storagePath,
+                width: state.i2iSourceImage.width,
+                height: state.i2iSourceImage.height,
+              },
+            }
+          : {}),
+        i2iEnabled: state.i2iEnabled,
+        i2iStrength: state.i2iStrength,
+        i2iNoise: state.i2iNoise,
       };
 
       const json = JSON.stringify(nextOptions);

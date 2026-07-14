@@ -26,6 +26,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const noiseSchedule = useGenerationStore((s) => s.noiseSchedule);
   const varietyPlus = useGenerationStore((s) => s.varietyPlus);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
   const activeVibeCount = useGenerationStore(
     (s) => s.vibeReferences.filter((item) => item.enabled).length,
   );
@@ -39,7 +40,7 @@ export function OptionChips({ openOptions }: { openOptions: () => void }) {
   const scheduleText =
     NOISE_SCHEDULES.find((n) => n.value === noiseSchedule)?.label ??
     noiseSchedule;
-  const resolutionText = i2iSourceImage
+  const resolutionText = i2iEnabled && i2iSourceImage
     ? (() => {
         const effectiveResolution = getI2IEffectiveResolution(i2iSourceImage);
         return `Image2Image ${effectiveResolution.width}x${effectiveResolution.height}`;
