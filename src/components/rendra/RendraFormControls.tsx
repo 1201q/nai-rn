@@ -22,10 +22,12 @@ export const RendraToggle = memo(function RendraToggle({
   value,
   onChange,
   label,
+  disabled = false,
 }: {
   value: boolean;
   onChange: (value: boolean) => void;
   label: string;
+  disabled?: boolean;
 }) {
   const progress = useSharedValue(value ? 1 : 0);
 
@@ -41,10 +43,15 @@ export const RendraToggle = memo(function RendraToggle({
     <Pressable
       accessibilityRole="switch"
       accessibilityLabel={label}
-      accessibilityState={{ checked: value }}
+      accessibilityState={{ checked: value, disabled }}
+      disabled={disabled}
       hitSlop={8}
       onPress={() => onChange(!value)}
-      style={[styles.toggleTrack, value && styles.toggleTrackOn]}
+      style={[
+        styles.toggleTrack,
+        value && styles.toggleTrackOn,
+        disabled && styles.toggleDisabled,
+      ]}
     >
       <Reanimated.View
         style={[
@@ -246,6 +253,9 @@ const styles = StyleSheet.create({
   },
   toggleThumbOn: {
     backgroundColor: tokens.color.onAccent,
+  },
+  toggleDisabled: {
+    opacity: 0.4,
   },
   sliderBlock: {
     gap: 8,

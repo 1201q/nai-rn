@@ -415,7 +415,7 @@ function ImageReferenceTabContent({
 
   function toggleVibe(value: boolean) {
     if (value && vibeReferences.length === 0) {
-      openDetail("vibe");
+      router.push("/vibe-transfer");
       return;
     }
     vibeReferences.forEach((item) => {
@@ -425,7 +425,7 @@ function ImageReferenceTabContent({
 
   function togglePrecise(value: boolean) {
     if (value && preciseReferences.length === 0) {
-      openDetail("precise");
+      router.push("/precise-reference");
       return;
     }
     preciseReferences.forEach((item) => {
@@ -450,14 +450,14 @@ function ImageReferenceTabContent({
         icon="color-palette-outline"
         label="Vibe Transfer"
         enabled={vibeEnabled}
-        onPress={() => openDetail("vibe")}
+        onPress={() => router.push("/vibe-transfer")}
         onToggle={toggleVibe}
       />
       <RendraReferenceRow
         icon="person-outline"
         label="Precise Reference"
         enabled={preciseEnabled}
-        onPress={() => openDetail("precise")}
+        onPress={() => router.push("/precise-reference")}
         onToggle={togglePrecise}
       />
       <RendraReferenceRow
