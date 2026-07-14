@@ -141,6 +141,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   item,
   index,
   expanded,
+  positionEnabled,
   canCopy,
   onToggleExpand,
   onUpdate,
@@ -152,6 +153,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   item: CharacterPrompt;
   index: number;
   expanded: boolean;
+  positionEnabled: boolean;
   canCopy: boolean;
   onToggleExpand: () => void;
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
@@ -242,14 +244,28 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
           <View
             style={[
               styles.badge,
-              { backgroundColor: BADGE_COLORS[index % BADGE_COLORS.length] },
+              positionEnabled
+                ? { backgroundColor: BADGE_COLORS[index % BADGE_COLORS.length] }
+                : styles.badgeMuted,
             ]}
           >
-            <Text style={styles.badgeText}>{index + 1}</Text>
+            <Text
+              style={[
+                styles.badgeText,
+                !positionEnabled && styles.badgeTextMuted,
+              ]}
+            >
+              {index + 1}
+            </Text>
           </View>
-          <Text style={styles.title} numberOfLines={1}>
-            {displayName}
-          </Text>
+          <View style={styles.titleGroup}>
+            <Text style={styles.title} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text style={styles.coordinates} numberOfLines={1}>
+              X {item.position.x.toFixed(2)} · Y {item.position.y.toFixed(2)}
+            </Text>
+          </View>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -415,11 +431,28 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.sm,
   },
-  title: {
+  badgeMuted: {
+    backgroundColor: tokens.color.raised,
+  },
+  badgeTextMuted: {
+    color: tokens.color.textMuted,
+  },
+  titleGroup: {
     flex: 1,
+    minWidth: 0,
+  },
+  title: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
+    lineHeight: 19,
+  },
+  coordinates: {
+    marginTop: 1,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 15,
   },
   headerIcon: {
     width: 42,

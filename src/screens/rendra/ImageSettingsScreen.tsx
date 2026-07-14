@@ -343,6 +343,7 @@ function CharacterTabContent() {
             item={item}
             index={index}
             expanded={expandedIds.includes(item.id)}
+            positionEnabled={positionEnabled}
             canCopy={canAdd}
             onToggleExpand={() => toggleExpanded(item.id)}
             onUpdate={(values) => updateCharacter(item.id, values)}
