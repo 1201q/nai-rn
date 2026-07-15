@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   normalizeCard: {
     minHeight: 88,
     marginTop: 12,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",

@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     height: 56,
     marginTop: 24,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

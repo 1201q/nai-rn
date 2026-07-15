@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Reanimated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import {
   RendraParameterSlider,
@@ -20,6 +29,21 @@ import {
 } from "../../components/rendra/RendraFormControls";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+
+const DISABLED_SCRIM_OPACITY = 0.5;
+const CONTENT_TIMING = {
+  duration: 180,
+  easing: Easing.out(Easing.cubic),
+};
+const PARAMETERS_ENTERING = FadeIn.duration(180).easing(
+  Easing.out(Easing.cubic),
+);
+const PARAMETERS_EXITING = FadeOut.duration(140).easing(
+  Easing.out(Easing.cubic),
+);
+const PARAMETERS_LAYOUT = LinearTransition.duration(200).easing(
+  Easing.out(Easing.cubic),
+);
 
 export function ImageToImageScreen() {
   const router = useRouter();
@@ -35,6 +59,30 @@ export function ImageToImageScreen() {
   const setNoise = useGenerationStore((state) => state.setI2INoise);
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [busy, setBusy] = useState(false);
+  const hasSourceImage = Boolean(sourceImage);
+  const disabledScrimOpacity = useSharedValue(
+    enabled ? 0 : DISABLED_SCRIM_OPACITY,
+  );
+  const contentAnimationReady = useRef(false);
+  const parametersAnimationReady = useRef(false);
+
+  const disabledScrimAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: disabledScrimOpacity.value,
+  }));
+
+  useEffect(() => {
+    const nextOpacity = enabled ? 0 : DISABLED_SCRIM_OPACITY;
+    if (!contentAnimationReady.current) {
+      contentAnimationReady.current = true;
+      disabledScrimOpacity.value = nextOpacity;
+      return;
+    }
+    disabledScrimOpacity.value = withTiming(nextOpacity, CONTENT_TIMING);
+  }, [disabledScrimOpacity, enabled]);
+
+  useEffect(() => {
+    parametersAnimationReady.current = true;
+  }, []);
 
   async function pickImage() {
     if (busy) return;
@@ -126,93 +174,114 @@ export function ImageToImageScreen() {
           </View>
         </View>
 
-        <View style={styles.imageSection}>
-          {sourceImage ? (
-            <View style={styles.previewCard}>
+        <Reanimated.View layout={PARAMETERS_LAYOUT} style={styles.detailContent}>
+          <View style={styles.imageSection}>
+            {sourceImage ? (
+              <View style={styles.previewCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="I2I 이미지 교체"
+                  disabled={busy}
+                  onPress={() => void pickImage()}
+                  style={StyleSheet.absoluteFill}
+                >
+                  <ExpoImage
+                    source={{ uri: sourceImage.uri }}
+                    contentFit="cover"
+                    contentPosition="center"
+                    transition={120}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="I2I 이미지 제거"
+                  hitSlop={5}
+                  onPress={clearI2I}
+                  style={({ pressed }) => [
+                    styles.removeButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={16}
+                    color={tokens.color.negative}
+                  />
+                </Pressable>
+                {busy ? (
+                  <View pointerEvents="none" style={styles.busyOverlay}>
+                    <ActivityIndicator color={tokens.color.textPrimary} />
+                  </View>
+                ) : null}
+              </View>
+            ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="I2I 이미지 교체"
+                accessibilityLabel="I2I 이미지 추가"
                 disabled={busy}
                 onPress={() => void pickImage()}
-                style={StyleSheet.absoluteFill}
-              >
-                <ExpoImage
-                  source={{ uri: sourceImage.uri }}
-                  contentFit="cover"
-                  contentPosition="center"
-                  transition={120}
-                  style={StyleSheet.absoluteFill}
-                />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="I2I 이미지 제거"
-                hitSlop={5}
-                onPress={clearI2I}
                 style={({ pressed }) => [
-                  styles.removeButton,
+                  styles.uploadCard,
                   pressed && styles.pressed,
                 ]}
               >
-                <Ionicons
-                  name="trash-outline"
-                  size={16}
-                  color={tokens.color.negative}
-                />
+                {busy ? (
+                  <ActivityIndicator color={tokens.color.textMuted} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={32}
+                      color={tokens.color.textMuted}
+                    />
+                    <Text style={styles.uploadLabel}>이미지 추가</Text>
+                  </>
+                )}
               </Pressable>
-              {busy ? (
-                <View pointerEvents="none" style={styles.busyOverlay}>
-                  <ActivityIndicator color={tokens.color.textPrimary} />
-                </View>
-              ) : null}
-            </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="I2I 이미지 추가"
-              disabled={busy}
-              onPress={() => void pickImage()}
-              style={({ pressed }) => [
-                styles.uploadCard,
-                pressed && styles.pressed,
-              ]}
-            >
-              {busy ? (
-                <ActivityIndicator color={tokens.color.textMuted} />
-              ) : (
-                <>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={32}
-                    color={tokens.color.textMuted}
-                  />
-                  <Text style={styles.uploadLabel}>이미지 추가</Text>
-                </>
-              )}
-            </Pressable>
-          )}
-        </View>
+            )}
+          </View>
 
-        <View style={styles.parameters}>
-          <RendraParameterSlider
-            label="Strength"
-            value={strength}
-            min={0.01}
-            max={0.99}
-            step={0.01}
-            precision={2}
-            onChange={setStrength}
+          {hasSourceImage ? (
+            <Reanimated.View
+              entering={
+                parametersAnimationReady.current
+                  ? PARAMETERS_ENTERING
+                  : undefined
+              }
+              exiting={PARAMETERS_EXITING}
+              style={styles.parameters}
+            >
+              <RendraParameterSlider
+                label="Strength"
+                value={strength}
+                min={0.01}
+                max={0.99}
+                step={0.01}
+                precision={2}
+                onChange={setStrength}
+              />
+              <RendraParameterSlider
+                label="Noise"
+                value={noise}
+                min={0}
+                max={0.99}
+                step={0.01}
+                precision={2}
+                onChange={setNoise}
+              />
+            </Reanimated.View>
+          ) : null}
+
+          <Reanimated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.disabledScrim,
+              disabledScrimAnimatedStyle,
+            ]}
           />
-          <RendraParameterSlider
-            label="Noise"
-            value={noise}
-            min={0}
-            max={0.99}
-            step={0.01}
-            precision={2}
-            onChange={setNoise}
-          />
-        </View>
+        </Reanimated.View>
       </ScrollView>
     </View>
   );
@@ -249,7 +318,7 @@ const styles = StyleSheet.create({
   toggleCard: {
     height: 56,
     marginTop: 24,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -273,6 +342,9 @@ const styles = StyleSheet.create({
   },
   imageSection: {
     marginTop: 24,
+  },
+  detailContent: {
+    position: "relative",
   },
   previewCard: {
     width: "100%",
@@ -324,6 +396,10 @@ const styles = StyleSheet.create({
   parameters: {
     marginTop: 24,
     gap: 26,
+  },
+  disabledScrim: {
+    zIndex: 1,
+    backgroundColor: tokens.color.app,
   },
   pressed: {
     opacity: 0.68,

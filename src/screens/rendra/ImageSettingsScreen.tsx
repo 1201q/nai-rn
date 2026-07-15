@@ -398,6 +398,8 @@ function ImageReferenceTabContent() {
   const router = useRouter();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const i2iEnabled = useGenerationStore((state) => state.i2iEnabled);
+  const i2iStrength = useGenerationStore((state) => state.i2iStrength);
+  const i2iNoise = useGenerationStore((state) => state.i2iNoise);
   const setI2IEnabled = useGenerationStore((state) => state.setI2IEnabled);
   const vibeReferences = useGenerationStore((state) => state.vibeReferences);
   const setVibeEnabled = useGenerationStore(
@@ -439,6 +441,11 @@ function ImageReferenceTabContent() {
         icon="image-outline"
         label="Image2Image"
         enabled={i2iEnabled}
+        stateLabel={
+          i2iEnabled
+            ? `S ${Number(i2iStrength.toFixed(2))} · N ${Number(i2iNoise.toFixed(2))}`
+            : undefined
+        }
         thumbnailUri={sourceImage?.uri}
         onPress={() => router.push("/image-to-image")}
         onToggle={(value) => {

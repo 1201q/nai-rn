@@ -1,17 +1,27 @@
-import { memo } from "react";
+import { memo, useLayoutEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { tokens } from "../../styles/tokens";
 import { RendraToggle } from "./RendraFormControls";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+const IMAGE_SCRIM_ENABLED_OPACITY = 0.62;
+const IMAGE_SCRIM_DISABLED_OPACITY = 0.8;
+
 export const RendraReferenceRow = memo(function RendraReferenceRow({
   icon,
   label,
   enabled,
+  stateLabel,
   thumbnailUri,
   onPress,
   onToggle,
@@ -19,11 +29,32 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
   icon: IconName;
   label: string;
   enabled?: boolean;
+  stateLabel?: string;
   thumbnailUri?: string;
   onPress: () => void;
   onToggle?: (value: boolean) => void;
 }) {
   const hasToggle = enabled !== undefined && onToggle !== undefined;
+  const imageScrimOpacity = useSharedValue(
+    enabled
+      ? IMAGE_SCRIM_ENABLED_OPACITY
+      : IMAGE_SCRIM_DISABLED_OPACITY,
+  );
+  const imageScrimAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageScrimOpacity.value,
+  }));
+
+  useLayoutEffect(() => {
+    imageScrimOpacity.value = withTiming(
+      enabled
+        ? IMAGE_SCRIM_ENABLED_OPACITY
+        : IMAGE_SCRIM_DISABLED_OPACITY,
+      {
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+      },
+    );
+  }, [enabled, imageScrimOpacity]);
 
   return (
     <View style={[styles.row, !hasToggle && styles.rowCompact]}>
@@ -36,7 +67,10 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
             transition={120}
             style={StyleSheet.absoluteFill}
           />
-          <View pointerEvents="none" style={styles.imageScrim} />
+          <Reanimated.View
+            pointerEvents="none"
+            style={[styles.imageScrim, imageScrimAnimatedStyle]}
+          />
         </>
       ) : null}
 
@@ -53,7 +87,9 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
         <View style={styles.copy}>
           <Text style={styles.label}>{label}</Text>
           {hasToggle ? (
-            <Text style={styles.state}>{enabled ? "켜짐" : "꺼짐"}</Text>
+            <Text style={styles.state}>
+              {stateLabel ?? (enabled ? "켜짐" : "꺼짐")}
+            </Text>
           ) : null}
         </View>
       </Pressable>
@@ -106,12 +142,12 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: "rgba(10,10,11,0.72)",
+    backgroundColor: tokens.color.app,
   },
   rowMain: {
     flex: 1,
     height: "100%",
-    paddingLeft: 18,
+    paddingLeft: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
@@ -132,10 +168,10 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
   },
   trailing: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
   },
   chevronButton: {
-    width: 56,
+    width: 48,
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
