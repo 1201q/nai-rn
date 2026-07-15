@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   promptCard: {
-    paddingHorizontal: 18,
+    paddingHorizontal: tokens.space[8],
     paddingTop: 16,
     paddingBottom: 14,
     gap: 10,

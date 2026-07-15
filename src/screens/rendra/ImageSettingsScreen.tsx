@@ -582,7 +582,7 @@ export function ImageSettingsScreen() {
 
       <View
         pointerEvents="box-none"
-        style={[styles.bottomBar, { bottom: insets.bottom + 19 }]}
+        style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[8] }]}
       >
         <RendraIconButton
           icon="chevron-back"
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
   },
   optionCards: {
     flexDirection: "row",
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderRadius: 14,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.card,
@@ -720,8 +720,8 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    left: tokens.space[10],
-    right: tokens.space[10],
+    left: tokens.space[8],
+    right: tokens.space[8],
     zIndex: 4,
     height: 48,
     flexDirection: "row",

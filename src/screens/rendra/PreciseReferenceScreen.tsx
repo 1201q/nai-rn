@@ -116,9 +116,7 @@ export function PreciseReferenceScreen() {
   const activeVibeCount = useGenerationStore(
     (state) => state.vibeReferences.filter((item) => item.enabled).length,
   );
-  const addReference = useGenerationStore(
-    (state) => state.addPreciseReference,
-  );
+  const addReference = useGenerationStore((state) => state.addPreciseReference);
   const replaceReference = useGenerationStore(
     (state) => state.replacePreciseReference,
   );
@@ -134,9 +132,7 @@ export function PreciseReferenceScreen() {
   const setFidelity = useGenerationStore(
     (state) => state.setPreciseReferenceFidelity,
   );
-  const setType = useGenerationStore(
-    (state) => state.setPreciseReferenceType,
-  );
+  const setType = useGenerationStore((state) => state.setPreciseReferenceType);
   const expandedIds = useGenerationStore(
     (state) => state.preciseReferenceExpandedIds,
   );
@@ -159,7 +155,9 @@ export function PreciseReferenceScreen() {
       return;
     }
     if (!targetId && activeVibeCount > 0) {
-      setMessage("Precise Reference는 Vibe Transfer와 함께 사용할 수 없습니다.");
+      setMessage(
+        "Precise Reference는 Vibe Transfer와 함께 사용할 수 없습니다.",
+      );
       return;
     }
 
@@ -194,8 +192,7 @@ export function PreciseReferenceScreen() {
         : await addReference(input);
       if (!reference) return;
 
-      const current =
-        useGenerationStore.getState().preciseReferenceExpandedIds;
+      const current = useGenerationStore.getState().preciseReferenceExpandedIds;
       setExpandedIds(
         current.includes(reference.id) ? current : [...current, reference.id],
       );
@@ -217,7 +214,9 @@ export function PreciseReferenceScreen() {
       return;
     }
     if (value && activeVibeCount > 0) {
-      setMessage("Precise Reference는 Vibe Transfer와 함께 사용할 수 없습니다.");
+      setMessage(
+        "Precise Reference는 Vibe Transfer와 함께 사용할 수 없습니다.",
+      );
       return;
     }
     references.forEach((reference) => {
@@ -240,7 +239,9 @@ export function PreciseReferenceScreen() {
       enabled={enabled}
       onToggle={toggleAll}
     >
-      <Text style={styles.sectionTitle}>Reference Images ({references.length})</Text>
+      <Text style={styles.sectionTitle}>
+        Reference Images ({references.length})
+      </Text>
       <View style={styles.cards}>
         {references.map((reference, index) => {
           const imageUri = resolvePreciseReferenceImageUri(reference);

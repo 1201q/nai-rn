@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
   },
   header: {
     height: 48,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   referenceCard: {
     position: "relative",
     overflow: "hidden",
-    borderRadius: tokens.radius.xl,
+    borderRadius: tokens.radius.lg,
     backgroundColor: tokens.color.card,
   },
   cardHeader: {

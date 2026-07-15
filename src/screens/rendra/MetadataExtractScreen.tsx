@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
   },
   fixedHeader: {
     position: "absolute",
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     right: 0,
     left: 0,
     zIndex: 3,
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 16,

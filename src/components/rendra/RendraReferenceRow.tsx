@@ -57,7 +57,7 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
   }, [enabled, imageScrimOpacity]);
 
   return (
-    <View style={[styles.row, !hasToggle && styles.rowCompact]}>
+    <View style={styles.row}>
       {thumbnailUri ? (
         <>
           <ExpoImage
@@ -126,15 +126,13 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
 
 const styles = StyleSheet.create({
   row: {
-    height: 64,
+    minHeight: 56,
+    paddingVertical: 12,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     borderRadius: tokens.radius.lg,
     backgroundColor: tokens.color.card,
-  },
-  rowCompact: {
-    height: 56,
   },
   imageScrim: {
     position: "absolute",
@@ -146,7 +144,7 @@ const styles = StyleSheet.create({
   },
   rowMain: {
     flex: 1,
-    height: "100%",
+    alignSelf: "stretch",
     paddingLeft: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -160,19 +158,21 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
+    lineHeight: 20,
   },
   state: {
     marginTop: 2,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
+    lineHeight: 16,
   },
   trailing: {
     paddingHorizontal: 14,
   },
   chevronButton: {
     width: 48,
-    height: "100%",
+    alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
   },

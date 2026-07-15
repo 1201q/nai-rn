@@ -398,7 +398,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
 const styles = StyleSheet.create({
   card: {
     overflow: "hidden",
-    borderRadius: tokens.radius.xl,
+    borderRadius: tokens.radius.lg,
     backgroundColor: tokens.color.card,
   },
   cardDisabled: {

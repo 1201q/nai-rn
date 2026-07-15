@@ -163,9 +163,7 @@ export function ImageToImageScreen() {
         <View style={styles.toggleCard}>
           <Text style={styles.toggleLabel}>Image2Image</Text>
           <View style={styles.toggleControl}>
-            <Text style={styles.toggleState}>
-              {enabled ? "켜짐" : "꺼짐"}
-            </Text>
+            <Text style={styles.toggleState}>{enabled ? "켜짐" : "꺼짐"}</Text>
             <RendraToggle
               value={enabled}
               label="Image2Image"
@@ -174,7 +172,10 @@ export function ImageToImageScreen() {
           </View>
         </View>
 
-        <Reanimated.View layout={PARAMETERS_LAYOUT} style={styles.detailContent}>
+        <Reanimated.View
+          layout={PARAMETERS_LAYOUT}
+          style={styles.detailContent}
+        >
           <View style={styles.imageSection}>
             {sourceImage ? (
               <View style={styles.previewCard}>
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
   },
   header: {
     height: 48,
