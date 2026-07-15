@@ -173,14 +173,15 @@ export function VibeTransferScreen() {
       <Text style={styles.sectionTitle}>Reference Images ({references.length})</Text>
       <View style={styles.cards}>
         {references.map((reference, index) => {
-          const imageUri =
-            resolveVibeReferenceThumbnailUri(reference) ??
-            resolveVibeReferenceImageUri(reference);
+          const imageUri = resolveVibeReferenceImageUri(reference);
+          const thumbnailUri =
+            resolveVibeReferenceThumbnailUri(reference) ?? imageUri;
           return (
             <RendraReferenceImageCard
               key={reference.id}
               index={index}
               imageUri={imageUri}
+              thumbnailUri={thumbnailUri}
               subtitle={`I ${formatValue(reference.informationExtracted)} · S ${formatValue(reference.strength)}`}
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
@@ -254,9 +255,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginTop: 24,
     marginBottom: 12,
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.base,
+    paddingHorizontal: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["3xs"],
+    letterSpacing: tokens.tracking.wide,
   },
   cards: {
     gap: 12,

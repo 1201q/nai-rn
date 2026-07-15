@@ -1,6 +1,7 @@
-import { memo, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  type LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,18 +14,20 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Reanimated, {
   Easing,
-  FadeIn,
-  FadeOut,
-  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { tokens } from "../../styles/tokens";
 import { RendraToggle } from "./RendraFormControls";
 
-const CARD_LAYOUT = LinearTransition.duration(180).easing(
-  Easing.out(Easing.cubic),
-);
+const CARD_BODY_TIMING = {
+  duration: 180,
+  easing: Easing.out(Easing.cubic),
+};
+const DISABLED_CARD_SCRIM_OPACITY = 0.5;
 
 export function RendraReferenceDetailLayout({
   title,
@@ -91,6 +94,7 @@ export const RendraReferenceImageCard = memo(
   function RendraReferenceImageCard({
     index,
     imageUri,
+    thumbnailUri,
     subtitle,
     enabled,
     expanded,
@@ -104,6 +108,7 @@ export const RendraReferenceImageCard = memo(
   }: {
     index: number;
     imageUri: string;
+    thumbnailUri: string;
     subtitle: string;
     enabled: boolean;
     expanded: boolean;
@@ -115,8 +120,60 @@ export const RendraReferenceImageCard = memo(
     onRemove: () => void;
     children: ReactNode;
   }) {
+    const [bodyMeasured, setBodyMeasured] = useState(false);
+    const [bodyContentHeight, setBodyContentHeight] = useState(0);
+    const bodyHeight = useSharedValue(0);
+    const bodyOpacity = useSharedValue(expanded ? 1 : 0);
+    const cardScrimOpacity = useSharedValue(
+      enabled ? 0 : DISABLED_CARD_SCRIM_OPACITY,
+    );
+    const bodyAnimatedStyle = useAnimatedStyle(() => ({
+      height: bodyMeasured
+        ? bodyHeight.value
+        : expanded
+          ? undefined
+          : 0,
+      opacity: bodyOpacity.value,
+    }));
+    const cardScrimAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: cardScrimOpacity.value,
+    }));
+
+    useEffect(() => {
+      if (!bodyMeasured || bodyContentHeight <= 0) return;
+      bodyHeight.value = withTiming(
+        expanded ? bodyContentHeight : 0,
+        CARD_BODY_TIMING,
+      );
+      bodyOpacity.value = withTiming(expanded ? 1 : 0, {
+        duration: expanded ? 140 : 100,
+      });
+    }, [bodyContentHeight, bodyHeight, bodyMeasured, bodyOpacity, expanded]);
+
+    useEffect(() => {
+      cardScrimOpacity.value = withTiming(
+        enabled ? 0 : DISABLED_CARD_SCRIM_OPACITY,
+        {
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+        },
+      );
+    }, [cardScrimOpacity, enabled]);
+
+    function handleBodyLayout(event: LayoutChangeEvent) {
+      const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+      if (nextHeight <= 0 || nextHeight === bodyContentHeight) return;
+
+      if (!bodyMeasured) {
+        bodyHeight.value = expanded ? nextHeight : 0;
+        bodyOpacity.value = expanded ? 1 : 0;
+        setBodyMeasured(true);
+      }
+      setBodyContentHeight(nextHeight);
+    }
+
     return (
-      <Reanimated.View layout={CARD_LAYOUT} style={styles.referenceCard}>
+      <View style={styles.referenceCard}>
         <View style={styles.cardHeader}>
           <Pressable
             accessibilityRole="button"
@@ -129,7 +186,7 @@ export const RendraReferenceImageCard = memo(
             ]}
           >
             <ExpoImage
-              source={{ uri: imageUri }}
+              source={{ uri: thumbnailUri }}
               contentFit="cover"
               cachePolicy="memory-disk"
               transition={120}
@@ -142,7 +199,7 @@ export const RendraReferenceImageCard = memo(
               </Text>
             </View>
           </Pressable>
-          <View>
+          <View style={styles.toggleSlot}>
             <RendraToggle
               value={enabled}
               label={`Reference ${index + 1}`}
@@ -167,12 +224,18 @@ export const RendraReferenceImageCard = memo(
           </Pressable>
         </View>
 
-        {expanded ? (
-          <Reanimated.View
-            entering={FadeIn.duration(140)}
-            exiting={FadeOut.duration(90)}
-            layout={CARD_LAYOUT}
-            style={styles.expandedBody}
+        <Reanimated.View
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
+          pointerEvents={expanded ? "auto" : "none"}
+          style={[styles.bodyClip, bodyAnimatedStyle]}
+        >
+          <View
+            onLayout={handleBodyLayout}
+            style={[
+              styles.expandedBody,
+              (bodyMeasured || !expanded) && styles.expandedBodyMeasured,
+            ]}
           >
             <View style={styles.previewCard}>
               <Pressable
@@ -215,9 +278,18 @@ export const RendraReferenceImageCard = memo(
               ) : null}
             </View>
             <View style={styles.controls}>{children}</View>
-          </Reanimated.View>
-        ) : null}
-      </Reanimated.View>
+          </View>
+        </Reanimated.View>
+
+        <Reanimated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.disabledCardScrim,
+            cardScrimAnimatedStyle,
+          ]}
+        />
+      </View>
     );
   },
 );
@@ -311,30 +383,30 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
   },
   referenceCard: {
+    position: "relative",
     overflow: "hidden",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.xl,
     backgroundColor: tokens.color.card,
   },
   cardHeader: {
-    height: 64,
+    height: 58,
     paddingLeft: 12,
     paddingRight: 4,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
   },
   cardHeaderMain: {
     flex: 1,
     minWidth: 0,
-    height: "100%",
+    height: 58,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   thumbnail: {
-    width: 44,
-    height: 44,
-    borderRadius: 11,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: tokens.color.sunken,
   },
   cardCopy: {
@@ -344,29 +416,47 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.base,
+    fontSize: tokens.type.md,
+    lineHeight: 19,
   },
   cardSubtitle: {
-    marginTop: 2,
+    marginTop: 1,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
+    lineHeight: 15,
   },
-  chevronButton: {
-    width: 34,
+  toggleSlot: {
+    width: 52,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
+  chevronButton: {
+    width: 42,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bodyClip: {
+    width: "100%",
+    overflow: "hidden",
+  },
   expandedBody: {
     paddingHorizontal: 12,
-    paddingBottom: 18,
+    paddingBottom: 12,
+  },
+  expandedBodyMeasured: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
   },
   previewCard: {
     width: "100%",
     aspectRatio: 2.4,
     overflow: "hidden",
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: tokens.color.sunken,
   },
   removeButton: {
@@ -395,6 +485,10 @@ const styles = StyleSheet.create({
   controls: {
     marginTop: 22,
     gap: 24,
+  },
+  disabledCardScrim: {
+    zIndex: 2,
+    backgroundColor: tokens.color.app,
   },
   addButton: {
     height: 56,

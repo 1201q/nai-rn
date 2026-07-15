@@ -19,7 +19,10 @@ import Reanimated, {
 
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-import { RendraSegmentedControl } from "./RendraFormControls";
+import {
+  RendraSegmentedControl,
+  RendraToggle,
+} from "./RendraFormControls";
 
 type PromptMode = "base" | "negative";
 type MenuAction = {
@@ -269,19 +272,13 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             </Text>
           </View>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={item.enabled ? "캐릭터 비활성화" : "캐릭터 활성화"}
-          hitSlop={4}
-          onPress={() => onUpdate({ enabled: !item.enabled })}
-          style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}
-        >
-          <Ionicons
-            name={item.enabled ? "eye-outline" : "eye-off-outline"}
-            size={22}
-            color={item.enabled ? tokens.color.textPrimary : tokens.color.textMuted}
+        <View style={styles.toggleSlot}>
+          <RendraToggle
+            value={item.enabled}
+            label={`${displayName} 활성화`}
+            onChange={(enabled) => onUpdate({ enabled })}
           />
-        </Pressable>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={expanded ? "캐릭터 접기" : "캐릭터 펼치기"}
@@ -456,6 +453,12 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 15,
+  },
+  toggleSlot: {
+    width: 52,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerIcon: {
     width: 42,

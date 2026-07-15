@@ -243,14 +243,15 @@ export function PreciseReferenceScreen() {
       <Text style={styles.sectionTitle}>Reference Images ({references.length})</Text>
       <View style={styles.cards}>
         {references.map((reference, index) => {
-          const imageUri =
-            resolvePreciseReferenceThumbnailUri(reference) ??
-            resolvePreciseReferenceImageUri(reference);
+          const imageUri = resolvePreciseReferenceImageUri(reference);
+          const thumbnailUri =
+            resolvePreciseReferenceThumbnailUri(reference) ?? imageUri;
           return (
             <RendraReferenceImageCard
               key={reference.id}
               index={index}
               imageUri={imageUri}
+              thumbnailUri={thumbnailUri}
               subtitle={`${modeLabel(reference.referenceType)} · F ${formatValue(reference.fidelity)} · S ${formatValue(reference.strength)}`}
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
@@ -301,9 +302,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginTop: 24,
     marginBottom: 12,
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.base,
+    paddingHorizontal: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["3xs"],
+    letterSpacing: tokens.tracking.wide,
   },
   cards: {
     gap: 12,
