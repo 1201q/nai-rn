@@ -68,6 +68,7 @@ function SettingsTabContent({
 }: {
   openDetail: (route: OptionRoute) => void;
 }) {
+  const { open } = useAppSheet();
   const model = useGenerationStore((state) => state.model);
   const resolution = useGenerationStore((state) => state.resolution);
   const seed = useGenerationStore((state) => state.seed);
@@ -95,7 +96,7 @@ function SettingsTabContent({
   const scheduleText =
     NOISE_SCHEDULES.find((item) => item.value === noiseSchedule)?.label ??
     noiseSchedule;
-  const seedText = seedLocked ? seed.toLocaleString() : "Random";
+  const seedText = seedLocked ? String(seed) : "Random";
 
   return (
     <>
@@ -104,7 +105,7 @@ function SettingsTabContent({
           icon="cube-outline"
           label="Model"
           value={modelText}
-          onPress={() => openDetail("model")}
+          onPress={() => open("model")}
         />
         <RendraOptionCard
           icon="scan-outline"
@@ -118,7 +119,7 @@ function SettingsTabContent({
         icon="dice-outline"
         label="Seed"
         value={seedText}
-        onPress={() => openDetail("seed")}
+        onPress={() => open("seed")}
       />
 
       <View style={styles.divider} />
@@ -158,13 +159,13 @@ function SettingsTabContent({
           icon="shuffle-outline"
           label="Sampler"
           value={samplerText}
-          onPress={() => openDetail("sampler")}
+          onPress={() => open("sampler")}
         />
         <RendraSettingsRow
           icon="pulse-outline"
           label="Schedule"
           value={scheduleText}
-          onPress={() => openDetail("schedule")}
+          onPress={() => open("schedule")}
         />
         <RendraSettingsRow
           icon="sparkles-outline"

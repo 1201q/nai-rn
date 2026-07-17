@@ -61,12 +61,14 @@ export const RendraPrimaryButton = memo(function RendraPrimaryButton({
   label,
   icon,
   loading = false,
+  disabled = false,
   onPress,
   background,
 }: {
   label: string;
   icon?: ReactNode;
   loading?: boolean;
+  disabled?: boolean;
   onPress: () => void;
   background?: ReactNode;
 }) {
@@ -74,10 +76,13 @@ export const RendraPrimaryButton = memo(function RendraPrimaryButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.primaryButton,
-        pressed && styles.primaryPressed,
+        disabled && styles.primaryDisabled,
+        pressed && !disabled && styles.primaryPressed,
       ]}
     >
       {background}
@@ -87,7 +92,11 @@ export const RendraPrimaryButton = memo(function RendraPrimaryButton({
         ) : (
           icon
         )}
-        <Text style={styles.primaryLabel}>{label}</Text>
+        <Text
+          style={[styles.primaryLabel, disabled && styles.primaryLabelDisabled]}
+        >
+          {label}
+        </Text>
       </View>
     </Pressable>
   );
@@ -125,6 +134,10 @@ const styles = StyleSheet.create({
   primaryPressed: {
     opacity: 0.78,
   },
+  primaryDisabled: {
+    backgroundColor: tokens.color.raised,
+    opacity: 0.55,
+  },
   primaryContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -136,5 +149,8 @@ const styles = StyleSheet.create({
     color: tokens.color.onAccent,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
+  },
+  primaryLabelDisabled: {
+    color: tokens.color.textMuted,
   },
 });
