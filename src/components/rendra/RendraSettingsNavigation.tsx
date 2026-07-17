@@ -7,7 +7,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import Reanimated, {
   Easing,
   useAnimatedStyle,
@@ -159,46 +158,56 @@ export const RendraSettingsTabBar = memo(function RendraSettingsTabBar({
   };
 
   return (
-    <BlurView intensity={60} tint="dark" style={styles.tabBar}>
-      <View style={styles.tabBarContent}>
-        <Reanimated.View
-          pointerEvents="none"
-          style={[styles.slidingPill, pillStyle]}
-        />
-        {tabs.map((tab) => {
-          const active = tab.key === activeKey;
-          return (
-            <Reanimated.View
-              key={tab.key}
-              onLayout={handleTabLayout(tab.key)}
-              style={styles.tabSlot}
-            >
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityLabel={tab.label}
-                accessibilityState={{ selected: active }}
-                onPress={() => onChange(tab.key)}
-                style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
+    <View style={styles.tabBarShadow}>
+      <View style={styles.tabBar}>
+        <View style={styles.tabBarContent}>
+          <Reanimated.View
+            pointerEvents="none"
+            style={[styles.slidingPill, pillStyle]}
+          />
+          {tabs.map((tab) => {
+            const active = tab.key === activeKey;
+            return (
+              <Reanimated.View
+                key={tab.key}
+                onLayout={handleTabLayout(tab.key)}
+                style={styles.tabSlot}
               >
-                <Ionicons
-                  name={tab.icon}
-                  size={18}
-                  color={
-                    active ? tokens.color.onAccent : tokens.color.textSecondary
-                  }
-                />
-                <Text
-                  style={[styles.tabLabel, !active && styles.tabLabelInactive]}
-                  numberOfLines={1}
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab.label}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => onChange(tab.key)}
+                  style={({ pressed }) => [
+                    styles.tab,
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            </Reanimated.View>
-          );
-        })}
+                  <Ionicons
+                    name={tab.icon}
+                    size={18}
+                    color={
+                      active
+                        ? tokens.color.onAccent
+                        : tokens.color.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      !active && styles.tabLabelInactive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              </Reanimated.View>
+            );
+          })}
+        </View>
       </View>
-    </BlurView>
+    </View>
   );
 });
 
@@ -248,15 +257,22 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.65,
   },
+  tabBarShadow: {
+    flex: 1,
+    height: 52,
+    borderRadius: tokens.radius.pill,
+    shadowColor: tokens.color.raised,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+  },
   tabBar: {
     flex: 1,
-    height: 48,
     overflow: "hidden",
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.overlay,
-    ...tokens.shadow.floatMd,
+    backgroundColor: tokens.color.card,
   },
   tabBarContent: {
     position: "absolute",

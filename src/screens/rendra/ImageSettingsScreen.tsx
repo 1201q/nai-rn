@@ -576,14 +576,23 @@ export function ImageSettingsScreen() {
         />
       </Animated.View>
 
+      <View pointerEvents="none" style={styles.edgeFade}>
+        <ScreenEdgeFade
+          bottomHeight={insets.bottom + 96}
+          color={tokens.color.app}
+          transparentColor="rgba(10,10,11,0)"
+        />
+      </View>
+
       <View
         pointerEvents="box-none"
-        style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[8] }]}
+        style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[6] }]}
       >
         <RendraIconButton
           icon="chevron-back"
           label="뒤로"
-          size={48}
+          size={52}
+          style={styles.bottomBackButton}
           onPress={() => router.back()}
         />
         <RendraSettingsTabBar
@@ -716,12 +725,17 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    left: tokens.space[8],
-    right: tokens.space[8],
+    left: tokens.space[6],
+    right: tokens.space[6],
     zIndex: 4,
-    height: 48,
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[5],
+  },
+  bottomBackButton: {
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.card,
   },
 });
