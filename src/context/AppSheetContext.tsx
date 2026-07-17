@@ -45,6 +45,7 @@ import { RendraUcPresetSheet } from "../components/rendra/RendraUcPresetSheet";
 import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
 import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
 import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
+import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
 import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
@@ -57,6 +58,7 @@ type RendraSheetRoute =
   | "seed"
   | "resolution"
   | "resolutionCustom"
+  | "characterPosition"
   | RendraGenerationOptionRoute;
 export type SheetRoute = "batchCount" | "metadataView" | RendraSheetRoute;
 
@@ -75,12 +77,17 @@ function BatchCountSheet() {
   );
 }
 
-type StackEntry = { route: SheetRoute; params?: GenerationRecord };
+type StackEntry = {
+  route: SheetRoute;
+  params?: GenerationRecord;
+  characterId?: string;
+};
 type TransitionDirection = "forward" | "back" | "none";
 type OpenRequest = { id: number; route: SheetRoute };
 
 type AppSheetContextValue = {
   open: (route: SheetRoute, params?: GenerationRecord) => void;
+  openCharacterPosition: (characterId: string) => void;
   push: (route: SheetRoute, params?: GenerationRecord) => void;
   back: () => void;
   close: () => void;
@@ -104,6 +111,7 @@ const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   seed: ["44%"],
   resolution: ["68%"],
   resolutionCustom: ["68%"],
+  characterPosition: ["68%"],
   model: ["50%"],
   sampler: ["64%"],
   schedule: ["44%"],
@@ -119,6 +127,7 @@ function titleFor(route: SheetRoute) {
   if (route === "seed") return "Seed";
   if (route === "resolution") return "Resolution";
   if (route === "resolutionCustom") return "Custom Resolution";
+  if (route === "characterPosition") return "Character Position";
   if (route === "model") return "Model";
   if (route === "sampler") return "Sampler";
   if (route === "schedule") return "Schedule";
@@ -131,6 +140,7 @@ function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
     route === "seed" ||
     route === "resolution" ||
     route === "resolutionCustom" ||
+    route === "characterPosition" ||
     route === "model" ||
     route === "sampler" ||
     route === "schedule"
@@ -254,12 +264,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     requestDraftExit("back", goBack);
   }, [apply, forceClose, requestDraftExit]);
 
-  const open = useCallback(
-    (route: SheetRoute, params?: GenerationRecord) => {
-      resetTo({ route, params });
+  const openEntry = useCallback(
+    (entry: StackEntry) => {
+      resetTo(entry);
       setOpenRequest((current) => ({
         id: (current?.id ?? 0) + 1,
-        route,
+        route: entry.route,
       }));
       // 같은 라우트 재진입은 remount 가 안 일어나 스크롤이 잔류 → top 리셋.
       requestAnimationFrame(() => {
@@ -267,6 +277,20 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       });
     },
     [resetTo],
+  );
+
+  const open = useCallback(
+    (route: SheetRoute, params?: GenerationRecord) => {
+      openEntry({ route, params });
+    },
+    [openEntry],
+  );
+
+  const openCharacterPosition = useCallback(
+    (characterId: string) => {
+      openEntry({ route: "characterPosition", characterId });
+    },
+    [openEntry],
   );
 
   // 메뉴/상세에서 다음 상세로 진입 — 스택에 쌓아 뒤로가기 가능 상태로.
@@ -322,8 +346,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AppSheetContextValue>(
-    () => ({ open, push, back, close, isOpen }),
-    [open, push, back, close, isOpen],
+    () => ({ open, openCharacterPosition, push, back, close, isOpen }),
+    [open, openCharacterPosition, push, back, close, isOpen],
   );
 
   const current = stack[stack.length - 1];
@@ -469,6 +493,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   />
                 ) : route === "resolutionCustom" ? (
                   <RendraCustomResolutionSheet registerDraft={registerDraft} />
+                ) : route === "characterPosition" ? (
+                  current.characterId ? (
+                    <RendraCharacterPositionSheet
+                      characterId={current.characterId}
+                    />
+                  ) : null
                 ) : isGenerationOptionRoute(route) ? (
                   <RendraGenerationOptionSheet route={route} onSelect={close} />
                 ) : route === "metadataView" ? (

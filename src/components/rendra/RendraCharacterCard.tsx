@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -17,6 +17,8 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { renderPromptHighlights } from "../highlightPromptSpans";
+import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import {
@@ -39,7 +41,7 @@ const MODES = [
   { value: "negative", label: "Negative" },
 ] as const;
 
-const BADGE_COLORS = [
+export const RENDRA_CHARACTER_BADGE_COLORS = [
   tokens.color.badge1,
   tokens.color.badge2,
   tokens.color.badge3,
@@ -176,6 +178,19 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   const [menuTop, setMenuTop] = useState(24);
   const [renaming, setRenaming] = useState(false);
   const [renameText, setRenameText] = useState("");
+  const activeText = mode === "base" ? baseText : negativeText;
+  const handlePromptTextChange = useCallback(
+    (text: string) => {
+      if (mode === "base") setBaseText(text);
+      else setNegativeText(text);
+    },
+    [mode],
+  );
+  const autocomplete = usePromptAutocomplete({
+    value: activeText,
+    onChangeText: handlePromptTextChange,
+    inputRef: promptInputRef,
+  });
   const bodyHeight = useSharedValue(expanded ? CARD_BODY_HEIGHT : 0);
   const bodyOpacity = useSharedValue(expanded ? 1 : 0);
 
@@ -211,6 +226,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
 
   function changeMode(next: string) {
     commitMode(mode);
+    autocomplete.clearSuggestions();
     setMode(next as PromptMode);
   }
 
@@ -248,7 +264,12 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             style={[
               styles.badge,
               positionEnabled
-                ? { backgroundColor: BADGE_COLORS[index % BADGE_COLORS.length] }
+                ? {
+                    backgroundColor:
+                      RENDRA_CHARACTER_BADGE_COLORS[
+                        index % RENDRA_CHARACTER_BADGE_COLORS.length
+                      ],
+                  }
                 : styles.badgeMuted,
             ]}
           >
@@ -334,7 +355,6 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             accessibilityLabel={
               mode === "base" ? "Base prompt" : "Negative prompt"
             }
-            value={mode === "base" ? baseText : negativeText}
             multiline
             textAlignVertical="top"
             autoCapitalize="none"
@@ -347,13 +367,15 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             onBlur={() => {
               focusedRef.current = false;
               commitMode(mode);
+              autocomplete.clearSuggestions();
             }}
-            onChangeText={(text) => {
-              if (mode === "base") setBaseText(text);
-              else setNegativeText(text);
-            }}
+            onChangeText={autocomplete.handleChangeText}
+            selection={autocomplete.selection}
+            onSelectionChange={autocomplete.handleSelectionChange}
             style={styles.promptInput}
-          />
+          >
+            {renderPromptHighlights(activeText)}
+          </TextInput>
           <View style={styles.editorFooter}>
             <RendraSegmentedControl
               options={MODES}

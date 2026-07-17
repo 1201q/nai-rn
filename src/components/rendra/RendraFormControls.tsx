@@ -1,5 +1,6 @@
 import {
   memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -14,6 +15,8 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { CustomSlider } from "../../screens/home/CustomSlider";
+import { renderPromptHighlights } from "../highlightPromptSpans";
+import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { tokens } from "../../styles/tokens";
 
 const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
@@ -140,9 +143,20 @@ export const RendraPromptField = memo(function RendraPromptField({
   negative?: boolean;
   onCommit: (value: string) => void;
 }) {
+  const inputRef = useRef<TextInput>(null);
   const focusedRef = useRef(false);
   const latestRef = useRef(value);
   const [text, setText] = useState(value);
+
+  const handleTextChange = useCallback((next: string) => {
+    latestRef.current = next;
+    setText(next);
+  }, []);
+  const autocomplete = usePromptAutocomplete({
+    value: text,
+    onChangeText: handleTextChange,
+    inputRef,
+  });
 
   useEffect(() => {
     if (focusedRef.current) return;
@@ -168,8 +182,8 @@ export const RendraPromptField = memo(function RendraPromptField({
         ]}
       >
         <TextInput
+          ref={inputRef}
           accessibilityLabel={label}
-          value={text}
           multiline
           textAlignVertical="top"
           autoCapitalize="none"
@@ -182,13 +196,15 @@ export const RendraPromptField = memo(function RendraPromptField({
           onBlur={() => {
             focusedRef.current = false;
             onCommit(latestRef.current);
+            autocomplete.clearSuggestions();
           }}
-          onChangeText={(next) => {
-            latestRef.current = next;
-            setText(next);
-          }}
+          onChangeText={autocomplete.handleChangeText}
+          selection={autocomplete.selection}
+          onSelectionChange={autocomplete.handleSelectionChange}
           style={styles.promptInput}
-        />
+        >
+          {renderPromptHighlights(text)}
+        </TextInput>
         <Text style={styles.promptCount}>{text.length}자</Text>
       </View>
     </View>

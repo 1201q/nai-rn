@@ -11,11 +11,14 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { useAppSheet } from "../../context/AppSheetContext";
+import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
 import { RendraCharacterCard } from "../../components/rendra/RendraCharacterCard";
 import { RendraReferenceRow } from "../../components/rendra/RendraReferenceRow";
+import { RendraSuggestionBar } from "../../components/rendra/RendraSuggestionBar";
 import { ScreenEdgeFade } from "../../components/ScreenEdgeFade";
 import {
   RendraParameterSlider,
@@ -236,7 +239,7 @@ function PromptTabContent() {
 }
 
 function CharacterTabContent() {
-  const router = useRouter();
+  const { openCharacterPosition } = useAppSheet();
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
@@ -355,7 +358,7 @@ function CharacterTabContent() {
             }
             onCopy={() => copyCharacter(item.id)}
             onDelete={() => deleteCharacter(item.id)}
-            onOpenPosition={() => router.push("/character-position")}
+            onOpenPosition={() => openCharacterPosition(item.id)}
           />
         ))}
       </View>
@@ -518,90 +521,99 @@ export function ImageSettingsScreen() {
   );
 
   return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
+    <SuggestionBarProvider>
+      <View style={styles.screen}>
+        <StatusBar style="light" />
 
-      <Animated.ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: insets.top + 18,
-            paddingBottom: insets.bottom + 360,
-          },
-        ]}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
-        scrollEventThrottle={16}
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
-          <Text style={styles.title}>{TITLES[activeTab]}</Text>
+        <Animated.ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: insets.top + 18,
+              paddingBottom: insets.bottom + 360,
+            },
+          ]}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true },
+          )}
+          scrollEventThrottle={16}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
+            <Text style={styles.title}>{TITLES[activeTab]}</Text>
+          </Animated.View>
+          {mountedTabs.settings ? (
+            <View style={activeTab !== "settings" && styles.hiddenTab}>
+              <SettingsTabContent />
+            </View>
+          ) : null}
+          {mountedTabs.prompt ? (
+            <View style={activeTab !== "prompt" && styles.hiddenTab}>
+              <PromptTabContent />
+            </View>
+          ) : null}
+          {mountedTabs.character ? (
+            <View style={activeTab !== "character" && styles.hiddenTab}>
+              <CharacterTabContent />
+            </View>
+          ) : null}
+          {mountedTabs.imageRef ? (
+            <View style={activeTab !== "imageRef" && styles.hiddenTab}>
+              <ImageReferenceTabContent />
+            </View>
+          ) : null}
+        </Animated.ScrollView>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.edgeFade, { opacity: topFadeOpacity }]}
+        >
+          <ScreenEdgeFade
+            topHeight={insets.top + 56}
+            color={tokens.color.app}
+            transparentColor="rgba(10,10,11,0)"
+          />
         </Animated.View>
-        {mountedTabs.settings ? (
-          <View style={activeTab !== "settings" && styles.hiddenTab}>
-            <SettingsTabContent />
-          </View>
-        ) : null}
-        {mountedTabs.prompt ? (
-          <View style={activeTab !== "prompt" && styles.hiddenTab}>
-            <PromptTabContent />
-          </View>
-        ) : null}
-        {mountedTabs.character ? (
-          <View style={activeTab !== "character" && styles.hiddenTab}>
-            <CharacterTabContent />
-          </View>
-        ) : null}
-        {mountedTabs.imageRef ? (
-          <View style={activeTab !== "imageRef" && styles.hiddenTab}>
-            <ImageReferenceTabContent />
-          </View>
-        ) : null}
-      </Animated.ScrollView>
 
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.edgeFade, { opacity: topFadeOpacity }]}
-      >
-        <ScreenEdgeFade
-          topHeight={insets.top + 56}
-          color={tokens.color.app}
-          transparentColor="rgba(10,10,11,0)"
-        />
-      </Animated.View>
+        <View pointerEvents="none" style={styles.edgeFade}>
+          <ScreenEdgeFade
+            bottomHeight={insets.bottom + 96}
+            color={tokens.color.app}
+            transparentColor="rgba(10,10,11,0)"
+          />
+        </View>
 
-      <View pointerEvents="none" style={styles.edgeFade}>
-        <ScreenEdgeFade
-          bottomHeight={insets.bottom + 96}
-          color={tokens.color.app}
-          transparentColor="rgba(10,10,11,0)"
-        />
+        <View
+          pointerEvents="box-none"
+          style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[6] }]}
+        >
+          <RendraIconButton
+            icon="chevron-back"
+            label="뒤로"
+            size={52}
+            style={styles.bottomBackButton}
+            onPress={() => router.back()}
+          />
+          <RendraSettingsTabBar
+            tabs={TABS}
+            activeKey={activeTab}
+            onChange={handleTabChange}
+          />
+        </View>
+
+        <KeyboardStickyView
+          style={styles.suggestionSticky}
+          offset={{ closed: 0, opened: 0 }}
+        >
+          <RendraSuggestionBar />
+        </KeyboardStickyView>
       </View>
-
-      <View
-        pointerEvents="box-none"
-        style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[6] }]}
-      >
-        <RendraIconButton
-          icon="chevron-back"
-          label="뒤로"
-          size={52}
-          style={styles.bottomBackButton}
-          onPress={() => router.back()}
-        />
-        <RendraSettingsTabBar
-          tabs={TABS}
-          activeKey={activeTab}
-          onChange={handleTabChange}
-        />
-      </View>
-    </View>
+    </SuggestionBarProvider>
   );
 }
 
@@ -722,6 +734,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     zIndex: 3,
+  },
+  suggestionSticky: {
+    zIndex: 6,
   },
   bottomBar: {
     position: "absolute",
