@@ -8,7 +8,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Alert, BackHandler, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  BackHandler,
+  StyleSheet,
+  Text,
+  View,
+  type AlertButton,
+} from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -35,17 +42,22 @@ import {
   type RendraGenerationOptionRoute,
 } from "../components/rendra/RendraGenerationOptionSheet";
 import { RendraUcPresetSheet } from "../components/rendra/RendraUcPresetSheet";
-import {
-  RendraSeedSheet,
-  type RendraSheetCloseGuard,
-} from "../components/rendra/RendraSeedSheet";
+import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
+import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
+import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
+import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
 import { light, styles } from "../screens/home/styles";
 
 // 전역 단일 바텀시트 라우트. 기존 연속 생성/메타데이터 시트와
 // Rendra 설정의 짧은 선택 시트가 같은 제스처/백드롭 로직을 공유한다.
-type RendraSheetRoute = "ucPreset" | "seed" | RendraGenerationOptionRoute;
+type RendraSheetRoute =
+  | "ucPreset"
+  | "seed"
+  | "resolution"
+  | "resolutionCustom"
+  | RendraGenerationOptionRoute;
 export type SheetRoute = "batchCount" | "metadataView" | RendraSheetRoute;
 
 // batchCount 는 시트 유지 → 시트 키보드 회피 위해 BottomSheetTextInput 주입.
@@ -90,6 +102,8 @@ const SNAP_POINTS = ["60%", "92%"];
 const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   ucPreset: ["44%"],
   seed: ["44%"],
+  resolution: ["68%"],
+  resolutionCustom: ["68%"],
   model: ["50%"],
   sampler: ["64%"],
   schedule: ["44%"],
@@ -103,6 +117,8 @@ function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "메타데이터";
   if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
+  if (route === "resolution") return "Resolution";
+  if (route === "resolutionCustom") return "Custom Resolution";
   if (route === "model") return "Model";
   if (route === "sampler") return "Sampler";
   if (route === "schedule") return "Schedule";
@@ -113,6 +129,8 @@ function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
   return (
     route === "ucPreset" ||
     route === "seed" ||
+    route === "resolution" ||
+    route === "resolutionCustom" ||
     route === "model" ||
     route === "sampler" ||
     route === "schedule"
@@ -136,15 +154,18 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
-  const [hasCloseGuard, setHasCloseGuard] = useState(false);
-  const [seedCanSave, setSeedCanSave] = useState(false);
+  const [draftController, setDraftController] =
+    useState<RendraSheetDraftController | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const openRef = useRef(false);
-  const closeGuardRef = useRef<RendraSheetCloseGuard | null>(null);
+  const draftControllerRef = useRef<RendraSheetDraftController | null>(null);
   const closeAlertOpenRef = useRef(false);
+  const hasCloseGuard = Boolean(draftController?.dirty);
 
   const apply = useCallback(
     (next: StackEntry[], direction: TransitionDirection) => {
+      draftControllerRef.current = null;
+      setDraftController(null);
       stackRef.current = next;
       setTransitionDirection(direction);
       setStack(next);
@@ -162,55 +183,76 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const forceClose = useCallback(() => sheetRef.current?.close(), []);
 
-  const registerCloseGuard = useCallback(
-    (guard: RendraSheetCloseGuard | null) => {
-      closeGuardRef.current = guard;
-      setHasCloseGuard(Boolean(guard));
-      setSeedCanSave(guard?.canSave ?? false);
+  const registerDraft = useCallback(
+    (controller: RendraSheetDraftController | null) => {
+      draftControllerRef.current = controller;
+      setDraftController(controller);
     },
     [],
   );
 
-  const close = useCallback(() => {
-    const guard = closeGuardRef.current;
-    if (!guard) {
-      forceClose();
-      return;
-    }
-    if (closeAlertOpenRef.current) return;
+  const requestDraftExit = useCallback(
+    (target: "back" | "close", afterExit: () => void) => {
+      const controller = draftControllerRef.current;
+      if (!controller?.dirty) {
+        afterExit();
+        return;
+      }
+      if (closeAlertOpenRef.current) return;
 
-    closeAlertOpenRef.current = true;
-    const finishAlert = () => {
-      closeAlertOpenRef.current = false;
-    };
-    Alert.alert(
-      "변경사항 저장",
-      "변경한 Seed를 저장하시겠습니까?",
-      [
+      closeAlertOpenRef.current = true;
+      const finishAlert = () => {
+        closeAlertOpenRef.current = false;
+      };
+      const buttons: AlertButton[] = [
         {
           text: "계속 편집",
           style: "cancel",
           onPress: finishAlert,
         },
         {
-          text: "저장하지 않고 닫기",
+          text:
+            target === "back" ? "저장하지 않고 뒤로가기" : "저장하지 않고 닫기",
           style: "destructive",
           onPress: () => {
             finishAlert();
-            forceClose();
+            afterExit();
           },
         },
-        {
-          text: "저장하고 닫기",
+      ];
+      if (controller.canSave) {
+        buttons.push({
+          text: target === "back" ? "저장하고 뒤로가기" : "저장하고 닫기",
           onPress: () => {
             finishAlert();
-            if (guard.save()) forceClose();
+            if (controller.save()) afterExit();
           },
-        },
-      ],
-      { cancelable: true, onDismiss: finishAlert },
-    );
-  }, [forceClose]);
+        });
+      }
+
+      Alert.alert(controller.promptTitle, controller.promptMessage, buttons, {
+        cancelable: true,
+        onDismiss: finishAlert,
+      });
+    },
+    [],
+  );
+
+  const close = useCallback(() => {
+    requestDraftExit("close", forceClose);
+  }, [forceClose, requestDraftExit]);
+
+  const back = useCallback(() => {
+    const goBack = () => {
+      const currentStack = stackRef.current;
+      if (currentStack.length > 1) {
+        apply(currentStack.slice(0, -1), "back");
+      } else {
+        forceClose();
+      }
+    };
+    requestDraftExit("back", goBack);
+  }, [apply, forceClose, requestDraftExit]);
 
   const open = useCallback(
     (route: SheetRoute, params?: GenerationRecord) => {
@@ -240,19 +282,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
-  // 헤더 백 / Android 백 공통: 쌓인 게 있으면 pop, 없으면 시트 닫기.
-  const back = useCallback(() => {
-    if (closeGuardRef.current) {
-      close();
-      return;
-    }
-    const s = stackRef.current;
-    if (s.length > 1) {
-      apply(s.slice(0, -1), "back");
-    } else {
-      close();
-    }
-  }, [apply, close]);
+  const handleOpenCustomResolution = useCallback(() => {
+    push("resolutionCustom");
+  }, [push]);
 
   const handleChange = useCallback(
     (index: number) => {
@@ -317,13 +349,27 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const footerBottomInset =
     Math.max(insets.bottom, tokens.space[4]) + tokens.space[4];
-  const seedFooterStyle = useMemo(
+  const draftFooterStyle = useMemo(
     () => [rendraSheetStyles.footer, { paddingBottom: footerBottomInset }],
     [footerBottomInset],
   );
-  const handleSeedFooterSave = useCallback(() => {
-    if (closeGuardRef.current?.save()) forceClose();
-  }, [forceClose]);
+  const showDraftFooter = route === "seed" || route === "resolutionCustom";
+  const activeDraft = draftController?.id === route ? draftController : null;
+  const handleDraftFooterSave = useCallback(() => {
+    const controller = draftControllerRef.current;
+    if (!controller || controller.id !== route || !controller.save()) return;
+
+    if (route === "resolutionCustom") {
+      const currentStack = stackRef.current;
+      if (currentStack.length > 1) {
+        apply(currentStack.slice(0, -1), "back");
+      } else {
+        forceClose();
+      }
+      return;
+    }
+    forceClose();
+  }, [apply, forceClose, route]);
 
   return (
     <AppSheetContext.Provider value={value}>
@@ -360,6 +406,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               style={[
                 styles.sheetBackHeader,
                 isRendraRoute && rendraSheetStyles.header,
+                route === "resolutionCustom" &&
+                  rendraSheetStyles.customResolutionHeader,
               ]}
             >
               {canBack && (
@@ -386,9 +434,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             </Reanimated.View>
           </Reanimated.View>
 
+          {/* Keep the scrollable mounted across sheet routes. Remounting it can
+              leave @gorhom/bottom-sheet with a stale Android gesture ref. */}
           <BottomSheetScrollView
             ref={scrollRef}
-            key={route}
             style={rendraSheetStyles.scrollView}
             contentContainerStyle={[
               styles.sheetScrollContent,
@@ -411,8 +460,15 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                 ) : route === "seed" ? (
                   <RendraSeedSheet
                     onSaveAndClose={forceClose}
-                    registerCloseGuard={registerCloseGuard}
+                    registerDraft={registerDraft}
                   />
+                ) : route === "resolution" ? (
+                  <RendraResolutionSheet
+                    onSelect={forceClose}
+                    onOpenCustom={handleOpenCustomResolution}
+                  />
+                ) : route === "resolutionCustom" ? (
+                  <RendraCustomResolutionSheet registerDraft={registerDraft} />
                 ) : isGenerationOptionRoute(route) ? (
                   <RendraGenerationOptionSheet route={route} onSelect={close} />
                 ) : route === "metadataView" ? (
@@ -428,16 +484,16 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
           <View
             style={
-              route === "seed"
-                ? seedFooterStyle
+              showDraftFooter
+                ? draftFooterStyle
                 : rendraSheetStyles.footerHidden
             }
           >
             <View style={rendraSheetStyles.footerButton}>
               <RendraPrimaryButton
                 label="저장"
-                disabled={!seedCanSave}
-                onPress={handleSeedFooterSave}
+                disabled={!activeDraft?.canSave}
+                onPress={handleDraftFooterSave}
               />
             </View>
           </View>
@@ -466,6 +522,9 @@ const rendraSheetStyles = StyleSheet.create({
     marginBottom: tokens.space[6],
     paddingTop: 6,
     paddingHorizontal: tokens.space[12],
+  },
+  customResolutionHeader: {
+    paddingLeft: tokens.space[9],
   },
   title: {
     paddingLeft: 0,

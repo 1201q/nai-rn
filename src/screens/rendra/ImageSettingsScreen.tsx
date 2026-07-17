@@ -39,7 +39,6 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-import type { OptionRoute } from "../home/OptionsSheet";
 import { getUcPresetLabel } from "../../lib/naiPresets";
 import {
   CFG_CONFIG,
@@ -63,11 +62,7 @@ const TITLES: Record<SettingsTabKey, string> = {
   imageRef: "이미지 참조",
 };
 
-function SettingsTabContent({
-  openDetail,
-}: {
-  openDetail: (route: OptionRoute) => void;
-}) {
+function SettingsTabContent() {
   const { open } = useAppSheet();
   const model = useGenerationStore((state) => state.model);
   const resolution = useGenerationStore((state) => state.resolution);
@@ -111,7 +106,7 @@ function SettingsTabContent({
           icon="scan-outline"
           label="Resolution"
           value={`${resolution.width}x${resolution.height}`}
-          onPress={() => openDetail("resolution")}
+          onPress={() => open("resolution")}
         />
       </View>
 
@@ -509,13 +504,6 @@ export function ImageSettingsScreen() {
     extrapolate: "clamp",
   });
 
-  const openDetail = useCallback(
-    (route: OptionRoute) => {
-      router.push({ pathname: "/option-detail", params: { route } });
-    },
-    [router],
-  );
-
   const handleTabChange = useCallback(
     (key: string) => {
       const nextTab = key as SettingsTabKey;
@@ -557,7 +545,7 @@ export function ImageSettingsScreen() {
         </Animated.View>
         {mountedTabs.settings ? (
           <View style={activeTab !== "settings" && styles.hiddenTab}>
-            <SettingsTabContent openDetail={openDetail} />
+            <SettingsTabContent />
           </View>
         ) : null}
         {mountedTabs.prompt ? (

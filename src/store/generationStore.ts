@@ -102,6 +102,12 @@ export type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
 
 export type PromptWorkspaceTab = "prompt" | "character" | "options";
 
+export type CustomResolution = {
+  id: string;
+  width: number;
+  height: number;
+};
+
 type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
@@ -112,6 +118,7 @@ type PersistedGenerationOptions = Partial<{
   characterPositionEnabled: boolean;
   model: string;
   resolution: NaiResolution;
+  customResolutions: CustomResolution[];
   steps: number;
   promptGuidance: number;
   promptGuidanceRescale: number;
@@ -248,6 +255,50 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
   };
 }
 
+function isDefaultResolution(width: number, height: number) {
+  return (
+    NAI_RESOLUTIONS.find((group) => group.group === "Normal")?.options.some(
+      (item) => item.width === width && item.height === height,
+    ) ?? false
+  );
+}
+
+function resolveStoredCustomResolutions(value: unknown): CustomResolution[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") return [];
+
+    const candidate = item as Partial<CustomResolution>;
+    if (
+      !isNumber(candidate.width) ||
+      !isNumber(candidate.height) ||
+      candidate.width < 64 ||
+      candidate.height < 64
+    ) {
+      return [];
+    }
+
+    const width = Math.round(candidate.width / 64) * 64;
+    const height = Math.round(candidate.height / 64) * 64;
+    const key = `${width}x${height}`;
+    if (seen.has(key) || isDefaultResolution(width, height)) return [];
+    seen.add(key);
+
+    return [
+      {
+        id:
+          isString(candidate.id) && candidate.id.trim()
+            ? candidate.id
+            : `custom-resolution-${width}-${height}-${index}`,
+        width,
+        height,
+      },
+    ];
+  });
+}
+
 function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
   if (!Array.isArray(value)) {
     return [];
@@ -325,6 +376,8 @@ export type GenerationState = {
   setModel: (v: string) => void;
   resolution: NaiResolution;
   setResolution: (v: NaiResolution) => void;
+  customResolutions: CustomResolution[];
+  setCustomResolutions: (v: CustomResolution[]) => void;
   steps: number;
   setSteps: (v: number) => void;
   promptGuidance: number;
@@ -499,6 +552,26 @@ function loadPersistedOptions(): Partial<GenerationState> {
     const storedResolution = resolveStoredResolution(parsed.resolution);
     if (storedResolution) next.resolution = storedResolution;
 
+    const customResolutions = resolveStoredCustomResolutions(
+      parsed.customResolutions,
+    );
+    if (
+      storedResolution &&
+      !isDefaultResolution(storedResolution.width, storedResolution.height) &&
+      !customResolutions.some(
+        (item) =>
+          item.width === storedResolution.width &&
+          item.height === storedResolution.height,
+      )
+    ) {
+      customResolutions.unshift({
+        id: `custom-resolution-${storedResolution.width}-${storedResolution.height}-legacy`,
+        width: storedResolution.width,
+        height: storedResolution.height,
+      });
+    }
+    next.customResolutions = customResolutions;
+
     if (isNumber(parsed.steps)) next.steps = parsed.steps;
     if (isNumber(parsed.promptGuidance)) {
       next.promptGuidance = parsed.promptGuidance;
@@ -583,6 +656,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setModel: (v) => set({ model: v }),
   resolution: DEFAULT_NAI_RESOLUTION,
   setResolution: (v) => set({ resolution: v }),
+  customResolutions: [],
+  setCustomResolutions: (v) => set({ customResolutions: v }),
   steps: 28,
   setSteps: (v) => set({ steps: v }),
   promptGuidance: 5,
@@ -1505,6 +1580,7 @@ export function useGenerationBootstrap() {
         characterPositionEnabled: state.characterPositionEnabled,
         model: state.model,
         resolution: state.resolution,
+        customResolutions: state.customResolutions,
         steps: state.steps,
         promptGuidance: state.promptGuidance,
         promptGuidanceRescale: state.promptGuidanceRescale,

@@ -6,14 +6,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { RendraToggle } from "./RendraFormControls";
+import {
+  type RegisterRendraSheetDraft,
+  type RendraSheetDraftController,
+} from "./RendraSheetDraft";
 
 const MAX_SEED = 4_294_967_295;
 const SEED_ACCESSIBILITY_HINT = `0에서 ${MAX_SEED.toLocaleString()} 사이의 숫자`;
-
-export type RendraSheetCloseGuard = {
-  save: () => boolean;
-  canSave: boolean;
-};
 
 function randomSeed() {
   return Math.floor(Math.random() * (MAX_SEED + 1));
@@ -21,10 +20,10 @@ function randomSeed() {
 
 export const RendraSeedSheet = memo(function RendraSeedSheet({
   onSaveAndClose,
-  registerCloseGuard,
+  registerDraft,
 }: {
   onSaveAndClose: () => void;
-  registerCloseGuard: (guard: RendraSheetCloseGuard | null) => void;
+  registerDraft: RegisterRendraSheetDraft;
 }) {
   const seed = useGenerationStore((state) => state.seed);
   const setSeed = useGenerationStore((state) => state.setSeed);
@@ -56,15 +55,22 @@ export const RendraSeedSheet = memo(function RendraSeedSheet({
     commitDraftRef.current = commitDraft;
   }, [commitDraft]);
 
-  const closeGuard = useMemo<RendraSheetCloseGuard>(
-    () => ({ save: () => commitDraftRef.current(), canSave }),
-    [canSave],
+  const draftController = useMemo<RendraSheetDraftController>(
+    () => ({
+      id: "seed",
+      dirty,
+      canSave,
+      promptTitle: "변경사항 저장",
+      promptMessage: "변경한 Seed를 저장하시겠습니까?",
+      save: () => commitDraftRef.current(),
+    }),
+    [canSave, dirty],
   );
 
   useEffect(() => {
-    registerCloseGuard(dirty ? closeGuard : null);
-    return () => registerCloseGuard(null);
-  }, [closeGuard, dirty, registerCloseGuard]);
+    registerDraft(draftController);
+    return () => registerDraft(null);
+  }, [draftController, registerDraft]);
 
   const handleSaveAndClose = useCallback(() => {
     if (!commitDraft()) return;
