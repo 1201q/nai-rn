@@ -7,12 +7,22 @@ import {
   type NoiseSchedule,
 } from "../constants/generation";
 import type { CharacterPrompt } from "../store/generationStore";
-import { isNonEmptyString, isNumber } from "./guards";
+import { isBoolean, isNonEmptyString, isNumber } from "./guards";
+import {
+  inferUcPreset,
+  isUcPresetIndex,
+  QUALITY_TAGS_SUFFIX,
+  stripQualityTags,
+  stripUcPreset,
+  type UcPresetIndex,
+} from "./naiPresets";
 
 export type ParsedNaiMetadata = {
   raw: Record<string, string>;
   prompt?: string;
   negativePrompt?: string;
+  qualityToggle?: boolean;
+  ucPreset?: UcPresetIndex;
   characters?: CharacterPrompt[];
   model?: string;
   resolution?: NaiResolution;
@@ -156,16 +166,38 @@ export function parseNaiMetadata(
   }
 
   // Prompt / Undesired (Comment 우선, v4 base_caption, Description 순)
-  result.prompt =
+  const mergedPrompt =
     (comment && isNonEmptyString(comment.prompt)
       ? comment.prompt
       : undefined) ??
     (comment ? getBaseCaption(comment.v4_prompt) : undefined) ??
     (isNonEmptyString(raw.Description) ? raw.Description : undefined);
 
-  result.negativePrompt =
+  const mergedNegativePrompt =
     (comment && isNonEmptyString(comment.uc) ? comment.uc : undefined) ??
     (comment ? getBaseCaption(comment.v4_negative_prompt) : undefined);
+
+  const qualityToggle =
+    comment && isBoolean(comment.qualityToggle)
+      ? comment.qualityToggle
+      : mergedPrompt?.endsWith(QUALITY_TAGS_SUFFIX);
+  const ucPreset =
+    comment && isUcPresetIndex(comment.ucPreset)
+      ? comment.ucPreset
+      : mergedNegativePrompt
+        ? inferUcPreset(mergedNegativePrompt)
+        : undefined;
+
+  if (mergedPrompt !== undefined) {
+    result.prompt = qualityToggle
+      ? stripQualityTags(mergedPrompt)
+      : mergedPrompt;
+  }
+  if (mergedNegativePrompt !== undefined) {
+    result.negativePrompt = stripUcPreset(mergedNegativePrompt, ucPreset);
+  }
+  if (qualityToggle !== undefined) result.qualityToggle = qualityToggle;
+  if (ucPreset !== undefined) result.ucPreset = ucPreset;
 
   // Characters
   if (comment) {
@@ -202,6 +234,8 @@ export function parseNaiMetadata(
     result.noiseSchedule !== undefined ||
     result.sampler !== undefined ||
     result.varietyPlus !== undefined ||
+    result.qualityToggle !== undefined ||
+    result.ucPreset !== undefined ||
     result.model !== undefined;
 
   // Seed

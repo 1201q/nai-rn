@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAppSheet } from "../../context/AppSheetContext";
 import { RendraIconButton } from "../../components/rendra/RendraButtons";
 import { RendraCharacterCard } from "../../components/rendra/RendraCharacterCard";
 import { RendraReferenceRow } from "../../components/rendra/RendraReferenceRow";
@@ -39,6 +40,7 @@ import {
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import type { OptionRoute } from "../home/OptionsSheet";
+import { getUcPresetLabel } from "../../lib/naiPresets";
 import {
   CFG_CONFIG,
   CFG_RESCALE_CONFIG,
@@ -181,13 +183,18 @@ function SettingsTabContent({
 }
 
 function PromptTabContent() {
+  const { open } = useAppSheet();
   const prompt = useGenerationStore((state) => state.prompt);
   const setPrompt = useGenerationStore((state) => state.setPrompt);
   const negativePrompt = useGenerationStore((state) => state.negativePrompt);
   const setNegativePrompt = useGenerationStore(
     (state) => state.setNegativePrompt,
   );
-  const [qualityTags, setQualityTags] = useState(true);
+  const qualityToggle = useGenerationStore((state) => state.qualityToggle);
+  const setQualityToggle = useGenerationStore(
+    (state) => state.setQualityToggle,
+  );
+  const ucPreset = useGenerationStore((state) => state.ucPreset);
 
   return (
     <>
@@ -215,17 +222,17 @@ function PromptTabContent() {
           label="Quality Tags"
           trailing={
             <RendraToggle
-              value={qualityTags}
+              value={qualityToggle}
               label="Quality Tags"
-              onChange={setQualityTags}
+              onChange={setQualityToggle}
             />
           }
         />
         <RendraSettingsRow
           icon="shield-outline"
           label="UC Preset"
-          value="Heavy"
-          showChevron
+          value={getUcPresetLabel(ucPreset)}
+          onPress={() => open("ucPreset")}
         />
       </View>
     </>

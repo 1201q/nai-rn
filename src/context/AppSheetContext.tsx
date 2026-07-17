@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { BackHandler, Text } from "react-native";
+import { BackHandler, StyleSheet, Text } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -29,11 +29,13 @@ import { useGenerationStore } from "../store/generationStore";
 import { NumericSheetContent } from "../screens/home/NumericSheet";
 import { BATCH_COUNT_CONFIG } from "../screens/home/constants";
 import { MetadataViewContent } from "../screens/home/MetadataViewContent";
+import { RendraUcPresetSheet } from "../components/rendra/RendraUcPresetSheet";
+import { tokens } from "../styles/tokens";
 import { light, styles } from "../screens/home/styles";
 
-// 전역 단일 바텀시트 라우트. 옵션은 프롬프트 옵션 탭으로 이전됨 —
-// 시트엔 연속 생성(batchCount) + 메타데이터 뷰어만 남음.
-export type SheetRoute = "batchCount" | "metadataView";
+// 전역 단일 바텀시트 라우트. 기존 연속 생성/메타데이터 시트와
+// Rendra 설정의 짧은 선택 시트가 같은 제스처/백드롭 로직을 공유한다.
+export type SheetRoute = "batchCount" | "metadataView" | "ucPreset";
 
 // batchCount 는 시트 유지 → 시트 키보드 회피 위해 BottomSheetTextInput 주입.
 function BatchCountSheet() {
@@ -52,6 +54,7 @@ function BatchCountSheet() {
 
 type StackEntry = { route: SheetRoute; params?: GenerationRecord };
 type TransitionDirection = "forward" | "back" | "none";
+type OpenRequest = { id: number; route: SheetRoute };
 
 type AppSheetContextValue = {
   open: (route: SheetRoute, params?: GenerationRecord) => void;
@@ -73,12 +76,14 @@ export function useAppSheet() {
 
 // 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
 const SNAP_POINTS = ["60%", "92%"];
+const UC_PRESET_SNAP_POINTS = ["44%"];
 const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
 const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
 const ROUTE_FADE_IN = FadeIn.duration(100);
 
 function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "메타데이터";
+  if (route === "ucPreset") return "UC Preset";
   return "연속 생성";
 }
 
@@ -91,6 +96,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const stackRef = useRef<StackEntry[]>([{ route: "batchCount" }]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
+  const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const openRef = useRef(false);
 
@@ -116,7 +122,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const open = useCallback(
     (route: SheetRoute, params?: GenerationRecord) => {
       resetTo({ route, params });
-      sheetRef.current?.snapToIndex(0);
+      setOpenRequest((current) => ({
+        id: (current?.id ?? 0) + 1,
+        route,
+      }));
       // 같은 라우트 재진입은 remount 가 안 일어나 스크롤이 잔류 → top 리셋.
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -189,7 +198,17 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const current = stack[stack.length - 1];
   const route = current.route;
+  const isRendraRoute = route === "ucPreset";
   const canBack = stack.length > 1;
+
+  useEffect(() => {
+    if (!openRequest || openRequest.route !== route) return;
+
+    // Open only after the requested route and its snap points are committed.
+    sheetRef.current?.snapToIndex(0);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [openRequest, route]);
+
   const routeEntering =
     transitionDirection === "forward"
       ? ROUTE_ENTER_FORWARD
@@ -203,13 +222,19 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       <BottomSheet
         ref={sheetRef}
         index={-1}
-        snapPoints={SNAP_POINTS}
+        snapPoints={isRendraRoute ? UC_PRESET_SNAP_POINTS : SNAP_POINTS}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
         containerStyle={styles.sheetContainer}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
+        backgroundStyle={
+          isRendraRoute
+            ? rendraSheetStyles.sheetBackground
+            : styles.sheetBackground
+        }
+        handleIndicatorStyle={
+          isRendraRoute ? rendraSheetStyles.sheetHandle : styles.sheetHandle
+        }
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
@@ -220,7 +245,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           entering={routeEntering}
           style={styles.sheetRouteContent}
         >
-          <Reanimated.View entering={ROUTE_FADE_IN} style={styles.sheetBackHeader}>
+          <Reanimated.View
+            entering={ROUTE_FADE_IN}
+            style={[
+              styles.sheetBackHeader,
+              isRendraRoute && rendraSheetStyles.header,
+            ]}
+          >
             {canBack && (
               <BottomSheetTouchableOpacity
                 style={styles.sheetBackButton}
@@ -233,7 +264,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                 />
               </BottomSheetTouchableOpacity>
             )}
-            <Text style={styles.sheetBackTitle} numberOfLines={1}>
+            <Text
+              style={[
+                styles.sheetBackTitle,
+                isRendraRoute && rendraSheetStyles.title,
+              ]}
+              numberOfLines={1}
+            >
               {titleFor(route)}
             </Text>
           </Reanimated.View>
@@ -242,7 +279,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         <BottomSheetScrollView
           ref={scrollRef}
           key={route}
-          contentContainerStyle={styles.sheetScrollContent}
+          contentContainerStyle={[
+            styles.sheetScrollContent,
+            isRendraRoute && rendraSheetStyles.scrollContent,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <Reanimated.View
@@ -254,7 +294,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               entering={ROUTE_FADE_IN}
               style={styles.sheetRouteContent}
             >
-              {route === "metadataView" ? (
+              {route === "ucPreset" ? (
+                <RendraUcPresetSheet onSelect={close} />
+              ) : route === "metadataView" ? (
                 current.params ? (
                   <MetadataViewContent record={current.params} />
                 ) : null
@@ -268,3 +310,34 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     </AppSheetContext.Provider>
   );
 }
+
+const rendraSheetStyles = StyleSheet.create({
+  sheetBackground: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    backgroundColor: tokens.color.card,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 5,
+    backgroundColor: tokens.color.borderSubtleStrong,
+  },
+  header: {
+    minHeight: 48,
+    marginBottom: 4,
+    paddingTop: 6,
+    paddingHorizontal: tokens.space[14],
+  },
+  title: {
+    paddingLeft: 0,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.bold,
+    fontSize: 24,
+    lineHeight: 30,
+  },
+  scrollContent: {
+    paddingHorizontal: tokens.space[8],
+    paddingBottom: tokens.space[12],
+    gap: 0,
+  },
+});

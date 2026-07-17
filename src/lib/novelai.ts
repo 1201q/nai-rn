@@ -1,4 +1,9 @@
 import type { NoiseSchedule } from "../constants/generation";
+import {
+  mergeQualityTags,
+  mergeUcPreset,
+  type UcPresetIndex,
+} from "./naiPresets";
 
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
@@ -61,6 +66,8 @@ export type GenerateNovelAiImageInput = {
   sampler: string;
   seed?: number;
   varietyPlus?: boolean;
+  qualityToggle?: boolean;
+  ucPreset?: UcPresetIndex;
   i2iImageBase64?: string;
   i2iStrength?: number;
   i2iNoise?: number;
@@ -322,6 +329,8 @@ function createImageGenerationBody({
   sampler,
   seed: inputSeed,
   varietyPlus = false,
+  qualityToggle = true,
+  ucPreset = 0,
   i2iImageBase64,
   i2iStrength = 0.7,
   i2iNoise = 0,
@@ -335,6 +344,8 @@ function createImageGenerationBody({
   preciseReferenceTypes = [],
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
+  const mergedPrompt = mergeQualityTags(prompt, qualityToggle);
+  const mergedNegativePrompt = mergeUcPreset(negativePrompt, ucPreset);
   const shouldUseV4Prompt = isV4Model(model);
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
@@ -375,15 +386,15 @@ function createImageGenerationBody({
     steps,
     n_samples: 1,
     seed,
-    negative_prompt: negativePrompt,
-    uc: negativePrompt,
-    qualityToggle: true,
+    negative_prompt: mergedNegativePrompt,
+    uc: mergedNegativePrompt,
+    qualityToggle,
     params_version: 3,
     legacy: false,
     legacy_uc: false,
     add_original_image: true,
     prefer_brownian: true,
-    ucPreset: 0,
+    ucPreset,
     image_format: "png",
     use_coords: useCharacterCoords,
     skip_cfg_above_sigma: varietyPlus ? 58 : null,
@@ -424,13 +435,13 @@ function createImageGenerationBody({
       ? {
           legacy_v3_extend: false,
           v4_prompt: createV4Prompt(
-            prompt,
+            mergedPrompt,
             true,
             useCharacterCoords,
             v4PromptCharacterCaptions,
           ),
           v4_negative_prompt: createV4Prompt(
-            negativePrompt,
+            mergedNegativePrompt,
             false,
             false,
             v4NegativePromptCharacterCaptions,
@@ -442,7 +453,7 @@ function createImageGenerationBody({
   return {
     seed,
     body: {
-      input: prompt,
+      input: mergedPrompt,
       model,
       action: isI2I ? "img2img" : "generate",
       parameters,

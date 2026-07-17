@@ -36,6 +36,10 @@ import {
 } from "../lib/i2iReference";
 import { storage } from "../lib/storage";
 import {
+  isUcPresetIndex,
+  type UcPresetIndex,
+} from "../lib/naiPresets";
+import {
   MAX_VIBE_REFERENCES,
   addVibeReferenceFromImage,
   deleteVibeReference as deleteStoredVibeReference,
@@ -101,6 +105,8 @@ export type PromptWorkspaceTab = "prompt" | "character" | "options";
 type PersistedGenerationOptions = Partial<{
   prompt: string;
   negativePrompt: string;
+  qualityToggle: boolean;
+  ucPreset: UcPresetIndex;
   characterPrompts: CharacterPrompt[];
   characterPromptExpandedIds: string[];
   characterPositionEnabled: boolean;
@@ -302,6 +308,10 @@ export type GenerationState = {
   setPrompt: (v: string) => void;
   negativePrompt: string;
   setNegativePrompt: (v: string) => void;
+  qualityToggle: boolean;
+  setQualityToggle: (v: boolean) => void;
+  ucPreset: UcPresetIndex;
+  setUcPreset: (v: UcPresetIndex) => void;
   characterPrompts: CharacterPrompt[];
   setCharacterPrompts: (v: CharacterPrompt[]) => void;
   characterPromptExpandedIds: string[];
@@ -433,6 +443,8 @@ type QueueParams = {
     noiseSchedule: NoiseSchedule;
     sampler: string;
     varietyPlus: boolean;
+    qualityToggle: boolean;
+    ucPreset: UcPresetIndex;
     characterPositionEnabled: boolean;
     vibeEncodedImages?: string[];
     vibeInformationExtracted?: number[];
@@ -468,6 +480,10 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isString(parsed.negativePrompt)) {
       next.negativePrompt = parsed.negativePrompt;
     }
+    if (isBoolean(parsed.qualityToggle)) {
+      next.qualityToggle = parsed.qualityToggle;
+    }
+    if (isUcPresetIndex(parsed.ucPreset)) next.ucPreset = parsed.ucPreset;
     next.characterPrompts = resolveStoredCharacterPrompts(
       parsed.characterPrompts,
     );
@@ -541,6 +557,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setPrompt: (v) => set({ prompt: v }),
   negativePrompt: "low quality, blurry, watermark, text",
   setNegativePrompt: (v) => set({ negativePrompt: v }),
+  qualityToggle: true,
+  setQualityToggle: (v) => set({ qualityToggle: v }),
+  ucPreset: 0,
+  setUcPreset: (v) => set({ ucPreset: v }),
   characterPrompts: [],
   setCharacterPrompts: (v) => set({ characterPrompts: v }),
   characterPromptExpandedIds: [],
@@ -1173,6 +1193,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         noiseSchedule: s.noiseSchedule,
         sampler: s.sampler,
         varietyPlus: s.varietyPlus,
+        qualityToggle: s.qualityToggle,
+        ucPreset: s.ucPreset,
         characterPositionEnabled: s.characterPositionEnabled,
         ...(vibeEncodedImages
           ? {
@@ -1476,6 +1498,8 @@ export function useGenerationBootstrap() {
       const nextOptions: PersistedGenerationOptions = {
         prompt: state.prompt,
         negativePrompt: state.negativePrompt,
+        qualityToggle: state.qualityToggle,
+        ucPreset: state.ucPreset,
         characterPrompts: state.characterPrompts,
         characterPromptExpandedIds: state.characterPromptExpandedIds,
         characterPositionEnabled: state.characterPositionEnabled,

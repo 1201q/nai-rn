@@ -188,6 +188,10 @@ export function ImageUploadSheet({
       }
       if (parsed.sampler !== undefined) s.setSampler(parsed.sampler);
       if (parsed.varietyPlus !== undefined) s.setVarietyPlus(parsed.varietyPlus);
+      if (parsed.qualityToggle !== undefined) {
+        s.setQualityToggle(parsed.qualityToggle);
+      }
+      if (parsed.ucPreset !== undefined) s.setUcPreset(parsed.ucPreset);
     }
     if (sel.seed && parsed.seed !== undefined) s.setSeed(parsed.seed);
 

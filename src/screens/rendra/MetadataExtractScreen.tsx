@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../../constants/generation";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
+import { getUcPresetLabel } from "../../lib/naiPresets";
 import { extractPngTextMetadata } from "../../lib/novelai";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -96,6 +97,23 @@ function MetadataSettingsCard({ parsed }: { parsed: ParsedNaiMetadata | null }) 
             ? "On"
             : "Off",
       active: parsed?.varietyPlus === true,
+    },
+    {
+      label: "Quality Tags",
+      value:
+        parsed?.qualityToggle === undefined
+          ? "—"
+          : parsed.qualityToggle
+            ? "On"
+            : "Off",
+      active: parsed?.qualityToggle === true,
+    },
+    {
+      label: "UC Preset",
+      value:
+        parsed?.ucPreset === undefined
+          ? "—"
+          : getUcPresetLabel(parsed.ucPreset),
     },
     { label: "Seed", value: parsed?.seed?.toString() ?? "—" },
   ];
