@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,6 +23,11 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
+import {
+  RENDRA_DETAIL_HEADER_TOP_OFFSET,
+  RendraDetailHeaderOverlay,
+  RendraDetailScrollTitle,
+} from "../../components/rendra/RendraDetailScrollHeader";
 import {
   RendraParameterSlider,
   RendraToggle,
@@ -59,6 +64,7 @@ export function ImageToImageScreen() {
   const setNoise = useGenerationStore((state) => state.setI2INoise);
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [busy, setBusy] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const hasSourceImage = Boolean(sourceImage);
   const disabledScrimOpacity = useSharedValue(
     enabled ? 0 : DISABLED_SCRIM_OPACITY,
@@ -130,35 +136,22 @@ export function ImageToImageScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 14,
+            paddingTop: insets.top + RENDRA_DETAIL_HEADER_TOP_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="뒤로"
-            hitSlop={6}
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={18}
-              color={tokens.color.textPrimary}
-            />
-          </Pressable>
-          <Text style={styles.title}>Image2Image</Text>
-        </View>
+        <RendraDetailScrollTitle title="Image2Image" scrollY={scrollY} />
 
         <View style={styles.toggleCard}>
           <Text style={styles.toggleLabel}>Image2Image</Text>
@@ -283,7 +276,13 @@ export function ImageToImageScreen() {
             ]}
           />
         </Reanimated.View>
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <RendraDetailHeaderOverlay
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
     </View>
   );
 }
@@ -295,26 +294,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: tokens.space[8],
-  },
-  header: {
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.card,
-  },
-  title: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xl,
-    letterSpacing: tokens.tracking.tight,
   },
   toggleCard: {
     height: 56,

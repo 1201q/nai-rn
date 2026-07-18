@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -15,6 +15,11 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import {
+  RENDRA_DETAIL_HEADER_TOP_OFFSET,
+  RendraDetailHeaderOverlay,
+  RendraDetailScrollTitle,
+} from "../../components/rendra/RendraDetailScrollHeader";
 import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../../constants/generation";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
 import { getUcPresetLabel } from "../../lib/naiPresets";
@@ -153,6 +158,7 @@ export function MetadataExtractScreen() {
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedNaiMetadata | null>(null);
   const [busy, setBusy] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   async function pickImage() {
     if (busy) return;
@@ -190,17 +196,25 @@ export function MetadataExtractScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 86,
+            paddingTop: insets.top + RENDRA_DETAIL_HEADER_TOP_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        {pickedUri ? (
+        <RendraDetailScrollTitle title="Metadata Extract" scrollY={scrollY} />
+
+        <View style={styles.imageSection}>
+          {pickedUri ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="메타데이터 이미지 교체"
@@ -249,7 +263,8 @@ export function MetadataExtractScreen() {
               </>
             )}
           </Pressable>
-        )}
+          )}
+        </View>
 
         {parsed?.prompt ? (
           <MetadataTextSection label="PROMPT" value={parsed.prompt} />
@@ -288,35 +303,13 @@ export function MetadataExtractScreen() {
         ))}
 
         <MetadataSettingsCard parsed={parsed} />
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View
-        style={[
-          styles.fixedHeader,
-          {
-            height: insets.top + 70,
-            paddingTop: insets.top + 14,
-          },
-        ]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-          hitSlop={6}
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={18}
-            color={tokens.color.textPrimary}
-          />
-        </Pressable>
-        <Text style={styles.title}>Metadata Extract</Text>
-      </View>
+      <RendraDetailHeaderOverlay
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
     </View>
   );
 }
@@ -329,34 +322,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: tokens.space[8],
   },
-  fixedHeader: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    left: 0,
-    zIndex: 3,
-    paddingHorizontal: tokens.space[8],
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 16,
-    backgroundColor: tokens.color.app,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.card,
-  },
-  title: {
-    height: 40,
-    lineHeight: 40,
-    textAlignVertical: "center",
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xl,
-    letterSpacing: tokens.tracking.tight,
+  imageSection: {
+    marginTop: 24,
   },
   uploadCard: {
     width: "100%",

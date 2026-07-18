@@ -1,9 +1,9 @@
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Animated,
   type LayoutChangeEvent,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,6 +21,11 @@ import Reanimated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { tokens } from "../../styles/tokens";
+import {
+  RENDRA_DETAIL_HEADER_TOP_OFFSET,
+  RendraDetailHeaderOverlay,
+  RendraDetailScrollTitle,
+} from "./RendraDetailScrollHeader";
 import { RendraToggle } from "./RendraFormControls";
 
 const CARD_BODY_TIMING = {
@@ -42,39 +47,27 @@ export function RendraReferenceDetailLayout({
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 14,
+            paddingTop: insets.top + RENDRA_DETAIL_HEADER_TOP_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="뒤로"
-            hitSlop={6}
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={18}
-              color={tokens.color.textPrimary}
-            />
-          </Pressable>
-          <Text style={styles.title}>{title}</Text>
-        </View>
+        <RendraDetailScrollTitle title={title} scrollY={scrollY} />
 
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>{title}</Text>
@@ -85,7 +78,13 @@ export function RendraReferenceDetailLayout({
         </View>
 
         {children}
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <RendraDetailHeaderOverlay
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
     </View>
   );
 }
@@ -335,27 +334,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: tokens.space[8],
-  },
-  header: {
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.card,
-  },
-  title: {
-    flex: 1,
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xl,
-    letterSpacing: tokens.tracking.tight,
   },
   summaryCard: {
     height: 56,
