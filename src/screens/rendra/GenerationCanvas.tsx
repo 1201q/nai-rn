@@ -10,19 +10,42 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Image as ExpoImage } from "expo-image";
+import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
-import { useGenerationStore } from "../../store/generationStore";
+import {
+  getI2IEffectiveResolution,
+  useGenerationStore,
+} from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
 const TOOLBAR_EXPANDED_WIDTH = 220;
 const STRIPES = Array.from({ length: 52 }, (_, index) => index);
+
+type Size = {
+  width: number;
+  height: number;
+};
+
+function fitImage(size: Size, aspectRatio: number): Size {
+  if (size.width <= 0 || size.height <= 0 || aspectRatio <= 0) {
+    return { width: 0, height: 0 };
+  }
+
+  let width = size.width;
+  let height = width / aspectRatio;
+  if (height > size.height) {
+    height = size.height;
+    width = height * aspectRatio;
+  }
+
+  return { width, height };
+}
 
 const StripePlaceholder = memo(function StripePlaceholder() {
   return (
@@ -44,10 +67,18 @@ export function GenerationCanvas() {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
   const isLoading = useGenerationStore((s) => s.isLoading);
+  const resolution = useGenerationStore((s) => s.resolution);
+  const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
+  const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
   const { open } = useAppSheet();
   const [expanded, setExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [canvasSize, setCanvasSize] = useState<Size>({ width: 0, height: 0 });
+  const [loadedImage, setLoadedImage] = useState<{
+    uri: string;
+    aspectRatio: number;
+  } | null>(null);
   const [toolbarAnimation] = useState(() => new Animated.Value(1));
 
   const currentImageUri = currentGeneration
@@ -58,7 +89,35 @@ export function GenerationCanvas() {
     () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
     [displayedImageUri],
   );
+  const streamingResolution =
+    i2iEnabled && i2iSourceImage
+      ? getI2IEffectiveResolution(i2iSourceImage)
+      : resolution;
+  const fallbackAspectRatio = streamingPreviewUri
+    ? streamingResolution.width / streamingResolution.height
+    : currentGeneration
+      ? currentGeneration.width / currentGeneration.height
+      : resolution.width / resolution.height;
+  const imageAspectRatio =
+    !streamingPreviewUri && loadedImage?.uri === displayedImageUri
+      ? loadedImage.aspectRatio
+      : fallbackAspectRatio;
+  const imageSize = useMemo(
+    () => fitImage(canvasSize, imageAspectRatio),
+    [canvasSize, imageAspectRatio],
+  );
   const canUseImageActions = Boolean(currentImageUri) && !isLoading;
+
+  function handleImageLoad(event: ImageLoadEventData) {
+    if (!displayedImageUri) return;
+    const { width, height } = event.source;
+    if (width > 0 && height > 0) {
+      setLoadedImage({
+        uri: displayedImageUri,
+        aspectRatio: width / height,
+      });
+    }
+  }
 
   function toggleToolbar() {
     const nextExpanded = !expanded;
@@ -117,15 +176,30 @@ export function GenerationCanvas() {
 
   return (
     <View style={styles.section}>
-      <View style={styles.canvas}>
-        {!displayedImageUri ? <StripePlaceholder /> : null}
+      <View
+        style={styles.canvas}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setCanvasSize((current) =>
+            current.width === width && current.height === height
+              ? current
+              : { width, height },
+          );
+        }}
+      >
+        {!displayedImageUri ? (
+          <View style={styles.placeholder}>
+            <StripePlaceholder />
+          </View>
+        ) : null}
         {displayedImageUri ? (
           <ExpoImage
             source={imageSource}
-            contentFit="contain"
+            contentFit="cover"
             cachePolicy="memory-disk"
             transition={0}
-            style={StyleSheet.absoluteFill}
+            style={[styles.generatedImage, imageSize]}
+            onLoad={handleImageLoad}
           />
         ) : null}
         {isLoading && !streamingPreviewUri ? (
@@ -157,7 +231,11 @@ export function GenerationCanvas() {
               loading={isCopying}
               onPress={copyImage}
             />
-            <ToolbarAction icon="dice-outline" label="시드" onPress={() => {}} />
+            <ToolbarAction
+              icon="dice-outline"
+              label="시드"
+              onPress={() => {}}
+            />
             <ToolbarAction
               icon="information-circle-outline"
               label="메타데이터 정보"
@@ -169,7 +247,9 @@ export function GenerationCanvas() {
           </Animated.View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={expanded ? "이미지 도구 접기" : "이미지 도구 펼치기"}
+            accessibilityLabel={
+              expanded ? "이미지 도구 접기" : "이미지 도구 펼치기"
+            }
             accessibilityState={{ expanded }}
             hitSlop={4}
             onPress={toggleToolbar}
@@ -235,9 +315,22 @@ const styles = StyleSheet.create({
   canvas: {
     flex: 1,
     minHeight: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  placeholder: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     overflow: "hidden",
-    borderRadius: tokens.radius["3xl"],
-    backgroundColor: tokens.color.card,
+    borderRadius: tokens.radius["lg"],
+  },
+  generatedImage: {
+    overflow: "hidden",
+    borderRadius: tokens.radius["lg"],
   },
   stripe: {
     position: "absolute",

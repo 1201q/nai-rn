@@ -131,7 +131,7 @@ export function RendraMainScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingHorizontal: tokens.space[10],
+    paddingHorizontal: tokens.space[8],
     backgroundColor: tokens.color.app,
     gap: tokens.space[5],
   },

@@ -536,7 +536,7 @@ export function ImageSettingsScreen() {
             styles.content,
             {
               paddingTop: insets.top + 18,
-              paddingBottom: insets.bottom + 360,
+              paddingBottom: insets.bottom + 96,
             },
           ]}
           onScroll={Animated.event(
