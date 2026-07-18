@@ -192,6 +192,11 @@ export function MetadataExtractScreen() {
     }
   }
 
+  function clearImage() {
+    setPickedUri(null);
+    setParsed(null);
+  }
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
@@ -215,54 +220,69 @@ export function MetadataExtractScreen() {
 
         <View style={styles.imageSection}>
           {pickedUri ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="메타데이터 이미지 교체"
-            disabled={busy}
-            onPress={() => void pickImage()}
-            style={({ pressed }) => [
-              styles.previewCard,
-              pressed && styles.pressed,
-            ]}
-          >
-            <ExpoImage
-              source={{ uri: pickedUri }}
-              contentFit="cover"
-              contentPosition="center"
-              cachePolicy="memory-disk"
-              transition={120}
-              style={StyleSheet.absoluteFill}
-            />
-            {busy ? (
-              <View pointerEvents="none" style={styles.busyOverlay}>
-                <ActivityIndicator color={tokens.color.textPrimary} />
-              </View>
-            ) : null}
-          </Pressable>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="메타데이터 이미지 추가"
-            disabled={busy}
-            onPress={() => void pickImage()}
-            style={({ pressed }) => [
-              styles.uploadCard,
-              pressed && styles.pressed,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator color={tokens.color.textMuted} />
-            ) : (
-              <>
-                <Ionicons
-                  name="add-circle-outline"
-                  size={32}
-                  color={tokens.color.textMuted}
+            <View style={styles.previewCard}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="메타데이터 이미지 교체"
+                disabled={busy}
+                onPress={() => void pickImage()}
+                style={StyleSheet.absoluteFill}
+              >
+                <ExpoImage
+                  source={{ uri: pickedUri }}
+                  contentFit="cover"
+                  contentPosition="center"
+                  cachePolicy="memory-disk"
+                  transition={120}
+                  style={StyleSheet.absoluteFill}
                 />
-                <Text style={styles.uploadLabel}>이미지 추가</Text>
-              </>
-            )}
-          </Pressable>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="메타데이터 이미지 제거"
+                hitSlop={5}
+                onPress={clearImage}
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={tokens.color.negative}
+                />
+              </Pressable>
+              {busy ? (
+                <View pointerEvents="none" style={styles.busyOverlay}>
+                  <ActivityIndicator color={tokens.color.textPrimary} />
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="메타데이터 이미지 추가"
+              disabled={busy}
+              onPress={() => void pickImage()}
+              style={({ pressed }) => [
+                styles.uploadCard,
+                pressed && styles.pressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator color={tokens.color.textMuted} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={32}
+                    color={tokens.color.textMuted}
+                  />
+                  <Text style={styles.uploadLabel}>이미지 추가</Text>
+                </>
+              )}
+            </Pressable>
           )}
         </View>
 
@@ -344,11 +364,23 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     width: "100%",
-    aspectRatio: 6,
+    aspectRatio: 1,
     overflow: "hidden",
-    borderBottomLeftRadius: tokens.radius.xl,
-    borderBottomRightRadius: tokens.radius.xl,
+    borderRadius: tokens.radius.xl,
     backgroundColor: tokens.color.card,
+  },
+  removeButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 17,
+    backgroundColor: "rgba(23,23,26,0.86)",
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
   },
   busyOverlay: {
     position: "absolute",
