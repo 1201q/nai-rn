@@ -3,53 +3,66 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
+import {
+  RENDRA_DETAIL_HEADER_TOP_OFFSET,
+  RendraDetailHeaderOverlay,
+  RendraDetailScrollTitle,
+} from "../components/rendra/RendraDetailScrollHeader";
 import { useGenerationStore } from "../store/generationStore";
-import { light } from "./home/styles";
-import { DetailPillHeader } from "../components/DetailPillHeader";
-import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
+import { tokens } from "../styles/tokens";
+
+type Feedback = {
+  tone: "success" | "error";
+  message: string;
+};
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const storedToken = useGenerationStore((s) => s.storedToken);
-  const saveToken = useGenerationStore((s) => s.saveToken);
+  const storedToken = useGenerationStore((state) => state.storedToken);
+  const saveToken = useGenerationStore((state) => state.saveToken);
+  const refreshAnlas = useGenerationStore((state) => state.refreshAnlas);
   const [tokenInput, setTokenInput] = useState("");
   const [isTokenVisible, setIsTokenVisible] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
 
   useEffect(() => {
-    if (storedToken) {
-      setTokenInput(storedToken);
-    }
+    if (storedToken) setTokenInput(storedToken);
   }, [storedToken]);
 
   async function handleSaveToken() {
     const token = tokenInput.trim();
     if (!token) {
-      setFeedback("Enter a token.");
+      setFeedback({ tone: "error", message: "토큰을 입력해 주세요." });
       return;
     }
 
     setIsSaving(true);
+    setFeedback(null);
     try {
       await saveToken(token);
-      setFeedback("Token saved.");
+      await refreshAnlas();
+      setFeedback({ tone: "success", message: "API 토큰을 저장했습니다." });
     } catch (error: unknown) {
-      setFeedback(error instanceof Error ? error.message : String(error));
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setIsSaving(false);
     }
@@ -59,80 +72,160 @@ export function SettingsScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScreenEdgeFade topHeight={insets.top + 64} />
-
-      <DetailPillHeader
-        title="Settings"
-        scrollY={scrollY}
-        topInset={insets.top}
-        onBack={() => router.back()}
-      />
-
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false },
-          )}
+        <Animated.ScrollView
           contentContainerStyle={[
             styles.content,
             {
-              paddingTop: insets.top + 56 + 12,
-              paddingBottom: insets.bottom + 28,
+              paddingTop: insets.top + RENDRA_DETAIL_HEADER_TOP_OFFSET,
+              paddingBottom: insets.bottom + 32,
             },
           ]}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true },
+          )}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.sectionHeader}>
-            <Ionicons name="key-outline" size={14} color={light.textSecondary} />
-            <Text style={styles.sectionTitle}>API</Text>
-          </View>
+          <RendraDetailScrollTitle title="App Settings" scrollY={scrollY} />
 
-          <Text style={styles.inputLabel}>NovelAI API Token</Text>
-          <View style={styles.tokenInputRow}>
-            <TextInput
-              value={tokenInput}
-              onChangeText={setTokenInput}
-              placeholder="Enter API token"
-              placeholderTextColor={light.textHint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry={!isTokenVisible}
-              style={styles.tokenInput}
-            />
-            <TouchableOpacity
-              style={styles.inputIconButton}
-              activeOpacity={0.78}
-              accessibilityRole="button"
-              accessibilityLabel={isTokenVisible ? "Hide token" : "Show token"}
-              onPress={() => setIsTokenVisible((current) => !current)}
-            >
-              <Ionicons
-                name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color={light.textSecondary}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>NOVELAI</Text>
+
+            <View style={styles.tokenCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardIcon}>
+                  <Ionicons
+                    name="key-outline"
+                    size={19}
+                    color={tokens.color.accent}
+                  />
+                </View>
+                <View style={styles.cardCopy}>
+                  <Text style={styles.cardTitle}>API Token</Text>
+                  <Text style={styles.cardDescription}>
+                    이미지 생성과 ANLAS 잔액 조회에 사용됩니다
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.inputShell,
+                  isInputFocused && styles.inputShellFocused,
+                ]}
+              >
+                <TextInput
+                  value={tokenInput}
+                  accessibilityLabel="NovelAI API 토큰"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isSaving}
+                  onBlur={() => setIsInputFocused(false)}
+                  onChangeText={(value) => {
+                    setTokenInput(value);
+                    setFeedback(null);
+                  }}
+                  onFocus={() => setIsInputFocused(true)}
+                  onSubmitEditing={() => void handleSaveToken()}
+                  placeholder="NovelAI API token"
+                  placeholderTextColor={tokens.color.textMuted}
+                  returnKeyType="done"
+                  secureTextEntry={!isTokenVisible}
+                  selectionColor={tokens.color.accent}
+                  style={styles.tokenInput}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isTokenVisible ? "토큰 숨기기" : "토큰 표시"
+                  }
+                  hitSlop={4}
+                  onPress={() => setIsTokenVisible((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.visibilityButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={tokens.color.textTertiary}
+                  />
+                </Pressable>
+              </View>
+
+              <View style={styles.securityRow}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={13}
+                  color={tokens.color.textMuted}
+                />
+                <Text style={styles.securityText}>
+                  토큰은 이 기기의 보안 저장소에만 저장됩니다
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.saveButtonRow}>
+              <RendraPrimaryButton
+                label={isSaving ? "Saving..." : "Save Token"}
+                icon={
+                  <Ionicons
+                    name="checkmark"
+                    size={19}
+                    color={tokens.color.onAccent}
+                  />
+                }
+                loading={isSaving}
+                disabled={isSaving}
+                onPress={() => void handleSaveToken()}
               />
-            </TouchableOpacity>
+            </View>
+
+            {feedback ? (
+              <View
+                accessibilityLiveRegion="polite"
+                style={styles.feedbackRow}
+              >
+                <Ionicons
+                  name={
+                    feedback.tone === "success"
+                      ? "checkmark-circle-outline"
+                      : "alert-circle-outline"
+                  }
+                  size={15}
+                  color={
+                    feedback.tone === "success"
+                      ? tokens.color.accent
+                      : tokens.color.negative
+                  }
+                />
+                <Text
+                  style={[
+                    styles.feedbackText,
+                    feedback.tone === "error" && styles.feedbackTextError,
+                  ]}
+                >
+                  {feedback.message}
+                </Text>
+              </View>
+            ) : null}
           </View>
-
-          <TouchableOpacity
-            style={[styles.saveButton, isSaving && styles.disabledButton]}
-            activeOpacity={0.82}
-            disabled={isSaving}
-            onPress={handleSaveToken}
-          >
-            <Text style={styles.saveButtonText}>
-              {isSaving ? "Saving..." : "Save"}
-            </Text>
-          </TouchableOpacity>
-
-          {feedback ? <Text style={styles.message}>{feedback}</Text> : null}
-        </ScrollView>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
+
+      <RendraDetailHeaderOverlay
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+      />
     </View>
   );
 }
@@ -140,76 +233,127 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: light.bg,
+    backgroundColor: tokens.color.app,
   },
   flex: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 10,
+    flexGrow: 1,
+    paddingHorizontal: tokens.space[8],
   },
-  sectionHeader: {
+  section: {
+    marginTop: 24,
+  },
+  sectionLabel: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["3xs"],
+    letterSpacing: tokens.tracking.wide,
+  },
+  tokenCard: {
+    padding: 16,
+    borderRadius: tokens.radius.xl,
+    backgroundColor: tokens.color.card,
+  },
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    color: light.textSecondary,
+  cardIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.sunken,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: light.textPrimary,
+  cardCopy: {
+    flex: 1,
+    minWidth: 0,
   },
-  tokenInputRow: {
+  cardTitle: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.md,
+  },
+  cardDescription: {
+    marginTop: 3,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
+  },
+  inputShell: {
+    height: 52,
+    paddingLeft: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    overflow: "hidden",
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.sunken,
+  },
+  inputShellFocused: {
+    borderColor: tokens.color.accent,
   },
   tokenInput: {
     flex: 1,
+    height: "100%",
+    padding: 0,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.sm,
+  },
+  visibilityButton: {
+    width: 48,
     height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: light.border,
-    backgroundColor: light.input,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: light.textPrimary,
-  },
-  inputIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: light.surface,
   },
-  saveButton: {
+  securityRow: {
+    marginTop: 10,
+    paddingHorizontal: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  securityText: {
+    flex: 1,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
+  },
+  saveButtonRow: {
     height: 52,
-    borderRadius: 14,
+    marginTop: 14,
+    flexDirection: "row",
+  },
+  feedbackRow: {
+    minHeight: 20,
+    marginTop: 12,
+    paddingHorizontal: 4,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: light.accent,
-    marginTop: 6,
+    gap: 6,
   },
-  disabledButton: {
-    opacity: 0.5,
+  feedbackText: {
+    flex: 1,
+    color: tokens.color.accent,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
   },
-  saveButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: light.accentText,
+  feedbackTextError: {
+    color: tokens.color.negative,
   },
-  message: {
-    fontSize: 13,
-    color: light.textSecondary,
-    marginTop: 2,
+  pressed: {
+    opacity: 0.68,
   },
 });
