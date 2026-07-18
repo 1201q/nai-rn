@@ -47,6 +47,7 @@ import { RendraResolutionSheet } from "../components/rendra/RendraResolutionShee
 import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
 import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
 import { RendraPreciseModeSheet } from "../components/rendra/RendraPreciseModeSheet";
+import { RendraBatchCountSheet } from "../components/rendra/RendraBatchCountSheet";
 import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
@@ -55,6 +56,7 @@ import { light, styles } from "../screens/home/styles";
 // 전역 단일 바텀시트 라우트. 기존 연속 생성/메타데이터 시트와
 // Rendra 설정의 짧은 선택 시트가 같은 제스처/백드롭 로직을 공유한다.
 type RendraSheetRoute =
+  | "rendraBatchCount"
   | "ucPreset"
   | "seed"
   | "resolution"
@@ -111,6 +113,7 @@ export function useAppSheet() {
 // 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
 const SNAP_POINTS = ["60%", "92%"];
 const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
+  rendraBatchCount: ["44%"],
   ucPreset: ["44%"],
   seed: ["44%"],
   resolution: ["68%"],
@@ -128,6 +131,7 @@ const RENDRA_FOOTER_HEIGHT = 52;
 
 function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "메타데이터";
+  if (route === "rendraBatchCount") return "Batch Count";
   if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
   if (route === "resolution") return "Resolution";
@@ -142,6 +146,7 @@ function titleFor(route: SheetRoute) {
 
 function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
   return (
+    route === "rendraBatchCount" ||
     route === "ucPreset" ||
     route === "seed" ||
     route === "resolution" ||
@@ -346,17 +351,21 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [back]);
 
+  const backdropCloseDisabled =
+    stack[stack.length - 1].route === "rendraBatchCount";
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
-        pressBehavior={hasCloseGuard ? 0 : "close"}
+        pressBehavior={
+          hasCloseGuard ? 0 : backdropCloseDisabled ? "none" : "close"
+        }
         onPress={hasCloseGuard ? close : undefined}
       />
     ),
-    [close, hasCloseGuard],
+    [backdropCloseDisabled, close, hasCloseGuard],
   );
 
   const value = useMemo<AppSheetContextValue>(
@@ -432,6 +441,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         ref={sheetRef}
         index={-1}
         snapPoints={snapPoints}
+        enableContentPanningGesture={route !== "rendraBatchCount"}
+        enableHandlePanningGesture
         enablePanDownToClose={!hasCloseGuard}
         backdropComponent={renderBackdrop}
         style={styles.sheetContainer}
@@ -509,7 +520,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                 entering={ROUTE_FADE_IN}
                 style={styles.sheetRouteContent}
               >
-                {route === "ucPreset" ? (
+                {route === "rendraBatchCount" ? (
+                  <RendraBatchCountSheet />
+                ) : route === "ucPreset" ? (
                   <RendraUcPresetSheet onSelect={close} />
                 ) : route === "seed" ? (
                   <RendraSeedSheet

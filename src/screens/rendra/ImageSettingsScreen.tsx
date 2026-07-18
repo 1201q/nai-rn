@@ -90,6 +90,7 @@ function SettingsTabContent() {
   const noiseSchedule = useGenerationStore((state) => state.noiseSchedule);
   const varietyPlus = useGenerationStore((state) => state.varietyPlus);
   const setVarietyPlus = useGenerationStore((state) => state.setVarietyPlus);
+  const batchCount = useGenerationStore((state) => state.batchCount);
 
   const modelText = MODELS.find((item) => item.value === model)?.label ?? model;
   const samplerText =
@@ -178,6 +179,12 @@ function SettingsTabContent() {
               onChange={setVarietyPlus}
             />
           }
+        />
+        <RendraSettingsRow
+          icon="images-outline"
+          label="Batch Count"
+          value={String(batchCount)}
+          onPress={() => open("rendraBatchCount")}
         />
       </View>
     </>
