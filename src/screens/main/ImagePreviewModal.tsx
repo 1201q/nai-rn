@@ -14,11 +14,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
+import { Easing as ReanimatedEasing } from "react-native-reanimated";
 import { Gallery } from "react-native-zoom-toolkit";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import { light } from "../home/styles";
 import { styles } from "./styles";
+
+const GALLERY_SNAP_TIMING_CONFIG = {
+  duration: 150,
+  easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
+};
 
 export function ImagePreviewModal({
   visible,
@@ -142,6 +148,7 @@ export function ImagePreviewModal({
         initialIndex={initialIndex}
         keyExtractor={(item, index) => `${item}-${index}`}
         maxScale={4}
+        snapTimingConfig={GALLERY_SNAP_TIMING_CONFIG}
         tapOnEdgeToItem={false}
         onTap={toggleControls}
         onIndexChange={handleIndexChange}
@@ -175,149 +182,152 @@ export function ImagePreviewModal({
         ]}
       >
         {gallery}
-          <Animated.View
-            style={[
-              styles.previewCloseButton,
-              { top: insets.top + 5, opacity: controlsAnim },
-            ]}
-            pointerEvents={controlsVisible ? "auto" : "none"}
+        <Animated.View
+          style={[
+            styles.previewCloseButton,
+            { top: insets.top + 5, opacity: controlsAnim },
+          ]}
+          pointerEvents={controlsVisible ? "auto" : "none"}
+        >
+          <View style={styles.previewCloseBg}>
+            <BlurView
+              intensity={50}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.previewCloseTouch}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+            onPress={onClose}
           >
-            <View style={styles.previewCloseBg}>
-              <BlurView
-                intensity={50}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            </View>
-            <TouchableOpacity
-              style={styles.previewCloseTouch}
-              activeOpacity={0.78}
-              accessibilityRole="button"
-              accessibilityLabel="닫기"
-              onPress={onClose}
-            >
-              <Ionicons name="close" size={22} color={light.textPrimary} />
-            </TouchableOpacity>
-          </Animated.View>
+            <Ionicons name="close" size={22} color={light.textPrimary} />
+          </TouchableOpacity>
+        </Animated.View>
 
-          {onSaveCurrent || onCopyCurrent || onDeleteCurrent || metadataRecords ? (
-            <Animated.View
-              pointerEvents={controlsVisible ? "box-none" : "none"}
-              style={[
-                styles.previewActionWrap,
-                {
-                  bottom: insets.bottom + 16,
-                  opacity: controlsAnim,
-                  transform: [
-                    {
-                      translateY: controlsAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [8, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.previewActionShadow}>
-                <BlurView
-                  intensity={60}
-                  tint="dark"
-                  style={styles.previewActionBar}
-                >
-                  {onSaveCurrent ? (
-                    <Pressable
-                      style={[
-                        styles.previewActionButton,
-                        busy && styles.previewActionButtonDisabled,
-                      ]}
-                      accessibilityRole="button"
-                      disabled={busy}
-                      onPress={handleSave}
-                    >
-                      {isSaving ? (
-                        <ActivityIndicator
-                          color={light.textPrimary}
-                          size="small"
-                        />
-                      ) : (
-                        <Ionicons
-                          name="arrow-down-outline"
-                          size={20}
-                          color={light.textPrimary}
-                        />
-                      )}
-                    </Pressable>
-                  ) : null}
-                  {onCopyCurrent ? (
-                    <Pressable
-                      style={[
-                        styles.previewActionButton,
-                        busy && styles.previewActionButtonDisabled,
-                      ]}
-                      accessibilityRole="button"
-                      disabled={busy}
-                      onPress={handleCopy}
-                    >
-                      {isCopying ? (
-                        <ActivityIndicator
-                          color={light.textPrimary}
-                          size="small"
-                        />
-                      ) : (
-                        <Ionicons
-                          name="copy-outline"
-                          size={20}
-                          color={light.textPrimary}
-                        />
-                      )}
-                    </Pressable>
-                  ) : null}
-                  {onDeleteCurrent ? (
-                    <Pressable
-                      style={[
-                        styles.previewActionButton,
-                        busy && styles.previewActionButtonDisabled,
-                      ]}
-                      accessibilityRole="button"
-                      disabled={busy}
-                      onPress={handleDelete}
-                    >
-                      {isDeleting ? (
-                        <ActivityIndicator
-                          color={light.textPrimary}
-                          size="small"
-                        />
-                      ) : (
-                        <Ionicons
-                          name="trash-outline"
-                          size={20}
-                          color={light.textPrimary}
-                        />
-                      )}
-                    </Pressable>
-                  ) : null}
-                  {metadataRecords ? (
-                    <Pressable
-                      style={[
-                        styles.previewActionButton,
-                        busy && styles.previewActionButtonDisabled,
-                      ]}
-                      accessibilityRole="button"
-                      disabled={busy}
-                      onPress={handleMetadata}
-                    >
+        {onSaveCurrent ||
+        onCopyCurrent ||
+        onDeleteCurrent ||
+        metadataRecords ? (
+          <Animated.View
+            pointerEvents={controlsVisible ? "box-none" : "none"}
+            style={[
+              styles.previewActionWrap,
+              {
+                bottom: insets.bottom + 16,
+                opacity: controlsAnim,
+                transform: [
+                  {
+                    translateY: controlsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [8, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.previewActionShadow}>
+              <BlurView
+                intensity={60}
+                tint="dark"
+                style={styles.previewActionBar}
+              >
+                {onSaveCurrent ? (
+                  <Pressable
+                    style={[
+                      styles.previewActionButton,
+                      busy && styles.previewActionButtonDisabled,
+                    ]}
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={handleSave}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator
+                        color={light.textPrimary}
+                        size="small"
+                      />
+                    ) : (
                       <Ionicons
-                        name="information-circle-outline"
+                        name="arrow-down-outline"
                         size={20}
                         color={light.textPrimary}
                       />
-                    </Pressable>
-                  ) : null}
-                </BlurView>
-              </View>
-            </Animated.View>
-          ) : null}
+                    )}
+                  </Pressable>
+                ) : null}
+                {onCopyCurrent ? (
+                  <Pressable
+                    style={[
+                      styles.previewActionButton,
+                      busy && styles.previewActionButtonDisabled,
+                    ]}
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={handleCopy}
+                  >
+                    {isCopying ? (
+                      <ActivityIndicator
+                        color={light.textPrimary}
+                        size="small"
+                      />
+                    ) : (
+                      <Ionicons
+                        name="copy-outline"
+                        size={20}
+                        color={light.textPrimary}
+                      />
+                    )}
+                  </Pressable>
+                ) : null}
+                {onDeleteCurrent ? (
+                  <Pressable
+                    style={[
+                      styles.previewActionButton,
+                      busy && styles.previewActionButtonDisabled,
+                    ]}
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={handleDelete}
+                  >
+                    {isDeleting ? (
+                      <ActivityIndicator
+                        color={light.textPrimary}
+                        size="small"
+                      />
+                    ) : (
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color={light.textPrimary}
+                      />
+                    )}
+                  </Pressable>
+                ) : null}
+                {metadataRecords ? (
+                  <Pressable
+                    style={[
+                      styles.previewActionButton,
+                      busy && styles.previewActionButtonDisabled,
+                    ]}
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={handleMetadata}
+                  >
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={20}
+                      color={light.textPrimary}
+                    />
+                  </Pressable>
+                ) : null}
+              </BlurView>
+            </View>
+          </Animated.View>
+        ) : null}
       </Animated.View>
     </Portal>
   );
