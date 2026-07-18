@@ -46,6 +46,7 @@ import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
 import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
 import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
 import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
+import { RendraPreciseModeSheet } from "../components/rendra/RendraPreciseModeSheet";
 import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
@@ -59,6 +60,7 @@ type RendraSheetRoute =
   | "resolution"
   | "resolutionCustom"
   | "characterPosition"
+  | "preciseMode"
   | RendraGenerationOptionRoute;
 export type SheetRoute = "batchCount" | "metadataView" | RendraSheetRoute;
 
@@ -81,6 +83,7 @@ type StackEntry = {
   route: SheetRoute;
   params?: GenerationRecord;
   characterId?: string;
+  preciseReferenceId?: string;
 };
 type TransitionDirection = "forward" | "back" | "none";
 type OpenRequest = { id: number; route: SheetRoute };
@@ -88,6 +91,7 @@ type OpenRequest = { id: number; route: SheetRoute };
 type AppSheetContextValue = {
   open: (route: SheetRoute, params?: GenerationRecord) => void;
   openCharacterPosition: (characterId: string) => void;
+  openPreciseMode: (referenceId: string) => void;
   push: (route: SheetRoute, params?: GenerationRecord) => void;
   back: () => void;
   close: () => void;
@@ -112,6 +116,7 @@ const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   resolution: ["68%"],
   resolutionCustom: ["68%"],
   characterPosition: ["68%"],
+  preciseMode: ["40%"],
   model: ["50%"],
   sampler: ["64%"],
   schedule: ["44%"],
@@ -128,6 +133,7 @@ function titleFor(route: SheetRoute) {
   if (route === "resolution") return "Resolution";
   if (route === "resolutionCustom") return "Custom Resolution";
   if (route === "characterPosition") return "Character Position";
+  if (route === "preciseMode") return "Mode";
   if (route === "model") return "Model";
   if (route === "sampler") return "Sampler";
   if (route === "schedule") return "Schedule";
@@ -141,6 +147,7 @@ function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
     route === "resolution" ||
     route === "resolutionCustom" ||
     route === "characterPosition" ||
+    route === "preciseMode" ||
     route === "model" ||
     route === "sampler" ||
     route === "schedule"
@@ -293,6 +300,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [openEntry],
   );
 
+  const openPreciseMode = useCallback(
+    (referenceId: string) => {
+      openEntry({ route: "preciseMode", preciseReferenceId: referenceId });
+    },
+    [openEntry],
+  );
+
   // 메뉴/상세에서 다음 상세로 진입 — 스택에 쌓아 뒤로가기 가능 상태로.
   const push = useCallback(
     (route: SheetRoute, params?: GenerationRecord) => {
@@ -346,8 +360,24 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AppSheetContextValue>(
-    () => ({ open, openCharacterPosition, push, back, close, isOpen }),
-    [open, openCharacterPosition, push, back, close, isOpen],
+    () => ({
+      open,
+      openCharacterPosition,
+      openPreciseMode,
+      push,
+      back,
+      close,
+      isOpen,
+    }),
+    [
+      open,
+      openCharacterPosition,
+      openPreciseMode,
+      push,
+      back,
+      close,
+      isOpen,
+    ],
   );
 
   const current = stack[stack.length - 1];
@@ -497,6 +527,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   current.characterId ? (
                     <RendraCharacterPositionSheet
                       characterId={current.characterId}
+                    />
+                  ) : null
+                ) : route === "preciseMode" ? (
+                  current.preciseReferenceId ? (
+                    <RendraPreciseModeSheet
+                      referenceId={current.preciseReferenceId}
+                      onSelect={forceClose}
                     />
                   ) : null
                 ) : isGenerationOptionRoute(route) ? (

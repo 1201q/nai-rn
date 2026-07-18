@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
+import { useAppSheet } from "../../context/AppSheetContext";
 import {
   RendraAddReferenceButton,
   RendraReferenceDetailLayout,
@@ -40,21 +41,19 @@ function modeLabel(value: PreciseReferenceType) {
 
 function ModeSelector({
   value,
-  onChange,
+  onPress,
 }: {
   value: PreciseReferenceType;
-  onChange: (value: PreciseReferenceType) => void;
+  onPress: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
     <View style={styles.modeBlock}>
       <Text style={styles.controlLabel}>Mode</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Mode, ${modeLabel(value)}`}
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((current) => !current)}
+        accessibilityHint="Mode 선택 바텀시트 열기"
+        onPress={onPress}
         style={({ pressed }) => [
           styles.modeSelector,
           pressed && styles.pressed,
@@ -62,55 +61,17 @@ function ModeSelector({
       >
         <Text style={styles.modeValue}>{modeLabel(value)}</Text>
         <Ionicons
-          name={open ? "chevron-up" : "chevron-down"}
+          name="chevron-forward"
           size={17}
           color={tokens.color.textMuted}
         />
       </Pressable>
-      {open ? (
-        <View style={styles.modeOptions}>
-          {MODES.map((item) => {
-            const selected = item.value === value;
-            return (
-              <Pressable
-                key={item.value}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                onPress={() => {
-                  onChange(item.value);
-                  setOpen(false);
-                }}
-                style={({ pressed }) => [
-                  styles.modeOption,
-                  selected && styles.modeOptionSelected,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modeOptionLabel,
-                    selected && styles.modeOptionLabelSelected,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-                {selected ? (
-                  <Ionicons
-                    name="checkmark"
-                    size={18}
-                    color={tokens.color.onAccent}
-                  />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
     </View>
   );
 }
 
 export function PreciseReferenceScreen() {
+  const { openPreciseMode } = useAppSheet();
   const references = useGenerationStore((state) => state.preciseReferences);
   const model = useGenerationStore((state) => state.model);
   const activeVibeCount = useGenerationStore(
@@ -132,7 +93,6 @@ export function PreciseReferenceScreen() {
   const setFidelity = useGenerationStore(
     (state) => state.setPreciseReferenceFidelity,
   );
-  const setType = useGenerationStore((state) => state.setPreciseReferenceType);
   const expandedIds = useGenerationStore(
     (state) => state.preciseReferenceExpandedIds,
   );
@@ -265,7 +225,7 @@ export function PreciseReferenceScreen() {
             >
               <ModeSelector
                 value={reference.referenceType}
-                onChange={(value) => setType(reference.id, value)}
+                onPress={() => openPreciseMode(reference.id)}
               />
               <RendraParameterSlider
                 label="Fidelity"
@@ -334,30 +294,6 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
-  },
-  modeOptions: {
-    overflow: "hidden",
-    borderRadius: 14,
-    backgroundColor: tokens.color.sunken,
-  },
-  modeOption: {
-    height: 44,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  modeOptionSelected: {
-    backgroundColor: tokens.color.accent,
-  },
-  modeOptionLabel: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type.sm,
-  },
-  modeOptionLabelSelected: {
-    color: tokens.color.onAccent,
-    fontFamily: tokens.font.semibold,
   },
   pressed: {
     opacity: 0.68,
