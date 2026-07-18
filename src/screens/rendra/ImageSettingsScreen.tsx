@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,7 +10,11 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+  type KeyboardAwareScrollViewRef,
+} from "react-native-keyboard-controller";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
@@ -494,7 +497,7 @@ export function ImageSettingsScreen() {
     character: false,
     imageRef: false,
   });
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleOpacity = scrollY.interpolate({
     inputRange: [0, 56],
@@ -525,8 +528,9 @@ export function ImageSettingsScreen() {
       <View style={styles.screen}>
         <StatusBar style="light" />
 
-        <Animated.ScrollView
+        <KeyboardAwareScrollView
           ref={scrollRef}
+          bottomOffset={72}
           style={styles.scroll}
           contentContainerStyle={[
             styles.content,
@@ -537,7 +541,7 @@ export function ImageSettingsScreen() {
           ]}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true },
+            { useNativeDriver: false },
           )}
           scrollEventThrottle={16}
           keyboardDismissMode="interactive"
@@ -567,7 +571,7 @@ export function ImageSettingsScreen() {
               <ImageReferenceTabContent />
             </View>
           ) : null}
-        </Animated.ScrollView>
+        </KeyboardAwareScrollView>
 
         <Animated.View
           pointerEvents="none"

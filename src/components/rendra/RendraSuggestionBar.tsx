@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   useSuggestionBarActions,
+  useSuggestionBarActive,
   useSuggestions,
 } from "../../context/SuggestionBarContext";
 import type { TagSuggestion, TagType } from "../../lib/tagDb";
@@ -41,32 +42,36 @@ const SuggestionChip = memo(function SuggestionChip({
 
 export function RendraSuggestionBar() {
   const suggestions = useSuggestions();
+  const active = useSuggestionBarActive();
   const actions = useSuggestionBarActions();
 
-  if (!suggestions.length || !actions) return null;
+  if (!active || !actions) return null;
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={styles.scrollContent}
-      >
-        {suggestions.map((item) => (
-          <SuggestionChip
-            key={`${item.type}:${item.value}`}
-            item={item}
-            onPress={() => actions.pickRef.current?.(item)}
-          />
-        ))}
-      </ScrollView>
+      {suggestions.length ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={styles.scrollContent}
+        >
+          {suggestions.map((item) => (
+            <SuggestionChip
+              key={`${item.type}:${item.value}`}
+              item={item}
+              onPress={() => actions.pickRef.current?.(item)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    height: 57,
     paddingVertical: tokens.space[5],
     borderTopWidth: 1,
     borderTopColor: tokens.color.borderSubtle,

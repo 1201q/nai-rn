@@ -15,13 +15,17 @@ type SuggestionBarActions = {
   pickRef: React.MutableRefObject<((item: TagSuggestion) => void) | null>;
   setSuggestions: (s: TagSuggestion[], pick: (item: TagSuggestion) => void) => void;
   clearSuggestions: () => void;
+  setActive: (active: boolean) => void;
 };
 
 const ActionsContext = createContext<SuggestionBarActions | null>(null);
 const DataContext = createContext<TagSuggestion[]>([]);
+const ActiveContext = createContext(false);
 
 export function SuggestionBarProvider({ children }: { children: ReactNode }) {
   const [suggestions, setSuggestionsState] = useState<TagSuggestion[]>([]);
+  const [active, setActive] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const pickRef = useRef<((item: TagSuggestion) => void) | null>(null);
 
   const setSuggestions = useCallback(
@@ -38,22 +42,33 @@ export function SuggestionBarProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const handleKeyboardShow = () => {
+      setKeyboardVisible(true);
+    };
+    const handleKeyboardHide = () => {
+      clearSuggestions();
+      setKeyboardVisible(false);
+    };
     const subs = [
-      Keyboard.addListener("keyboardWillHide", clearSuggestions),
-      Keyboard.addListener("keyboardDidHide", clearSuggestions),
+      Keyboard.addListener("keyboardWillShow", handleKeyboardShow),
+      Keyboard.addListener("keyboardDidShow", handleKeyboardShow),
+      Keyboard.addListener("keyboardWillHide", handleKeyboardHide),
+      Keyboard.addListener("keyboardDidHide", handleKeyboardHide),
     ];
     return () => subs.forEach((s) => s.remove());
   }, [clearSuggestions]);
 
   const actions = useMemo(
-    () => ({ pickRef, setSuggestions, clearSuggestions }),
+    () => ({ pickRef, setSuggestions, clearSuggestions, setActive }),
     [setSuggestions, clearSuggestions],
   );
 
   return (
     <ActionsContext.Provider value={actions}>
       <DataContext.Provider value={suggestions}>
-        {children}
+        <ActiveContext.Provider value={active && keyboardVisible}>
+          {children}
+        </ActiveContext.Provider>
       </DataContext.Provider>
     </ActionsContext.Provider>
   );
@@ -65,4 +80,8 @@ export function useSuggestionBarActions() {
 
 export function useSuggestions() {
   return useContext(DataContext);
+}
+
+export function useSuggestionBarActive() {
+  return useContext(ActiveContext);
 }

@@ -363,11 +363,12 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
             placeholderTextColor={tokens.color.textMuted}
             onFocus={() => {
               focusedRef.current = true;
+              autocomplete.activateSuggestions();
             }}
             onBlur={() => {
               focusedRef.current = false;
               commitMode(mode);
-              autocomplete.clearSuggestions();
+              autocomplete.deactivateSuggestions();
             }}
             onChangeText={autocomplete.handleChangeText}
             selection={autocomplete.selection}

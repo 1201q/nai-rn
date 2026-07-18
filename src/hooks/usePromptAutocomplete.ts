@@ -57,8 +57,22 @@ export function usePromptAutocomplete({
   };
 
   const clearSuggestions = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    reqIdRef.current += 1;
     barActions?.clearSuggestions();
   }, [barActions]);
+
+  const activateSuggestions = useCallback(() => {
+    barActions?.setActive(true);
+  }, [barActions]);
+
+  const deactivateSuggestions = useCallback(() => {
+    clearSuggestions();
+    barActions?.setActive(false);
+  }, [barActions, clearSuggestions]);
 
   const runSearch = useCallback(
     (text: string, caret: number) => {
@@ -70,8 +84,8 @@ export function usePromptAutocomplete({
         return;
       }
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      const id = ++reqIdRef.current;
       debounceRef.current = setTimeout(async () => {
-        const id = ++reqIdRef.current;
         const results = await searchTags(query, type);
         if (id !== reqIdRef.current) return;
         if (results.length > 0) {
@@ -109,5 +123,7 @@ export function usePromptAutocomplete({
     handleChangeText,
     handleSelectionChange,
     clearSuggestions,
+    activateSuggestions,
+    deactivateSuggestions,
   };
 }

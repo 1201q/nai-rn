@@ -192,11 +192,12 @@ export const RendraPromptField = memo(function RendraPromptField({
           placeholderTextColor={tokens.color.textMuted}
           onFocus={() => {
             focusedRef.current = true;
+            autocomplete.activateSuggestions();
           }}
           onBlur={() => {
             focusedRef.current = false;
             onCommit(latestRef.current);
-            autocomplete.clearSuggestions();
+            autocomplete.deactivateSuggestions();
           }}
           onChangeText={autocomplete.handleChangeText}
           selection={autocomplete.selection}
