@@ -37,6 +37,13 @@ export type VibeReferenceImageInput = {
   mimeType?: string | null;
 };
 
+export function canUseCachedVibeEncoding(reference: VibeReference) {
+  return (
+    reference.encodedPath !== null &&
+    reference.encodedInformationExtracted === reference.informationExtracted
+  );
+}
+
 type VibeReferenceRow = {
   id: string;
   image_path: string;

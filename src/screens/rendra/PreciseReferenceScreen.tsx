@@ -8,6 +8,7 @@ import {
   RendraAddReferenceButton,
   RendraReferenceDetailLayout,
   RendraReferenceImageCard,
+  RendraReferenceUsageNotice,
 } from "../../components/rendra/RendraReferenceDetail";
 import { RendraParameterSlider } from "../../components/rendra/RendraFormControls";
 import {
@@ -197,6 +198,11 @@ export function PreciseReferenceScreen() {
     <RendraReferenceDetailLayout
       title="Precise Reference"
       enabled={enabled}
+      unavailableReason={
+        activeVibeCount > 0
+          ? "Vibe Transfer와 동시에 켤 수 없습니다."
+          : undefined
+      }
       onToggle={toggleAll}
     >
       <Text style={styles.sectionTitle}>
@@ -214,6 +220,11 @@ export function PreciseReferenceScreen() {
               imageUri={imageUri}
               thumbnailUri={thumbnailUri}
               subtitle={`${modeLabel(reference.referenceType)} · F ${formatValue(reference.fidelity)} · S ${formatValue(reference.strength)}`}
+              status={
+                reference.enabled
+                  ? { label: "5 Anlas", tone: "cost" }
+                  : undefined
+              }
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
               busy={busyId === reference.id}
@@ -245,6 +256,13 @@ export function PreciseReferenceScreen() {
                 precision={2}
                 onChange={(value) => setStrength(reference.id, value)}
               />
+              {reference.enabled ? (
+                <RendraReferenceUsageNotice
+                  tone="cost"
+                  title="5 Anlas per generation"
+                  description="활성화된 Precise Reference는 생성할 때마다 5 Anlas를 사용합니다."
+                />
+              ) : null}
             </RendraReferenceImageCard>
           );
         })}

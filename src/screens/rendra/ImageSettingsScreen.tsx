@@ -473,6 +473,12 @@ function ImageReferenceTabContent() {
         icon="color-palette-outline"
         label="Vibe Transfer"
         enabled={vibeEnabled}
+        stateLabel={
+          preciseEnabled
+            ? "Precise Reference와 동시에 켤 수 없습니다."
+            : undefined
+        }
+        toggleDisabled={preciseEnabled}
         onPress={() => router.push("/vibe-transfer")}
         onToggle={toggleVibe}
       />
@@ -480,6 +486,10 @@ function ImageReferenceTabContent() {
         icon="person-outline"
         label="Precise Reference"
         enabled={preciseEnabled}
+        stateLabel={
+          vibeEnabled ? "Vibe Transfer와 동시에 켤 수 없습니다." : undefined
+        }
+        toggleDisabled={vibeEnabled}
         onPress={() => router.push("/precise-reference")}
         onToggle={togglePrecise}
       />

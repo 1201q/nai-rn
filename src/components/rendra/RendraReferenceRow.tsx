@@ -22,6 +22,7 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
   label,
   enabled,
   stateLabel,
+  toggleDisabled = false,
   thumbnailUri,
   onPress,
   onToggle,
@@ -30,6 +31,7 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
   label: string;
   enabled?: boolean;
   stateLabel?: string;
+  toggleDisabled?: boolean;
   thumbnailUri?: string;
   onPress: () => void;
   onToggle?: (value: boolean) => void;
@@ -99,6 +101,7 @@ export const RendraReferenceRow = memo(function RendraReferenceRow({
           <RendraToggle
             value={enabled}
             label={`${label} ${enabled ? "끄기" : "켜기"}`}
+            disabled={toggleDisabled && !enabled}
             onChange={onToggle}
           />
         </View>

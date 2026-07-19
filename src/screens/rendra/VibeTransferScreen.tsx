@@ -6,6 +6,7 @@ import {
   RendraAddReferenceButton,
   RendraReferenceDetailLayout,
   RendraReferenceImageCard,
+  RendraReferenceUsageNotice,
 } from "../../components/rendra/RendraReferenceDetail";
 import {
   RendraParameterSlider,
@@ -13,6 +14,7 @@ import {
 } from "../../components/rendra/RendraFormControls";
 import {
   MAX_VIBE_REFERENCES,
+  canUseCachedVibeEncoding,
   resolveVibeReferenceImageUri,
   resolveVibeReferenceThumbnailUri,
 } from "../../lib/vibeReferences";
@@ -143,6 +145,11 @@ export function VibeTransferScreen() {
     <RendraReferenceDetailLayout
       title="Vibe Transfer"
       enabled={enabled}
+      unavailableReason={
+        activePreciseCount > 0
+          ? "Precise Reference와 동시에 켤 수 없습니다."
+          : undefined
+      }
       onToggle={toggleAll}
     >
       <View style={styles.normalizeCard}>
@@ -176,6 +183,7 @@ export function VibeTransferScreen() {
           const imageUri = resolveVibeReferenceImageUri(reference);
           const thumbnailUri =
             resolveVibeReferenceThumbnailUri(reference) ?? imageUri;
+          const cached = canUseCachedVibeEncoding(reference);
           return (
             <RendraReferenceImageCard
               key={reference.id}
@@ -183,6 +191,10 @@ export function VibeTransferScreen() {
               imageUri={imageUri}
               thumbnailUri={thumbnailUri}
               subtitle={`I ${formatValue(reference.informationExtracted)} · S ${formatValue(reference.strength)}`}
+              status={{
+                label: cached ? "Cached" : "2 Anlas",
+                tone: cached ? "cached" : "cost",
+              }}
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
               busy={busyId === reference.id}
@@ -209,6 +221,15 @@ export function VibeTransferScreen() {
                 step={0.01}
                 precision={2}
                 onChange={(value) => setStrength(reference.id, value)}
+              />
+              <RendraReferenceUsageNotice
+                tone={cached ? "cached" : "cost"}
+                title={cached ? "Encoded vibe cached" : "2 Anlas"}
+                description={
+                  cached
+                    ? "현재 Information Extracted 값의 인코딩 캐시를 사용합니다."
+                    : "활성화한 다음 생성에서 Vibe 인코딩에 2 Anlas가 사용됩니다."
+                }
               />
             </RendraReferenceImageCard>
           );

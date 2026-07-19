@@ -34,14 +34,23 @@ const CARD_BODY_TIMING = {
 };
 const DISABLED_CARD_SCRIM_OPACITY = 0.5;
 
+export type RendraReferenceStatusTone = "cost" | "cached";
+
+export type RendraReferenceCardStatus = {
+  label: string;
+  tone: RendraReferenceStatusTone;
+};
+
 export function RendraReferenceDetailLayout({
   title,
   enabled,
+  unavailableReason,
   onToggle,
   children,
 }: {
   title: string;
   enabled: boolean;
+  unavailableReason?: string;
   onToggle: (value: boolean) => void;
   children: ReactNode;
 }) {
@@ -69,13 +78,32 @@ export function RendraReferenceDetailLayout({
       >
         <RendraDetailScrollTitle title={title} scrollY={scrollY} />
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>{title}</Text>
-          <View style={styles.summaryControl}>
-            <Text style={styles.summaryState}>{enabled ? "켜짐" : "꺼짐"}</Text>
-            <RendraToggle value={enabled} label={title} onChange={onToggle} />
+        {unavailableReason ? (
+          <View style={styles.unavailableCard}>
+            <View style={styles.unavailableCopy}>
+              <Text style={styles.unavailableTitle}>{title}</Text>
+              <Text style={styles.unavailableDescription}>
+                {unavailableReason}
+              </Text>
+            </View>
+            <RendraToggle
+              value={enabled}
+              label={title}
+              disabled={!enabled}
+              onChange={onToggle}
+            />
           </View>
-        </View>
+        ) : (
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>{title}</Text>
+            <View style={styles.summaryControl}>
+              <Text style={styles.summaryState}>
+                {enabled ? "켜짐" : "꺼짐"}
+              </Text>
+              <RendraToggle value={enabled} label={title} onChange={onToggle} />
+            </View>
+          </View>
+        )}
 
         {children}
       </Animated.ScrollView>
@@ -89,12 +117,49 @@ export function RendraReferenceDetailLayout({
   );
 }
 
+export const RendraReferenceUsageNotice = memo(
+  function RendraReferenceUsageNotice({
+    tone,
+    title,
+    description,
+  }: {
+    tone: RendraReferenceStatusTone;
+    title: string;
+    description: string;
+  }) {
+    const isCost = tone === "cost";
+    const color = isCost ? tokens.color.accent : tokens.color.textTertiary;
+
+    return (
+      <View style={styles.usageNotice}>
+        <Ionicons
+          name={isCost ? "diamond-outline" : "checkmark-circle-outline"}
+          size={18}
+          color={color}
+        />
+        <View style={styles.usageNoticeCopy}>
+          <Text
+            style={[
+              styles.usageNoticeTitle,
+              isCost && styles.usageNoticeTitleCost,
+            ]}
+          >
+            {title}
+          </Text>
+          <Text style={styles.usageNoticeDescription}>{description}</Text>
+        </View>
+      </View>
+    );
+  },
+);
+
 export const RendraReferenceImageCard = memo(
   function RendraReferenceImageCard({
     index,
     imageUri,
     thumbnailUri,
     subtitle,
+    status,
     enabled,
     expanded,
     busy,
@@ -109,6 +174,7 @@ export const RendraReferenceImageCard = memo(
     imageUri: string;
     thumbnailUri: string;
     subtitle: string;
+    status?: RendraReferenceCardStatus;
     enabled: boolean;
     expanded: boolean;
     busy: boolean;
@@ -198,6 +264,31 @@ export const RendraReferenceImageCard = memo(
               </Text>
             </View>
           </Pressable>
+          {status ? (
+            <View style={styles.statusBadge}>
+              <Ionicons
+                name={
+                  status.tone === "cost"
+                    ? "diamond-outline"
+                    : "checkmark-circle-outline"
+                }
+                size={12}
+                color={
+                  status.tone === "cost"
+                    ? tokens.color.accent
+                    : tokens.color.textTertiary
+                }
+              />
+              <Text
+                style={[
+                  styles.statusBadgeLabel,
+                  status.tone === "cost" && styles.statusBadgeLabelCost,
+                ]}
+              >
+                {status.label}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.toggleSlot}>
             <RendraToggle
               value={enabled}
@@ -360,6 +451,32 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: tokens.type["2xs"],
   },
+  unavailableCard: {
+    marginTop: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.color.card,
+  },
+  unavailableCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  unavailableTitle: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.sm,
+  },
+  unavailableDescription: {
+    marginTop: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
+  },
   referenceCard: {
     position: "relative",
     overflow: "hidden",
@@ -403,6 +520,24 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 15,
+  },
+  statusBadge: {
+    height: 24,
+    paddingHorizontal: tokens.space[3],
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[1],
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.sunken,
+  },
+  statusBadgeLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["3xs"],
+  },
+  statusBadgeLabelCost: {
+    color: tokens.color.accent,
   },
   toggleSlot: {
     width: 52,
@@ -463,6 +598,34 @@ const styles = StyleSheet.create({
   controls: {
     marginTop: 22,
     gap: 24,
+  },
+  usageNotice: {
+    minHeight: 58,
+    paddingHorizontal: tokens.space[6],
+    paddingVertical: tokens.space[5],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.sunken,
+  },
+  usageNoticeCopy: {
+    flex: 1,
+    gap: tokens.space[1],
+  },
+  usageNoticeTitle: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
+  },
+  usageNoticeTitleCost: {
+    color: tokens.color.accent,
+  },
+  usageNoticeDescription: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
   },
   disabledCardScrim: {
     zIndex: 2,

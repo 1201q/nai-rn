@@ -91,6 +91,18 @@ export const RendraResolutionSheet = memo(function RendraResolutionSheet({
 
   return (
     <View style={styles.content}>
+      <View style={styles.usageNotice}>
+        <Ionicons
+          name="information-circle-outline"
+          size={19}
+          color={tokens.color.accent}
+        />
+        <Text style={styles.usageNoticeText}>
+          해상도가 높을수록 디테일이 좋아지지만 Anlas 소모와 생성 시간이
+          늘어납니다.
+        </Text>
+      </View>
+
       <Text style={styles.sectionLabel}>DEFAULT</Text>
       <RendraSelectionSheet
         options={defaultOptions}
@@ -134,6 +146,24 @@ const styles = StyleSheet.create({
   content: {
     width: "100%",
     paddingTop: tokens.space[2],
+  },
+  usageNotice: {
+    minHeight: 58,
+    marginHorizontal: tokens.space[2],
+    paddingHorizontal: tokens.space[6],
+    paddingVertical: tokens.space[5],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.sunken,
+  },
+  usageNoticeText: {
+    flex: 1,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 17,
   },
   sectionLabel: {
     paddingHorizontal: tokens.space[6],

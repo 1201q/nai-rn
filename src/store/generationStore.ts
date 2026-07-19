@@ -42,6 +42,7 @@ import {
 import {
   MAX_VIBE_REFERENCES,
   addVibeReferenceFromImage,
+  canUseCachedVibeEncoding,
   deleteVibeReference as deleteStoredVibeReference,
   initVibeReferenceStorage,
   listVibeReferences,
@@ -1166,9 +1167,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const updatedReferences: VibeReference[] = [];
 
         for (const vibe of activeVibes) {
-          const canUseCachedEncoding =
-            vibe.encodedPath !== null &&
-            vibe.encodedInformationExtracted === vibe.informationExtracted;
+          const canUseCachedEncoding = canUseCachedVibeEncoding(vibe);
 
           if (canUseCachedEncoding) {
             encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
