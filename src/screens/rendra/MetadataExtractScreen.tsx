@@ -20,136 +20,11 @@ import {
   RendraDetailHeaderOverlay,
   RendraDetailScrollTitle,
 } from "../../components/rendra/RendraDetailScrollHeader";
-import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../../constants/generation";
+import { RendraMetadataDetails } from "../../components/rendra/RendraMetadataDetails";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
-import { getUcPresetLabel } from "../../lib/naiPresets";
 import { extractPngTextMetadata } from "../../lib/novelai";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-
-type SettingRow = {
-  label: string;
-  value: string;
-  active?: boolean;
-};
-
-function listLabel(
-  items: ReadonlyArray<{ label: string; value: string }>,
-  value: string | undefined,
-) {
-  if (!value) return "—";
-  return items.find((item) => item.value === value)?.label ?? value;
-}
-
-function fixedValue(value: number | undefined, precision: number) {
-  return value === undefined ? "—" : value.toFixed(precision);
-}
-
-function MetadataTextSection({
-  label,
-  value,
-  negative = false,
-}: {
-  label: string;
-  value: string;
-  negative?: boolean;
-}) {
-  return (
-    <View style={styles.textSection}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      <View style={[styles.textCard, negative && styles.textCardNegative]}>
-        <Text style={styles.metadataText}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-function MetadataSettingsCard({ parsed }: { parsed: ParsedNaiMetadata | null }) {
-  const rows: SettingRow[] = [
-    {
-      label: "Model",
-      value: listLabel(MODELS, parsed?.model),
-    },
-    {
-      label: "Resolution",
-      value: parsed?.resolution
-        ? `${parsed.resolution.width}x${parsed.resolution.height}`
-        : "—",
-    },
-    { label: "Steps", value: parsed?.steps?.toString() ?? "—" },
-    {
-      label: "CFG Scale",
-      value: fixedValue(parsed?.promptGuidance, 1),
-    },
-    {
-      label: "CFG Rescale",
-      value: fixedValue(parsed?.promptGuidanceRescale, 2),
-    },
-    {
-      label: "Sampler",
-      value: listLabel(SAMPLERS, parsed?.sampler),
-    },
-    {
-      label: "Schedule",
-      value: listLabel(NOISE_SCHEDULES, parsed?.noiseSchedule),
-    },
-    {
-      label: "Variety+",
-      value:
-        parsed?.varietyPlus === undefined
-          ? "—"
-          : parsed.varietyPlus
-            ? "On"
-            : "Off",
-      active: parsed?.varietyPlus === true,
-    },
-    {
-      label: "Quality Tags",
-      value:
-        parsed?.qualityToggle === undefined
-          ? "—"
-          : parsed.qualityToggle
-            ? "On"
-            : "Off",
-      active: parsed?.qualityToggle === true,
-    },
-    {
-      label: "UC Preset",
-      value:
-        parsed?.ucPreset === undefined
-          ? "—"
-          : getUcPresetLabel(parsed.ucPreset),
-    },
-    { label: "Seed", value: parsed?.seed?.toString() ?? "—" },
-  ];
-
-  return (
-    <View style={styles.settingsSection}>
-      <Text style={styles.sectionLabel}>SETTINGS</Text>
-      <View style={styles.settingsCard}>
-        {rows.map((row) => (
-          <View key={row.label} style={styles.settingRow}>
-            <Text style={styles.settingLabel}>{row.label}</Text>
-            <Text
-              style={[
-                styles.settingValue,
-                row.active && styles.settingValueActive,
-              ]}
-              numberOfLines={1}
-            >
-              {row.value}
-            </Text>
-          </View>
-        ))}
-        {!parsed ? (
-          <Text style={styles.emptyHint}>
-            이미지를 추가하면 여기에 추출된 정보가 표시됩니다
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
 
 export function MetadataExtractScreen() {
   const router = useRouter();
@@ -286,43 +161,10 @@ export function MetadataExtractScreen() {
           )}
         </View>
 
-        {parsed?.prompt ? (
-          <MetadataTextSection label="PROMPT" value={parsed.prompt} />
-        ) : null}
-        {parsed?.negativePrompt ? (
-          <MetadataTextSection
-            label="NEGATIVE PROMPT"
-            value={parsed.negativePrompt}
-            negative
-          />
-        ) : null}
-        {parsed?.characters?.map((character, index) => (
-          <View key={character.id}>
-            {character.prompt ? (
-              <MetadataTextSection
-                label={
-                  parsed.characters!.length > 1
-                    ? `CHARACTER ${index + 1} PROMPT`
-                    : "CHARACTER PROMPT"
-                }
-                value={character.prompt}
-              />
-            ) : null}
-            {character.negativePrompt ? (
-              <MetadataTextSection
-                label={
-                  parsed.characters!.length > 1
-                    ? `CHARACTER ${index + 1} NEGATIVE PROMPT`
-                    : "CHARACTER NEGATIVE PROMPT"
-                }
-                value={character.negativePrompt}
-                negative
-              />
-            ) : null}
-          </View>
-        ))}
-
-        <MetadataSettingsCard parsed={parsed} />
+        <RendraMetadataDetails
+          parsed={parsed}
+          emptyHint="이미지를 추가하면 여기에 추출된 정보가 표시됩니다"
+        />
       </Animated.ScrollView>
 
       <RendraDetailHeaderOverlay
@@ -391,72 +233,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.scrim,
-  },
-  textSection: {
-    marginTop: 32,
-    gap: 12,
-  },
-  sectionLabel: {
-    paddingHorizontal: 4,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
-    letterSpacing: tokens.tracking.wide,
-  },
-  textCard: {
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: tokens.radius.xl,
-    backgroundColor: tokens.color.card,
-  },
-  textCardNegative: {
-    borderWidth: 1,
-    borderColor: tokens.color.borderNegative,
-  },
-  metadataText: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type.sm,
-    lineHeight: 21,
-  },
-  settingsSection: {
-    marginTop: 32,
-    gap: 12,
-  },
-  settingsCard: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: tokens.radius.xl,
-    backgroundColor: tokens.color.card,
-  },
-  settingRow: {
-    minHeight: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-  },
-  settingLabel: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.sm,
-  },
-  settingValue: {
-    flex: 1,
-    textAlign: "right",
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.sm,
-  },
-  settingValueActive: {
-    color: tokens.color.accent,
-  },
-  emptyHint: {
-    marginTop: 10,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 18,
   },
   pressed: {
     opacity: 0.68,

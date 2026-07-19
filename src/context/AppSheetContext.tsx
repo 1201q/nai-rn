@@ -53,9 +53,10 @@ import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
 import { light, styles } from "../screens/home/styles";
 
-// 전역 단일 바텀시트 라우트. 기존 연속 생성/메타데이터 시트와
-// Rendra 설정의 짧은 선택 시트가 같은 제스처/백드롭 로직을 공유한다.
+// 전역 단일 바텀시트 라우트. 기존 연속 생성 시트와 Rendra 상세/선택 시트가
+// 같은 제스처/백드롭 로직을 공유한다.
 type RendraSheetRoute =
+  | "metadataView"
   | "rendraBatchCount"
   | "ucPreset"
   | "seed"
@@ -64,7 +65,7 @@ type RendraSheetRoute =
   | "characterPosition"
   | "preciseMode"
   | RendraGenerationOptionRoute;
-export type SheetRoute = "batchCount" | "metadataView" | RendraSheetRoute;
+export type SheetRoute = "batchCount" | RendraSheetRoute;
 
 // batchCount 는 시트 유지 → 시트 키보드 회피 위해 BottomSheetTextInput 주입.
 function BatchCountSheet() {
@@ -113,6 +114,7 @@ export function useAppSheet() {
 // 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
 const SNAP_POINTS = ["60%", "92%"];
 const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
+  metadataView: ["92%"],
   rendraBatchCount: ["44%"],
   ucPreset: ["44%"],
   seed: ["44%"],
@@ -130,7 +132,7 @@ const ROUTE_FADE_IN = FadeIn.duration(100);
 const RENDRA_FOOTER_HEIGHT = 52;
 
 function titleFor(route: SheetRoute) {
-  if (route === "metadataView") return "메타데이터";
+  if (route === "metadataView") return "Metadata";
   if (route === "rendraBatchCount") return "Batch Count";
   if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
@@ -146,6 +148,7 @@ function titleFor(route: SheetRoute) {
 
 function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
   return (
+    route === "metadataView" ||
     route === "rendraBatchCount" ||
     route === "ucPreset" ||
     route === "seed" ||
@@ -378,15 +381,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       close,
       isOpen,
     }),
-    [
-      open,
-      openCharacterPosition,
-      openPreciseMode,
-      push,
-      back,
-      close,
-      isOpen,
-    ],
+    [open, openCharacterPosition, openPreciseMode, push, back, close, isOpen],
   );
 
   const current = stack[stack.length - 1];
@@ -449,7 +444,11 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         containerStyle={styles.sheetContainer}
         backgroundStyle={
           isRendraRoute
-            ? rendraSheetStyles.sheetBackground
+            ? [
+                rendraSheetStyles.sheetBackground,
+                route === "metadataView" &&
+                  rendraSheetStyles.metadataSheetBackground,
+              ]
             : styles.sheetBackground
         }
         handleIndicatorStyle={
@@ -504,10 +503,14 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           <BottomSheetScrollView
             ref={scrollRef}
             style={rendraSheetStyles.scrollView}
-            contentContainerStyle={[
-              styles.sheetScrollContent,
-              isRendraRoute && rendraSheetStyles.scrollContent,
-            ]}
+            contentContainerStyle={
+              route === "metadataView"
+                ? rendraSheetStyles.metadataScrollContent
+                : [
+                    styles.sheetScrollContent,
+                    isRendraRoute && rendraSheetStyles.scrollContent,
+                  ]
+            }
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -592,6 +595,9 @@ const rendraSheetStyles = StyleSheet.create({
     borderTopRightRadius: 32,
     backgroundColor: tokens.color.card,
   },
+  metadataSheetBackground: {
+    backgroundColor: tokens.color.app,
+  },
   sheetHandle: {
     width: 36,
     height: 5,
@@ -617,6 +623,13 @@ const rendraSheetStyles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: tokens.space[6],
     paddingBottom: tokens.space[12],
+    gap: 0,
+  },
+  metadataScrollContent: {
+    width: "100%",
+    alignItems: "stretch",
+    paddingHorizontal: 0,
+    paddingBottom: tokens.space[16],
     gap: 0,
   },
   scrollView: {
