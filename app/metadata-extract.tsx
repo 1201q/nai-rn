@@ -1,3 +1,3 @@
-import { MetadataExtractScreen } from "../src/screens/rendra/MetadataExtractScreen";
+import { MetadataExtractScreen } from "../src/screens/metadata/MetadataExtractScreen";
 
 export default MetadataExtractScreen;

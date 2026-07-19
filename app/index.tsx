@@ -1,3 +1,3 @@
-import { RendraMainScreen } from "../src/screens/rendra/RendraMainScreen";
+import { GenerationScreen } from "../src/screens/generation/GenerationScreen";
 
-export default RendraMainScreen;
+export default GenerationScreen;

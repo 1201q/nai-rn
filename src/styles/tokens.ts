@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-// 디자인 토큰 - rendra-design 스킬(tokens/*.css)을 RN 상수로 이식.
+// 디자인 토큰 - design 스킬(tokens/*.css)을 RN 상수로 이식.
 // 다크 전용. 리디자인 전반에서 재사용.
 
 export const tokens = {

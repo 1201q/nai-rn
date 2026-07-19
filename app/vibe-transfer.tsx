@@ -1,3 +1,3 @@
-import { VibeTransferScreen } from "../src/screens/rendra/VibeTransferScreen";
+import { VibeTransferScreen } from "../src/screens/references/VibeTransferScreen";
 
 export default VibeTransferScreen;

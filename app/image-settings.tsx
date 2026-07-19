@@ -1,3 +1,3 @@
-import { ImageSettingsScreen } from "../src/screens/rendra/ImageSettingsScreen";
+import { ImageSettingsScreen } from "../src/screens/settings/ImageSettingsScreen";
 
 export default ImageSettingsScreen;

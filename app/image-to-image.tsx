@@ -1,3 +1,3 @@
-import { ImageToImageScreen } from "../src/screens/rendra/ImageToImageScreen";
+import { ImageToImageScreen } from "../src/screens/references/ImageToImageScreen";
 
 export default ImageToImageScreen;

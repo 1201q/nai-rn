@@ -1,3 +1,3 @@
-import { PreciseReferenceScreen } from "../src/screens/rendra/PreciseReferenceScreen";
+import { PreciseReferenceScreen } from "../src/screens/references/PreciseReferenceScreen";
 
 export default PreciseReferenceScreen;

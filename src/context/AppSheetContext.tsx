@@ -38,28 +38,28 @@ import {
 } from "../lib/naiMetadata";
 import { hasImportableMetadata } from "../lib/metadataImport";
 import {
-  RendraGenerationOptionSheet,
-  type RendraGenerationOptionRoute,
-} from "../components/rendra/RendraGenerationOptionSheet";
-import { RendraMetadataDetails } from "../components/rendra/RendraMetadataDetails";
-import { RendraUcPresetSheet } from "../components/rendra/RendraUcPresetSheet";
-import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
-import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
-import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
-import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
-import { RendraCharacterOrderSheet } from "../components/rendra/RendraCharacterOrderSheet";
-import { RendraPreciseModeSheet } from "../components/rendra/RendraPreciseModeSheet";
-import { RendraBatchCountSheet } from "../components/rendra/RendraBatchCountSheet";
-import { RendraMetadataImportSheet } from "../components/rendra/RendraMetadataImportSheet";
-import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
-import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
+  GenerationOptionSheet,
+  type GenerationOptionRoute,
+} from "../components/sheets/GenerationOptionSheet";
+import { MetadataDetails } from "../components/metadata/MetadataDetails";
+import { UcPresetSheet } from "../components/sheets/UcPresetSheet";
+import { SeedSheet } from "../components/sheets/SeedSheet";
+import { ResolutionSheet } from "../components/sheets/ResolutionSheet";
+import { CustomResolutionSheet } from "../components/sheets/CustomResolutionSheet";
+import { CharacterPositionSheet } from "../components/sheets/CharacterPositionSheet";
+import { CharacterOrderSheet } from "../components/sheets/CharacterOrderSheet";
+import { PreciseModeSheet } from "../components/sheets/PreciseModeSheet";
+import { BatchCountSheet } from "../components/sheets/BatchCountSheet";
+import { MetadataImportSheet } from "../components/sheets/MetadataImportSheet";
+import type { SheetDraftController } from "../components/sheets/SheetDraft";
+import { PrimaryButton } from "../components/common/Buttons";
 import { tokens } from "../styles/tokens";
 
-// Rendra 상세/선택 화면이 공유하는 전역 단일 바텀시트 라우트.
-type RendraSheetRoute =
+//  상세/선택 화면이 공유하는 전역 단일 바텀시트 라우트.
+type AppSheetRoute =
   | "metadataView"
   | "metadataImport"
-  | "rendraBatchCount"
+  | "batchCount"
   | "ucPreset"
   | "seed"
   | "resolution"
@@ -67,8 +67,8 @@ type RendraSheetRoute =
   | "characterOrder"
   | "characterPosition"
   | "preciseMode"
-  | RendraGenerationOptionRoute;
-type SheetRoute = RendraSheetRoute;
+  | GenerationOptionRoute;
+type SheetRoute = AppSheetRoute;
 
 type StackEntry = {
   route: SheetRoute;
@@ -101,10 +101,10 @@ export function useAppSheet() {
   return ctx;
 }
 
-const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
+const SNAP_POINTS: Record<AppSheetRoute, string[]> = {
   metadataView: ["92%"],
   metadataImport: ["92%"],
-  rendraBatchCount: ["44%"],
+  batchCount: ["44%"],
   ucPreset: ["44%"],
   seed: ["44%"],
   resolution: ["68%"],
@@ -119,12 +119,12 @@ const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
 const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
 const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
 const ROUTE_FADE_IN = FadeIn.duration(100);
-const RENDRA_FOOTER_HEIGHT = 52;
+const FOOTER_HEIGHT = 52;
 
 function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "Metadata";
   if (route === "metadataImport") return "Import Metadata";
-  if (route === "rendraBatchCount") return "Batch Count";
+  if (route === "batchCount") return "Batch Count";
   if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
   if (route === "resolution") return "Resolution";
@@ -139,7 +139,7 @@ function titleFor(route: SheetRoute) {
 
 function isGenerationOptionRoute(
   route: SheetRoute,
-): route is RendraGenerationOptionRoute {
+): route is GenerationOptionRoute {
   return route === "model" || route === "sampler" || route === "schedule";
 }
 
@@ -150,17 +150,17 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
   const [stack, setStack] = useState<StackEntry[]>([
-    { route: "rendraBatchCount" },
+    { route: "batchCount" },
   ]);
-  const stackRef = useRef<StackEntry[]>([{ route: "rendraBatchCount" }]);
+  const stackRef = useRef<StackEntry[]>([{ route: "batchCount" }]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
   const [draftController, setDraftController] =
-    useState<RendraSheetDraftController | null>(null);
+    useState<SheetDraftController | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const openRef = useRef(false);
-  const draftControllerRef = useRef<RendraSheetDraftController | null>(null);
+  const draftControllerRef = useRef<SheetDraftController | null>(null);
   const closeAlertOpenRef = useRef(false);
   const hasCloseGuard = Boolean(draftController?.dirty);
 
@@ -186,7 +186,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const forceClose = useCallback(() => sheetRef.current?.close(), []);
 
   const registerDraft = useCallback(
-    (controller: RendraSheetDraftController | null) => {
+    (controller: SheetDraftController | null) => {
       draftControllerRef.current = controller;
       setDraftController(controller);
     },
@@ -338,7 +338,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         openRef.current = nextOpen;
         setIsOpen(nextOpen);
       }
-      if (!nextOpen) resetTo({ route: "rendraBatchCount" });
+      if (!nextOpen) resetTo({ route: "batchCount" });
     },
     [resetTo],
   );
@@ -353,7 +353,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   }, [back]);
 
   const backdropCloseDisabled =
-    stack[stack.length - 1].route === "rendraBatchCount";
+    stack[stack.length - 1].route === "batchCount";
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -394,7 +394,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const current = stack[stack.length - 1];
   const route = current.route;
-  const snapPoints = RENDRA_SNAP_POINTS[route];
+  const snapPoints = SNAP_POINTS[route];
   const canBack = stack.length > 1;
   const currentRecordMetadata = useMemo(
     () =>
@@ -429,7 +429,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const footerBottomInset =
     Math.max(insets.bottom, tokens.space[4]) + tokens.space[4];
   const draftFooterStyle = useMemo(
-    () => [rendraSheetStyles.footer, { paddingBottom: footerBottomInset }],
+    () => [sheetStyles.footer, { paddingBottom: footerBottomInset }],
     [footerBottomInset],
   );
   const showDraftFooter =
@@ -461,41 +461,41 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         ref={sheetRef}
         index={-1}
         snapPoints={snapPoints}
-        enableContentPanningGesture={route !== "rendraBatchCount"}
+        enableContentPanningGesture={route !== "batchCount"}
         enableHandlePanningGesture
         enablePanDownToClose={!hasCloseGuard}
         backdropComponent={renderBackdrop}
-        style={rendraSheetStyles.sheetContainer}
-        containerStyle={rendraSheetStyles.sheetContainer}
+        style={sheetStyles.sheetContainer}
+        containerStyle={sheetStyles.sheetContainer}
         backgroundStyle={[
-          rendraSheetStyles.sheetBackground,
+          sheetStyles.sheetBackground,
           (route === "metadataView" || route === "metadataImport") &&
-            rendraSheetStyles.metadataSheetBackground,
+            sheetStyles.metadataSheetBackground,
         ]}
-        handleIndicatorStyle={rendraSheetStyles.sheetHandle}
+        handleIndicatorStyle={sheetStyles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         onChange={handleChange}
       >
-        <View style={rendraSheetStyles.layout}>
+        <View style={sheetStyles.layout}>
           <Reanimated.View
             key={`header-${route}`}
             entering={routeEntering}
-            style={rendraSheetStyles.routeContent}
+            style={sheetStyles.routeContent}
           >
             <Reanimated.View
               entering={ROUTE_FADE_IN}
               style={[
-                rendraSheetStyles.headerBase,
-                rendraSheetStyles.header,
+                sheetStyles.headerBase,
+                sheetStyles.header,
                 route === "resolutionCustom" &&
-                  rendraSheetStyles.customResolutionHeader,
+                  sheetStyles.customResolutionHeader,
               ]}
             >
               {canBack && (
                 <BottomSheetTouchableOpacity
-                  style={rendraSheetStyles.backButton}
+                  style={sheetStyles.backButton}
                   onPress={back}
                 >
                   <Ionicons
@@ -507,8 +507,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               )}
               <Text
                 style={[
-                  rendraSheetStyles.titleBase,
-                  rendraSheetStyles.title,
+                  sheetStyles.titleBase,
+                  sheetStyles.title,
                 ]}
                 numberOfLines={1}
               >
@@ -520,7 +520,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   accessibilityLabel="메타데이터 가져오기"
                   hitSlop={6}
                   onPress={handleOpenCurrentMetadataImport}
-                  style={rendraSheetStyles.headerAction}
+                  style={sheetStyles.headerAction}
                 >
                   <Ionicons
                     name="download-outline"
@@ -536,13 +536,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               leave @gorhom/bottom-sheet with a stale Android gesture ref. */}
           <BottomSheetScrollView
             ref={scrollRef}
-            style={rendraSheetStyles.scrollView}
+            style={sheetStyles.scrollView}
             contentContainerStyle={
               route === "metadataView"
-                ? rendraSheetStyles.metadataScrollContent
+                ? sheetStyles.metadataScrollContent
                 : [
-                    rendraSheetStyles.scrollContentBase,
-                    rendraSheetStyles.scrollContent,
+                    sheetStyles.scrollContentBase,
+                    sheetStyles.scrollContent,
                   ]
             }
             showsVerticalScrollIndicator={false}
@@ -551,55 +551,55 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             <Reanimated.View
               key={route}
               entering={routeEntering}
-              style={rendraSheetStyles.routeContent}
+              style={sheetStyles.routeContent}
             >
               <Reanimated.View
                 entering={ROUTE_FADE_IN}
-                style={rendraSheetStyles.routeContent}
+                style={sheetStyles.routeContent}
               >
-                {route === "rendraBatchCount" ? (
-                  <RendraBatchCountSheet />
+                {route === "batchCount" ? (
+                  <BatchCountSheet />
                 ) : route === "ucPreset" ? (
-                  <RendraUcPresetSheet onSelect={close} />
+                  <UcPresetSheet onSelect={close} />
                 ) : route === "seed" ? (
-                  <RendraSeedSheet
+                  <SeedSheet
                     onSaveAndClose={forceClose}
                     registerDraft={registerDraft}
                   />
                 ) : route === "resolution" ? (
-                  <RendraResolutionSheet
+                  <ResolutionSheet
                     onSelect={forceClose}
                     onOpenCustom={handleOpenCustomResolution}
                   />
                 ) : route === "resolutionCustom" ? (
-                  <RendraCustomResolutionSheet registerDraft={registerDraft} />
+                  <CustomResolutionSheet registerDraft={registerDraft} />
                 ) : route === "characterOrder" ? (
-                  <RendraCharacterOrderSheet registerDraft={registerDraft} />
+                  <CharacterOrderSheet registerDraft={registerDraft} />
                 ) : route === "characterPosition" ? (
                   current.characterId ? (
-                    <RendraCharacterPositionSheet
+                    <CharacterPositionSheet
                       characterId={current.characterId}
                     />
                   ) : null
                 ) : route === "preciseMode" ? (
                   current.preciseReferenceId ? (
-                    <RendraPreciseModeSheet
+                    <PreciseModeSheet
                       referenceId={current.preciseReferenceId}
                       onSelect={forceClose}
                     />
                   ) : null
                 ) : isGenerationOptionRoute(route) ? (
-                  <RendraGenerationOptionSheet route={route} onSelect={close} />
+                  <GenerationOptionSheet route={route} onSelect={close} />
                 ) : route === "metadataView" ? (
                   current.params ? (
-                    <RendraMetadataDetails
+                    <MetadataDetails
                       parsed={currentRecordMetadata}
                       variant="sheet"
                     />
                   ) : null
                 ) : route === "metadataImport" ? (
                   current.metadata ? (
-                    <RendraMetadataImportSheet
+                    <MetadataImportSheet
                       parsed={current.metadata}
                       registerDraft={registerDraft}
                     />
@@ -613,11 +613,11 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             style={
               showDraftFooter
                 ? draftFooterStyle
-                : rendraSheetStyles.footerHidden
+                : sheetStyles.footerHidden
             }
           >
-            <View style={rendraSheetStyles.footerButton}>
-              <RendraPrimaryButton
+            <View style={sheetStyles.footerButton}>
+              <PrimaryButton
                 label={route === "metadataImport" ? "가져오기" : "저장"}
                 disabled={!activeDraft?.canSave}
                 onPress={handleDraftFooterSave}
@@ -630,7 +630,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const rendraSheetStyles = StyleSheet.create({
+const sheetStyles = StyleSheet.create({
   sheetContainer: {
     zIndex: 100,
     elevation: 100,
@@ -720,6 +720,6 @@ const rendraSheetStyles = StyleSheet.create({
     display: "none",
   },
   footerButton: {
-    height: RENDRA_FOOTER_HEIGHT,
+    height: FOOTER_HEIGHT,
   },
 });

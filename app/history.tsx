@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 
-import { HistoryScreen } from "../src/screens/HistoryScreen";
+import { HistoryScreen } from "../src/screens/history/HistoryScreen";
 
 export default function HistoryRoute() {
   const router = useRouter();
