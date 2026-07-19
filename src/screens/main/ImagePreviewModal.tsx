@@ -18,7 +18,7 @@ import { Easing as ReanimatedEasing } from "react-native-reanimated";
 import { Gallery } from "react-native-zoom-toolkit";
 
 import { useAppSheet } from "../../context/AppSheetContext";
-import { light } from "../home/styles";
+import { tokens } from "../../styles/tokens";
 import { styles } from "./styles";
 
 const GALLERY_SNAP_TIMING_CONFIG = {
@@ -36,6 +36,7 @@ export function ImagePreviewModal({
   onCopyCurrent,
   onDeleteCurrent,
   metadataRecords,
+  closeButtonVariant = "default",
 }: {
   visible: boolean;
   images: string[];
@@ -46,6 +47,7 @@ export function ImagePreviewModal({
   onCopyCurrent?: (index: number) => void | Promise<void>;
   onDeleteCurrent?: (index: number) => void | Promise<void>;
   metadataRecords?: GenerationRecord[];
+  closeButtonVariant?: "default" | "rendraHeader";
 }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -61,6 +63,7 @@ export function ImagePreviewModal({
   const [isCopying, setIsCopying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const busy = isSaving || isCopying || isDeleting;
+  const usesRendraHeaderCloseButton = closeButtonVariant === "rendraHeader";
 
   useEffect(() => {
     if (visible) {
@@ -185,7 +188,12 @@ export function ImagePreviewModal({
         <Animated.View
           style={[
             styles.previewCloseButton,
-            { top: insets.top + 5, opacity: controlsAnim },
+            usesRendraHeaderCloseButton &&
+              styles.previewCloseButtonRendraHeader,
+            {
+              top: insets.top + (usesRendraHeaderCloseButton ? 14 : 12),
+              opacity: controlsAnim,
+            },
           ]}
           pointerEvents={controlsVisible ? "auto" : "none"}
         >
@@ -203,7 +211,11 @@ export function ImagePreviewModal({
             accessibilityLabel="닫기"
             onPress={onClose}
           >
-            <Ionicons name="close" size={22} color={light.textPrimary} />
+            <Ionicons
+              name="close"
+              size={usesRendraHeaderCloseButton ? 18 : 20}
+              color={tokens.color.textPrimary}
+            />
           </TouchableOpacity>
         </Animated.View>
 
@@ -242,19 +254,20 @@ export function ImagePreviewModal({
                       busy && styles.previewActionButtonDisabled,
                     ]}
                     accessibilityRole="button"
+                    accessibilityLabel="이미지 저장"
                     disabled={busy}
                     onPress={handleSave}
                   >
                     {isSaving ? (
                       <ActivityIndicator
-                        color={light.textPrimary}
+                        color={tokens.color.textPrimary}
                         size="small"
                       />
                     ) : (
                       <Ionicons
-                        name="arrow-down-outline"
+                        name="download-outline"
                         size={20}
-                        color={light.textPrimary}
+                        color={tokens.color.textPrimary}
                       />
                     )}
                   </Pressable>
@@ -266,19 +279,20 @@ export function ImagePreviewModal({
                       busy && styles.previewActionButtonDisabled,
                     ]}
                     accessibilityRole="button"
+                    accessibilityLabel="이미지 복사"
                     disabled={busy}
                     onPress={handleCopy}
                   >
                     {isCopying ? (
                       <ActivityIndicator
-                        color={light.textPrimary}
+                        color={tokens.color.textPrimary}
                         size="small"
                       />
                     ) : (
                       <Ionicons
                         name="copy-outline"
                         size={20}
-                        color={light.textPrimary}
+                        color={tokens.color.textPrimary}
                       />
                     )}
                   </Pressable>
@@ -290,19 +304,20 @@ export function ImagePreviewModal({
                       busy && styles.previewActionButtonDisabled,
                     ]}
                     accessibilityRole="button"
+                    accessibilityLabel="이미지 삭제"
                     disabled={busy}
                     onPress={handleDelete}
                   >
                     {isDeleting ? (
                       <ActivityIndicator
-                        color={light.textPrimary}
+                        color={tokens.color.negative}
                         size="small"
                       />
                     ) : (
                       <Ionicons
                         name="trash-outline"
                         size={20}
-                        color={light.textPrimary}
+                        color={tokens.color.negative}
                       />
                     )}
                   </Pressable>
@@ -314,13 +329,14 @@ export function ImagePreviewModal({
                       busy && styles.previewActionButtonDisabled,
                     ]}
                     accessibilityRole="button"
+                    accessibilityLabel="메타데이터 보기"
                     disabled={busy}
                     onPress={handleMetadata}
                   >
                     <Ionicons
                       name="information-circle-outline"
                       size={20}
-                      color={light.textPrimary}
+                      color={tokens.color.textPrimary}
                     />
                   </Pressable>
                 ) : null}

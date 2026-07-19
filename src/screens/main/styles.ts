@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import { colors } from "../../styles/colors";
-import { light } from "../home/styles";
+import { tokens } from "../../styles/tokens";
 
 export const MAIN_SEGMENT_WIDTH = 100;
 export const MAIN_SEGMENT_HEIGHT = 36;
@@ -191,29 +191,30 @@ export const styles = StyleSheet.create({
   // FloatingPillHeader 우측 pill(blur) 과 동일한 위치/모양
   previewCloseButton: {
     position: "absolute",
-    left: 16,
-    width: 46,
-    height: 46,
-    borderRadius: 999,
-    shadowColor: "#000000",
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    left: tokens.space[10],
+    width: 40,
+    height: 40,
+    borderRadius: tokens.radius.pill,
+    ...tokens.shadow.floatSm,
+  },
+  previewCloseButtonRendraHeader: {
+    left: tokens.space[8],
+    width: 36,
+    height: 36,
   },
   previewCloseBg: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 999,
+    borderRadius: tokens.radius.pill,
     overflow: "hidden",
-    backgroundColor: "rgba(25,27,49,0.78)",
+    backgroundColor: tokens.color.overlay,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: light.border,
+    borderColor: tokens.color.borderSubtle,
   },
   previewCloseTouch: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 999,
+    borderRadius: tokens.radius.pill,
   },
   // HistoryScreen 선택모드 하단 pill 컨트롤바와 동일
   previewActionWrap: {
@@ -225,30 +226,26 @@ export const styles = StyleSheet.create({
     elevation: 30,
   },
   previewActionShadow: {
-    borderRadius: 999,
-    shadowColor: "#00000076",
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    borderRadius: tokens.radius.pill,
+    ...tokens.shadow.floatMd,
   },
   previewActionBar: {
     flexDirection: "row",
-    borderRadius: 999,
-    padding: 4,
-    gap: 4,
+    borderRadius: tokens.radius.pill,
+    padding: tokens.space[2],
+    gap: tokens.space[2],
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: light.border,
-    backgroundColor: light.input,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.overlay,
   },
   previewActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
+    paddingHorizontal: tokens.space[9],
+    borderRadius: tokens.radius.pill,
   },
   previewActionButtonDisabled: {
     opacity: 0.55,

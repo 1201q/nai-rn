@@ -5,14 +5,12 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -38,10 +36,14 @@ import {
 } from "../lib/generationHistory";
 import { ImagePreviewModal } from "./main/ImagePreviewModal";
 import { useAppSheet } from "../context/AppSheetContext";
-import { FloatingPillHeader } from "../components/FloatingPillHeader";
 import { ScreenEdgeFade } from "../components/ScreenEdgeFade";
+import {
+  RENDRA_DETAIL_HEADER_TOP_OFFSET,
+  RendraDetailHeaderOverlay,
+  RendraDetailScrollTitle,
+} from "../components/rendra/RendraDetailScrollHeader";
 import { useScalePress } from "./home/useScalePress";
-import { light } from "./home/styles";
+import { tokens } from "../styles/tokens";
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable);
 
@@ -126,7 +128,11 @@ const HistoryTile = memo(function HistoryTile({
             ]}
           >
             {isSelected ? (
-              <Ionicons name="checkmark" size={14} color={light.accentText} />
+              <Ionicons
+                name="checkmark"
+                size={14}
+                color={tokens.color.onAccent}
+              />
             ) : null}
           </View>
           <Pressable
@@ -134,7 +140,11 @@ const HistoryTile = memo(function HistoryTile({
             onPress={() => onOpenPreview(index)}
             hitSlop={4}
           >
-            <Ionicons name="expand-outline" size={12} color="#ffffff" />
+            <Ionicons
+              name="expand-outline"
+              size={12}
+              color={tokens.color.textPrimary}
+            />
           </Pressable>
         </>
       ) : null}
@@ -142,12 +152,114 @@ const HistoryTile = memo(function HistoryTile({
   );
 });
 
+function HistorySelectionHeader({
+  topInset,
+  scrollY,
+  selectedCount,
+  allSelected,
+  onToggleSelectAll,
+  onCancelSelection,
+}: {
+  topInset: number;
+  scrollY: Animated.Value;
+  selectedCount: number;
+  allSelected: boolean;
+  onToggleSelectAll: () => void;
+  onCancelSelection: () => void;
+}) {
+  const fadeOpacity = scrollY.interpolate({
+    inputRange: [0, 24],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const buttonBackgroundOpacity = scrollY.interpolate({
+    inputRange: [0, 30],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.selectionHeaderFade, { opacity: fadeOpacity }]}
+      >
+        <ScreenEdgeFade
+          topHeight={topInset + 70}
+          color={tokens.color.app}
+          transparentColor="rgba(10,10,11,0)"
+        />
+      </Animated.View>
+
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.selectionHeader,
+          { top: topInset + RENDRA_DETAIL_HEADER_TOP_OFFSET + 6 },
+        ]}
+      >
+        <View style={styles.selectionHeaderContent}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.selectionHeaderButtonBackground,
+              { opacity: buttonBackgroundOpacity },
+            ]}
+          />
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel="전체 선택"
+            accessibilityState={{ checked: allSelected }}
+            hitSlop={6}
+            onPress={onToggleSelectAll}
+            style={[
+              styles.selectionHeaderCheckbox,
+              allSelected && styles.selectionHeaderCheckboxSelected,
+            ]}
+          >
+            {allSelected ? (
+              <Ionicons
+                name="checkmark"
+                size={12}
+                color={tokens.color.onAccent}
+              />
+            ) : null}
+          </Pressable>
+          <Text style={styles.selectionHeaderCount}>
+            {selectedCount}개 선택
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="선택 취소"
+          hitSlop={6}
+          onPress={onCancelSelection}
+          style={({ pressed }) => [
+            styles.selectionHeaderCancel,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.selectionHeaderButtonBackground,
+              { opacity: buttonBackgroundOpacity },
+            ]}
+          />
+          <Text style={styles.selectionHeaderCancelText}>취소</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
 export function HistoryScreen({
   onSelectionModeChange,
-  headerLeft,
+  onBack,
 }: {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
-  headerLeft?: ReactNode;
+  onBack?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
@@ -171,7 +283,6 @@ export function HistoryScreen({
   const barUI = useRef(new Animated.Value(0)).current;
   const [bgMounted, setBgMounted] = useState(false);
   const [barMounted, setBarMounted] = useState(false);
-  const listRef = useRef<FlatList>(null);
   const previewImages = useMemo(
     () => generationHistory.map(resolveGenerationImageUri),
     [generationHistory],
@@ -422,7 +533,6 @@ export function HistoryScreen({
       <StatusBar style="light" />
 
       <Animated.FlatList
-        ref={listRef}
         data={generationHistory}
         keyExtractor={(item) => item.id}
         numColumns={3}
@@ -435,20 +545,29 @@ export function HistoryScreen({
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false },
+          { useNativeDriver: true },
         )}
         contentContainerStyle={[
           generationHistory.length === 0 && styles.emptyGrid,
           {
-            paddingTop: insets.top + 56,
+            paddingTop: insets.top + RENDRA_DETAIL_HEADER_TOP_OFFSET,
             paddingBottom: insets.bottom + (selectedCount > 0 ? 80 : 18),
           },
         ]}
+        ListHeaderComponent={
+          <View style={styles.scrollHeader}>
+            {isSelectionMode ? (
+              <View style={styles.scrollHeaderSpacer} />
+            ) : (
+              <RendraDetailScrollTitle title="History" scrollY={scrollY} />
+            )}
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No history yet</Text>
+            <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
             <Text style={styles.emptyText}>
-              Generated images will appear here.
+              이미지를 생성하면 여기에 기록이 쌓입니다
             </Text>
           </View>
         }
@@ -472,60 +591,30 @@ export function HistoryScreen({
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { opacity: bgUI }]}
         >
-          <ScreenEdgeFade bottomHeight={insets.bottom + 140} />
+          <ScreenEdgeFade
+            bottomHeight={insets.bottom + 140}
+            color={tokens.color.app}
+            transparentColor="rgba(10,10,11,0)"
+          />
         </Animated.View>
       ) : null}
 
-      <FloatingPillHeader
-        title="History"
-        left={isSelectionMode ? undefined : headerLeft}
-        titleNode={
-          isSelectionMode ? (
-            <View style={styles.selectionHeaderContent}>
-              <Pressable
-                style={[
-                  styles.selectionHeaderCheckbox,
-                  allSelected && styles.selectionHeaderCheckboxSelected,
-                ]}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: allSelected }}
-                onPress={toggleSelectAll}
-              >
-                {allSelected ? (
-                  <Ionicons
-                    name="checkmark"
-                    size={14}
-                    color={light.accentText}
-                  />
-                ) : null}
-              </Pressable>
-              <Text style={styles.selectionHeaderCount}>{selectedCount}</Text>
-            </View>
-          ) : (
-            <Text style={styles.historyHeaderTitle}>History</Text>
-          )
-        }
-        scrollY={scrollY}
-        topInset={insets.top}
-        right={
-          isSelectionMode ? (
-            <Pressable
-              style={styles.selectionHeaderCancel}
-              accessibilityRole="button"
-              onPress={exitSelectionMode}
-            >
-              <Text style={styles.selectionHeaderCancelText}>취소</Text>
-            </Pressable>
-          ) : undefined
-        }
-        rightCircle={false}
-        onTitlePress={
-          isSelectionMode
-            ? undefined
-            : () =>
-                listRef.current?.scrollToOffset({ offset: 0, animated: true })
-        }
-      />
+      {isSelectionMode ? (
+        <HistorySelectionHeader
+          topInset={insets.top}
+          scrollY={scrollY}
+          selectedCount={selectedCount}
+          allSelected={allSelected}
+          onToggleSelectAll={toggleSelectAll}
+          onCancelSelection={exitSelectionMode}
+        />
+      ) : onBack ? (
+        <RendraDetailHeaderOverlay
+          scrollY={scrollY}
+          topInset={insets.top}
+          onBack={onBack}
+        />
+      ) : null}
 
       {barMounted ? (
         <Animated.View
@@ -556,12 +645,15 @@ export function HistoryScreen({
                 onPress={handleSaveSelected}
               >
                 {isSavingSelected ? (
-                  <ActivityIndicator color={light.textPrimary} size="small" />
+                  <ActivityIndicator
+                    color={tokens.color.textPrimary}
+                    size="small"
+                  />
                 ) : (
                   <Ionicons
-                    name="arrow-down-outline"
+                    name="download-outline"
                     size={20}
-                    color={light.textPrimary}
+                    color={tokens.color.textPrimary}
                   />
                 )}
                 <Text style={styles.selectionActionText}>저장</Text>
@@ -577,15 +669,25 @@ export function HistoryScreen({
                 onPress={handleDeleteSelected}
               >
                 {isDeletingSelected ? (
-                  <ActivityIndicator color={light.textPrimary} size="small" />
+                  <ActivityIndicator
+                    color={tokens.color.negative}
+                    size="small"
+                  />
                 ) : (
                   <Ionicons
                     name="trash-outline"
                     size={20}
-                    color={light.textPrimary}
+                    color={tokens.color.negative}
                   />
                 )}
-                <Text style={styles.selectionActionText}>삭제</Text>
+                <Text
+                  style={[
+                    styles.selectionActionText,
+                    styles.selectionActionTextNegative,
+                  ]}
+                >
+                  삭제
+                </Text>
               </Pressable>
             </BlurView>
           </View>
@@ -594,6 +696,7 @@ export function HistoryScreen({
 
       <ImagePreviewModal
         visible={isPreviewOpen}
+        closeButtonVariant="rendraHeader"
         images={previewImages}
         initialIndex={previewIndex}
         animation={previewAnimation}
@@ -610,31 +713,37 @@ export function HistoryScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: light.bg,
+    backgroundColor: tokens.color.app,
   },
   list: {
     flex: 1,
   },
   emptyGrid: {
     flexGrow: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   emptyState: {
+    flex: 1,
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: tokens.space[3],
+    paddingHorizontal: tokens.space[16],
+    paddingBottom: 48,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: light.textPrimary,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.md,
   },
   emptyText: {
-    fontSize: 13,
-    color: light.textSecondary,
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.xs,
+    lineHeight: 19,
+    textAlign: "center",
   },
   tile: {
-    backgroundColor: light.surface,
+    overflow: "hidden",
+    backgroundColor: tokens.color.card,
   },
   tileImage: {
     width: "100%",
@@ -646,7 +755,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(10,10,11,0.58)",
   },
   selectionCircle: {
     position: "absolute",
@@ -656,14 +765,14 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: "#ffffff",
-    backgroundColor: "rgba(0,0,0,0.28)",
+    borderColor: tokens.color.textPrimary,
+    backgroundColor: "rgba(10,10,11,0.42)",
     alignItems: "center",
     justifyContent: "center",
   },
   selectionCircleSelected: {
-    backgroundColor: light.accent,
-    borderColor: "rgba(0,0,0,0.28)",
+    backgroundColor: tokens.color.accent,
+    borderColor: tokens.color.onAccent,
   },
   expandButton: {
     position: "absolute",
@@ -671,56 +780,83 @@ const styles = StyleSheet.create({
     right: 6,
     width: 20,
     height: 20,
-    borderRadius: 5,
-    backgroundColor: "rgba(0,0,0,0.38)",
+    borderRadius: tokens.radius.sm,
+    backgroundColor: tokens.color.overlay,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.color.borderSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
-  historyHeaderTitle: {
-    height: 30,
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: "600",
-    color: light.textPrimary,
+  scrollHeader: {
+    width: "100%",
+    paddingHorizontal: tokens.space[8],
   },
-  selectionHeaderContent: {
-    height: 30,
+  scrollHeaderSpacer: {
+    height: 48,
+  },
+  selectionHeaderFade: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 8,
+    elevation: 8,
+  },
+  selectionHeader: {
+    position: "absolute",
+    left: tokens.space[8],
+    right: tokens.space[8],
+    zIndex: 10,
+    elevation: 10,
+    height: 36,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
+  },
+  selectionHeaderContent: {
+    height: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[3],
+    paddingHorizontal: tokens.space[6],
+    borderRadius: tokens.radius.pill,
+  },
+  selectionHeaderButtonBackground: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: tokens.radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.overlay,
+    ...tokens.shadow.floatSm,
   },
   selectionHeaderCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: "#ffffff",
-    backgroundColor: "rgba(0,0,0,0.16)",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: tokens.color.textSecondary,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
   selectionHeaderCheckboxSelected: {
-    backgroundColor: light.accent,
-    borderColor: "rgba(0,0,0,0.18)",
+    backgroundColor: tokens.color.accent,
+    borderColor: tokens.color.onAccent,
   },
   selectionHeaderCount: {
-    minWidth: 18,
-    fontSize: 20,
-    lineHeight: 30,
-    fontWeight: "700",
-    color: light.textPrimary,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
   },
   selectionHeaderCancel: {
-    height: 30,
+    height: 36,
+    minWidth: 58,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: tokens.space[5],
+    borderRadius: tokens.radius.pill,
   },
   selectionHeaderCancelText: {
-    fontSize: 17,
-    lineHeight: 30,
-    fontWeight: "700",
-    color: light.textPrimary,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
   },
   selectionActionWrap: {
     position: "absolute",
@@ -731,37 +867,39 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   selectionActionShadow: {
-    borderRadius: 999,
-    shadowColor: "#00000076",
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    borderRadius: tokens.radius.pill,
+    ...tokens.shadow.floatMd,
   },
   selectionActionBar: {
     flexDirection: "row",
-    borderRadius: 999,
-    padding: 4,
-    gap: 4,
+    borderRadius: tokens.radius.pill,
+    padding: tokens.space[2],
+    gap: tokens.space[2],
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: light.border,
-    backgroundColor: light.input,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.overlay,
   },
   selectionActionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: tokens.space[3],
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
+    paddingHorizontal: tokens.space[9],
+    borderRadius: tokens.radius.pill,
   },
   selectionActionButtonDisabled: {
     opacity: 0.55,
   },
   selectionActionText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: light.textPrimary,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
+  },
+  selectionActionTextNegative: {
+    color: tokens.color.negative,
+  },
+  pressed: {
+    opacity: 0.68,
   },
 });
