@@ -1,8 +1,9 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Easing,
   Pressable,
   StyleSheet,
@@ -22,6 +23,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
+import { ImagePreviewModal } from "../main/ImagePreviewModal";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
 const TOOLBAR_EXPANDED_WIDTH = 220;
@@ -70,8 +72,9 @@ export function GenerationCanvas() {
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
-  const { open } = useAppSheet();
+  const { open, isOpen: isSheetOpen } = useAppSheet();
   const [expanded, setExpanded] = useState(true);
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [canvasSize, setCanvasSize] = useState<Size>({ width: 0, height: 0 });
@@ -80,6 +83,7 @@ export function GenerationCanvas() {
     aspectRatio: number;
   } | null>(null);
   const [toolbarAnimation] = useState(() => new Animated.Value(1));
+  const previewAnimation = useRef(new Animated.Value(0)).current;
 
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
@@ -107,6 +111,8 @@ export function GenerationCanvas() {
     [canvasSize, imageAspectRatio],
   );
   const canUseImageActions = Boolean(currentImageUri) && !isLoading;
+  const canOpenImagePreview =
+    Boolean(currentImageUri) && !isLoading && !streamingPreviewUri;
 
   function handleImageLoad(event: ImageLoadEventData) {
     if (!displayedImageUri) return;
@@ -129,6 +135,41 @@ export function GenerationCanvas() {
       useNativeDriver: false,
     }).start();
   }
+
+  function openImagePreview() {
+    if (!canOpenImagePreview) return;
+    setIsImagePreviewOpen(true);
+    previewAnimation.setValue(0);
+    Animated.timing(previewAnimation, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closeImagePreview() {
+    Animated.timing(previewAnimation, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setIsImagePreviewOpen(false);
+    });
+  }
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (isImagePreviewOpen && !isSheetOpen) {
+          closeImagePreview();
+          return true;
+        }
+        return false;
+      },
+    );
+    return () => subscription.remove();
+  }, [isImagePreviewOpen, isSheetOpen]);
 
   async function saveImage() {
     if (!currentImageUri || isSaving) return;
@@ -193,14 +234,23 @@ export function GenerationCanvas() {
           </View>
         ) : null}
         {displayedImageUri ? (
-          <ExpoImage
-            source={imageSource}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={0}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="생성 이미지 미리보기"
+            accessibilityState={{ disabled: !canOpenImagePreview }}
+            disabled={!canOpenImagePreview}
+            onPress={openImagePreview}
             style={[styles.generatedImage, imageSize]}
-            onLoad={handleImageLoad}
-          />
+          >
+            <ExpoImage
+              source={imageSource}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={0}
+              style={StyleSheet.absoluteFill}
+              onLoad={handleImageLoad}
+            />
+          </Pressable>
         ) : null}
         {isLoading && !streamingPreviewUri ? (
           <ActivityIndicator
@@ -266,6 +316,16 @@ export function GenerationCanvas() {
           </Pressable>
         </Animated.View>
       </View>
+
+      <ImagePreviewModal
+        visible={isImagePreviewOpen}
+        closeButtonVariant="rendraHeader"
+        images={currentImageUri ? [currentImageUri] : []}
+        initialIndex={0}
+        animation={previewAnimation}
+        onClose={closeImagePreview}
+        metadataRecords={currentGeneration ? [currentGeneration] : undefined}
+      />
     </View>
   );
 }
