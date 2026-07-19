@@ -1,4 +1,7 @@
-export type RendraSheetDraftId = "seed" | "resolutionCustom";
+export type RendraSheetDraftId =
+  | "seed"
+  | "resolutionCustom"
+  | "metadataImport";
 
 export type RendraSheetDraftController = {
   id: RendraSheetDraftId;

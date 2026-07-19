@@ -243,3 +243,15 @@ export function parseNaiMetadata(
 
   return result;
 }
+
+export function parseNaiMetadataJson(
+  metadataJson: string,
+): ParsedNaiMetadata | null {
+  try {
+    const raw = JSON.parse(metadataJson);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    return parseNaiMetadata(raw as Record<string, string>);
+  } catch {
+    return null;
+  }
+}

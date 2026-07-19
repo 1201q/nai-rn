@@ -33,6 +33,11 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import type { GenerationRecord } from "../lib/generationHistory";
+import {
+  parseNaiMetadataJson,
+  type ParsedNaiMetadata,
+} from "../lib/naiMetadata";
+import { hasImportableMetadata } from "../lib/metadataImport";
 import { useGenerationStore } from "../store/generationStore";
 import { NumericSheetContent } from "../screens/home/NumericSheet";
 import { BATCH_COUNT_CONFIG } from "../screens/home/constants";
@@ -48,6 +53,7 @@ import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomRe
 import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
 import { RendraPreciseModeSheet } from "../components/rendra/RendraPreciseModeSheet";
 import { RendraBatchCountSheet } from "../components/rendra/RendraBatchCountSheet";
+import { RendraMetadataImportSheet } from "../components/rendra/RendraMetadataImportSheet";
 import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
@@ -57,6 +63,7 @@ import { light, styles } from "../screens/home/styles";
 // 같은 제스처/백드롭 로직을 공유한다.
 type RendraSheetRoute =
   | "metadataView"
+  | "metadataImport"
   | "rendraBatchCount"
   | "ucPreset"
   | "seed"
@@ -85,6 +92,7 @@ function BatchCountSheet() {
 type StackEntry = {
   route: SheetRoute;
   params?: GenerationRecord;
+  metadata?: ParsedNaiMetadata;
   characterId?: string;
   preciseReferenceId?: string;
 };
@@ -93,6 +101,7 @@ type OpenRequest = { id: number; route: SheetRoute };
 
 type AppSheetContextValue = {
   open: (route: SheetRoute, params?: GenerationRecord) => void;
+  openMetadataImport: (metadata: ParsedNaiMetadata) => void;
   openCharacterPosition: (characterId: string) => void;
   openPreciseMode: (referenceId: string) => void;
   push: (route: SheetRoute, params?: GenerationRecord) => void;
@@ -115,6 +124,7 @@ export function useAppSheet() {
 const SNAP_POINTS = ["60%", "92%"];
 const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   metadataView: ["92%"],
+  metadataImport: ["92%"],
   rendraBatchCount: ["44%"],
   ucPreset: ["44%"],
   seed: ["44%"],
@@ -133,6 +143,7 @@ const RENDRA_FOOTER_HEIGHT = 52;
 
 function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "Metadata";
+  if (route === "metadataImport") return "Import Metadata";
   if (route === "rendraBatchCount") return "Batch Count";
   if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
@@ -149,6 +160,7 @@ function titleFor(route: SheetRoute) {
 function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
   return (
     route === "metadataView" ||
+    route === "metadataImport" ||
     route === "rendraBatchCount" ||
     route === "ucPreset" ||
     route === "seed" ||
@@ -301,6 +313,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [openEntry],
   );
 
+  const openMetadataImport = useCallback(
+    (metadata: ParsedNaiMetadata) => {
+      openEntry({ route: "metadataImport", metadata });
+    },
+    [openEntry],
+  );
+
   const openCharacterPosition = useCallback(
     (characterId: string) => {
       openEntry({ route: "characterPosition", characterId });
@@ -321,6 +340,21 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       const top = stackRef.current[stackRef.current.length - 1];
       if (top?.route === route) return;
       apply([...stackRef.current, { route, params }], "forward");
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      });
+    },
+    [apply],
+  );
+
+  const pushMetadataImport = useCallback(
+    (metadata: ParsedNaiMetadata) => {
+      const top = stackRef.current[stackRef.current.length - 1];
+      if (top?.route === "metadataImport") return;
+      apply(
+        [...stackRef.current, { route: "metadataImport", metadata }],
+        "forward",
+      );
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       });
@@ -374,6 +408,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppSheetContextValue>(
     () => ({
       open,
+      openMetadataImport,
       openCharacterPosition,
       openPreciseMode,
       push,
@@ -381,7 +416,16 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       close,
       isOpen,
     }),
-    [open, openCharacterPosition, openPreciseMode, push, back, close, isOpen],
+    [
+      open,
+      openMetadataImport,
+      openCharacterPosition,
+      openPreciseMode,
+      push,
+      back,
+      close,
+      isOpen,
+    ],
   );
 
   const current = stack[stack.length - 1];
@@ -389,6 +433,20 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const isRendraRoute = isRendraSheetRoute(route);
   const snapPoints = isRendraRoute ? RENDRA_SNAP_POINTS[route] : SNAP_POINTS;
   const canBack = stack.length > 1;
+  const currentRecordMetadata = useMemo(
+    () =>
+      route === "metadataView" && current.params
+        ? parseNaiMetadataJson(current.params.metadataJson)
+        : null,
+    [current.params, route],
+  );
+  const canImportCurrentMetadata = Boolean(
+    currentRecordMetadata && hasImportableMetadata(currentRecordMetadata),
+  );
+  const handleOpenCurrentMetadataImport = useCallback(() => {
+    if (!currentRecordMetadata) return;
+    pushMetadataImport(currentRecordMetadata);
+  }, [currentRecordMetadata, pushMetadataImport]);
 
   useEffect(() => {
     if (!openRequest || openRequest.route !== route) return;
@@ -411,7 +469,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     () => [rendraSheetStyles.footer, { paddingBottom: footerBottomInset }],
     [footerBottomInset],
   );
-  const showDraftFooter = route === "seed" || route === "resolutionCustom";
+  const showDraftFooter =
+    route === "seed" ||
+    route === "resolutionCustom" ||
+    route === "metadataImport";
   const activeDraft = draftController?.id === route ? draftController : null;
   const handleDraftFooterSave = useCallback(() => {
     const controller = draftControllerRef.current;
@@ -446,7 +507,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           isRendraRoute
             ? [
                 rendraSheetStyles.sheetBackground,
-                route === "metadataView" &&
+                (route === "metadataView" || route === "metadataImport") &&
                   rendraSheetStyles.metadataSheetBackground,
               ]
             : styles.sheetBackground
@@ -495,6 +556,21 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               >
                 {titleFor(route)}
               </Text>
+              {route === "metadataView" && canImportCurrentMetadata ? (
+                <BottomSheetTouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="메타데이터 가져오기"
+                  hitSlop={6}
+                  onPress={handleOpenCurrentMetadataImport}
+                  style={rendraSheetStyles.headerAction}
+                >
+                  <Ionicons
+                    name="download-outline"
+                    size={21}
+                    color={tokens.color.accent}
+                  />
+                </BottomSheetTouchableOpacity>
+              ) : null}
             </Reanimated.View>
           </Reanimated.View>
 
@@ -558,6 +634,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   current.params ? (
                     <MetadataViewContent record={current.params} />
                   ) : null
+                ) : route === "metadataImport" ? (
+                  current.metadata ? (
+                    <RendraMetadataImportSheet
+                      parsed={current.metadata}
+                      registerDraft={registerDraft}
+                    />
+                  ) : null
                 ) : (
                   <BatchCountSheet />
                 )}
@@ -574,7 +657,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           >
             <View style={rendraSheetStyles.footerButton}>
               <RendraPrimaryButton
-                label="저장"
+                label={route === "metadataImport" ? "가져오기" : "저장"}
                 disabled={!activeDraft?.canSave}
                 onPress={handleDraftFooterSave}
               />
@@ -619,6 +702,12 @@ const rendraSheetStyles = StyleSheet.create({
     fontWeight: "400",
     fontSize: 24,
     lineHeight: 30,
+  },
+  headerAction: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     paddingHorizontal: tokens.space[6],

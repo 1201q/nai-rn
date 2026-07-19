@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAppSheet } from "../../context/AppSheetContext";
 import {
   RENDRA_DETAIL_HEADER_TOP_OFFSET,
   RendraDetailHeaderOverlay,
@@ -22,6 +23,7 @@ import {
 } from "../../components/rendra/RendraDetailScrollHeader";
 import { RendraMetadataDetails } from "../../components/rendra/RendraMetadataDetails";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
+import { hasImportableMetadata } from "../../lib/metadataImport";
 import { extractPngTextMetadata } from "../../lib/novelai";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -29,6 +31,7 @@ import { tokens } from "../../styles/tokens";
 export function MetadataExtractScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { openMetadataImport } = useAppSheet();
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedNaiMetadata | null>(null);
@@ -71,6 +74,13 @@ export function MetadataExtractScreen() {
     setPickedUri(null);
     setParsed(null);
   }
+
+  function handleOpenImport() {
+    if (!parsed) return;
+    openMetadataImport(parsed);
+  }
+
+  const canImport = parsed ? hasImportableMetadata(parsed) : false;
 
   return (
     <View style={styles.screen}>
@@ -128,6 +138,26 @@ export function MetadataExtractScreen() {
                   color={tokens.color.negative}
                 />
               </Pressable>
+              {canImport ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="메타데이터를 생성 설정으로 가져오기"
+                  disabled={busy}
+                  hitSlop={5}
+                  onPress={handleOpenImport}
+                  style={({ pressed }) => [
+                    styles.importButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="download-outline"
+                    size={16}
+                    color={tokens.color.textPrimary}
+                  />
+                  <Text style={styles.importButtonLabel}>가져오기</Text>
+                </Pressable>
+              ) : null}
               {busy ? (
                 <View pointerEvents="none" style={styles.busyOverlay}>
                   <ActivityIndicator color={tokens.color.textPrimary} />
@@ -223,6 +253,29 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(23,23,26,0.86)",
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
+    zIndex: 2,
+  },
+  importButton: {
+    position: "absolute",
+    right: tokens.space[5],
+    bottom: tokens.space[5],
+    zIndex: 2,
+    minHeight: 36,
+    paddingHorizontal: tokens.space[6],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.space[3],
+    borderRadius: tokens.radius.pill,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.overlay,
+    ...tokens.shadow.floatSm,
+  },
+  importButtonLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
   },
   busyOverlay: {
     position: "absolute",
@@ -230,6 +283,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
+    zIndex: 3,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.scrim,
