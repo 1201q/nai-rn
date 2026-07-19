@@ -59,7 +59,9 @@ function CharacterActionMenu({
   visible,
   top,
   canCopy,
+  canReorder,
   onClose,
+  onReorder,
   onPosition,
   onRename,
   onCopy,
@@ -68,13 +70,22 @@ function CharacterActionMenu({
   visible: boolean;
   top: number;
   canCopy: boolean;
+  canReorder: boolean;
   onClose: () => void;
+  onReorder: () => void;
   onPosition: () => void;
   onRename: () => void;
   onCopy: () => void;
   onDelete: () => void;
 }) {
   const actions: MenuAction[] = [
+    {
+      key: "reorder",
+      label: "순서 변경",
+      icon: "reorder-three-outline",
+      action: onReorder,
+      disabled: !canReorder,
+    },
     { key: "position", label: "위치 지정", icon: "location-outline", action: onPosition },
     { key: "rename", label: "이름 변경", icon: "pencil-outline", action: onRename },
     { key: "copy", label: "복사", icon: "copy-outline", action: onCopy, disabled: !canCopy },
@@ -148,11 +159,13 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   expanded,
   positionEnabled,
   canCopy,
+  canReorder,
   onToggleExpand,
   onUpdate,
   onRename,
   onCopy,
   onDelete,
+  onOpenOrder,
   onOpenPosition,
 }: {
   item: CharacterPrompt;
@@ -160,11 +173,13 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
   expanded: boolean;
   positionEnabled: boolean;
   canCopy: boolean;
+  canReorder: boolean;
   onToggleExpand: () => void;
   onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
   onRename: (name: string) => void;
   onCopy: () => void;
   onDelete: () => void;
+  onOpenOrder: () => void;
   onOpenPosition: () => void;
 }) {
   const { height: windowHeight } = useWindowDimensions();
@@ -232,7 +247,7 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
 
   function openMenu() {
     menuAnchorRef.current?.measureInWindow((_x, pageY) => {
-      setMenuTop(Math.max(16, Math.min(windowHeight - 232, pageY - 190)));
+      setMenuTop(Math.max(16, Math.min(windowHeight - 282, pageY - 240)));
       setMenuVisible(true);
     });
   }
@@ -408,7 +423,9 @@ export const RendraCharacterCard = memo(function RendraCharacterCard({
         visible={menuVisible}
         top={menuTop}
         canCopy={canCopy}
+        canReorder={canReorder}
         onClose={() => setMenuVisible(false)}
+        onReorder={onOpenOrder}
         onPosition={onOpenPosition}
         onRename={beginRename}
         onCopy={onCopy}

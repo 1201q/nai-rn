@@ -249,7 +249,7 @@ function PromptTabContent() {
 }
 
 function CharacterTabContent() {
-  const { openCharacterPosition } = useAppSheet();
+  const { open, openCharacterPosition } = useAppSheet();
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
@@ -361,6 +361,7 @@ function CharacterTabContent() {
             expanded={expandedIds.includes(item.id)}
             positionEnabled={positionEnabled}
             canCopy={canAdd}
+            canReorder={characterPrompts.length > 1}
             onToggleExpand={() => toggleExpanded(item.id)}
             onUpdate={(values) => updateCharacter(item.id, values)}
             onRename={(name) =>
@@ -368,6 +369,7 @@ function CharacterTabContent() {
             }
             onCopy={() => copyCharacter(item.id)}
             onDelete={() => deleteCharacter(item.id)}
+            onOpenOrder={() => open("characterOrder")}
             onOpenPosition={() => openCharacterPosition(item.id)}
           />
         ))}

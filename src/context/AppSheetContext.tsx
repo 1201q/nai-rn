@@ -51,6 +51,7 @@ import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
 import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
 import { RendraCustomResolutionSheet } from "../components/rendra/RendraCustomResolutionSheet";
 import { RendraCharacterPositionSheet } from "../components/rendra/RendraCharacterPositionSheet";
+import { RendraCharacterOrderSheet } from "../components/rendra/RendraCharacterOrderSheet";
 import { RendraPreciseModeSheet } from "../components/rendra/RendraPreciseModeSheet";
 import { RendraBatchCountSheet } from "../components/rendra/RendraBatchCountSheet";
 import { RendraMetadataImportSheet } from "../components/rendra/RendraMetadataImportSheet";
@@ -69,6 +70,7 @@ type RendraSheetRoute =
   | "seed"
   | "resolution"
   | "resolutionCustom"
+  | "characterOrder"
   | "characterPosition"
   | "preciseMode"
   | RendraGenerationOptionRoute;
@@ -130,6 +132,7 @@ const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   seed: ["44%"],
   resolution: ["68%"],
   resolutionCustom: ["68%"],
+  characterOrder: ["68%"],
   characterPosition: ["68%"],
   preciseMode: ["40%"],
   model: ["50%"],
@@ -149,6 +152,7 @@ function titleFor(route: SheetRoute) {
   if (route === "seed") return "Seed";
   if (route === "resolution") return "Resolution";
   if (route === "resolutionCustom") return "Custom Resolution";
+  if (route === "characterOrder") return "Character Order";
   if (route === "characterPosition") return "Character Position";
   if (route === "preciseMode") return "Mode";
   if (route === "model") return "Model";
@@ -166,6 +170,7 @@ function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
     route === "seed" ||
     route === "resolution" ||
     route === "resolutionCustom" ||
+    route === "characterOrder" ||
     route === "characterPosition" ||
     route === "preciseMode" ||
     route === "model" ||
@@ -472,6 +477,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const showDraftFooter =
     route === "seed" ||
     route === "resolutionCustom" ||
+    route === "characterOrder" ||
     route === "metadataImport";
   const activeDraft = draftController?.id === route ? draftController : null;
   const handleDraftFooterSave = useCallback(() => {
@@ -615,6 +621,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   />
                 ) : route === "resolutionCustom" ? (
                   <RendraCustomResolutionSheet registerDraft={registerDraft} />
+                ) : route === "characterOrder" ? (
+                  <RendraCharacterOrderSheet registerDraft={registerDraft} />
                 ) : route === "characterPosition" ? (
                   current.characterId ? (
                     <RendraCharacterPositionSheet
