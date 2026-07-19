@@ -14,7 +14,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { CustomSlider } from "../../screens/home/CustomSlider";
+import { RendraSlider } from "./RendraSlider";
 import { renderPromptHighlights } from "../highlightPromptSpans";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { tokens } from "../../styles/tokens";
@@ -107,7 +107,7 @@ export const RendraParameterSlider = memo(function RendraParameterSlider({
           style={styles.sliderValue}
         />
       </View>
-      <CustomSlider
+      <RendraSlider
         value={value}
         min={min}
         max={max}

@@ -42,7 +42,7 @@ import {
   RendraDetailHeaderOverlay,
   RendraDetailScrollTitle,
 } from "../components/rendra/RendraDetailScrollHeader";
-import { useScalePress } from "./home/useScalePress";
+import { useScalePress } from "../hooks/useScalePress";
 import { tokens } from "../styles/tokens";
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable);

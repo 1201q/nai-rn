@@ -1,15 +1,15 @@
 import { StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { light } from "../screens/home/styles";
+import { tokens } from "../styles/tokens";
 
-// 스크롤 콘텐츠가 상/하단 바 밑으로 자연스럽게 사라지게 하는 화이트 페이드.
+// 스크롤 콘텐츠가 상/하단 바 밑으로 자연스럽게 사라지게 하는 배경 페이드.
 // scroll content 위, 헤더/바텀바 아래에 렌더 (pointerEvents none).
 export function ScreenEdgeFade({
   topHeight = 0,
   bottomHeight = 0,
-  color = light.bg,
-  transparentColor = "rgba(19,20,44,0)",
+  color = tokens.color.app,
+  transparentColor = "rgba(10,10,11,0)",
 }: {
   topHeight?: number;
   bottomHeight?: number;

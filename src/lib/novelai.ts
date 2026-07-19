@@ -18,7 +18,7 @@ export type NovelAiAnlasBalance = {
   total: number;
 };
 
-export type NovelAiPreciseReferenceType =
+type NovelAiPreciseReferenceType =
   | "character"
   | "style"
   | "character&style";
@@ -50,7 +50,7 @@ export async function getNovelAiAnlasBalance(
   const purchased = data.trainingStepsLeft?.purchasedTrainingSteps ?? 0;
   return { fixed, purchased, total: fixed + purchased };
 }
-export type GenerateNovelAiImageInput = {
+type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
   negativePrompt: string;
@@ -87,12 +87,12 @@ export type GenerateNovelAiCharacterPrompt = {
   position: { x: number; y: number };
 };
 
-export type GenerateNovelAiImageStreamResult = {
+type GenerateNovelAiImageStreamResult = {
   imageBase64: string;
   seed: number;
 };
 
-export type NovelAiImageStreamEvent =
+type NovelAiImageStreamEvent =
   | {
       type: "intermediate";
       imageBase64: string;

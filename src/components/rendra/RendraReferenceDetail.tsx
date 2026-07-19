@@ -34,9 +34,9 @@ const CARD_BODY_TIMING = {
 };
 const DISABLED_CARD_SCRIM_OPACITY = 0.5;
 
-export type RendraReferenceStatusTone = "cost" | "cached";
+type RendraReferenceStatusTone = "cost" | "cached";
 
-export type RendraReferenceCardStatus = {
+type RendraReferenceCardStatus = {
   label: string;
   tone: RendraReferenceStatusTone;
 };

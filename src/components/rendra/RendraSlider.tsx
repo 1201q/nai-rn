@@ -1,5 +1,11 @@
 import { useLayoutEffect, useState } from "react";
-import { View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   runOnJS,
@@ -9,12 +15,15 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-import { light } from "./styles";
-import { hapticTick } from "./primitives";
+import { tokens } from "../../styles/tokens";
 
 const SPRING = { damping: 15, stiffness: 220, mass: 0.5 };
 
-export function CustomSlider({
+function hapticTick() {
+  Haptics.selectionAsync().catch(() => {});
+}
+
+export function RendraSlider({
   value,
   min,
   max,
@@ -25,10 +34,10 @@ export function CustomSlider({
   trackHeight = 6,
   thumbSize = 22,
   pill = false,
-  trackBg = light.surfaceAlt,
-  trackFill = light.accent,
-  thumbColor = light.accent,
-  thumbBorderColor = light.surface,
+  trackBg = tokens.color.raised,
+  trackFill = tokens.color.accent,
+  thumbColor = tokens.color.accent,
+  thumbBorderColor = tokens.color.card,
   thumbBorderWidth,
   style,
 }: {
@@ -136,7 +145,10 @@ export function CustomSlider({
     <GestureDetector gesture={pan}>
       <View
         onLayout={onLayout}
-        style={[{ height: Math.max(thumbSize, 30), justifyContent: "center" }, style]}
+        style={[
+          { height: Math.max(thumbSize, 30), justifyContent: "center" },
+          style,
+        ]}
       >
         <View
           style={{

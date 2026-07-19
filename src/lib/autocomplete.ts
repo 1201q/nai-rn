@@ -6,7 +6,7 @@ export const MIN_TRIGGER = 2;
 
 const NAMESPACES: TagType[] = ["artist", "character", "copyright", "general"];
 
-export interface CurrentWord {
+interface CurrentWord {
   /** 지금 입력 중인 단어(앞쪽 공백 제거됨). */
   word: string;
   /** `text`에서 `word`가 시작하는 인덱스. */
@@ -29,7 +29,7 @@ export function getCurrentWord(text: string, position: number): CurrentWord {
   return { word, start: position - word.length };
 }
 
-export interface ParsedQuery {
+interface ParsedQuery {
   /** 이 타입으로 결과 제한, null이면 전체 타입. */
   type: TagType | null;
   /** 검색에 쓸 텍스트(`namespace:` 뒤 부분). */
@@ -51,7 +51,7 @@ export function parseQuery(word: string): ParsedQuery {
   return { type: null, query: word };
 }
 
-export interface InsertResult {
+interface InsertResult {
   text: string;
   /** 삽입 후 커서가 위치할 곳. */
   cursor: number;

@@ -13,9 +13,9 @@ const THUMBNAIL_SIZE = 360;
 const PROCESSED_JPEG_QUALITY = 95;
 
 export const MAX_PRECISE_REFERENCES = 16;
-export const DEFAULT_PRECISE_REFERENCE_STRENGTH = 0.6;
-export const DEFAULT_PRECISE_REFERENCE_FIDELITY = 0.6;
-export const DEFAULT_PRECISE_REFERENCE_TYPE = "character&style";
+const DEFAULT_PRECISE_REFERENCE_STRENGTH = 0.6;
+const DEFAULT_PRECISE_REFERENCE_FIDELITY = 0.6;
+const DEFAULT_PRECISE_REFERENCE_TYPE = "character&style";
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -67,13 +67,13 @@ type PreciseReferenceSettingsPatch = Partial<
   Pick<PreciseReference, "enabled" | "strength" | "fidelity" | "referenceType">
 >;
 
-export function getPreciseReferenceTargetSize(width: number, height: number) {
+function getPreciseReferenceTargetSize(width: number, height: number) {
   if (width > height) return { width: 1536, height: 1024 };
   if (width < height) return { width: 1024, height: 1536 };
   return { width: 1472, height: 1472 };
 }
 
-export function getContainRect(
+function getContainRect(
   sourceWidth: number,
   sourceHeight: number,
   targetWidth: number,

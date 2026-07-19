@@ -10,7 +10,6 @@ import { PortalProvider } from "@gorhom/portal";
 
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
-import { colors } from "../src/styles/colors";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
 import { tokens } from "../src/styles/tokens";
 
@@ -37,7 +36,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView
-      style={{ flex: 1, backgroundColor: colors.appBackground }}
+      style={{ flex: 1, backgroundColor: tokens.color.app }}
     >
       <SafeAreaProvider>
         <KeyboardProvider>
@@ -50,7 +49,7 @@ export default function RootLayout() {
                   screenOptions={{
                     headerShown: false,
                     animation: "ios_from_right",
-                    contentStyle: { backgroundColor: colors.appBackground },
+                    contentStyle: { backgroundColor: tokens.color.app },
                   }}
                 />
               </PortalProvider>

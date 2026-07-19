@@ -19,7 +19,6 @@ import {
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
-  BottomSheetTextInput,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetBackdropProps,
   type BottomSheetScrollViewMethods,
@@ -38,14 +37,11 @@ import {
   type ParsedNaiMetadata,
 } from "../lib/naiMetadata";
 import { hasImportableMetadata } from "../lib/metadataImport";
-import { useGenerationStore } from "../store/generationStore";
-import { NumericSheetContent } from "../screens/home/NumericSheet";
-import { BATCH_COUNT_CONFIG } from "../screens/home/constants";
-import { MetadataViewContent } from "../screens/home/MetadataViewContent";
 import {
   RendraGenerationOptionSheet,
   type RendraGenerationOptionRoute,
 } from "../components/rendra/RendraGenerationOptionSheet";
+import { RendraMetadataDetails } from "../components/rendra/RendraMetadataDetails";
 import { RendraUcPresetSheet } from "../components/rendra/RendraUcPresetSheet";
 import { RendraSeedSheet } from "../components/rendra/RendraSeedSheet";
 import { RendraResolutionSheet } from "../components/rendra/RendraResolutionSheet";
@@ -58,10 +54,8 @@ import { RendraMetadataImportSheet } from "../components/rendra/RendraMetadataIm
 import type { RendraSheetDraftController } from "../components/rendra/RendraSheetDraft";
 import { RendraPrimaryButton } from "../components/rendra/RendraButtons";
 import { tokens } from "../styles/tokens";
-import { light, styles } from "../screens/home/styles";
 
-// 전역 단일 바텀시트 라우트. 기존 연속 생성 시트와 Rendra 상세/선택 시트가
-// 같은 제스처/백드롭 로직을 공유한다.
+// Rendra 상세/선택 화면이 공유하는 전역 단일 바텀시트 라우트.
 type RendraSheetRoute =
   | "metadataView"
   | "metadataImport"
@@ -74,22 +68,7 @@ type RendraSheetRoute =
   | "characterPosition"
   | "preciseMode"
   | RendraGenerationOptionRoute;
-export type SheetRoute = "batchCount" | RendraSheetRoute;
-
-// batchCount 는 시트 유지 → 시트 키보드 회피 위해 BottomSheetTextInput 주입.
-function BatchCountSheet() {
-  const batchCount = useGenerationStore((s) => s.batchCount);
-  const setBatchCount = useGenerationStore((s) => s.setBatchCount);
-  return (
-    <NumericSheetContent
-      value={batchCount}
-      onChange={setBatchCount}
-      cfg={BATCH_COUNT_CONFIG}
-      showTitle={false}
-      InputComponent={BottomSheetTextInput}
-    />
-  );
-}
+type SheetRoute = RendraSheetRoute;
 
 type StackEntry = {
   route: SheetRoute;
@@ -122,8 +101,6 @@ export function useAppSheet() {
   return ctx;
 }
 
-// 고정 2포인트 — 라우트 전환 시 리사이즈 금지(과거 높이-측정 버그 회피).
-const SNAP_POINTS = ["60%", "92%"];
 const RENDRA_SNAP_POINTS: Record<RendraSheetRoute, string[]> = {
   metadataView: ["92%"],
   metadataImport: ["92%"],
@@ -158,25 +135,6 @@ function titleFor(route: SheetRoute) {
   if (route === "model") return "Model";
   if (route === "sampler") return "Sampler";
   if (route === "schedule") return "Schedule";
-  return "연속 생성";
-}
-
-function isRendraSheetRoute(route: SheetRoute): route is RendraSheetRoute {
-  return (
-    route === "metadataView" ||
-    route === "metadataImport" ||
-    route === "rendraBatchCount" ||
-    route === "ucPreset" ||
-    route === "seed" ||
-    route === "resolution" ||
-    route === "resolutionCustom" ||
-    route === "characterOrder" ||
-    route === "characterPosition" ||
-    route === "preciseMode" ||
-    route === "model" ||
-    route === "sampler" ||
-    route === "schedule"
-  );
 }
 
 function isGenerationOptionRoute(
@@ -191,8 +149,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
-  const [stack, setStack] = useState<StackEntry[]>([{ route: "batchCount" }]);
-  const stackRef = useRef<StackEntry[]>([{ route: "batchCount" }]);
+  const [stack, setStack] = useState<StackEntry[]>([
+    { route: "rendraBatchCount" },
+  ]);
+  const stackRef = useRef<StackEntry[]>([{ route: "rendraBatchCount" }]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
@@ -378,8 +338,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         openRef.current = nextOpen;
         setIsOpen(nextOpen);
       }
-      // 닫힐 때 스택 초기화(기본 batchCount).
-      if (!nextOpen) resetTo({ route: "batchCount" });
+      if (!nextOpen) resetTo({ route: "rendraBatchCount" });
     },
     [resetTo],
   );
@@ -435,8 +394,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const current = stack[stack.length - 1];
   const route = current.route;
-  const isRendraRoute = isRendraSheetRoute(route);
-  const snapPoints = isRendraRoute ? RENDRA_SNAP_POINTS[route] : SNAP_POINTS;
+  const snapPoints = RENDRA_SNAP_POINTS[route];
   const canBack = stack.length > 1;
   const currentRecordMetadata = useMemo(
     () =>
@@ -507,20 +465,14 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         enableHandlePanningGesture
         enablePanDownToClose={!hasCloseGuard}
         backdropComponent={renderBackdrop}
-        style={styles.sheetContainer}
-        containerStyle={styles.sheetContainer}
-        backgroundStyle={
-          isRendraRoute
-            ? [
-                rendraSheetStyles.sheetBackground,
-                (route === "metadataView" || route === "metadataImport") &&
-                  rendraSheetStyles.metadataSheetBackground,
-              ]
-            : styles.sheetBackground
-        }
-        handleIndicatorStyle={
-          isRendraRoute ? rendraSheetStyles.sheetHandle : styles.sheetHandle
-        }
+        style={rendraSheetStyles.sheetContainer}
+        containerStyle={rendraSheetStyles.sheetContainer}
+        backgroundStyle={[
+          rendraSheetStyles.sheetBackground,
+          (route === "metadataView" || route === "metadataImport") &&
+            rendraSheetStyles.metadataSheetBackground,
+        ]}
+        handleIndicatorStyle={rendraSheetStyles.sheetHandle}
         enableDynamicSizing={false}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
@@ -530,33 +482,33 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           <Reanimated.View
             key={`header-${route}`}
             entering={routeEntering}
-            style={styles.sheetRouteContent}
+            style={rendraSheetStyles.routeContent}
           >
             <Reanimated.View
               entering={ROUTE_FADE_IN}
               style={[
-                styles.sheetBackHeader,
-                isRendraRoute && rendraSheetStyles.header,
+                rendraSheetStyles.headerBase,
+                rendraSheetStyles.header,
                 route === "resolutionCustom" &&
                   rendraSheetStyles.customResolutionHeader,
               ]}
             >
               {canBack && (
                 <BottomSheetTouchableOpacity
-                  style={styles.sheetBackButton}
+                  style={rendraSheetStyles.backButton}
                   onPress={back}
                 >
                   <Ionicons
                     name="chevron-back"
                     size={22}
-                    color={light.textPrimary}
+                    color={tokens.color.textPrimary}
                   />
                 </BottomSheetTouchableOpacity>
               )}
               <Text
                 style={[
-                  styles.sheetBackTitle,
-                  isRendraRoute && rendraSheetStyles.title,
+                  rendraSheetStyles.titleBase,
+                  rendraSheetStyles.title,
                 ]}
                 numberOfLines={1}
               >
@@ -589,8 +541,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               route === "metadataView"
                 ? rendraSheetStyles.metadataScrollContent
                 : [
-                    styles.sheetScrollContent,
-                    isRendraRoute && rendraSheetStyles.scrollContent,
+                    rendraSheetStyles.scrollContentBase,
+                    rendraSheetStyles.scrollContent,
                   ]
             }
             showsVerticalScrollIndicator={false}
@@ -599,11 +551,11 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             <Reanimated.View
               key={route}
               entering={routeEntering}
-              style={styles.sheetRouteContent}
+              style={rendraSheetStyles.routeContent}
             >
               <Reanimated.View
                 entering={ROUTE_FADE_IN}
-                style={styles.sheetRouteContent}
+                style={rendraSheetStyles.routeContent}
               >
                 {route === "rendraBatchCount" ? (
                   <RendraBatchCountSheet />
@@ -640,7 +592,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   <RendraGenerationOptionSheet route={route} onSelect={close} />
                 ) : route === "metadataView" ? (
                   current.params ? (
-                    <MetadataViewContent record={current.params} />
+                    <RendraMetadataDetails
+                      parsed={currentRecordMetadata}
+                      variant="sheet"
+                    />
                   ) : null
                 ) : route === "metadataImport" ? (
                   current.metadata ? (
@@ -649,9 +604,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                       registerDraft={registerDraft}
                     />
                   ) : null
-                ) : (
-                  <BatchCountSheet />
-                )}
+                ) : null}
               </Reanimated.View>
             </Reanimated.View>
           </BottomSheetScrollView>
@@ -678,6 +631,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 }
 
 const rendraSheetStyles = StyleSheet.create({
+  sheetContainer: {
+    zIndex: 100,
+    elevation: 100,
+  },
   layout: {
     flex: 1,
   },
@@ -694,6 +651,14 @@ const rendraSheetStyles = StyleSheet.create({
     height: 5,
     backgroundColor: tokens.color.borderSubtleStrong,
   },
+  routeContent: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+  headerBase: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   header: {
     minHeight: 48,
     marginBottom: tokens.space[6],
@@ -702,6 +667,17 @@ const rendraSheetStyles = StyleSheet.create({
   },
   customResolutionHeader: {
     paddingLeft: tokens.space[9],
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    marginLeft: -8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  titleBase: {
+    flex: 1,
+    includeFontPadding: false,
   },
   title: {
     paddingLeft: 0,
@@ -716,6 +692,10 @@ const rendraSheetStyles = StyleSheet.create({
     height: 36,
     alignItems: "center",
     justifyContent: "center",
+  },
+  scrollContentBase: {
+    width: "100%",
+    alignItems: "stretch",
   },
   scrollContent: {
     paddingHorizontal: tokens.space[6],

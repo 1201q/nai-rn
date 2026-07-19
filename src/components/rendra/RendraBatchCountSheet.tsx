@@ -10,12 +10,12 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { BATCH_COUNT_CONFIG } from "../../screens/home/constants";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
 const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
 const TICK_SPACING = 20;
+const BATCH_COUNT_CONFIG = { min: 1, max: 20 } as const;
 const MAX_INDEX = BATCH_COUNT_CONFIG.max - BATCH_COUNT_CONFIG.min;
 const MIN_TRANSLATE_X = -MAX_INDEX * TICK_SPACING;
 const COUNTS = Array.from(

@@ -4,7 +4,7 @@ import type { ParsedNaiMetadata } from "./naiMetadata";
 
 export type MetadataCharacterImportMode = "replace" | "append";
 
-export type MetadataImportSelection = {
+type MetadataImportSelection = {
   prompt: boolean;
   negativePrompt: boolean;
   characters: boolean;
@@ -13,7 +13,7 @@ export type MetadataImportSelection = {
   seed: boolean;
 };
 
-export type MetadataImportAvailability = {
+type MetadataImportAvailability = {
   prompt: boolean;
   negativePrompt: boolean;
   characters: boolean;

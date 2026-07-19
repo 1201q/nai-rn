@@ -11,13 +11,13 @@ export type I2IReferenceImageInput = {
   mimeType?: string | null;
 };
 
-export type StoredI2IReferenceImage = {
+type StoredI2IReferenceImage = {
   storagePath: string;
   width: number;
   height: number;
 };
 
-export type ResolvedI2IReferenceImage = StoredI2IReferenceImage & {
+type ResolvedI2IReferenceImage = StoredI2IReferenceImage & {
   uri: string;
 };
 

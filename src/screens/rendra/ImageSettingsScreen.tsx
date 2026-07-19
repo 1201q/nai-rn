@@ -46,13 +46,17 @@ import {
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
-import {
-  CFG_CONFIG,
-  CFG_RESCALE_CONFIG,
-  STEPS_CONFIG,
-} from "../home/constants";
 
 type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
+
+const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
+const CFG_CONFIG = { min: 0, max: 10, step: 0.1, precision: 1 } as const;
+const CFG_RESCALE_CONFIG = {
+  min: 0,
+  max: 1,
+  step: 0.02,
+  precision: 2,
+} as const;
 
 const TABS: readonly RendraSettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },

@@ -7,7 +7,7 @@ export type SelectableUcPresetIndex = 0 | 1 | 3 | 4;
 const UC_HEAVY =
   "nsfw, lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page";
 
-export const UC_PRESETS_V45_FULL: Record<UcPresetIndex, string> = {
+const UC_PRESETS_V45_FULL: Record<UcPresetIndex, string> = {
   0: UC_HEAVY,
   1: "nsfw, lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page",
   2: "",

@@ -91,17 +91,15 @@ export type CharacterPrompt = {
   position: { x: number; y: number };
 };
 
-export type I2ISourceImage = {
+type I2ISourceImage = {
   uri: string;
   storagePath: string;
   width: number;
   height: number;
 };
 
-export type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
+type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
   Pick<I2IReferenceImageInput, "fileName" | "mimeType">;
-
-export type PromptWorkspaceTab = "prompt" | "character" | "options";
 
 export type CustomResolution = {
   id: string;
@@ -130,8 +128,6 @@ type PersistedGenerationOptions = Partial<{
   batchCount: number;
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
-  optionTabIndex: number;
-  promptWorkspaceTab: PromptWorkspaceTab;
   vibeReferenceExpandedIds: string[];
   preciseReferenceExpandedIds: string[];
   i2iSourceImage: Pick<
@@ -147,7 +143,7 @@ function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
 }
 
-export function roundI2IDimensionTo64(value: number): number {
+function roundI2IDimensionTo64(value: number): number {
   return Math.max(64, Math.round(value / 64) * 64);
 }
 
@@ -175,10 +171,6 @@ function isNoiseSchedule(value: unknown): value is NoiseSchedule {
     value === "exponential" ||
     value === "polyexponential"
   );
-}
-
-function isPromptWorkspaceTab(value: unknown): value is PromptWorkspaceTab {
-  return value === "prompt" || value === "character" || value === "options";
 }
 
 function resolveStoredI2ISourceImage(value: unknown): I2ISourceImage | null {
@@ -354,7 +346,7 @@ function resolveActiveCharacterPrompts(
   });
 }
 
-export type GenerationState = {
+type GenerationState = {
   // 프롬프트
   prompt: string;
   setPrompt: (v: string) => void;
@@ -442,12 +434,6 @@ export type GenerationState = {
   i2iNoise: number;
   setI2INoise: (v: number) => void;
   clearI2I: () => void;
-  optionTabIndex: number;
-  setOptionTabIndex: (v: number) => void;
-  promptWorkspaceTab: PromptWorkspaceTab;
-  setPromptWorkspaceTab: (v: PromptWorkspaceTab) => void;
-  hasLoadedOptions: boolean;
-
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -590,15 +576,6 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
     if (isBoolean(parsed.normalizeVibeStrengths)) {
       next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
-    }
-    if (
-      isNumber(parsed.optionTabIndex) &&
-      (parsed.optionTabIndex === 0 || parsed.optionTabIndex === 1)
-    ) {
-      next.optionTabIndex = parsed.optionTabIndex;
-    }
-    if (isPromptWorkspaceTab(parsed.promptWorkspaceTab)) {
-      next.promptWorkspaceTab = parsed.promptWorkspaceTab;
     }
     if (Array.isArray(parsed.vibeReferenceExpandedIds)) {
       next.vibeReferenceExpandedIds =
@@ -1021,13 +998,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     });
     deleteStoredI2IReference(storagePath);
   },
-  optionTabIndex: 0,
-  setOptionTabIndex: (v) => set({ optionTabIndex: v }),
-  promptWorkspaceTab: "prompt",
-  setPromptWorkspaceTab: (v) => set({ promptWorkspaceTab: v }),
-  // MMKV 동기 읽기로 부팅 시점에 이미 복원 완료.
-  hasLoadedOptions: true,
-
   // 저장된 옵션을 기본값 위에 덮어쓰기 (데이터 필드만, 메서드 미영향).
   ...loadPersistedOptions(),
 
@@ -1567,8 +1537,6 @@ export function useGenerationBootstrap() {
     let lastJson: string | null = null;
 
     const unsubscribe = useGenerationStore.subscribe((state) => {
-      if (!state.hasLoadedOptions) return;
-
       const nextOptions: PersistedGenerationOptions = {
         prompt: state.prompt,
         negativePrompt: state.negativePrompt,
@@ -1591,8 +1559,6 @@ export function useGenerationBootstrap() {
         batchCount: state.batchCount,
         varietyPlus: state.varietyPlus,
         normalizeVibeStrengths: state.normalizeVibeStrengths,
-        optionTabIndex: state.optionTabIndex,
-        promptWorkspaceTab: state.promptWorkspaceTab,
         vibeReferenceExpandedIds: state.vibeReferenceExpandedIds,
         preciseReferenceExpandedIds: state.preciseReferenceExpandedIds,
         ...(state.i2iSourceImage

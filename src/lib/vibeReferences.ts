@@ -11,8 +11,8 @@ const ENCODED_DIR = "encoded";
 const THUMBNAIL_SIZE = 360;
 
 export const MAX_VIBE_REFERENCES = 16;
-export const DEFAULT_VIBE_STRENGTH = 0.6;
-export const DEFAULT_VIBE_INFORMATION_EXTRACTED = 0.7;
+const DEFAULT_VIBE_STRENGTH = 0.6;
+const DEFAULT_VIBE_INFORMATION_EXTRACTED = 0.7;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 

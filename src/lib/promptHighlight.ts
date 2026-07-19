@@ -22,13 +22,13 @@ export type PromptHighlightKind =
   | "randomizer"
   | "separator";
 
-export interface PromptHighlightSpan {
+interface PromptHighlightSpan {
   text: string;
   kind: PromptHighlightKind;
   weight?: number;
 }
 
-export interface ParsePromptHighlightsOptions {
+interface ParsePromptHighlightsOptions {
   // 외부(randomizer 밖) 단일 `|` 분류용. 지금은 모두 separator 로 처리하므로
   // 미사용이지만, 추후 캐릭터/믹싱 구분 라벨링 확장 지점으로 남겨둔다.
   modelFamily?: "v4" | "v3-or-lower";

@@ -4,7 +4,7 @@ import {
   withSpring,
 } from "react-native-reanimated";
 
-const PRESS_SPRING = { mass: 0.5, damping: 18, stiffness: 280 };
+const PRESS_SCALE_SPRING = { mass: 0.5, damping: 18, stiffness: 280 };
 
 // 칩/행 공통 누름 애니메이션. progress 0(평상)→1(누름)을 UI 스레드에서 구동.
 // scale 은 scaleStyle 로 바로 적용하고, backgroundColor 등 컴포넌트별로 다른
@@ -13,11 +13,11 @@ export function useScalePress({ scaleTo = 0.93 }: { scaleTo?: number } = {}) {
   const progress = useSharedValue(0);
 
   const onPressIn = () => {
-    progress.value = withSpring(1, PRESS_SPRING);
+    progress.value = withSpring(1, PRESS_SCALE_SPRING);
   };
 
   const onPressOut = () => {
-    progress.value = withSpring(0, PRESS_SPRING);
+    progress.value = withSpring(0, PRESS_SCALE_SPRING);
   };
 
   const scaleStyle = useAnimatedStyle(() => ({

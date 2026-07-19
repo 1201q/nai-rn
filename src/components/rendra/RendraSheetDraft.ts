@@ -1,4 +1,4 @@
-export type RendraSheetDraftId =
+type RendraSheetDraftId =
   | "seed"
   | "resolutionCustom"
   | "characterOrder"

@@ -32,7 +32,7 @@ export type GenerationRecord = {
   metadataJson: string;
 };
 
-export type SaveGenerationInput = {
+type SaveGenerationInput = {
   imageBytes: Uint8Array;
   prompt: string;
   negativePrompt: string;
@@ -48,7 +48,7 @@ export type SaveGenerationInput = {
   metadata: Record<string, string>;
 };
 
-export type SaveGenerationBase64Input = Omit<
+type SaveGenerationBase64Input = Omit<
   SaveGenerationInput,
   "imageBytes" | "metadata"
 > & {

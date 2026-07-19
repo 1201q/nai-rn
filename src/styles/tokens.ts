@@ -1,4 +1,4 @@
-import { Platform, type TextStyle } from "react-native";
+import { Platform } from "react-native";
 
 // 디자인 토큰 - rendra-design 스킬(tokens/*.css)을 RN 상수로 이식.
 // 다크 전용. 리디자인 전반에서 재사용.
@@ -118,14 +118,3 @@ export const monoFont = Platform.select({
   android: "monospace",
   default: "monospace",
 }) as string;
-
-// 자주 쓰는 텍스트 프리셋
-export const textPresets = {
-  eyebrow: {
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
-    letterSpacing: tokens.tracking.wide,
-    textTransform: "uppercase",
-    color: tokens.color.textTertiary,
-  } satisfies TextStyle,
-};
