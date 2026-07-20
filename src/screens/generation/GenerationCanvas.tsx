@@ -16,7 +16,10 @@ import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 
-import { useAppSheet } from "../../context/AppSheetContext";
+import {
+  useAppSheet,
+  useAppSheetOpen,
+} from "../../context/AppSheetContext";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import {
   getI2IEffectiveResolution,
@@ -72,7 +75,8 @@ export function GenerationCanvas() {
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
-  const { open, isOpen: isSheetOpen } = useAppSheet();
+  const { open } = useAppSheet();
+  const isSheetOpen = useAppSheetOpen();
   const [expanded, setExpanded] = useState(true);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

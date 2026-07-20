@@ -88,10 +88,10 @@ type AppSheetContextValue = {
   push: (route: SheetRoute, params?: GenerationRecord) => void;
   back: () => void;
   close: () => void;
-  isOpen: boolean;
 };
 
 const AppSheetContext = createContext<AppSheetContextValue | null>(null);
+const AppSheetOpenContext = createContext<boolean | null>(null);
 
 export function useAppSheet() {
   const ctx = useContext(AppSheetContext);
@@ -99,6 +99,14 @@ export function useAppSheet() {
     throw new Error("useAppSheet must be used within AppSheetProvider");
   }
   return ctx;
+}
+
+export function useAppSheetOpen() {
+  const isOpen = useContext(AppSheetOpenContext);
+  if (isOpen === null) {
+    throw new Error("useAppSheetOpen must be used within AppSheetProvider");
+  }
+  return isOpen;
 }
 
 const SNAP_POINTS: Record<AppSheetRoute, string[]> = {
@@ -378,7 +386,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       push,
       back,
       close,
-      isOpen,
     }),
     [
       open,
@@ -388,7 +395,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       push,
       back,
       close,
-      isOpen,
     ],
   );
 
@@ -456,7 +462,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppSheetContext.Provider value={value}>
-      {children}
+      <AppSheetOpenContext.Provider value={isOpen}>
+        {children}
+      </AppSheetOpenContext.Provider>
       <BottomSheet
         ref={sheetRef}
         index={-1}

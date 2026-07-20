@@ -35,7 +35,7 @@ import {
   resolveGenerationThumbnailUri,
 } from "../../lib/generationHistory";
 import { ImagePreviewModal } from "../../components/image-preview/ImagePreviewModal";
-import { useAppSheet } from "../../context/AppSheetContext";
+import { useAppSheetOpen } from "../../context/AppSheetContext";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
 import {
   DETAIL_HEADER_TOP_OFFSET,
@@ -264,7 +264,7 @@ export function HistoryScreen({
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
   const deleteGenerations = useGenerationStore((s) => s.deleteGenerations);
-  const { isOpen: isSheetOpen } = useAppSheet();
+  const isSheetOpen = useAppSheetOpen();
 
   const { width } = useWindowDimensions();
   const gap = 2;
