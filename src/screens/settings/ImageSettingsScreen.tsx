@@ -562,6 +562,7 @@ export function ImageSettingsScreen() {
     Partial<Record<SettingsTabKey, number>>
   >({});
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const pendingMountFrameRef = useRef<number | null>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleOpacity = scrollY.interpolate({
     inputRange: [0, 56],
@@ -580,12 +581,33 @@ export function ImageSettingsScreen() {
       Keyboard.dismiss();
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
-      setMountedTabs((current) =>
-        current[nextTab] ? current : { ...current, [nextTab]: true },
-      );
+
+      if (pendingMountFrameRef.current !== null) {
+        cancelAnimationFrame(pendingMountFrameRef.current);
+        pendingMountFrameRef.current = null;
+      }
+
       setActiveTab(nextTab);
+
+      if (!mountedTabs[nextTab]) {
+        pendingMountFrameRef.current = requestAnimationFrame(() => {
+          pendingMountFrameRef.current = null;
+          setMountedTabs((current) =>
+            current[nextTab] ? current : { ...current, [nextTab]: true },
+          );
+        });
+      }
     },
-    [scrollY],
+    [mountedTabs, scrollY],
+  );
+
+  useEffect(
+    () => () => {
+      if (pendingMountFrameRef.current !== null) {
+        cancelAnimationFrame(pendingMountFrameRef.current);
+      }
+    },
+    [],
   );
 
   const handleTabLayout = useCallback(
@@ -627,7 +649,13 @@ export function ImageSettingsScreen() {
             <Text style={styles.title}>{TITLES[activeTab]}</Text>
           </Animated.View>
           <View
-            style={[styles.tabHost, { height: tabHeights[activeTab] ?? 1 }]}
+            style={[
+              styles.tabHost,
+              {
+                height:
+                  tabHeights[activeTab] ?? tabHeights.settings ?? 1,
+              },
+            ]}
           >
             {mountedTabs.settings ? (
               <SettingsTabPane
