@@ -319,24 +319,29 @@ const CharacterTabContent = memo(function CharacterTabContent() {
     if (next.length !== expandedIds.length) setExpandedIds(next);
   }, [characterPrompts, expandedIds, setExpandedIds]);
 
-  function updateCharacter(
-    id: string,
-    values: Partial<Omit<CharacterPrompt, "id">>,
-  ) {
-    const current = useGenerationStore.getState().characterPrompts;
-    setCharacterPrompts(
-      current.map((item) => (item.id === id ? { ...item, ...values } : item)),
-    );
-  }
+  const updateCharacter = useCallback(
+    (id: string, values: Partial<Omit<CharacterPrompt, "id">>) => {
+      const current = useGenerationStore.getState().characterPrompts;
+      setCharacterPrompts(
+        current.map((item) =>
+          item.id === id ? { ...item, ...values } : item,
+        ),
+      );
+    },
+    [setCharacterPrompts],
+  );
 
-  function toggleExpanded(id: string) {
-    const current = useGenerationStore.getState().characterPromptExpandedIds;
-    setExpandedIds(
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id],
-    );
-  }
+  const toggleExpanded = useCallback(
+    (id: string) => {
+      const current = useGenerationStore.getState().characterPromptExpandedIds;
+      setExpandedIds(
+        current.includes(id)
+          ? current.filter((value) => value !== id)
+          : [...current, id],
+      );
+    },
+    [setExpandedIds],
+  );
 
   function addCharacter() {
     const current = useGenerationStore.getState().characterPrompts;
@@ -356,36 +361,47 @@ const CharacterTabContent = memo(function CharacterTabContent() {
     ]);
   }
 
-  function copyCharacter(id: string) {
-    const current = useGenerationStore.getState().characterPrompts;
-    if (current.length >= MAX_CHARACTER_PROMPTS) return;
-    const sourceIndex = current.findIndex((item) => item.id === id);
-    if (sourceIndex < 0) return;
-    const source = current[sourceIndex];
-    const copiedId = `character-copy-${Date.now()}-${current.length}`;
-    const copied: CharacterPrompt = {
-      ...source,
-      id: copiedId,
-      position: { ...source.position },
-    };
-    const next = [...current];
-    next.splice(sourceIndex + 1, 0, copied);
-    setCharacterPrompts(next);
-    setExpandedIds([
-      ...useGenerationStore.getState().characterPromptExpandedIds,
-      copiedId,
-    ]);
-  }
+  const copyCharacter = useCallback(
+    (id: string) => {
+      const current = useGenerationStore.getState().characterPrompts;
+      if (current.length >= MAX_CHARACTER_PROMPTS) return;
+      const sourceIndex = current.findIndex((item) => item.id === id);
+      if (sourceIndex < 0) return;
+      const source = current[sourceIndex];
+      const copiedId = `character-copy-${Date.now()}-${current.length}`;
+      const copied: CharacterPrompt = {
+        ...source,
+        id: copiedId,
+        position: { ...source.position },
+      };
+      const next = [...current];
+      next.splice(sourceIndex + 1, 0, copied);
+      setCharacterPrompts(next);
+      setExpandedIds([
+        ...useGenerationStore.getState().characterPromptExpandedIds,
+        copiedId,
+      ]);
+    },
+    [setCharacterPrompts, setExpandedIds],
+  );
 
-  function deleteCharacter(id: string) {
-    const current = useGenerationStore.getState().characterPrompts;
-    setCharacterPrompts(current.filter((item) => item.id !== id));
-    setExpandedIds(
-      useGenerationStore
-        .getState()
-        .characterPromptExpandedIds.filter((value) => value !== id),
-    );
-  }
+  const deleteCharacter = useCallback(
+    (id: string) => {
+      const current = useGenerationStore.getState().characterPrompts;
+      setCharacterPrompts(current.filter((item) => item.id !== id));
+      setExpandedIds(
+        useGenerationStore
+          .getState()
+          .characterPromptExpandedIds.filter((value) => value !== id),
+      );
+    },
+    [setCharacterPrompts, setExpandedIds],
+  );
+
+  const openCharacterOrder = useCallback(
+    () => open("characterOrder"),
+    [open],
+  );
 
   const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
 
@@ -404,15 +420,12 @@ const CharacterTabContent = memo(function CharacterTabContent() {
             positionEnabled={positionEnabled}
             canCopy={canAdd}
             canReorder={characterPrompts.length > 1}
-            onToggleExpand={() => toggleExpanded(item.id)}
-            onUpdate={(values) => updateCharacter(item.id, values)}
-            onRename={(name) =>
-              updateCharacter(item.id, { name: name || undefined })
-            }
-            onCopy={() => copyCharacter(item.id)}
-            onDelete={() => deleteCharacter(item.id)}
-            onOpenOrder={() => open("characterOrder")}
-            onOpenPosition={() => openCharacterPosition(item.id)}
+            onToggleExpand={toggleExpanded}
+            onUpdate={updateCharacter}
+            onCopy={copyCharacter}
+            onDelete={deleteCharacter}
+            onOpenOrder={openCharacterOrder}
+            onOpenPosition={openCharacterPosition}
           />
         ))}
       </View>

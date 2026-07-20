@@ -169,7 +169,6 @@ export const CharacterCard = memo(function CharacterCard({
   canReorder,
   onToggleExpand,
   onUpdate,
-  onRename,
   onCopy,
   onDelete,
   onOpenOrder,
@@ -181,13 +180,15 @@ export const CharacterCard = memo(function CharacterCard({
   positionEnabled: boolean;
   canCopy: boolean;
   canReorder: boolean;
-  onToggleExpand: () => void;
-  onUpdate: (values: Partial<Omit<CharacterPrompt, "id">>) => void;
-  onRename: (name: string) => void;
-  onCopy: () => void;
-  onDelete: () => void;
+  onToggleExpand: (id: string) => void;
+  onUpdate: (
+    id: string,
+    values: Partial<Omit<CharacterPrompt, "id">>,
+  ) => void;
+  onCopy: (id: string) => void;
+  onDelete: (id: string) => void;
   onOpenOrder: () => void;
-  onOpenPosition: () => void;
+  onOpenPosition: (id: string) => void;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const menuAnchorRef = useRef<View>(null);
@@ -243,10 +244,10 @@ export const CharacterCard = memo(function CharacterCard({
 
   function commitMode(targetMode: PromptMode) {
     if (targetMode === "base" && baseText !== item.prompt) {
-      onUpdate({ prompt: baseText });
+      onUpdate(item.id, { prompt: baseText });
     }
     if (targetMode === "negative" && negativeText !== item.negativePrompt) {
-      onUpdate({ negativePrompt: negativeText });
+      onUpdate(item.id, { negativePrompt: negativeText });
     }
   }
 
@@ -269,7 +270,7 @@ export const CharacterCard = memo(function CharacterCard({
   }
 
   function confirmRename() {
-    onRename(renameText.trim());
+    onUpdate(item.id, { name: renameText.trim() || undefined });
     setRenaming(false);
   }
 
@@ -282,7 +283,7 @@ export const CharacterCard = memo(function CharacterCard({
           accessibilityState={{ expanded }}
           onPress={() => {
             if (expanded) commitMode(mode);
-            onToggleExpand();
+            onToggleExpand(item.id);
           }}
           style={({ pressed }) => [styles.headerMain, pressed && styles.pressed]}
         >
@@ -323,13 +324,13 @@ export const CharacterCard = memo(function CharacterCard({
           <Toggle
             value={item.enabled}
             label={`${displayName} 활성화`}
-            onChange={(enabled) => onUpdate({ enabled })}
+            onChange={(enabled) => onUpdate(item.id, { enabled })}
           />
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={expanded ? "캐릭터 접기" : "캐릭터 펼치기"}
-          onPress={onToggleExpand}
+          onPress={() => onToggleExpand(item.id)}
           style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}
         >
           <Ionicons
@@ -436,10 +437,10 @@ export const CharacterCard = memo(function CharacterCard({
         canReorder={canReorder}
         onClose={() => setMenuVisible(false)}
         onReorder={onOpenOrder}
-        onPosition={onOpenPosition}
+        onPosition={() => onOpenPosition(item.id)}
         onRename={beginRename}
-        onCopy={onCopy}
-        onDelete={onDelete}
+        onCopy={() => onCopy(item.id)}
+        onDelete={() => onDelete(item.id)}
       />
     </View>
   );
