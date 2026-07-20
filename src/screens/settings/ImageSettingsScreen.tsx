@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Animated,
+  Keyboard,
+  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -71,6 +80,35 @@ const TITLES: Record<SettingsTabKey, string> = {
   character: "캐릭터",
   imageRef: "이미지 참조",
 };
+
+function SettingsTabPane({
+  tabKey,
+  activeTab,
+  onLayout,
+  children,
+}: {
+  tabKey: SettingsTabKey;
+  activeTab: SettingsTabKey;
+  onLayout: (key: SettingsTabKey, event: LayoutChangeEvent) => void;
+  children: ReactNode;
+}) {
+  const active = tabKey === activeTab;
+
+  return (
+    <View
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+      pointerEvents={active ? "auto" : "none"}
+      onLayout={(event) => onLayout(tabKey, event)}
+      style={[
+        styles.tabPane,
+        active ? styles.activeTabPane : styles.inactiveTabPane,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
 
 function SettingsTabContent() {
   const { open } = useAppSheet();
@@ -195,7 +233,7 @@ function SettingsTabContent() {
   );
 }
 
-function PromptTabContent() {
+const PromptTabContent = memo(function PromptTabContent() {
   const { open } = useAppSheet();
   const prompt = useGenerationStore((state) => state.prompt);
   const setPrompt = useGenerationStore((state) => state.setPrompt);
@@ -250,9 +288,9 @@ function PromptTabContent() {
       </View>
     </>
   );
-}
+});
 
-function CharacterTabContent() {
+const CharacterTabContent = memo(function CharacterTabContent() {
   const { open, openCharacterPosition } = useAppSheet();
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
@@ -414,7 +452,7 @@ function CharacterTabContent() {
       </View>
     </>
   );
-}
+});
 
 function ImageReferenceTabContent() {
   const router = useRouter();
@@ -520,6 +558,9 @@ export function ImageSettingsScreen() {
     character: false,
     imageRef: false,
   });
+  const [tabHeights, setTabHeights] = useState<
+    Partial<Record<SettingsTabKey, number>>
+  >({});
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleOpacity = scrollY.interpolate({
@@ -536,6 +577,7 @@ export function ImageSettingsScreen() {
   const handleTabChange = useCallback(
     (key: string) => {
       const nextTab = key as SettingsTabKey;
+      Keyboard.dismiss();
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
       setMountedTabs((current) =>
@@ -544,6 +586,16 @@ export function ImageSettingsScreen() {
       setActiveTab(nextTab);
     },
     [scrollY],
+  );
+
+  const handleTabLayout = useCallback(
+    (key: SettingsTabKey, event: LayoutChangeEvent) => {
+      const height = event.nativeEvent.layout.height;
+      setTabHeights((current) =>
+        current[key] === height ? current : { ...current, [key]: height },
+      );
+    },
+    [],
   );
 
   return (
@@ -574,26 +626,46 @@ export function ImageSettingsScreen() {
           <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
             <Text style={styles.title}>{TITLES[activeTab]}</Text>
           </Animated.View>
-          {mountedTabs.settings ? (
-            <View style={activeTab !== "settings" && styles.hiddenTab}>
-              <SettingsTabContent />
-            </View>
-          ) : null}
-          {mountedTabs.prompt ? (
-            <View style={activeTab !== "prompt" && styles.hiddenTab}>
-              <PromptTabContent />
-            </View>
-          ) : null}
-          {mountedTabs.character ? (
-            <View style={activeTab !== "character" && styles.hiddenTab}>
-              <CharacterTabContent />
-            </View>
-          ) : null}
-          {mountedTabs.imageRef ? (
-            <View style={activeTab !== "imageRef" && styles.hiddenTab}>
-              <ImageReferenceTabContent />
-            </View>
-          ) : null}
+          <View
+            style={[styles.tabHost, { height: tabHeights[activeTab] ?? 1 }]}
+          >
+            {mountedTabs.settings ? (
+              <SettingsTabPane
+                tabKey="settings"
+                activeTab={activeTab}
+                onLayout={handleTabLayout}
+              >
+                <SettingsTabContent />
+              </SettingsTabPane>
+            ) : null}
+            {mountedTabs.prompt ? (
+              <SettingsTabPane
+                tabKey="prompt"
+                activeTab={activeTab}
+                onLayout={handleTabLayout}
+              >
+                <PromptTabContent />
+              </SettingsTabPane>
+            ) : null}
+            {mountedTabs.character ? (
+              <SettingsTabPane
+                tabKey="character"
+                activeTab={activeTab}
+                onLayout={handleTabLayout}
+              >
+                <CharacterTabContent />
+              </SettingsTabPane>
+            ) : null}
+            {mountedTabs.imageRef ? (
+              <SettingsTabPane
+                tabKey="imageRef"
+                activeTab={activeTab}
+                onLayout={handleTabLayout}
+              >
+                <ImageReferenceTabContent />
+              </SettingsTabPane>
+            ) : null}
+          </View>
         </KeyboardAwareScrollView>
 
         <Animated.View
@@ -649,8 +721,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.color.app,
   },
-  hiddenTab: {
-    display: "none",
+  tabHost: {
+    position: "relative",
+  },
+  tabPane: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
+  },
+  activeTabPane: {
+    zIndex: 1,
+    opacity: 1,
+  },
+  inactiveTabPane: {
+    zIndex: 0,
+    opacity: 0,
   },
   header: {
     height: 58,

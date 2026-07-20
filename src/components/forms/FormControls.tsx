@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -157,6 +158,10 @@ export const PromptField = memo(function PromptField({
     onChangeText: handleTextChange,
     inputRef,
   });
+  const highlightedText = useMemo(
+    () => renderPromptHighlights(text),
+    [text],
+  );
 
   useEffect(() => {
     if (focusedRef.current) return;
@@ -204,7 +209,7 @@ export const PromptField = memo(function PromptField({
           onSelectionChange={autocomplete.handleSelectionChange}
           style={styles.promptInput}
         >
-          {renderPromptHighlights(text)}
+          {highlightedText}
         </TextInput>
         <Text style={styles.promptCount}>{text.length}자</Text>
       </View>

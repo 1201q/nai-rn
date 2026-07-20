@@ -605,9 +605,13 @@ function loadPersistedOptions(): Partial<GenerationState> {
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   prompt:
     "silver-haired mage, under moonlight, arcane magic circle, purple runes, starry night",
-  setPrompt: (v) => set({ prompt: v }),
+  setPrompt: (v) =>
+    set((state) => (state.prompt === v ? state : { prompt: v })),
   negativePrompt: "low quality, blurry, watermark, text",
-  setNegativePrompt: (v) => set({ negativePrompt: v }),
+  setNegativePrompt: (v) =>
+    set((state) =>
+      state.negativePrompt === v ? state : { negativePrompt: v },
+    ),
   qualityToggle: true,
   setQualityToggle: (v) => set({ qualityToggle: v }),
   ucPreset: 0,

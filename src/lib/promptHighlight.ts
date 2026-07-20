@@ -44,7 +44,8 @@ function weightKind(weight: number): PromptHighlightKind {
 }
 
 // 선행 `숫자::` 매칭 (음수/소수 허용). 예: `1.5::`, `-2::`, `.5::`
-const NUMERIC_OPEN = /^(-?(?:\d+\.?\d*|\.\d+))::/;
+// sticky 매칭으로 남은 문자열을 매 문자마다 복사하지 않는다.
+const NUMERIC_OPEN = /(-?(?:\d+\.?\d*|\.\d+))::/y;
 
 export function parsePromptHighlights(
   text: string,
@@ -96,7 +97,8 @@ export function parsePromptHighlights(
     }
 
     // `숫자::` 수치 가중치 열기
-    const m = NUMERIC_OPEN.exec(text.slice(i));
+    NUMERIC_OPEN.lastIndex = i;
+    const m = NUMERIC_OPEN.exec(text);
     if (m) {
       flush();
       const num = parseFloat(m[1]);

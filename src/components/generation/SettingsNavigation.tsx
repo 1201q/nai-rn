@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   type LayoutChangeEvent,
   Pressable,
@@ -125,19 +125,26 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   const tabLayouts = useRef<Record<string, { x: number; width: number }>>({});
 
   const pillStyle = useAnimatedStyle(() => ({
-    left: pillX.value,
     width: pillWidth.value,
     opacity: pillOpacity.value,
+    transform: [{ translateX: pillX.value }],
   }));
 
-  useEffect(() => {
-    const layout = tabLayouts.current[activeKey];
-    if (!layout) return;
+  const animatePill = useCallback(
+    (key: string) => {
+      const layout = tabLayouts.current[key];
+      if (!layout) return;
 
-    pillX.value = withTiming(layout.x, TAB_TIMING);
-    pillWidth.value = withTiming(layout.width, TAB_TIMING);
-    pillOpacity.value = withTiming(1, { duration: 80 });
-  }, [activeKey, pillOpacity, pillWidth, pillX]);
+      pillX.value = withTiming(layout.x, TAB_TIMING);
+      pillWidth.value = layout.width;
+      pillOpacity.value = withTiming(1, { duration: 80 });
+    },
+    [pillOpacity, pillWidth, pillX],
+  );
+
+  useEffect(() => {
+    animatePill(activeKey);
+  }, [activeKey, animatePill]);
 
   const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
     const { x, width } = event.nativeEvent.layout;
@@ -177,7 +184,10 @@ export const SettingsTabBar = memo(function SettingsTabBar({
                   accessibilityRole="tab"
                   accessibilityLabel={tab.label}
                   accessibilityState={{ selected: active }}
-                  onPress={() => onChange(tab.key)}
+                  onPress={() => {
+                    animatePill(tab.key);
+                    onChange(tab.key);
+                  }}
                   style={({ pressed }) => [
                     styles.tab,
                     pressed && styles.pressed,
@@ -288,6 +298,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
+    left: 0,
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.accent,
   },

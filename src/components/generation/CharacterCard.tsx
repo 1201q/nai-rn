@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Modal,
   Pressable,
@@ -206,6 +213,10 @@ export const CharacterCard = memo(function CharacterCard({
     onChangeText: handlePromptTextChange,
     inputRef: promptInputRef,
   });
+  const highlightedText = useMemo(
+    () => renderPromptHighlights(activeText),
+    [activeText],
+  );
   const bodyHeight = useSharedValue(expanded ? CARD_BODY_HEIGHT : 0);
   const bodyOpacity = useSharedValue(expanded ? 1 : 0);
 
@@ -390,7 +401,7 @@ export const CharacterCard = memo(function CharacterCard({
             onSelectionChange={autocomplete.handleSelectionChange}
             style={styles.promptInput}
           >
-            {renderPromptHighlights(activeText)}
+            {highlightedText}
           </TextInput>
           <View style={styles.editorFooter}>
             <SegmentedControl
