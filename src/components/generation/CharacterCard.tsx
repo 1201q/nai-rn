@@ -397,7 +397,6 @@ export const CharacterCard = memo(function CharacterCard({
               autocomplete.deactivateSuggestions();
             }}
             onChangeText={autocomplete.handleChangeText}
-            selection={autocomplete.selection}
             onSelectionChange={autocomplete.handleSelectionChange}
             style={styles.promptInput}
           >

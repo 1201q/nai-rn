@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   type NativeSyntheticEvent,
   type TextInput,
@@ -21,8 +21,11 @@ const DEBOUNCE_MS = 150;
  * 로직과 동일하나, 화면별로 다른 입력 컴포넌트(로컬 state 보유 등)에 끼워넣을 수
  * 있도록 props 묶음으로 반환한다. 추천 데이터는 SuggestionBarProvider 로 흐른다.
  *
- * 반환값을 TextInput 에 펼쳐 연결:
- *   <TextInput ref={inputRef} value={value} {...ac.inputProps} />
+ * 반환 핸들러를 TextInput 에 연결:
+ *   <TextInput
+ *     onChangeText={ac.handleChangeText}
+ *     onSelectionChange={ac.handleSelectionChange}
+ *   />
  * 단 onBlur 는 호출부에서 합성(기존 blur 처리와 병행)하도록 clearSuggestions 로 노출.
  */
 export function usePromptAutocomplete({
@@ -35,12 +38,13 @@ export function usePromptAutocomplete({
   inputRef: React.RefObject<TextInput | null>;
 }) {
   const textRef = useRef(value);
+  const selectionRef = useRef({ start: 0, end: 0 });
+  const selectionFrameRef = useRef<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqIdRef = useRef(0);
   // ref pattern: 스테일 클로저 없이 항상 최신 pick 핸들러
   const pickFnRef = useRef<(item: TagSuggestion) => void>(() => {});
 
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const barActions = useSuggestionBarActions();
 
   useEffect(() => {
@@ -48,13 +52,36 @@ export function usePromptAutocomplete({
   }, [value]);
 
   pickFnRef.current = (item: TagSuggestion) => {
-    const { text, cursor } = insertTag(value, selection.start, item.value);
+    const { text, cursor } = insertTag(
+      textRef.current,
+      selectionRef.current.start,
+      item.value,
+    );
     textRef.current = text;
+    selectionRef.current = { start: cursor, end: cursor };
     onChangeText(text);
-    setSelection({ start: cursor, end: cursor });
     barActions?.clearSuggestions();
     inputRef.current?.focus();
+
+    if (selectionFrameRef.current !== null) {
+      cancelAnimationFrame(selectionFrameRef.current);
+    }
+    selectionFrameRef.current = requestAnimationFrame(() => {
+      selectionFrameRef.current = null;
+      inputRef.current?.setNativeProps({
+        selection: { start: cursor, end: cursor },
+      });
+    });
   };
+
+  useEffect(
+    () => () => {
+      if (selectionFrameRef.current !== null) {
+        cancelAnimationFrame(selectionFrameRef.current);
+      }
+    },
+    [],
+  );
 
   const clearSuggestions = useCallback(() => {
     if (debounceRef.current) {
@@ -111,7 +138,7 @@ export function usePromptAutocomplete({
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const sel = e.nativeEvent.selection;
-      setSelection(sel);
+      selectionRef.current = sel;
       if (sel.start === sel.end) runSearch(textRef.current, sel.start);
       else clearSuggestions();
     },
@@ -119,7 +146,6 @@ export function usePromptAutocomplete({
   );
 
   return {
-    selection,
     handleChangeText,
     handleSelectionChange,
     clearSuggestions,

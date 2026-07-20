@@ -205,7 +205,6 @@ export const PromptField = memo(function PromptField({
             autocomplete.deactivateSuggestions();
           }}
           onChangeText={autocomplete.handleChangeText}
-          selection={autocomplete.selection}
           onSelectionChange={autocomplete.handleSelectionChange}
           style={styles.promptInput}
         >
