@@ -29,7 +29,8 @@ import { monoFont, tokens } from "../../styles/tokens";
 import { ImagePreviewModal } from "../../components/image-preview/ImagePreviewModal";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
-const TOOLBAR_EXPANDED_WIDTH = 220;
+const TOOLBAR_EXPANDED_WIDTH = 260;
+const MAIN_IMAGE_BLUR_RADIUS = 28;
 const STRIPES = Array.from({ length: 52 }, (_, index) => index);
 
 type Size = {
@@ -75,6 +76,10 @@ export function GenerationCanvas() {
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
+  const mainImageBlurred = useGenerationStore((s) => s.mainImageBlurred);
+  const setMainImageBlurred = useGenerationStore(
+    (s) => s.setMainImageBlurred,
+  );
   const { open } = useAppSheet();
   const isSheetOpen = useAppSheetOpen();
   const [expanded, setExpanded] = useState(true);
@@ -248,6 +253,7 @@ export function GenerationCanvas() {
           >
             <ExpoImage
               source={imageSource}
+              blurRadius={mainImageBlurred ? MAIN_IMAGE_BLUR_RADIUS : 0}
               contentFit="cover"
               cachePolicy="memory-disk"
               transition={0}
@@ -271,6 +277,14 @@ export function GenerationCanvas() {
             pointerEvents={expanded ? "auto" : "none"}
             style={[styles.toolbarActions, { opacity: actionOpacity }]}
           >
+            <ToolbarAction
+              icon={mainImageBlurred ? "eye-off-outline" : "eye-outline"}
+              label={
+                mainImageBlurred ? "이미지 블러 해제" : "이미지 블러 적용"
+              }
+              active={mainImageBlurred}
+              onPress={() => setMainImageBlurred(!mainImageBlurred)}
+            />
             <ToolbarAction
               icon={isSaving ? undefined : "download-outline"}
               label="이미지 다운로드"
@@ -340,18 +354,20 @@ const ToolbarAction = memo(function ToolbarAction({
   onPress,
   disabled = false,
   loading = false,
+  active = false,
 }: {
   icon?: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  active?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled }}
+      accessibilityState={{ disabled, selected: active }}
       disabled={disabled}
       hitSlop={2}
       onPress={onPress}
@@ -364,7 +380,11 @@ const ToolbarAction = memo(function ToolbarAction({
       {loading ? (
         <ActivityIndicator color={tokens.color.textPrimary} size="small" />
       ) : icon ? (
-        <Ionicons name={icon} size={17} color={tokens.color.textPrimary} />
+        <Ionicons
+          name={icon}
+          size={17}
+          color={active ? tokens.color.accent : tokens.color.textPrimary}
+        />
       ) : null}
     </Pressable>
   );

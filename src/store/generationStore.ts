@@ -137,6 +137,7 @@ type PersistedGenerationOptions = Partial<{
   i2iEnabled: boolean;
   i2iStrength: number;
   i2iNoise: number;
+  mainImageBlurred: boolean;
 }>;
 
 function generateRandomSeed(): number {
@@ -434,6 +435,8 @@ type GenerationState = {
   i2iNoise: number;
   setI2INoise: (v: number) => void;
   clearI2I: () => void;
+  mainImageBlurred: boolean;
+  setMainImageBlurred: (v: boolean) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -596,6 +599,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
       next.i2iStrength = parsed.i2iStrength;
     }
     if (isNumber(parsed.i2iNoise)) next.i2iNoise = parsed.i2iNoise;
+    if (isBoolean(parsed.mainImageBlurred)) {
+      next.mainImageBlurred = parsed.mainImageBlurred;
+    }
     return next;
   } catch {
     return {};
@@ -992,6 +998,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setI2IStrength: (v) => set({ i2iStrength: v }),
   i2iNoise: DEFAULT_I2I_NOISE,
   setI2INoise: (v) => set({ i2iNoise: v }),
+  mainImageBlurred: false,
+  setMainImageBlurred: (v) => set({ mainImageBlurred: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
@@ -1577,6 +1585,7 @@ export function useGenerationBootstrap() {
         i2iEnabled: state.i2iEnabled,
         i2iStrength: state.i2iStrength,
         i2iNoise: state.i2iNoise,
+        mainImageBlurred: state.mainImageBlurred,
       };
 
       const json = JSON.stringify(nextOptions);
