@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import Reanimated, {
   Easing,
   useAnimatedStyle,
@@ -122,7 +123,9 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   const pillWidth = useSharedValue(0);
   const pillOpacity = useSharedValue(0);
   const pillReady = useRef(false);
+  const activeKeyRef = useRef(activeKey);
   const tabLayouts = useRef<Record<string, { x: number; width: number }>>({});
+  activeKeyRef.current = activeKey;
 
   const pillStyle = useAnimatedStyle(() => ({
     width: pillWidth.value,
@@ -131,13 +134,14 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   }));
 
   const animatePill = useCallback(
-    (key: string) => {
+    (key: string, animated = true) => {
       const layout = tabLayouts.current[key];
       if (!layout) return;
 
-      pillX.value = withTiming(layout.x, TAB_TIMING);
+      pillReady.current = true;
+      pillX.value = animated ? withTiming(layout.x, TAB_TIMING) : layout.x;
       pillWidth.value = layout.width;
-      pillOpacity.value = withTiming(1, { duration: 80 });
+      pillOpacity.value = animated ? withTiming(1, { duration: 80 }) : 1;
     },
     [pillOpacity, pillWidth, pillX],
   );
@@ -146,10 +150,22 @@ export const SettingsTabBar = memo(function SettingsTabBar({
     animatePill(activeKey);
   }, [activeKey, animatePill]);
 
+  useFocusEffect(
+    useCallback(() => {
+      const frame = requestAnimationFrame(() => {
+        animatePill(activeKeyRef.current, false);
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }, [animatePill]),
+  );
+
   const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
     const { x, width } = event.nativeEvent.layout;
+    if (!Number.isFinite(x) || !Number.isFinite(width) || width <= 0) return;
+
     tabLayouts.current[key] = { x, width };
-    if (key !== activeKey) return;
+    if (key !== activeKeyRef.current) return;
 
     if (!pillReady.current) {
       pillReady.current = true;
