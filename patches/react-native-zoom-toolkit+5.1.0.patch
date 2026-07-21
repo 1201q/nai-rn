@@ -1,0 +1,28 @@
+diff --git a/node_modules/react-native-zoom-toolkit/lib/module/commons/hooks/usePinchCommons.js b/node_modules/react-native-zoom-toolkit/lib/module/commons/hooks/usePinchCommons.js
+index a487c64..731abba 100644
+--- a/node_modules/react-native-zoom-toolkit/lib/module/commons/hooks/usePinchCommons.js
++++ b/node_modules/react-native-zoom-toolkit/lib/module/commons/hooks/usePinchCommons.js
+@@ -128,8 +128,8 @@ export const usePinchCommons = options => {
+         scheduleOnRN(switchGesturesState, true);
+       }
+     });
++    gestureEnd.value = 0;
+     gestureEnd.value = withTiming(toValue, undefined, finished => {
+-      gestureEnd.value = 0;
+       if (finished && userCallbacks.onGestureEnd !== undefined) {
+         scheduleOnRN(userCallbacks.onGestureEnd);
+       }
+diff --git a/node_modules/react-native-zoom-toolkit/src/commons/hooks/usePinchCommons.ts b/node_modules/react-native-zoom-toolkit/src/commons/hooks/usePinchCommons.ts
+index 410a4ab..2db3830 100644
+--- a/node_modules/react-native-zoom-toolkit/src/commons/hooks/usePinchCommons.ts
++++ b/node_modules/react-native-zoom-toolkit/src/commons/hooks/usePinchCommons.ts
+@@ -178,8 +178,8 @@ export const usePinchCommons = (options: PinchOptions) => {
+       }
+     });
+ 
++    gestureEnd.value = 0;
+     gestureEnd.value = withTiming(toValue, undefined, (finished) => {
+-      gestureEnd.value = 0;
+       if (finished && userCallbacks.onGestureEnd !== undefined) {
+         scheduleOnRN(userCallbacks.onGestureEnd);
+       }
