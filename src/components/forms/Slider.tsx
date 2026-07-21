@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState } from "react";
 import {
+  ToastAndroid,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -21,6 +22,13 @@ const SPRING = { damping: 15, stiffness: 220, mass: 0.5 };
 
 function hapticTick() {
   Haptics.selectionAsync().catch(() => {});
+}
+
+function showDragHint() {
+  ToastAndroid.show(
+    "동그란 핸들을 잡고 이동해 주세요.",
+    ToastAndroid.SHORT,
+  );
 }
 
 export function Slider({
@@ -129,6 +137,15 @@ export function Slider({
       runOnJS(onSlidingComplete)(snapped);
     });
 
+  const tap = Gesture.Tap().onEnd((event, success) => {
+    if (!success) return;
+    const tappedThumb =
+      event.x >= posX.value - half && event.x <= posX.value + half;
+    if (!tappedThumb) runOnJS(showDragHint)();
+  });
+
+  const gesture = Gesture.Exclusive(pan, tap);
+
   const fillStyle = useAnimatedStyle(() => ({
     width: Math.max(0, posX.value),
   }));
@@ -142,7 +159,7 @@ export function Slider({
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <View
         onLayout={onLayout}
         style={[

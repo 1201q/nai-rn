@@ -8,6 +8,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  ToastAndroid,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -192,7 +193,7 @@ export function GenerationCanvas() {
         return;
       }
       await MediaLibrary.Asset.create(currentImageUri);
-      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+      ToastAndroid.show("이미지를 저장했습니다.", ToastAndroid.SHORT);
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
     } finally {
@@ -206,7 +207,6 @@ export function GenerationCanvas() {
     try {
       const base64Image = await new File(currentImageUri).base64();
       await Clipboard.setImageAsync(base64Image);
-      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
     } catch {
       Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
     } finally {

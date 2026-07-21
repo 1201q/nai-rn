@@ -14,6 +14,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  ToastAndroid,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -371,9 +372,9 @@ export function HistoryScreen({
           MediaLibrary.Asset.create(resolveGenerationImageUri(record)),
         ),
       );
-      Alert.alert(
-        "저장됨",
-        `${selectedRecords.length}개의 이미지를 휴대폰 저장소에 저장했습니다.`,
+      ToastAndroid.show(
+        `${selectedRecords.length}개의 이미지를 저장했습니다.`,
+        ToastAndroid.SHORT,
       );
     } catch {
       Alert.alert(
@@ -399,7 +400,7 @@ export function HistoryScreen({
 
     try {
       await MediaLibrary.Asset.create(resolveGenerationImageUri(record));
-      Alert.alert("저장됨", "이미지를 휴대폰 저장소에 저장했습니다.");
+      ToastAndroid.show("이미지를 저장했습니다.", ToastAndroid.SHORT);
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
     }
@@ -412,7 +413,6 @@ export function HistoryScreen({
     try {
       const base64 = await new File(resolveGenerationImageUri(record)).base64();
       await Clipboard.setImageAsync(base64);
-      Alert.alert("복사됨", "이미지를 클립보드에 복사했습니다.");
     } catch {
       Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
     }
