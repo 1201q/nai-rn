@@ -19,19 +19,20 @@ import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
   Easing,
   FadeIn,
+  ZoomIn,
+  interpolate,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { renderPromptHighlights } from "../forms/promptHighlights";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-import {
-  SegmentedControl,
-  Toggle,
-} from "../forms/FormControls";
+import { Toggle } from "../forms/FormControls";
 
 type PromptMode = "base" | "negative";
 type MenuAction = {
@@ -57,10 +58,68 @@ export const CHARACTER_BADGE_COLORS = [
 
 const CARD_EDITOR_HEIGHT = 204;
 const CARD_BODY_HEIGHT = CARD_EDITOR_HEIGHT + tokens.space[6];
+const PROMPT_MODE_BASE_WIDTH = 46;
+const PROMPT_MODE_NEGATIVE_WIDTH = 68;
 const CARD_BODY_TIMING = {
   duration: 180,
   easing: Easing.out(Easing.cubic),
 };
+
+function PromptModeTabs({
+  value,
+  progress,
+  onChange,
+}: {
+  value: PromptMode;
+  progress: SharedValue<number>;
+  onChange: (value: string) => void;
+}) {
+  const indicatorStyle = useAnimatedStyle(() => ({
+    width: interpolate(
+      progress.value,
+      [0, 1],
+      [PROMPT_MODE_BASE_WIDTH, PROMPT_MODE_NEGATIVE_WIDTH],
+    ),
+    transform: [{ translateX: progress.value * PROMPT_MODE_BASE_WIDTH }],
+  }));
+
+  return (
+    <View style={styles.promptModeTabs}>
+      <Reanimated.View
+        pointerEvents="none"
+        style={[styles.promptModeIndicator, indicatorStyle]}
+      />
+      {MODES.map((option) => {
+        const active = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityLabel={option.label}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.promptModeTab,
+              option.value === "base"
+                ? styles.promptModeBaseTab
+                : styles.promptModeNegativeTab,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.promptModeLabel,
+                active && styles.promptModeLabelActive,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 function CharacterActionMenu({
   visible,
@@ -103,7 +162,7 @@ function CharacterActionMenu({
     <Modal
       transparent
       visible={visible}
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
@@ -114,47 +173,54 @@ function CharacterActionMenu({
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
-        <View
-          accessibilityViewIsModal
-          style={[styles.actionMenu, { top }]}
-        >
-          {actions.map((item) => (
-            <Pressable
-              key={item.key}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-              accessibilityState={{ disabled: item.disabled ?? false }}
-              disabled={item.disabled}
-              onPress={() => {
-                onClose();
-                item.action();
-              }}
-              style={({ pressed }) => [
-                styles.actionMenuItem,
-                item.disabled && styles.actionMenuItemDisabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name={item.icon}
-                size={19}
-                color={
-                  item.destructive
-                    ? tokens.color.negative
-                    : tokens.color.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.actionMenuLabel,
-                  item.destructive && styles.actionMenuLabelDestructive,
+        {visible ? (
+          <Reanimated.View
+            entering={ZoomIn.duration(105)
+              .easing(Easing.out(Easing.cubic))
+              .withInitialValues({
+                transform: [{ scale: 0.94 }],
+              })}
+            accessibilityViewIsModal
+            style={[styles.actionMenu, { top }]}
+          >
+            {actions.map((item) => (
+              <Pressable
+                key={item.key}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}
+                accessibilityState={{ disabled: item.disabled ?? false }}
+                disabled={item.disabled}
+                onPress={() => {
+                  onClose();
+                  item.action();
+                }}
+                style={({ pressed }) => [
+                  styles.actionMenuItem,
+                  item.disabled && styles.actionMenuItemDisabled,
+                  pressed && styles.pressed,
                 ]}
               >
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Ionicons
+                  name={item.icon}
+                  size={19}
+                  color={
+                    item.destructive
+                      ? tokens.color.negative
+                      : tokens.color.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.actionMenuLabel,
+                    item.destructive && styles.actionMenuLabelDestructive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </Reanimated.View>
+        ) : null}
       </View>
     </Modal>
   );
@@ -220,12 +286,53 @@ export const CharacterCard = memo(function CharacterCard({
   );
   const bodyHeight = useSharedValue(expanded ? CARD_BODY_HEIGHT : 0);
   const bodyOpacity = useSharedValue(expanded ? 1 : 0);
+  const modeProgress = useSharedValue(mode === "negative" ? 1 : 0);
+  const positionProgress = useSharedValue(positionEnabled ? 1 : 0);
 
   const displayName = item.name?.trim() || `Character ${index + 1}`;
+  const badgeColor =
+    CHARACTER_BADGE_COLORS[index % CHARACTER_BADGE_COLORS.length];
 
   const bodyStyle = useAnimatedStyle(() => ({
     height: bodyHeight.value,
     opacity: bodyOpacity.value,
+  }));
+  const editorBorderStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(
+      modeProgress.value,
+      [0, 1],
+      [tokens.color.borderSubtle, tokens.color.borderNegative],
+    ),
+  }));
+  const badgeStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      positionProgress.value,
+      [0, 1],
+      [tokens.color.raised, badgeColor],
+    ),
+  }));
+  const badgeTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      positionProgress.value,
+      [0, 1],
+      [tokens.color.textMuted, tokens.color.onAccent],
+    ),
+  }));
+  const coordinatesStyle = useAnimatedStyle(() => ({
+    opacity: positionProgress.value,
+    transform: [
+      {
+        translateX: interpolate(positionProgress.value, [0, 1], [8, 0]),
+      },
+    ],
+  }));
+  const positionUnsetStyle = useAnimatedStyle(() => ({
+    opacity: 1 - positionProgress.value,
+    transform: [
+      {
+        translateX: interpolate(positionProgress.value, [0, 1], [0, -8]),
+      },
+    ],
   }));
 
   useEffect(() => {
@@ -235,6 +342,20 @@ export const CharacterCard = memo(function CharacterCard({
       duration: expanded ? 140 : 100,
     });
   }, [bodyHeight, bodyOpacity, expanded]);
+
+  useEffect(() => {
+    modeProgress.value = withTiming(mode === "negative" ? 1 : 0, {
+      duration: 150,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [mode, modeProgress]);
+
+  useEffect(() => {
+    positionProgress.value = withTiming(positionEnabled ? 1 : 0, {
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [positionEnabled, positionProgress]);
 
   useEffect(() => {
     if (focusedRef.current) return;
@@ -287,37 +408,29 @@ export const CharacterCard = memo(function CharacterCard({
           }}
           style={({ pressed }) => [styles.headerMain, pressed && styles.pressed]}
         >
-          <View
-            style={[
-              styles.badge,
-              positionEnabled
-                ? {
-                    backgroundColor:
-                      CHARACTER_BADGE_COLORS[
-                        index % CHARACTER_BADGE_COLORS.length
-                      ],
-                  }
-                : styles.badgeMuted,
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-                !positionEnabled && styles.badgeTextMuted,
-              ]}
-            >
+          <Reanimated.View style={[styles.badge, badgeStyle]}>
+            <Reanimated.Text style={[styles.badgeText, badgeTextStyle]}>
               {index + 1}
-            </Text>
-          </View>
+            </Reanimated.Text>
+          </Reanimated.View>
           <View style={styles.titleGroup}>
             <Text style={styles.title} numberOfLines={1}>
               {displayName}
             </Text>
-            <Text style={styles.coordinates} numberOfLines={1}>
-              {positionEnabled
-                ? `X ${item.position.x.toFixed(2)} · Y ${item.position.y.toFixed(2)}`
-                : "위치 미지정"}
-            </Text>
+            <View style={styles.coordinatesSlot}>
+              <Reanimated.Text
+                numberOfLines={1}
+                style={[styles.coordinates, coordinatesStyle]}
+              >
+                {`X ${item.position.x.toFixed(2)} · Y ${item.position.y.toFixed(2)}`}
+              </Reanimated.Text>
+              <Reanimated.Text
+                numberOfLines={1}
+                style={[styles.coordinates, positionUnsetStyle]}
+              >
+                위치 미지정
+              </Reanimated.Text>
+            </View>
           </View>
         </Pressable>
         <View style={styles.toggleSlot}>
@@ -371,12 +484,7 @@ export const CharacterCard = memo(function CharacterCard({
         pointerEvents={expanded ? "auto" : "none"}
         style={[styles.editorClip, bodyStyle]}
       >
-        <View
-          style={[
-            styles.editor,
-            mode === "negative" && styles.editorNegative,
-          ]}
-        >
+        <Reanimated.View style={[styles.editor, editorBorderStyle]}>
           <TextInput
             ref={promptInputRef}
             accessibilityLabel={
@@ -404,9 +512,9 @@ export const CharacterCard = memo(function CharacterCard({
             {highlightedText}
           </TextInput>
           <View style={styles.editorFooter}>
-            <SegmentedControl
-              options={MODES}
+            <PromptModeTabs
               value={mode}
+              progress={modeProgress}
               onChange={changeMode}
             />
             <Pressable
@@ -427,7 +535,7 @@ export const CharacterCard = memo(function CharacterCard({
               />
             </Pressable>
           </View>
-        </View>
+        </Reanimated.View>
       </Reanimated.View>
 
       <CharacterActionMenu
@@ -478,15 +586,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: {
-    color: tokens.color.onAccent,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.sm,
-  },
-  badgeMuted: {
-    backgroundColor: tokens.color.raised,
-  },
-  badgeTextMuted: {
-    color: tokens.color.textMuted,
   },
   titleGroup: {
     flex: 1,
@@ -498,8 +599,16 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.md,
     lineHeight: 19,
   },
-  coordinates: {
+  coordinatesSlot: {
     marginTop: 1,
+    height: 15,
+    overflow: "hidden",
+  },
+  coordinates: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
@@ -556,9 +665,6 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.app,
   },
-  editorNegative: {
-    borderColor: tokens.color.borderNegative,
-  },
   promptInput: {
     flex: 1,
     minHeight: 116,
@@ -572,6 +678,46 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  promptModeTabs: {
+    position: "relative",
+    width: PROMPT_MODE_BASE_WIDTH + PROMPT_MODE_NEGATIVE_WIDTH + 6,
+    height: 32,
+    padding: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.card,
+  },
+  promptModeIndicator: {
+    position: "absolute",
+    top: 3,
+    left: 3,
+    width: PROMPT_MODE_BASE_WIDTH,
+    height: 26,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.accent,
+  },
+  promptModeTab: {
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  promptModeBaseTab: {
+    width: PROMPT_MODE_BASE_WIDTH,
+  },
+  promptModeNegativeTab: {
+    width: PROMPT_MODE_NEGATIVE_WIDTH,
+  },
+  promptModeLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type["3xs"],
+  },
+  promptModeLabelActive: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.semibold,
   },
   moreButton: {
     width: 30,

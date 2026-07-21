@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   Animated,
+  Easing,
   Keyboard,
   type LayoutChangeEvent,
   Pressable,
@@ -57,6 +58,7 @@ import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
 
 type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
+type TabTransitionDirection = -1 | 0 | 1;
 
 const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
 const CFG_CONFIG = { min: 0, max: 10, step: 0.1, precision: 1 } as const;
@@ -84,18 +86,53 @@ const TITLES: Record<SettingsTabKey, string> = {
 function SettingsTabPane({
   tabKey,
   activeTab,
+  transitionDirection,
   onLayout,
   children,
 }: {
   tabKey: SettingsTabKey;
   activeTab: SettingsTabKey;
+  transitionDirection: TabTransitionDirection;
   onLayout: (key: SettingsTabKey, event: LayoutChangeEvent) => void;
   children: ReactNode;
 }) {
   const active = tabKey === activeTab;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (active) {
+      translateX.setValue(transitionDirection * 12);
+    }
+
+    const animation = active
+      ? Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 160,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: 180,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ])
+      : Animated.timing(opacity, {
+          toValue: 0,
+          duration: 0,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        });
+
+    animation.start();
+    return () => animation.stop();
+  }, [active, opacity, transitionDirection, translateX]);
 
   return (
-    <View
+    <Animated.View
       accessibilityElementsHidden={!active}
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
       pointerEvents={active ? "auto" : "none"}
@@ -103,10 +140,11 @@ function SettingsTabPane({
       style={[
         styles.tabPane,
         active ? styles.activeTabPane : styles.inactiveTabPane,
+        { opacity, transform: [{ translateX }] },
       ]}
     >
       {children}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -323,9 +361,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
     (id: string, values: Partial<Omit<CharacterPrompt, "id">>) => {
       const current = useGenerationStore.getState().characterPrompts;
       setCharacterPrompts(
-        current.map((item) =>
-          item.id === id ? { ...item, ...values } : item,
-        ),
+        current.map((item) => (item.id === id ? { ...item, ...values } : item)),
       );
     },
     [setCharacterPrompts],
@@ -398,10 +434,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
     [setCharacterPrompts, setExpandedIds],
   );
 
-  const openCharacterOrder = useCallback(
-    () => open("characterOrder"),
-    [open],
-  );
+  const openCharacterOrder = useCallback(() => open("characterOrder"), [open]);
 
   const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
 
@@ -563,6 +596,8 @@ export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
+  const [transitionDirection, setTransitionDirection] =
+    useState<TabTransitionDirection>(0);
   const [mountedTabs, setMountedTabs] = useState<
     Record<SettingsTabKey, boolean>
   >({
@@ -591,6 +626,11 @@ export function ImageSettingsScreen() {
   const handleTabChange = useCallback(
     (key: string) => {
       const nextTab = key as SettingsTabKey;
+      if (nextTab === activeTab) return;
+
+      const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
+      const nextIndex = TABS.findIndex((tab) => tab.key === nextTab);
+      setTransitionDirection(nextIndex > currentIndex ? 1 : -1);
       Keyboard.dismiss();
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
@@ -611,7 +651,7 @@ export function ImageSettingsScreen() {
         });
       }
     },
-    [mountedTabs, scrollY],
+    [activeTab, mountedTabs, scrollY],
   );
 
   useEffect(
@@ -665,8 +705,7 @@ export function ImageSettingsScreen() {
             style={[
               styles.tabHost,
               {
-                height:
-                  tabHeights[activeTab] ?? tabHeights.settings ?? 1,
+                height: tabHeights[activeTab] ?? tabHeights.settings ?? 1,
               },
             ]}
           >
@@ -674,6 +713,7 @@ export function ImageSettingsScreen() {
               <SettingsTabPane
                 tabKey="settings"
                 activeTab={activeTab}
+                transitionDirection={transitionDirection}
                 onLayout={handleTabLayout}
               >
                 <SettingsTabContent />
@@ -683,6 +723,7 @@ export function ImageSettingsScreen() {
               <SettingsTabPane
                 tabKey="prompt"
                 activeTab={activeTab}
+                transitionDirection={transitionDirection}
                 onLayout={handleTabLayout}
               >
                 <PromptTabContent />
@@ -692,6 +733,7 @@ export function ImageSettingsScreen() {
               <SettingsTabPane
                 tabKey="character"
                 activeTab={activeTab}
+                transitionDirection={transitionDirection}
                 onLayout={handleTabLayout}
               >
                 <CharacterTabContent />
@@ -701,6 +743,7 @@ export function ImageSettingsScreen() {
               <SettingsTabPane
                 tabKey="imageRef"
                 activeTab={activeTab}
+                transitionDirection={transitionDirection}
                 onLayout={handleTabLayout}
               >
                 <ImageReferenceTabContent />
@@ -730,7 +773,10 @@ export function ImageSettingsScreen() {
 
         <View
           pointerEvents="box-none"
-          style={[styles.bottomBar, { bottom: insets.bottom + tokens.space[6] }]}
+          style={[
+            styles.bottomBar,
+            { bottom: insets.bottom + tokens.space[6] },
+          ]}
         >
           <IconButton
             icon="chevron-back"
@@ -773,11 +819,9 @@ const styles = StyleSheet.create({
   },
   activeTabPane: {
     zIndex: 1,
-    opacity: 1,
   },
   inactiveTabPane: {
     zIndex: 0,
-    opacity: 0,
   },
   header: {
     height: 58,
