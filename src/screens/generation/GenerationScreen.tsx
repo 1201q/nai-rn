@@ -92,7 +92,7 @@ export function GenerationScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="ANLAS 토큰 설정"
-          onPress={() => router.push("/settings")}
+          onPress={() => router.navigate("/settings")}
           style={({ pressed }) => [
             styles.balancePill,
             pressed && styles.balancePillPressed,
@@ -115,13 +115,13 @@ export function GenerationScreen() {
         <IconButton
           icon="settings-outline"
           label="이미지 세팅"
-          onPress={() => router.push("/image-settings")}
+          onPress={() => router.navigate("/image-settings")}
         />
         <GenerateAction />
         <IconButton
           icon="time-outline"
           label="History"
-          onPress={() => router.push("/history")}
+          onPress={() => router.navigate("/history")}
         />
       </View>
     </View>
