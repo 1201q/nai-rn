@@ -2,7 +2,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -28,7 +27,10 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-import { renderPromptHighlights } from "../forms/promptHighlights";
+import {
+  PromptHighlightTextInput,
+  type PromptHighlightTextInputHandle,
+} from "../forms/PromptHighlightTextInput";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -258,7 +260,7 @@ export const CharacterCard = memo(function CharacterCard({
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const menuAnchorRef = useRef<View>(null);
-  const promptInputRef = useRef<TextInput>(null);
+  const promptInputRef = useRef<PromptHighlightTextInputHandle>(null);
   const focusedRef = useRef(false);
   const [mode, setMode] = useState<PromptMode>("base");
   const [baseText, setBaseText] = useState(item.prompt);
@@ -280,10 +282,6 @@ export const CharacterCard = memo(function CharacterCard({
     onChangeText: handlePromptTextChange,
     inputRef: promptInputRef,
   });
-  const highlightedText = useMemo(
-    () => renderPromptHighlights(activeText),
-    [activeText],
-  );
   const bodyHeight = useSharedValue(expanded ? CARD_BODY_HEIGHT : 0);
   const bodyOpacity = useSharedValue(expanded ? 1 : 0);
   const modeProgress = useSharedValue(mode === "negative" ? 1 : 0);
@@ -485,7 +483,7 @@ export const CharacterCard = memo(function CharacterCard({
         style={[styles.editorClip, bodyStyle]}
       >
         <Reanimated.View style={[styles.editor, editorBorderStyle]}>
-          <TextInput
+          <PromptHighlightTextInput
             ref={promptInputRef}
             accessibilityLabel={
               mode === "base" ? "Base prompt" : "Negative prompt"
@@ -507,10 +505,9 @@ export const CharacterCard = memo(function CharacterCard({
             }}
             onChangeText={autocomplete.handleChangeText}
             onSelectionChange={autocomplete.handleSelectionChange}
+            value={activeText}
             style={styles.promptInput}
-          >
-            {highlightedText}
-          </TextInput>
+          />
           <View style={styles.editorFooter}>
             <PromptModeTabs
               value={mode}

@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -16,7 +15,10 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { Slider } from "./Slider";
-import { renderPromptHighlights } from "./promptHighlights";
+import {
+  PromptHighlightTextInput,
+  type PromptHighlightTextInputHandle,
+} from "./PromptHighlightTextInput";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { tokens } from "../../styles/tokens";
 
@@ -144,7 +146,7 @@ export const PromptField = memo(function PromptField({
   negative?: boolean;
   onCommit: (value: string) => void;
 }) {
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<PromptHighlightTextInputHandle>(null);
   const focusedRef = useRef(false);
   const latestRef = useRef(value);
   const [text, setText] = useState(value);
@@ -158,11 +160,6 @@ export const PromptField = memo(function PromptField({
     onChangeText: handleTextChange,
     inputRef,
   });
-  const highlightedText = useMemo(
-    () => renderPromptHighlights(text),
-    [text],
-  );
-
   useEffect(() => {
     if (focusedRef.current) return;
     latestRef.current = value;
@@ -186,7 +183,7 @@ export const PromptField = memo(function PromptField({
           negative && styles.promptCardNegative,
         ]}
       >
-        <TextInput
+        <PromptHighlightTextInput
           ref={inputRef}
           accessibilityLabel={label}
           multiline
@@ -206,10 +203,9 @@ export const PromptField = memo(function PromptField({
           }}
           onChangeText={autocomplete.handleChangeText}
           onSelectionChange={autocomplete.handleSelectionChange}
+          value={text}
           style={styles.promptInput}
-        >
-          {highlightedText}
-        </TextInput>
+        />
         <Text style={styles.promptCount}>{text.length}자</Text>
       </View>
     </View>

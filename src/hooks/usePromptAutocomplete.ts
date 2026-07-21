@@ -35,7 +35,9 @@ export function usePromptAutocomplete({
 }: {
   value: string;
   onChangeText: (v: string) => void;
-  inputRef: React.RefObject<TextInput | null>;
+  inputRef: React.RefObject<
+    Pick<TextInput, "focus" | "setNativeProps"> | null
+  >;
 }) {
   const textRef = useRef(value);
   const selectionRef = useRef({ start: 0, end: 0 });

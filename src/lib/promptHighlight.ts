@@ -37,6 +37,7 @@ interface ParsePromptHighlightsOptions {
 const STEP = 1.05;
 
 function weightKind(weight: number): PromptHighlightKind {
+  "worklet";
   if (weight < 0) return "negative";
   if (weight > 1.0001) return "strengthen";
   if (weight < 0.9999) return "weaken";
@@ -45,12 +46,12 @@ function weightKind(weight: number): PromptHighlightKind {
 
 // 선행 `숫자::` 매칭 (음수/소수 허용). 예: `1.5::`, `-2::`, `.5::`
 // sticky 매칭으로 남은 문자열을 매 문자마다 복사하지 않는다.
-const NUMERIC_OPEN = /(-?(?:\d+\.?\d*|\.\d+))::/y;
-
 export function parsePromptHighlights(
   text: string,
   _options: ParsePromptHighlightsOptions = {},
 ): PromptHighlightSpan[] {
+  "worklet";
+  const numericOpen = /(-?(?:\d+\.?\d*|\.\d+))::/y;
   const spans: PromptHighlightSpan[] = [];
 
   let bracketWeight = 1; // `{}[]` 누적 배율
@@ -97,8 +98,8 @@ export function parsePromptHighlights(
     }
 
     // `숫자::` 수치 가중치 열기
-    NUMERIC_OPEN.lastIndex = i;
-    const m = NUMERIC_OPEN.exec(text);
+    numericOpen.lastIndex = i;
+    const m = numericOpen.exec(text);
     if (m) {
       flush();
       const num = parseFloat(m[1]);
