@@ -14,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
@@ -40,6 +41,7 @@ export function MetadataExtractScreen() {
 
   async function pickImage() {
     if (busy) return;
+    const replacing = Boolean(pickedUri);
 
     try {
       setBusy(true);
@@ -62,6 +64,11 @@ export function MetadataExtractScreen() {
       const bytes = await new File(asset.uri).bytes();
       const metadata = extractPngTextMetadata(bytes);
       setParsed(parseNaiMetadata(metadata));
+      toast.success(
+        replacing
+          ? "메타데이터 이미지를 교체했습니다."
+          : "메타데이터 이미지를 추가했습니다.",
+      );
     } catch {
       setParsed(null);
       setMessage("이미지에서 메타데이터를 추출하지 못했습니다.");
@@ -73,6 +80,7 @@ export function MetadataExtractScreen() {
   function clearImage() {
     setPickedUri(null);
     setParsed(null);
+    toast.success("메타데이터 이미지를 삭제했습니다.");
   }
 
   function handleOpenImport() {

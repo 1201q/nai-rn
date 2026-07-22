@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { toast } from "sonner-native";
 
 import {
   AddReferenceButton,
@@ -110,6 +111,11 @@ export function VibeTransferScreen() {
       setExpandedIds(
         current.includes(reference.id) ? current : [...current, reference.id],
       );
+      toast.success(
+        targetId
+          ? "Vibe 이미지를 교체했습니다."
+          : "Vibe 이미지를 추가했습니다.",
+      );
     } catch {
       setMessage("Vibe 이미지를 선택하지 못했습니다.");
     } finally {
@@ -130,6 +136,14 @@ export function VibeTransferScreen() {
     references.forEach((reference) => {
       if (reference.enabled !== value) setEnabled(reference.id, value);
     });
+  }
+
+  async function handleRemove(id: string) {
+    await removeReference(id);
+    const removed = !useGenerationStore
+      .getState()
+      .vibeReferences.some((reference) => reference.id === id);
+    if (removed) toast.success("Vibe 이미지를 삭제했습니다.");
   }
 
   function toggleExpanded(id: string) {
@@ -202,7 +216,7 @@ export function VibeTransferScreen() {
               onToggleExpanded={() => toggleExpanded(reference.id)}
               onToggleEnabled={(value) => setEnabled(reference.id, value)}
               onReplace={() => void pickImage(reference.id)}
-              onRemove={() => void removeReference(reference.id)}
+              onRemove={() => void handleRemove(reference.id)}
             >
               <ParameterSlider
                 label="Information Extracted"

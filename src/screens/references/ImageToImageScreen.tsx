@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 import Reanimated, {
   Easing,
   FadeIn,
@@ -92,6 +93,7 @@ export function ImageToImageScreen() {
 
   async function pickImage() {
     if (busy) return;
+    const replacing = Boolean(sourceImage);
 
     try {
       setBusy(true);
@@ -110,13 +112,19 @@ export function ImageToImageScreen() {
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
 
-      await setSourceImage({
+      const storedImage = await setSourceImage({
         uri: asset.uri,
         width: asset.width || 64,
         height: asset.height || 64,
         fileName: asset.fileName,
         mimeType: asset.mimeType,
       });
+      if (!storedImage) return;
+      toast.success(
+        replacing
+          ? "I2I 이미지를 교체했습니다."
+          : "I2I 이미지를 추가했습니다.",
+      );
     } catch {
       setMessage("I2I 이미지를 선택하지 못했습니다.");
     } finally {
@@ -131,6 +139,11 @@ export function ImageToImageScreen() {
       return;
     }
     setEnabled(false);
+  }
+
+  function handleClear() {
+    clearI2I();
+    toast.success("I2I 이미지를 삭제했습니다.");
   }
 
   return (
@@ -191,7 +204,7 @@ export function ImageToImageScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="I2I 이미지 제거"
                   hitSlop={5}
-                  onPress={clearI2I}
+                  onPress={handleClear}
                   style={({ pressed }) => [
                     styles.removeButton,
                     pressed && styles.pressed,

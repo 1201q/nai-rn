@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { toast } from "sonner-native";
 
 import type { ParsedNaiMetadata } from "../../lib/naiMetadata";
 import {
@@ -9,7 +10,6 @@ import {
   hasSelectedMetadataImport,
   type MetadataCharacterImportMode,
 } from "../../lib/metadataImport";
-import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { SegmentedControl, Toggle } from "../forms/FormControls";
 import type { RegisterSheetDraft } from "./SheetDraft";
@@ -48,7 +48,6 @@ export function MetadataImportSheet({
   parsed: ParsedNaiMetadata;
   registerDraft: RegisterSheetDraft;
 }) {
-  const setMessage = useGenerationStore((state) => state.setMessage);
   const available = useMemo(
     () => getMetadataImportAvailability(parsed),
     [parsed],
@@ -75,9 +74,9 @@ export function MetadataImportSheet({
   const handleImport = useCallback(() => {
     if (!canImport) return false;
     applyMetadataImport(parsed, selection);
-    setMessage("선택한 메타데이터를 생성 설정으로 가져왔습니다.");
+    toast.success("메타데이터를 가져왔습니다.");
     return true;
-  }, [canImport, parsed, selection, setMessage]);
+  }, [canImport, parsed, selection]);
 
   useEffect(() => {
     registerDraft({

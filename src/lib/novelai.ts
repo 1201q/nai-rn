@@ -12,6 +12,14 @@ const NOVELAI_VIBE_ENCODE_API_URL =
 const NOVELAI_SUBSCRIPTION_API_URL =
   "https://image.novelai.net/user/subscription";
 
+function createNovelAiRequestError(status: number, fallbackMessage: string) {
+  return new Error(
+    status === 401
+      ? "NovelAI 토큰이 유효하지 않습니다. 설정에서 토큰을 확인해 주세요."
+      : fallbackMessage,
+  );
+}
+
 export type NovelAiAnlasBalance = {
   fixed: number;
   purchased: number;
@@ -36,7 +44,10 @@ export async function getNovelAiAnlasBalance(
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    throw createNovelAiRequestError(
+      response.status,
+      `HTTP ${response.status} ${response.statusText}`,
+    );
   }
 
   const data = (await response.json()) as {
@@ -302,7 +313,12 @@ export async function encodeNovelAiVibe(
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Vibe encode failed: HTTP ${xhr.status}`));
+        reject(
+          createNovelAiRequestError(
+            xhr.status,
+            `Vibe encode failed: HTTP ${xhr.status}`,
+          ),
+        );
         return;
       }
       resolve(xhr.response as ArrayBuffer);
@@ -638,7 +654,10 @@ export async function generateNovelAiImageStream(
 
       if (xhr.status < 200 || xhr.status >= 300) {
         settleError(
-          new Error(`HTTP ${xhr.status} ${xhr.statusText}\n${xhr.responseText}`),
+          createNovelAiRequestError(
+            xhr.status,
+            `HTTP ${xhr.status} ${xhr.statusText}\n${xhr.responseText}`,
+          ),
         );
         return;
       }

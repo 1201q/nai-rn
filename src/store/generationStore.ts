@@ -1138,7 +1138,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
       set({
         isLoading: true,
-        message: "Vibe 이미지를 인코딩하는 중입니다.",
+        message: null,
         streamingPreviewUri: null,
         streamingStep: null,
         streamingGenerationId: null,

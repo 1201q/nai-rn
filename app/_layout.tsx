@@ -1,5 +1,6 @@
 import "react-native-gesture-handler";
 
+import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -8,10 +9,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { PortalProvider } from "@gorhom/portal";
-import { Toaster } from "sonner-native";
+import { Toaster, toast } from "sonner-native";
 
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
+import { useGenerationStore } from "../src/store/generationStore";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
 import { tokens } from "../src/styles/tokens";
 
@@ -32,7 +34,16 @@ LogBox.ignoreLogs([
 
 export default function RootLayout() {
   const { width: windowWidth } = useWindowDimensions();
+  const toastMaxWidth = Math.min(windowWidth * 0.9, 420);
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FONTS);
+  const message = useGenerationStore((state) => state.message);
+  const setMessage = useGenerationStore((state) => state.setMessage);
+
+  useEffect(() => {
+    if (!message) return;
+    toast.error(message);
+    setMessage(null);
+  }, [message, setMessage]);
 
   if (fontError) throw fontError;
   if (!fontsLoaded) return null;
@@ -102,11 +113,12 @@ export default function RootLayout() {
                   toastOptions={{
                     toastContainerStyle: {
                       width: "auto",
-                      maxWidth: Math.min(windowWidth * 0.9, 420),
+                      maxWidth: toastMaxWidth,
                       alignSelf: "center",
                     },
                     style: {
                       width: "auto",
+                      maxWidth: toastMaxWidth,
                       marginHorizontal: 0,
                       padding: tokens.space[8],
                       borderRadius: tokens.radius.pill,
@@ -120,6 +132,7 @@ export default function RootLayout() {
                     },
                     textContainerStyle: {
                       flex: 0,
+                      flexShrink: 1,
                     },
                     titleStyle: {
                       color: tokens.color.textPrimary,
