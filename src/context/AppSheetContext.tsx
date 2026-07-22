@@ -25,11 +25,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Reanimated, {
-  FadeIn,
-  SlideInLeft,
-  SlideInRight,
-} from "react-native-reanimated";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 
 import type { GenerationRecord } from "../lib/generationHistory";
 import {
@@ -79,7 +75,6 @@ type StackEntry = {
   preciseReferenceId?: string;
 };
 type OpenStackEntry = StackEntry & { route: AppSheetRoute };
-type TransitionDirection = "forward" | "back" | "none";
 type OpenRequest = { id: number; route: AppSheetRoute };
 
 type AppSheetContextValue = {
@@ -127,8 +122,6 @@ const SNAP_POINTS: Record<SheetRoute, string[]> = {
   sampler: ["64%"],
   schedule: ["44%"],
 };
-const ROUTE_ENTER_FORWARD = SlideInRight.duration(140);
-const ROUTE_ENTER_BACK = SlideInLeft.duration(140);
 const ROUTE_FADE_IN = FadeIn.duration(100);
 const FOOTER_HEIGHT = 52;
 
@@ -164,8 +157,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     { route: IDLE_ROUTE },
   ]);
   const stackRef = useRef<StackEntry[]>([{ route: IDLE_ROUTE }]);
-  const [transitionDirection, setTransitionDirection] =
-    useState<TransitionDirection>("forward");
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
   const [draftController, setDraftController] =
     useState<SheetDraftController | null>(null);
@@ -176,20 +167,19 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const hasCloseGuard = Boolean(draftController?.dirty);
 
   const apply = useCallback(
-    (next: StackEntry[], direction: TransitionDirection) => {
+    (next: StackEntry[]) => {
       draftControllerRef.current = null;
       setDraftController(null);
       stackRef.current = next;
-      setTransitionDirection(direction);
       setStack(next);
     },
     [],
   );
 
-  // 직접 진입: 스택 초기화. 시트는 단일 상세만 → 슬라이드 전환 없음("none").
+  // 직접 진입: 스택 초기화. 시트는 단일 상세만 표시.
   const resetTo = useCallback(
     (entry: StackEntry) => {
-      apply([entry], "none");
+      apply([entry]);
     },
     [apply],
   );
@@ -259,7 +249,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     const goBack = () => {
       const currentStack = stackRef.current;
       if (currentStack.length > 1) {
-        apply(currentStack.slice(0, -1), "back");
+        apply(currentStack.slice(0, -1));
       } else {
         forceClose();
       }
@@ -315,7 +305,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     (route: AppSheetRoute, params?: GenerationRecord) => {
       const top = stackRef.current[stackRef.current.length - 1];
       if (top?.route === route) return;
-      apply([...stackRef.current, { route, params }], "forward");
+      apply([...stackRef.current, { route, params }]);
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       });
@@ -327,10 +317,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     (metadata: ParsedNaiMetadata) => {
       const top = stackRef.current[stackRef.current.length - 1];
       if (top?.route === "metadataImport") return;
-      apply(
-        [...stackRef.current, { route: "metadataImport", metadata }],
-        "forward",
-      );
+      apply([...stackRef.current, { route: "metadataImport", metadata }]);
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       });
@@ -442,13 +429,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [openRequest, route]);
 
-  const routeEntering =
-    transitionDirection === "forward"
-      ? ROUTE_ENTER_FORWARD
-      : transitionDirection === "back"
-        ? ROUTE_ENTER_BACK
-        : undefined;
-
   const footerBottomInset =
     Math.max(insets.bottom, tokens.space[4]) + tokens.space[4];
   const draftFooterStyle = useMemo(
@@ -468,7 +448,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     if (route === "resolutionCustom") {
       const currentStack = stackRef.current;
       if (currentStack.length > 1) {
-        apply(currentStack.slice(0, -1), "back");
+        apply(currentStack.slice(0, -1));
       } else {
         forceClose();
       }
@@ -511,7 +491,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         <View style={sheetStyles.layout}>
           <Reanimated.View
             key={`header-${route}`}
-            entering={routeEntering}
             style={sheetStyles.routeContent}
           >
             <Reanimated.View
@@ -580,7 +559,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           >
             <Reanimated.View
               key={route}
-              entering={routeEntering}
               style={sheetStyles.routeContent}
             >
               <Reanimated.View
