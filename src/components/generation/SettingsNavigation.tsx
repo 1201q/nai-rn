@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
+  AppState,
   type LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -159,6 +160,24 @@ export const SettingsTabBar = memo(function SettingsTabBar({
       return () => cancelAnimationFrame(frame);
     }, [animatePill]),
   );
+
+  useEffect(() => {
+    let frame: number | null = null;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState !== "active") return;
+
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        animatePill(activeKeyRef.current, false);
+      });
+    });
+
+    return () => {
+      subscription.remove();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [animatePill]);
 
   const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
     const { x, width } = event.nativeEvent.layout;

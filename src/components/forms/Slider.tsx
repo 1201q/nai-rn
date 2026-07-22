@@ -1,5 +1,6 @@
-import { useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
+  AppState,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -79,13 +80,42 @@ export function Slider({
   const lastSnap = useSharedValue(value);
 
   const frac = Math.min(1, Math.max(0, (value - min) / (max - min)));
-  const restX = half + frac * usable;
+
+  const syncPosition = useCallback(
+    (measuredWidth: number, force = false) => {
+      if (
+        !Number.isFinite(measuredWidth) ||
+        measuredWidth <= 0 ||
+        (!force && active.value)
+      ) {
+        return;
+      }
+
+      if (force) {
+        active.value = false;
+        pressed.value = 0;
+      }
+
+      const measuredUsable = Math.max(1, measuredWidth - thumbW);
+      posX.value = half + frac * measuredUsable;
+      lastSnap.value = value;
+      if (display) display.value = value;
+    },
+    [active, display, frac, half, lastSnap, posX, pressed, thumbW, value],
+  );
 
   // 정지 상태에서만 외부 값(±버튼·입력·초기값·커밋)을 thumb 위치로 반영.
   // 드래그 중엔 손가락이 우선이라 덮어쓰지 않음 → 릴리즈 점프 방지.
   useLayoutEffect(() => {
-    if (!active.value) posX.value = restX;
-  }, [restX, active, posX]);
+    syncPosition(width);
+  }, [syncPosition, width]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") syncPosition(width, true);
+    });
+    return () => subscription.remove();
+  }, [syncPosition, width]);
 
   const snap = (v: number) => {
     "worklet";
@@ -153,8 +183,14 @@ export function Slider({
     ],
   }));
 
-  const onLayout = (e: LayoutChangeEvent) =>
-    setWidth(e.nativeEvent.layout.width);
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const nextWidth = e.nativeEvent.layout.width;
+      setWidth(nextWidth);
+      syncPosition(nextWidth);
+    },
+    [syncPosition],
+  );
 
   return (
     <GestureDetector gesture={gesture}>
