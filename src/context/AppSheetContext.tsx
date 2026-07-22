@@ -351,6 +351,15 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [resetTo],
   );
 
+  const handleCloseComplete = useCallback(() => {
+    // Closing can interrupt the opening animation while the internal index is
+    // still -1. In that case onChange(-1) is skipped, but onClose still fires.
+    if (!openRef.current) return;
+    openRef.current = false;
+    setIsOpen(false);
+    resetTo({ route: "batchCount" });
+  }, [resetTo]);
+
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (!openRef.current) return false;
@@ -421,6 +430,11 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     if (!openRequest || openRequest.route !== route) return;
 
     // Open only after the requested route and its snap points are committed.
+    // Mark it open before the animation starts so Android back closes the sheet.
+    if (!openRef.current) {
+      openRef.current = true;
+      setIsOpen(true);
+    }
     sheetRef.current?.snapToIndex(0);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [openRequest, route]);
@@ -485,6 +499,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         onChange={handleChange}
+        onClose={handleCloseComplete}
       >
         <View style={sheetStyles.layout}>
           <Reanimated.View
