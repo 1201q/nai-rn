@@ -352,6 +352,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (closeAlertOpenRef.current) return false;
       if (!openRef.current) return false;
       back();
       return true;
