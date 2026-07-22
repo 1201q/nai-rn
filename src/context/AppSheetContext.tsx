@@ -68,7 +68,8 @@ type AppSheetRoute =
   | "characterPosition"
   | "preciseMode"
   | GenerationOptionRoute;
-type SheetRoute = AppSheetRoute;
+const IDLE_ROUTE = "__idle__";
+type SheetRoute = AppSheetRoute | typeof IDLE_ROUTE;
 
 type StackEntry = {
   route: SheetRoute;
@@ -77,15 +78,16 @@ type StackEntry = {
   characterId?: string;
   preciseReferenceId?: string;
 };
+type OpenStackEntry = StackEntry & { route: AppSheetRoute };
 type TransitionDirection = "forward" | "back" | "none";
-type OpenRequest = { id: number; route: SheetRoute };
+type OpenRequest = { id: number; route: AppSheetRoute };
 
 type AppSheetContextValue = {
-  open: (route: SheetRoute, params?: GenerationRecord) => void;
+  open: (route: AppSheetRoute, params?: GenerationRecord) => void;
   openMetadataImport: (metadata: ParsedNaiMetadata) => void;
   openCharacterPosition: (characterId: string) => void;
   openPreciseMode: (referenceId: string) => void;
-  push: (route: SheetRoute, params?: GenerationRecord) => void;
+  push: (route: AppSheetRoute, params?: GenerationRecord) => void;
   back: () => void;
   close: () => void;
 };
@@ -109,7 +111,8 @@ export function useAppSheetOpen() {
   return isOpen;
 }
 
-const SNAP_POINTS: Record<AppSheetRoute, string[]> = {
+const SNAP_POINTS: Record<SheetRoute, string[]> = {
+  [IDLE_ROUTE]: ["1%"],
   metadataView: ["92%"],
   metadataImport: ["92%"],
   batchCount: ["44%"],
@@ -158,9 +161,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
   const [stack, setStack] = useState<StackEntry[]>([
-    { route: "batchCount" },
+    { route: IDLE_ROUTE },
   ]);
-  const stackRef = useRef<StackEntry[]>([{ route: "batchCount" }]);
+  const stackRef = useRef<StackEntry[]>([{ route: IDLE_ROUTE }]);
   const [transitionDirection, setTransitionDirection] =
     useState<TransitionDirection>("forward");
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
@@ -265,7 +268,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   }, [apply, forceClose, requestDraftExit]);
 
   const openEntry = useCallback(
-    (entry: StackEntry) => {
+    (entry: OpenStackEntry) => {
       resetTo(entry);
       setOpenRequest((current) => ({
         id: (current?.id ?? 0) + 1,
@@ -280,7 +283,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const open = useCallback(
-    (route: SheetRoute, params?: GenerationRecord) => {
+    (route: AppSheetRoute, params?: GenerationRecord) => {
       openEntry({ route, params });
     },
     [openEntry],
@@ -309,7 +312,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   // 메뉴/상세에서 다음 상세로 진입 — 스택에 쌓아 뒤로가기 가능 상태로.
   const push = useCallback(
-    (route: SheetRoute, params?: GenerationRecord) => {
+    (route: AppSheetRoute, params?: GenerationRecord) => {
       const top = stackRef.current[stackRef.current.length - 1];
       if (top?.route === route) return;
       apply([...stackRef.current, { route, params }], "forward");
@@ -346,7 +349,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         openRef.current = nextOpen;
         setIsOpen(nextOpen);
       }
-      if (!nextOpen) resetTo({ route: "batchCount" });
+      if (!nextOpen) resetTo({ route: IDLE_ROUTE });
     },
     [resetTo],
   );
@@ -357,7 +360,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     if (!openRef.current) return;
     openRef.current = false;
     setIsOpen(false);
-    resetTo({ route: "batchCount" });
+    resetTo({ route: IDLE_ROUTE });
   }, [resetTo]);
 
   useEffect(() => {
@@ -483,10 +486,14 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         ref={sheetRef}
         index={-1}
         snapPoints={snapPoints}
-        enableContentPanningGesture={route !== "batchCount"}
-        enableHandlePanningGesture
+        enableContentPanningGesture={
+          route !== IDLE_ROUTE && route !== "batchCount"
+        }
+        enableHandlePanningGesture={route !== IDLE_ROUTE}
         enablePanDownToClose={!hasCloseGuard}
-        backdropComponent={renderBackdrop}
+        backdropComponent={route === IDLE_ROUTE ? undefined : renderBackdrop}
+        backgroundComponent={route === IDLE_ROUTE ? null : undefined}
+        handleComponent={route === IDLE_ROUTE ? null : undefined}
         style={sheetStyles.sheetContainer}
         containerStyle={sheetStyles.sheetContainer}
         backgroundStyle={[
