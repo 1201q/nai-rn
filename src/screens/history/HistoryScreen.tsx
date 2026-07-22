@@ -14,12 +14,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  ToastAndroid,
   useWindowDimensions,
   View,
 } from "react-native";
 import Reanimated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 import { StatusBar } from "expo-status-bar";
 import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -372,10 +372,7 @@ export function HistoryScreen({
           MediaLibrary.Asset.create(resolveGenerationImageUri(record)),
         ),
       );
-      ToastAndroid.show(
-        `${selectedRecords.length}개의 이미지를 저장했습니다.`,
-        ToastAndroid.SHORT,
-      );
+      toast.success(`${selectedRecords.length}개의 이미지를 저장했습니다.`);
     } catch {
       Alert.alert(
         "저장 실패",
@@ -400,7 +397,7 @@ export function HistoryScreen({
 
     try {
       await MediaLibrary.Asset.create(resolveGenerationImageUri(record));
-      ToastAndroid.show("이미지를 저장했습니다.", ToastAndroid.SHORT);
+      toast.success("이미지를 저장했습니다.");
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
     }
@@ -425,6 +422,7 @@ export function HistoryScreen({
     try {
       await deleteGenerations([record.id]);
       closePreview();
+      toast.success("이미지를 삭제했습니다.");
     } catch {
       Alert.alert("삭제 실패", "이미지를 history에서 삭제하지 못했습니다.");
     }
@@ -439,6 +437,7 @@ export function HistoryScreen({
       setIsDeletingSelected(true);
       await deleteGenerations(ids);
       exitSelectionMode();
+      toast.success(`${ids.length}개의 이미지를 삭제했습니다.`);
     } catch {
       Alert.alert(
         "삭제 실패",

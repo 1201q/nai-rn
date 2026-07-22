@@ -1,6 +1,5 @@
 import { useLayoutEffect, useState } from "react";
 import {
-  ToastAndroid,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -15,6 +14,7 @@ import Reanimated, {
   withSpring,
   type SharedValue,
 } from "react-native-reanimated";
+import { toast } from "sonner-native";
 
 import { tokens } from "../../styles/tokens";
 
@@ -25,10 +25,7 @@ function hapticTick() {
 }
 
 function showDragHint() {
-  ToastAndroid.show(
-    "동그란 핸들을 잡고 이동해 주세요.",
-    ToastAndroid.SHORT,
-  );
+  toast("동그란 핸들을 잡고 이동해 주세요. ");
 }
 
 export function Slider({
@@ -156,7 +153,8 @@ export function Slider({
     ],
   }));
 
-  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
+  const onLayout = (e: LayoutChangeEvent) =>
+    setWidth(e.nativeEvent.layout.width);
 
   return (
     <GestureDetector gesture={gesture}>

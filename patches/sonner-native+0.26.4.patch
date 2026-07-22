@@ -1,0 +1,48 @@
+diff --git a/node_modules/sonner-native/lib/module/toast.js b/node_modules/sonner-native/lib/module/toast.js
+index dd73820..4d86f00 100644
+--- a/node_modules/sonner-native/lib/module/toast.js
++++ b/node_modules/sonner-native/lib/module/toast.js
+@@ -343,6 +343,7 @@ export const Toast = /*#__PURE__*/React.forwardRef(({
+   const stackZIndex = toastPosition === 'top-center' ? -(index + 1) : -(numberOfToasts - index);
+   if (jsx) {
+     return /*#__PURE__*/_jsx(Animated.View, {
++      pointerEvents: "box-none",
+       style: [absolutePositionStyle, {
+         zIndex: stackZIndex
+       }],
+@@ -366,6 +367,7 @@ export const Toast = /*#__PURE__*/React.forwardRef(({
+     zIndex: 1
+   } : undefined;
+   return /*#__PURE__*/_jsx(Animated.View, {
++    pointerEvents: "box-none",
+     style: [absolutePositionStyle, {
+       zIndex: stackZIndex
+     }],
+diff --git a/node_modules/sonner-native/src/toast.tsx b/node_modules/sonner-native/src/toast.tsx
+index 69122df..70e6053 100644
+--- a/node_modules/sonner-native/src/toast.tsx
++++ b/node_modules/sonner-native/src/toast.tsx
+@@ -422,7 +422,10 @@ export const Toast = React.forwardRef<ToastRef, ToastInternalProps>(
+ 
+     if (jsx) {
+       return (
+-        <Animated.View style={[absolutePositionStyle, { zIndex: stackZIndex }]}>
++        <Animated.View
++          pointerEvents="box-none"
++          style={[absolutePositionStyle, { zIndex: stackZIndex }]}
++        >
+           <ToastSwipeHandler {...toastSwipeHandlerProps}>
+             <Animated.View
+               ref={toastRef}
+@@ -449,7 +452,10 @@ export const Toast = React.forwardRef<ToastRef, ToastInternalProps>(
+       : undefined;
+ 
+     return (
+-      <Animated.View style={[absolutePositionStyle, { zIndex: stackZIndex }]}>
++      <Animated.View
++        pointerEvents="box-none"
++        style={[absolutePositionStyle, { zIndex: stackZIndex }]}
++      >
+         <ToastSwipeHandler
+           {...toastSwipeHandlerProps}
+         >

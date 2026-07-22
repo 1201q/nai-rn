@@ -8,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  ToastAndroid,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +15,7 @@ import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
+import { toast } from "sonner-native";
 
 import {
   useAppSheet,
@@ -193,7 +193,7 @@ export function GenerationCanvas() {
         return;
       }
       await MediaLibrary.Asset.create(currentImageUri);
-      ToastAndroid.show("이미지를 저장했습니다.", ToastAndroid.SHORT);
+      toast.success("이미지를 저장했습니다.");
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
     } finally {

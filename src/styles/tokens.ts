@@ -10,6 +10,7 @@ export const tokens = {
     cardAlt: "#151517", // 교차 타일 배경
     sunken: "#111113", // 드롭다운 / 옵션 리스트 배경
     raised: "#1D1D20", // 팝오버 / 컨텍스트 메뉴
+    toast: "#232326", // 토스트 전용 표면 - raised보다 한 단계 밝음
     overlay: "rgba(23,23,26,0.88)", // floating 글래스 pill/바 (blur 대용 solid)
     scrim: "rgba(10,10,11,0.75)", // 이미지 딤 스크림
 

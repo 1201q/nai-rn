@@ -1,12 +1,14 @@
 import "react-native-gesture-handler";
 
+import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import { LogBox } from "react-native";
+import { ActivityIndicator, LogBox, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { PortalProvider } from "@gorhom/portal";
+import { Toaster } from "sonner-native";
 
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
@@ -29,6 +31,7 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
+  const { width: windowWidth } = useWindowDimensions();
   const [fontsLoaded, fontError] = useFonts(PRETENDARD_FONTS);
 
   if (fontError) throw fontError;
@@ -54,6 +57,103 @@ export default function RootLayout() {
                   }}
                 />
               </PortalProvider>
+              {/* PortalHost보다 뒤에 렌더링해 preview 위에 표시한다. */}
+                <Toaster
+                  position="bottom-center"
+                  theme="dark"
+                  duration={2000}
+                  offset={84}
+                  icons={{
+                    success: (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={tokens.color.accent}
+                      />
+                    ),
+                    error: (
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={20}
+                        color={tokens.color.negative}
+                      />
+                    ),
+                    warning: (
+                      <Ionicons
+                        name="warning-outline"
+                        size={20}
+                        color={tokens.color.accent}
+                      />
+                    ),
+                    info: (
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={20}
+                        color={tokens.color.textSecondary}
+                      />
+                    ),
+                    loading: (
+                      <ActivityIndicator
+                        size="small"
+                        color={tokens.color.accent}
+                      />
+                    ),
+                  }}
+                  toastOptions={{
+                    toastContainerStyle: {
+                      width: "auto",
+                      maxWidth: Math.min(windowWidth * 0.9, 420),
+                      alignSelf: "center",
+                    },
+                    style: {
+                      width: "auto",
+                      marginHorizontal: 0,
+                      padding: tokens.space[8],
+                      borderRadius: tokens.radius.pill,
+                      // borderWidth: 1,
+                      // borderColor: tokens.color.borderSubtle,
+                      backgroundColor: tokens.color.toast,
+                      ...tokens.shadow.floatMd,
+                    },
+                    toastContentStyle: {
+                      gap: tokens.space[6],
+                    },
+                    textContainerStyle: {
+                      flex: 0,
+                    },
+                    titleStyle: {
+                      color: tokens.color.textPrimary,
+                      fontFamily: tokens.font.semibold,
+                      fontSize: tokens.type.base,
+                      lineHeight: 20,
+                    },
+                    descriptionStyle: {
+                      color: tokens.color.textSecondary,
+                      fontFamily: tokens.font.regular,
+                      fontSize: tokens.type.sm,
+                      lineHeight: 20,
+                    },
+                    actionButtonStyle: {
+                      paddingHorizontal: tokens.space[7],
+                      paddingVertical: tokens.space[3],
+                      borderWidth: 0,
+                      backgroundColor: tokens.color.accent,
+                    },
+                    actionButtonTextStyle: {
+                      color: tokens.color.onAccent,
+                      fontFamily: tokens.font.semibold,
+                      fontSize: tokens.type.sm,
+                    },
+                    cancelButtonTextStyle: {
+                      color: tokens.color.textTertiary,
+                      fontFamily: tokens.font.semibold,
+                      fontSize: tokens.type.sm,
+                    },
+                    error: {
+                      borderColor: tokens.color.borderNegative,
+                    },
+                  }}
+                />
             </AppSheetProvider>
           </GenerationOptionsProvider>
         </KeyboardProvider>
