@@ -24,6 +24,7 @@ import { GenerationCanvas } from "./GenerationCanvas";
 
 function GenerateAction() {
   const isLoading = useGenerationStore((s) => s.isLoading);
+  const batchCount = useGenerationStore((s) => s.batchCount);
   const queueTotal = useGenerationStore((s) => s.queueTotal);
   const queueIndex = useGenerationStore((s) => s.queueIndex);
   const percent = useGenerationStore(selectOverallPercent);
@@ -45,7 +46,9 @@ function GenerateAction() {
     ? queueTotal > 1
       ? `취소 (${queueIndex}/${queueTotal}) · ${Math.round(percent * 100)}%`
       : `취소 · ${Math.round(percent * 100)}%`
-    : "생성";
+    : batchCount > 1
+      ? `${batchCount}장 생성`
+      : "생성";
 
   return (
     <PrimaryButton
