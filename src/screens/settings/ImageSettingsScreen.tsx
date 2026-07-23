@@ -28,11 +28,15 @@ import {
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
-import { IconButton } from "../../components/common/Buttons";
 import { CharacterCard } from "../../components/generation/CharacterCard";
 import { ReferenceRow } from "../../components/generation/ReferenceRow";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
+import {
+  DETAIL_HEADER_TOP_OFFSET,
+  DetailHeaderOverlay,
+  DetailScrollTitle,
+} from "../../components/common/DetailScrollHeader";
 import {
   ParameterSlider,
   PromptField,
@@ -612,16 +616,6 @@ export function ImageSettingsScreen() {
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const pendingMountFrameRef = useRef<number | null>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const titleOpacity = scrollY.interpolate({
-    inputRange: [0, 56],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-  const topFadeOpacity = scrollY.interpolate({
-    inputRange: [0, 24],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
 
   const handleTabChange = useCallback(
     (key: string) => {
@@ -685,7 +679,7 @@ export function ImageSettingsScreen() {
           contentContainerStyle={[
             styles.content,
             {
-              paddingTop: insets.top + 18,
+              paddingTop: insets.top + DETAIL_HEADER_TOP_OFFSET,
               paddingBottom: insets.bottom + 96,
             },
           ]}
@@ -698,9 +692,7 @@ export function ImageSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View style={[styles.header, { opacity: titleOpacity }]}>
-            <Text style={styles.title}>{TITLES[activeTab]}</Text>
-          </Animated.View>
+          <DetailScrollTitle title={TITLES[activeTab]} scrollY={scrollY} />
           <View
             style={[
               styles.tabHost,
@@ -752,17 +744,6 @@ export function ImageSettingsScreen() {
           </View>
         </KeyboardAwareScrollView>
 
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.edgeFade, { opacity: topFadeOpacity }]}
-        >
-          <ScreenEdgeFade
-            topHeight={insets.top + 56}
-            color={tokens.color.app}
-            transparentColor="rgba(10,10,11,0)"
-          />
-        </Animated.View>
-
         <View pointerEvents="none" style={styles.edgeFade}>
           <ScreenEdgeFade
             bottomHeight={insets.bottom + 96}
@@ -771,6 +752,13 @@ export function ImageSettingsScreen() {
           />
         </View>
 
+        <DetailHeaderOverlay
+          title={TITLES[activeTab]}
+          scrollY={scrollY}
+          topInset={insets.top}
+          onBack={() => router.back()}
+        />
+
         <View
           pointerEvents="box-none"
           style={[
@@ -778,13 +766,6 @@ export function ImageSettingsScreen() {
             { bottom: insets.bottom + tokens.space[6] },
           ]}
         >
-          <IconButton
-            icon="chevron-back"
-            label="뒤로"
-            size={52}
-            style={styles.bottomBackButton}
-            onPress={() => router.back()}
-          />
           <SettingsTabBar
             tabs={TABS}
             activeKey={activeTab}
@@ -822,17 +803,6 @@ const styles = StyleSheet.create({
   },
   inactiveTabPane: {
     zIndex: 0,
-  },
-  header: {
-    height: 58,
-    marginBottom: tokens.space[8],
-    justifyContent: "center",
-  },
-  title: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
-    fontSize: tokens.type["2xl"],
-    letterSpacing: tokens.tracking.tight,
   },
   scroll: {
     flex: 1,
@@ -938,17 +908,11 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    left: tokens.space[6],
-    right: tokens.space[6],
+    left: tokens.space[8],
+    right: tokens.space[8],
     zIndex: 4,
     height: 52,
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.space[5],
-  },
-  bottomBackButton: {
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.card,
   },
 });

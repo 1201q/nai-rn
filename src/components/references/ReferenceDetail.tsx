@@ -109,6 +109,7 @@ export function ReferenceDetailLayout({
       </Animated.ScrollView>
 
       <DetailHeaderOverlay
+        title={title}
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -428,7 +429,6 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     height: 56,
-    marginTop: 24,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -452,7 +452,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
   },
   unavailableCard: {
-    marginTop: 24,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: "row",

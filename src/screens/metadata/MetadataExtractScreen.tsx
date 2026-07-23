@@ -111,7 +111,7 @@ export function MetadataExtractScreen() {
       >
         <DetailScrollTitle title="Metadata Extract" scrollY={scrollY} />
 
-        <View style={styles.imageSection}>
+        <View>
           {pickedUri ? (
             <View style={styles.previewCard}>
               <Pressable
@@ -206,6 +206,7 @@ export function MetadataExtractScreen() {
       </Animated.ScrollView>
 
       <DetailHeaderOverlay
+        title="Metadata Extract"
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -221,9 +222,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: tokens.space[8],
-  },
-  imageSection: {
-    marginTop: 24,
   },
   uploadCard: {
     width: "100%",

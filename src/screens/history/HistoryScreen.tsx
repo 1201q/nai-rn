@@ -40,6 +40,7 @@ import { useAppSheetOpen } from "../../context/AppSheetContext";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
 import {
   DETAIL_HEADER_TOP_OFFSET,
+  DETAIL_SCROLL_TITLE_HEIGHT,
   DetailHeaderOverlay,
   DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
@@ -609,6 +610,7 @@ export function HistoryScreen({
         />
       ) : onBack ? (
         <DetailHeaderOverlay
+          title="History"
           scrollY={scrollY}
           topInset={insets.top}
           onBack={onBack}
@@ -791,7 +793,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[8],
   },
   scrollHeaderSpacer: {
-    height: 48,
+    height: DETAIL_SCROLL_TITLE_HEIGHT,
   },
   selectionHeaderFade: {
     ...StyleSheet.absoluteFill,

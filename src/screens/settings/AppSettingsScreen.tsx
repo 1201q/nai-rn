@@ -95,7 +95,7 @@ export function AppSettingsScreen() {
         >
           <DetailScrollTitle title="App Settings" scrollY={scrollY} />
 
-          <View style={styles.section}>
+          <View>
             <Text style={styles.sectionLabel}>NOVELAI</Text>
 
             <View style={styles.tokenCard}>
@@ -222,6 +222,7 @@ export function AppSettingsScreen() {
       </KeyboardAvoidingView>
 
       <DetailHeaderOverlay
+        title="App Settings"
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -241,9 +242,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: tokens.space[8],
-  },
-  section: {
-    marginTop: 24,
   },
   sectionLabel: {
     marginBottom: 12,

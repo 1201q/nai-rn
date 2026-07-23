@@ -292,6 +292,7 @@ export function ImageToImageScreen() {
       </Animated.ScrollView>
 
       <DetailHeaderOverlay
+        title="Image2Image"
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
@@ -310,7 +311,6 @@ const styles = StyleSheet.create({
   },
   toggleCard: {
     height: 56,
-    marginTop: 24,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",

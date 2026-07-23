@@ -1,10 +1,11 @@
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Animated, StyleSheet, Text, View } from "react-native";
 
+import { IconButton } from "./Buttons";
 import { ScreenEdgeFade } from "./ScreenEdgeFade";
 import { tokens } from "../../styles/tokens";
 
 export const DETAIL_HEADER_TOP_OFFSET = 8;
+export const DETAIL_SCROLL_TITLE_HEIGHT = 110;
 
 export function DetailScrollTitle({
   title,
@@ -14,38 +15,47 @@ export function DetailScrollTitle({
   scrollY: Animated.Value;
 }) {
   const opacity = scrollY.interpolate({
-    inputRange: [0, 48],
+    inputRange: [0, 56],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   return (
-    <View style={styles.titleRow}>
-      <View style={styles.backButtonSpace} />
-      <Animated.View style={[styles.titleContainer, { opacity }]}>
-        <Text style={styles.title}>{title}</Text>
+    <View style={styles.scrollTitle}>
+      <View style={styles.navigationSpacer} />
+      <Animated.View style={[styles.largeTitleContainer, { opacity }]}>
+        <Text style={styles.largeTitle}>{title}</Text>
       </Animated.View>
     </View>
   );
 }
 
 export function DetailHeaderOverlay({
+  title,
   scrollY,
   topInset,
   onBack,
+  onMore,
 }: {
+  title: string;
   scrollY: Animated.Value;
   topInset: number;
   onBack: () => void;
+  onMore?: () => void;
 }) {
   const fadeOpacity = scrollY.interpolate({
-    inputRange: [0, 24],
+    inputRange: [20, 84],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
-  const backButtonBackgroundOpacity = scrollY.interpolate({
-    inputRange: [0, 30],
+  const compactTitleOpacity = scrollY.interpolate({
+    inputRange: [44, 78],
     outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const compactTitleTranslateY = scrollY.interpolate({
+    inputRange: [44, 78],
+    outputRange: [4, 0],
     extrapolate: "clamp",
   });
 
@@ -56,59 +66,67 @@ export function DetailHeaderOverlay({
         style={[styles.edgeFade, { opacity: fadeOpacity }]}
       >
         <ScreenEdgeFade
-          topHeight={topInset + 70}
-          color={tokens.color.app}
+          topHeight={topInset + 92}
+          color="rgba(10,10,11,0.72)"
           transparentColor="rgba(10,10,11,0)"
         />
       </Animated.View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="뒤로"
-        hitSlop={6}
-        onPress={onBack}
-        style={({ pressed }) => [
-          styles.backButton,
-          { top: topInset + DETAIL_HEADER_TOP_OFFSET + 6 },
-          pressed && styles.pressed,
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.navigationBar,
+          { top: topInset + DETAIL_HEADER_TOP_OFFSET },
         ]}
       >
+        <IconButton
+          icon="chevron-back"
+          label="뒤로"
+          size={40}
+          onPress={onBack}
+        />
+
         <Animated.View
           pointerEvents="none"
           style={[
-            styles.backButtonBackground,
-            { opacity: backButtonBackgroundOpacity },
+            styles.compactTitleContainer,
+            {
+              opacity: compactTitleOpacity,
+              transform: [{ translateY: compactTitleTranslateY }],
+            },
           ]}
+        >
+          <Text numberOfLines={1} style={styles.compactTitle}>
+            {title}
+          </Text>
+        </Animated.View>
+
+        <IconButton
+          icon="ellipsis-horizontal"
+          label="더 보기"
+          size={40}
+          onPress={onMore}
         />
-        <Ionicons
-          name="chevron-back"
-          size={18}
-          color={tokens.color.textPrimary}
-        />
-      </Pressable>
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  titleRow: {
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  scrollTitle: {
+    height: DETAIL_SCROLL_TITLE_HEIGHT,
   },
-  backButtonSpace: {
-    width: 36,
-    height: 36,
+  navigationSpacer: {
+    height: 42,
   },
-  titleContainer: {
-    flex: 1,
-    transform: [{ translateY: -2 }],
+  largeTitleContainer: {
+    height: 56,
+    justifyContent: "center",
   },
-  title: {
+  largeTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.lg,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type["2xl"],
     letterSpacing: tokens.tracking.tight,
   },
   edgeFade: {
@@ -119,25 +137,30 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 2,
   },
-  backButton: {
+  navigationBar: {
     position: "absolute",
     left: tokens.space[8],
+    right: tokens.space[8],
     zIndex: 3,
-    width: 36,
-    height: 36,
+    height: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  compactTitleContainer: {
+    position: "absolute",
+    top: 0,
+    right: 48,
+    bottom: 0,
+    left: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: tokens.radius.pill,
   },
-  backButtonBackground: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: tokens.radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.overlay,
-    ...tokens.shadow.floatSm,
-  },
-  pressed: {
-    opacity: 0.68,
+  compactTitle: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: 17,
+    letterSpacing: tokens.tracking.tight,
+    textAlign: "center",
   },
 });
