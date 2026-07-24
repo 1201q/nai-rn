@@ -168,14 +168,11 @@ export function ImageToImageScreen() {
 
         <View style={styles.toggleCard}>
           <Text style={styles.toggleLabel}>Image2Image</Text>
-          <View style={styles.toggleControl}>
-            <Text style={styles.toggleState}>{enabled ? "켜짐" : "꺼짐"}</Text>
-            <Toggle
-              value={enabled}
-              label="Image2Image"
-              onChange={handleToggle}
-            />
-          </View>
+          <Toggle
+            value={enabled}
+            label="Image2Image"
+            onChange={handleToggle}
+          />
         </View>
 
         <Reanimated.View
@@ -310,28 +307,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[8],
   },
   toggleCard: {
-    height: 56,
-    paddingHorizontal: 14,
+    minHeight: 58,
+    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.card,
   },
   toggleLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.base,
-  },
-  toggleControl: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  toggleState: {
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type["2xs"],
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
   },
   imageSection: {
     marginTop: 24,

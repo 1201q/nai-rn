@@ -860,6 +860,7 @@ export function ImageSettingsScreen() {
           topInset={insets.top}
           onBack={() => router.back()}
           onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
+          addLabel="캐릭터 추가"
           addDisabled={!canAddCharacter}
         />
 

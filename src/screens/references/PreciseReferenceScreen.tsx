@@ -6,7 +6,6 @@ import { toast } from "sonner-native";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
-  AddReferenceButton,
   ReferenceDetailLayout,
   ReferenceImageCard,
   ReferenceUsageNotice,
@@ -218,6 +217,8 @@ export function PreciseReferenceScreen() {
           : undefined
       }
       onToggle={toggleAll}
+      onAdd={() => void pickImage()}
+      addDisabled={!canAdd || adding}
     >
       <Text style={styles.sectionTitle}>
         Reference Images ({references.length})
@@ -282,11 +283,6 @@ export function PreciseReferenceScreen() {
         })}
       </View>
 
-      <AddReferenceButton
-        disabled={!canAdd}
-        busy={adding}
-        onPress={() => void pickImage()}
-      />
     </ReferenceDetailLayout>
   );
 }

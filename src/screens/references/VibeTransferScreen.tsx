@@ -4,15 +4,11 @@ import * as ImagePicker from "expo-image-picker";
 import { toast } from "sonner-native";
 
 import {
-  AddReferenceButton,
   ReferenceDetailLayout,
   ReferenceImageCard,
   ReferenceUsageNotice,
 } from "../../components/references/ReferenceDetail";
-import {
-  ParameterSlider,
-  Toggle,
-} from "../../components/forms/FormControls";
+import { ParameterSlider, Toggle } from "../../components/forms/FormControls";
 import {
   MAX_VIBE_REFERENCES,
   canUseCachedVibeEncoding,
@@ -31,15 +27,11 @@ export function VibeTransferScreen() {
   const activePreciseCount = useGenerationStore(
     (state) => state.preciseReferences.filter((item) => item.enabled).length,
   );
-  const normalize = useGenerationStore(
-    (state) => state.normalizeVibeStrengths,
-  );
+  const normalize = useGenerationStore((state) => state.normalizeVibeStrengths);
   const setNormalize = useGenerationStore(
     (state) => state.setNormalizeVibeStrengths,
   );
-  const addReference = useGenerationStore(
-    (state) => state.addVibeReference,
-  );
+  const addReference = useGenerationStore((state) => state.addVibeReference);
   const replaceReference = useGenerationStore(
     (state) => state.replaceVibeReference,
   );
@@ -71,7 +63,9 @@ export function VibeTransferScreen() {
   async function pickImage(targetId?: string) {
     if (adding || busyId) return;
     if (!targetId && activePreciseCount > 0) {
-      setMessage("Vibe Transfer는 Precise Reference와 함께 사용할 수 없습니다.");
+      setMessage(
+        "Vibe Transfer는 Precise Reference와 함께 사용할 수 없습니다.",
+      );
       return;
     }
 
@@ -106,8 +100,7 @@ export function VibeTransferScreen() {
         : await addReference(input);
       if (!reference) return;
 
-      const current =
-        useGenerationStore.getState().vibeReferenceExpandedIds;
+      const current = useGenerationStore.getState().vibeReferenceExpandedIds;
       setExpandedIds(
         current.includes(reference.id) ? current : [...current, reference.id],
       );
@@ -130,7 +123,9 @@ export function VibeTransferScreen() {
       return;
     }
     if (value && activePreciseCount > 0) {
-      setMessage("Vibe Transfer는 Precise Reference와 함께 사용할 수 없습니다.");
+      setMessage(
+        "Vibe Transfer는 Precise Reference와 함께 사용할 수 없습니다.",
+      );
       return;
     }
     references.forEach((reference) => {
@@ -165,6 +160,8 @@ export function VibeTransferScreen() {
           : undefined
       }
       onToggle={toggleAll}
+      onAdd={() => void pickImage()}
+      addDisabled={!canAdd || adding}
     >
       <View style={styles.normalizeCard}>
         <Pressable
@@ -191,7 +188,9 @@ export function VibeTransferScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle}>Reference Images ({references.length})</Text>
+      <Text style={styles.sectionTitle}>
+        Reference Images ({references.length})
+      </Text>
       <View style={styles.cards}>
         {references.map((reference, index) => {
           const imageUri = resolveVibeReferenceImageUri(reference);
@@ -250,25 +249,20 @@ export function VibeTransferScreen() {
         })}
       </View>
 
-      <AddReferenceButton
-        disabled={!canAdd}
-        busy={adding}
-        onPress={() => void pickImage()}
-      />
     </ReferenceDetailLayout>
   );
 }
 
 const styles = StyleSheet.create({
   normalizeCard: {
-    minHeight: 80,
+    minHeight: 58,
     marginTop: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.settings,
     backgroundColor: tokens.color.card,
   },
   normalizeCopy: {
@@ -277,15 +271,16 @@ const styles = StyleSheet.create({
   },
   normalizeTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.sm,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
+    lineHeight: 20,
   },
   normalizeDescription: {
     marginTop: 4,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
-    lineHeight: 17,
+    lineHeight: 16,
   },
   sectionTitle: {
     marginTop: 24,

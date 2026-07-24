@@ -36,6 +36,7 @@ export function DetailHeaderOverlay({
   topInset,
   onBack,
   onAdd,
+  addLabel = "추가",
   addDisabled = false,
   onMore,
 }: {
@@ -44,6 +45,7 @@ export function DetailHeaderOverlay({
   topInset: number;
   onBack: () => void;
   onAdd?: () => void;
+  addLabel?: string;
   addDisabled?: boolean;
   onMore?: () => void;
 }) {
@@ -109,7 +111,7 @@ export function DetailHeaderOverlay({
         {onAdd ? (
           <IconButton
             icon="add"
-            label="캐릭터 추가"
+            label={addLabel}
             size={40}
             disabled={addDisabled}
             onPress={onAdd}
