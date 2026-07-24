@@ -35,12 +35,16 @@ export function DetailHeaderOverlay({
   scrollY,
   topInset,
   onBack,
+  onAdd,
+  addDisabled = false,
   onMore,
 }: {
   title: string;
   scrollY: Animated.Value;
   topInset: number;
   onBack: () => void;
+  onAdd?: () => void;
+  addDisabled?: boolean;
   onMore?: () => void;
 }) {
   const fadeOpacity = scrollY.interpolate({
@@ -90,6 +94,7 @@ export function DetailHeaderOverlay({
           pointerEvents="none"
           style={[
             styles.compactTitleContainer,
+            onAdd && styles.compactTitleContainerWithAdd,
             {
               opacity: compactTitleOpacity,
               transform: [{ translateY: compactTitleTranslateY }],
@@ -100,6 +105,17 @@ export function DetailHeaderOverlay({
             {title}
           </Text>
         </Animated.View>
+
+        {onAdd ? (
+          <IconButton
+            icon="add"
+            label="캐릭터 추가"
+            size={40}
+            disabled={addDisabled}
+            onPress={onAdd}
+            style={styles.addButton}
+          />
+        ) : null}
 
         <IconButton
           icon="ellipsis-horizontal"
@@ -155,6 +171,14 @@ const styles = StyleSheet.create({
     left: 48,
     alignItems: "center",
     justifyContent: "center",
+  },
+  compactTitleContainerWithAdd: {
+    right: 96,
+    left: 96,
+  },
+  addButton: {
+    position: "absolute",
+    right: 48,
   },
   compactTitle: {
     color: tokens.color.textPrimary,

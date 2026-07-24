@@ -43,7 +43,6 @@ import {
   Toggle,
 } from "../../components/forms/FormControls";
 import {
-  SettingsRow,
   SettingsTabBar,
   type SettingsTab,
 } from "../../components/generation/SettingsNavigation";
@@ -386,7 +385,7 @@ const PromptTabContent = memo(function PromptTabContent() {
   const ucPreset = useGenerationStore((state) => state.ucPreset);
 
   return (
-    <>
+    <View style={styles.promptContent}>
       <View style={styles.promptFields}>
         <PromptField
           label="Prompt"
@@ -405,28 +404,56 @@ const PromptTabContent = memo(function PromptTabContent() {
         />
       </View>
 
-      <View style={styles.promptRows}>
-        <SettingsRow
-          icon="pricetag-outline"
-          label="Quality Tags"
-          trailing={
-            <Toggle
-              value={qualityToggle}
-              label="Quality Tags"
-              onChange={setQualityToggle}
-            />
-          }
-        />
-        <SettingsRow
+      <Text style={styles.sectionLabel}>PROMPT SETTINGS</Text>
+
+      <View style={styles.parameterItem}>
+        <View style={styles.settingsCard}>
+          <SettingsOptionRow
+            icon="pricetag-outline"
+            label="Quality Tags"
+            trailing={
+              <Toggle
+                value={qualityToggle}
+                label="Quality Tags"
+                onChange={setQualityToggle}
+              />
+            }
+          />
+        </View>
+        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+      </View>
+
+      <View style={styles.settingsCard}>
+        <SettingsOptionRow
           icon="shield-outline"
           label="UC Preset"
           value={getUcPresetLabel(ucPreset)}
           onPress={() => open("ucPreset")}
         />
       </View>
-    </>
+    </View>
   );
 });
+
+function addCharacterPrompt() {
+  const state = useGenerationStore.getState();
+  const current = state.characterPrompts;
+  if (current.length >= MAX_CHARACTER_PROMPTS) return;
+
+  const id = `character-${Date.now()}-${current.length}`;
+  const next: CharacterPrompt = {
+    id,
+    prompt: "",
+    negativePrompt: "",
+    enabled: true,
+    position: { x: 0.5, y: 0.5 },
+  };
+  state.setCharacterPrompts([...current, next]);
+  state.setCharacterPromptExpandedIds([
+    ...state.characterPromptExpandedIds,
+    id,
+  ]);
+}
 
 const CharacterTabContent = memo(function CharacterTabContent() {
   const { open, openCharacterPosition } = useAppSheet();
@@ -478,24 +505,6 @@ const CharacterTabContent = memo(function CharacterTabContent() {
     },
     [setExpandedIds],
   );
-
-  function addCharacter() {
-    const current = useGenerationStore.getState().characterPrompts;
-    if (current.length >= MAX_CHARACTER_PROMPTS) return;
-    const id = `character-${Date.now()}-${current.length}`;
-    const next: CharacterPrompt = {
-      id,
-      prompt: "",
-      negativePrompt: "",
-      enabled: true,
-      position: { x: 0.5, y: 0.5 },
-    };
-    setCharacterPrompts([...current, next]);
-    setExpandedIds([
-      ...useGenerationStore.getState().characterPromptExpandedIds,
-      id,
-    ]);
-  }
 
   const copyCharacter = useCallback(
     (id: string) => {
@@ -563,38 +572,24 @@ const CharacterTabContent = memo(function CharacterTabContent() {
         ))}
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`캐릭터 추가, ${characterPrompts.length}/${MAX_CHARACTER_PROMPTS}`}
-        accessibilityState={{ disabled: !canAdd }}
-        disabled={!canAdd}
-        onPress={addCharacter}
-        style={({ pressed }) => [
-          styles.addCharacterButton,
-          characterPrompts.length === 0 &&
-            styles.addCharacterButtonWithoutCards,
-          !canAdd && styles.addCharacterButtonDisabled,
-          pressed && styles.controlPressed,
-        ]}
-      >
-        <Ionicons name="add" size={18} color={tokens.color.textPrimary} />
-        <Text style={styles.addCharacterText}>
-          Add Character ({characterPrompts.length}/{MAX_CHARACTER_PROMPTS})
-        </Text>
-      </Pressable>
-
-      <View style={styles.characterPositionRow}>
-        <Ionicons
-          name="location-outline"
-          size={19}
-          color={tokens.color.textTertiary}
-        />
-        <Text style={styles.characterPositionLabel}>Character Positions</Text>
-        <Toggle
-          value={positionEnabled}
-          label="Character Positions"
-          onChange={setPositionEnabled}
-        />
+      <View style={styles.characterPositionSection}>
+        <Text style={styles.characterSectionLabel}>POSITION SETTING</Text>
+        <View style={styles.parameterItem}>
+          <View style={styles.settingsCard}>
+            <SettingsOptionRow
+              icon="location-outline"
+              label="Character Positions"
+              trailing={
+                <Toggle
+                  value={positionEnabled}
+                  label="Character Positions"
+                  onChange={setPositionEnabled}
+                />
+              }
+            />
+          </View>
+          <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        </View>
       </View>
     </>
   );
@@ -643,47 +638,55 @@ function ImageReferenceTabContent() {
 
   return (
     <View style={styles.referenceRows}>
+      <View style={styles.settingsGroup}>
+        <ReferenceRow
+          variant="grouped"
+          icon="image-outline"
+          label="Image2Image"
+          enabled={i2iEnabled}
+          stateLabel={
+            i2iEnabled
+              ? `S ${Number(i2iStrength.toFixed(2))} · N ${Number(i2iNoise.toFixed(2))}`
+              : undefined
+          }
+          thumbnailUri={sourceImage?.uri}
+          onPress={() => router.push("/image-to-image")}
+          onToggle={(value) => {
+            if (value && !sourceImage) router.push("/image-to-image");
+            else setI2IEnabled(value);
+          }}
+        />
+        <View style={styles.settingsGroupDivider} />
+        <ReferenceRow
+          variant="grouped"
+          icon="color-palette-outline"
+          label="Vibe Transfer"
+          enabled={vibeEnabled}
+          stateLabel={
+            preciseEnabled
+              ? "Precise Reference와 동시에 켤 수 없습니다."
+              : undefined
+          }
+          toggleDisabled={preciseEnabled}
+          onPress={() => router.push("/vibe-transfer")}
+          onToggle={toggleVibe}
+        />
+        <View style={styles.settingsGroupDivider} />
+        <ReferenceRow
+          variant="grouped"
+          icon="person-outline"
+          label="Precise Reference"
+          enabled={preciseEnabled}
+          stateLabel={
+            vibeEnabled ? "Vibe Transfer와 동시에 켤 수 없습니다." : undefined
+          }
+          toggleDisabled={vibeEnabled}
+          onPress={() => router.push("/precise-reference")}
+          onToggle={togglePrecise}
+        />
+      </View>
       <ReferenceRow
-        icon="image-outline"
-        label="Image2Image"
-        enabled={i2iEnabled}
-        stateLabel={
-          i2iEnabled
-            ? `S ${Number(i2iStrength.toFixed(2))} · N ${Number(i2iNoise.toFixed(2))}`
-            : undefined
-        }
-        thumbnailUri={sourceImage?.uri}
-        onPress={() => router.push("/image-to-image")}
-        onToggle={(value) => {
-          if (value && !sourceImage) router.push("/image-to-image");
-          else setI2IEnabled(value);
-        }}
-      />
-      <ReferenceRow
-        icon="color-palette-outline"
-        label="Vibe Transfer"
-        enabled={vibeEnabled}
-        stateLabel={
-          preciseEnabled
-            ? "Precise Reference와 동시에 켤 수 없습니다."
-            : undefined
-        }
-        toggleDisabled={preciseEnabled}
-        onPress={() => router.push("/vibe-transfer")}
-        onToggle={toggleVibe}
-      />
-      <ReferenceRow
-        icon="person-outline"
-        label="Precise Reference"
-        enabled={preciseEnabled}
-        stateLabel={
-          vibeEnabled ? "Vibe Transfer와 동시에 켤 수 없습니다." : undefined
-        }
-        toggleDisabled={vibeEnabled}
-        onPress={() => router.push("/precise-reference")}
-        onToggle={togglePrecise}
-      />
-      <ReferenceRow
+        variant="pill"
         icon="scan-outline"
         label="Metadata Extract"
         onPress={() => router.push("/metadata-extract")}
@@ -695,6 +698,9 @@ function ImageReferenceTabContent() {
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const canAddCharacter = useGenerationStore(
+    (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
+  );
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
   const [transitionDirection, setTransitionDirection] =
     useState<TabTransitionDirection>(0);
@@ -853,6 +859,8 @@ export function ImageSettingsScreen() {
           scrollY={scrollY}
           topInset={insets.top}
           onBack={() => router.back()}
+          onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
+          addDisabled={!canAddCharacter}
         />
 
         <View
@@ -971,11 +979,11 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
     lineHeight: 18,
   },
+  promptContent: {
+    gap: 20,
+  },
   promptFields: {
     gap: 28,
-  },
-  promptRows: {
-    marginTop: 20,
   },
   characterSectionLabel: {
     marginBottom: 12,
@@ -988,48 +996,11 @@ const styles = StyleSheet.create({
   characterCards: {
     gap: 12,
   },
-  addCharacterButton: {
-    height: 54,
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderRadius: tokens.radius.lg,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.card,
-  },
-  addCharacterButtonWithoutCards: {
-    marginTop: 0,
-  },
-  addCharacterButtonDisabled: {
-    opacity: 0.4,
-  },
-  addCharacterText: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.sm,
-  },
-  characterPositionRow: {
-    minHeight: 64,
-    marginTop: 10,
-    paddingHorizontal: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  characterPositionLabel: {
-    flex: 1,
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.md,
+  characterPositionSection: {
+    marginTop: 20,
   },
   referenceRows: {
-    gap: 12,
-  },
-  controlPressed: {
-    opacity: 0.65,
+    gap: 20,
   },
   edgeFade: {
     position: "absolute",

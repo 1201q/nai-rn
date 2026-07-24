@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 14,
     gap: 10,
-    borderRadius: tokens.radius.xl,
+    borderRadius: tokens.radius.settings,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.card,

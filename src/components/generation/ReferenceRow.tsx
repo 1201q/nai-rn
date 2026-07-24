@@ -20,6 +20,7 @@ const IMAGE_SCRIM_DISABLED_OPACITY = 0.8;
 export const ReferenceRow = memo(function ReferenceRow({
   icon,
   label,
+  variant,
   enabled,
   stateLabel,
   toggleDisabled = false,
@@ -29,6 +30,7 @@ export const ReferenceRow = memo(function ReferenceRow({
 }: {
   icon: IconName;
   label: string;
+  variant: "grouped" | "pill";
   enabled?: boolean;
   stateLabel?: string;
   toggleDisabled?: boolean;
@@ -59,7 +61,12 @@ export const ReferenceRow = memo(function ReferenceRow({
   }, [enabled, imageScrimOpacity]);
 
   return (
-    <View style={styles.row}>
+    <View
+      style={[
+        styles.row,
+        variant === "grouped" ? styles.rowGrouped : styles.rowPill,
+      ]}
+    >
       {thumbnailUri ? (
         <>
           <ExpoImage
@@ -129,12 +136,18 @@ export const ReferenceRow = memo(function ReferenceRow({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 56,
-    paddingVertical: 12,
     overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: tokens.radius.lg,
+  },
+  rowGrouped: {
+    paddingVertical: 12,
+    backgroundColor: "transparent",
+  },
+  rowPill: {
+    minHeight: 58,
+    paddingVertical: 10,
+    borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.card,
   },
   imageScrim: {
@@ -148,10 +161,10 @@ const styles = StyleSheet.create({
   rowMain: {
     flex: 1,
     alignSelf: "stretch",
-    paddingLeft: 14,
+    paddingLeft: 18,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 14,
   },
   copy: {
     flex: 1,
@@ -159,14 +172,14 @@ const styles = StyleSheet.create({
   },
   label: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.base,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
     lineHeight: 20,
   },
   state: {
     marginTop: 2,
     color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 16,
   },

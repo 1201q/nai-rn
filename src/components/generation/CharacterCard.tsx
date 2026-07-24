@@ -1,10 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -154,10 +148,32 @@ function CharacterActionMenu({
       action: onReorder,
       disabled: !canReorder,
     },
-    { key: "position", label: "위치 지정", icon: "location-outline", action: onPosition },
-    { key: "rename", label: "이름 변경", icon: "pencil-outline", action: onRename },
-    { key: "copy", label: "복사", icon: "copy-outline", action: onCopy, disabled: !canCopy },
-    { key: "delete", label: "삭제", icon: "trash-outline", action: onDelete, destructive: true },
+    {
+      key: "position",
+      label: "위치 지정",
+      icon: "location-outline",
+      action: onPosition,
+    },
+    {
+      key: "rename",
+      label: "이름 변경",
+      icon: "pencil-outline",
+      action: onRename,
+    },
+    {
+      key: "copy",
+      label: "복사",
+      icon: "copy-outline",
+      action: onCopy,
+      disabled: !canCopy,
+    },
+    {
+      key: "delete",
+      label: "삭제",
+      icon: "trash-outline",
+      action: onDelete,
+      destructive: true,
+    },
   ];
 
   return (
@@ -249,10 +265,7 @@ export const CharacterCard = memo(function CharacterCard({
   canCopy: boolean;
   canReorder: boolean;
   onToggleExpand: (id: string) => void;
-  onUpdate: (
-    id: string,
-    values: Partial<Omit<CharacterPrompt, "id">>,
-  ) => void;
+  onUpdate: (id: string, values: Partial<Omit<CharacterPrompt, "id">>) => void;
   onCopy: (id: string) => void;
   onDelete: (id: string) => void;
   onOpenOrder: () => void;
@@ -335,7 +348,10 @@ export const CharacterCard = memo(function CharacterCard({
 
   useEffect(() => {
     if (!expanded) promptInputRef.current?.blur();
-    bodyHeight.value = withTiming(expanded ? CARD_BODY_HEIGHT : 0, CARD_BODY_TIMING);
+    bodyHeight.value = withTiming(
+      expanded ? CARD_BODY_HEIGHT : 0,
+      CARD_BODY_TIMING,
+    );
     bodyOpacity.value = withTiming(expanded ? 1 : 0, {
       duration: expanded ? 140 : 100,
     });
@@ -404,7 +420,10 @@ export const CharacterCard = memo(function CharacterCard({
             if (expanded) commitMode(mode);
             onToggleExpand(item.id);
           }}
-          style={({ pressed }) => [styles.headerMain, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.headerMain,
+            pressed && styles.pressed,
+          ]}
         >
           <Reanimated.View style={[styles.badge, badgeStyle]}>
             <Reanimated.Text style={[styles.badgeText, badgeTextStyle]}>
@@ -442,7 +461,10 @@ export const CharacterCard = memo(function CharacterCard({
           accessibilityRole="button"
           accessibilityLabel={expanded ? "캐릭터 접기" : "캐릭터 펼치기"}
           onPress={() => onToggleExpand(item.id)}
-          style={({ pressed }) => [styles.headerIcon, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.headerIcon,
+            pressed && styles.pressed,
+          ]}
         >
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
@@ -453,7 +475,10 @@ export const CharacterCard = memo(function CharacterCard({
       </View>
 
       {renaming ? (
-        <Reanimated.View entering={FadeIn.duration(120)} style={styles.renameRow}>
+        <Reanimated.View
+          entering={FadeIn.duration(120)}
+          style={styles.renameRow}
+        >
           <TextInput
             accessibilityLabel="캐릭터 이름"
             autoFocus
@@ -469,7 +494,10 @@ export const CharacterCard = memo(function CharacterCard({
             accessibilityRole="button"
             accessibilityLabel="이름 변경 완료"
             onPress={confirmRename}
-            style={({ pressed }) => [styles.renameConfirm, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.renameConfirm,
+              pressed && styles.pressed,
+            ]}
           >
             <Ionicons name="checkmark" size={18} color={tokens.color.accent} />
           </Pressable>
@@ -554,7 +582,7 @@ export const CharacterCard = memo(function CharacterCard({
 const styles = StyleSheet.create({
   card: {
     overflow: "hidden",
-    borderRadius: tokens.radius.lg,
+    borderRadius: tokens.radius.settings,
     backgroundColor: tokens.color.card,
   },
   cardDisabled: {
@@ -573,14 +601,15 @@ const styles = StyleSheet.create({
     height: 58,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 11,
   },
   badge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: tokens.radius.md,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 1,
   },
   badgeText: {
     fontFamily: tokens.font.semibold,
@@ -592,7 +621,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: tokens.type.md,
     lineHeight: 19,
   },
@@ -656,8 +685,10 @@ const styles = StyleSheet.create({
     height: CARD_EDITOR_HEIGHT,
     marginHorizontal: 12,
     marginBottom: 12,
-    padding: 10,
-    borderRadius: 12,
+    padding: 12,
+    paddingVertical: 10,
+    // paddingBottom: 10,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.app,
@@ -672,9 +703,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   editorFooter: {
+    marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginLeft: -2,
   },
   promptModeTabs: {
     position: "relative",
