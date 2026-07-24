@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
   useAnimatedProps,
   useAnimatedStyle,
@@ -78,6 +79,7 @@ export const ParameterSlider = memo(function ParameterSlider({
   step,
   precision,
   onChange,
+  settingsCard = false,
 }: {
   label: string;
   value: number;
@@ -86,6 +88,7 @@ export const ParameterSlider = memo(function ParameterSlider({
   step: number;
   precision: number;
   onChange: (value: number) => void;
+  settingsCard?: boolean;
 }) {
   const display = useSharedValue(value);
 
@@ -98,35 +101,104 @@ export const ParameterSlider = memo(function ParameterSlider({
     return { text, defaultValue: text } as object;
   });
 
+  const changeByStep = (direction: -1 | 1) => {
+    const next = Number(
+      Math.min(max, Math.max(min, value + direction * step)).toFixed(precision),
+    );
+    if (next !== value) onChange(next);
+  };
+
   return (
-    <View style={styles.sliderBlock}>
+    <View
+      style={[
+        styles.sliderBlock,
+        settingsCard && styles.settingsSliderBlock,
+      ]}
+    >
       <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>{label}</Text>
+        <Text
+          style={[
+            styles.sliderLabel,
+            settingsCard && styles.settingsSliderLabel,
+          ]}
+        >
+          {label}
+        </Text>
         <AnimatedTextInput
           editable={false}
           pointerEvents="none"
           defaultValue={Number(value.toFixed(precision)).toString()}
           animatedProps={animatedProps}
-          style={styles.sliderValue}
+          style={[
+            styles.sliderValue,
+            settingsCard && styles.settingsSliderValue,
+          ]}
         />
       </View>
-      <Slider
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        precision={precision}
-        display={display}
-        trackHeight={3}
-        thumbSize={14}
-        trackBg={tokens.color.borderSubtle}
-        trackFill={tokens.color.accent}
-        thumbColor={tokens.color.accent}
-        thumbBorderColor={tokens.color.accent}
-        thumbBorderWidth={0}
-        onSlidingComplete={onChange}
-        style={styles.sliderTrack}
-      />
+      <View style={settingsCard ? styles.settingsSliderControls : undefined}>
+        {settingsCard ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} decrease`}
+            disabled={value <= min}
+            hitSlop={8}
+            onPress={() => changeByStep(-1)}
+            style={({ pressed }) => [
+              styles.sliderStepButton,
+              value <= min && styles.sliderStepButtonDisabled,
+              pressed && styles.sliderStepButtonPressed,
+            ]}
+          >
+            <Ionicons
+              name="remove"
+              size={21}
+              color={tokens.color.textMuted}
+            />
+          </Pressable>
+        ) : null}
+        <Slider
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          precision={precision}
+          display={display}
+          trackHeight={3}
+          thumbSize={14}
+          trackBg={
+            settingsCard ? tokens.color.raised : tokens.color.borderSubtle
+          }
+          trackFill={tokens.color.accent}
+          thumbColor={tokens.color.accent}
+          thumbBorderColor={tokens.color.accent}
+          thumbBorderWidth={0}
+          onSlidingComplete={onChange}
+          style={[
+            styles.sliderTrack,
+            settingsCard && styles.settingsSliderTrack,
+          ]}
+        />
+        {settingsCard ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} increase`}
+            disabled={value >= max}
+            hitSlop={8}
+            onPress={() => changeByStep(1)}
+            style={({ pressed }) => [
+              styles.sliderStepButton,
+              value >= max && styles.sliderStepButtonDisabled,
+              pressed && styles.sliderStepButtonPressed,
+            ]}
+          >
+            <Ionicons
+              name="add"
+              size={21}
+              color={tokens.color.textMuted}
+            />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 });
@@ -277,6 +349,9 @@ const styles = StyleSheet.create({
   sliderBlock: {
     gap: 8,
   },
+  settingsSliderBlock: {
+    gap: 10,
+  },
   sliderHeader: {
     minHeight: 24,
     flexDirection: "row",
@@ -288,6 +363,11 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
+  settingsSliderLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
+  },
   sliderValue: {
     minWidth: 48,
     padding: 0,
@@ -296,8 +376,32 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
   },
+  settingsSliderValue: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+  },
   sliderTrack: {
     height: 14,
+  },
+  settingsSliderControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  settingsSliderTrack: {
+    flex: 1,
+  },
+  sliderStepButton: {
+    width: 22,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sliderStepButtonDisabled: {
+    opacity: 0.45,
+  },
+  sliderStepButtonPressed: {
+    opacity: 0.6,
   },
   promptField: {
     gap: 12,

@@ -40,6 +40,7 @@ export const tokens = {
   },
 
   radius: {
+    settings: 26, // settings multi-row and parameter containers
     sm: 9, // 칩, 썸네일 아이콘
     md: 12, // 옵션 행, 리스트 아이템
     lg: 16, // 카드, 레퍼런스 행

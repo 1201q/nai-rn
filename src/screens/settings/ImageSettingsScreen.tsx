@@ -43,7 +43,6 @@ import {
   Toggle,
 } from "../../components/forms/FormControls";
 import {
-  OptionCard,
   SettingsRow,
   SettingsTabBar,
   type SettingsTab,
@@ -72,6 +71,10 @@ const CFG_RESCALE_CONFIG = {
   step: 0.02,
   precision: 2,
 } as const;
+const OPTION_DESCRIPTION =
+  "이 설명들은 임시 텍스트용입니다. 해당 옵션을 설명하는 텍스트입니다. 해당 옵션을 설명하는 텍스트입니다.";
+
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const TABS: readonly SettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
@@ -152,6 +155,64 @@ function SettingsTabPane({
   );
 }
 
+function SettingsOptionRow({
+  icon,
+  label,
+  value,
+  onPress,
+  trailing,
+  accentIcon = false,
+}: {
+  icon: IconName;
+  label: string;
+  value?: string;
+  onPress?: () => void;
+  trailing?: ReactNode;
+  accentIcon?: boolean;
+}) {
+  const content = (
+    <>
+      <Ionicons
+        name={icon}
+        size={20}
+        color={accentIcon ? tokens.color.accent : tokens.color.textTertiary}
+      />
+      <Text style={styles.settingsRowLabel}>{label}</Text>
+      {value ? (
+        <Text style={styles.settingsRowValue} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {trailing ??
+        (onPress ? (
+          <Ionicons
+            name="chevron-forward"
+            size={17}
+            color={tokens.color.textMuted}
+          />
+        ) : null)}
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={styles.settingsRow}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}${value ? `, ${value}` : ""}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.settingsRow,
+        pressed && styles.settingsRowPressed,
+      ]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
 function SettingsTabContent() {
   const { open } = useAppSheet();
   const model = useGenerationStore((state) => state.model);
@@ -185,93 +246,128 @@ function SettingsTabContent() {
   const seedText = seedLocked ? String(seed) : "Random";
 
   return (
-    <>
-      <View style={styles.optionCards}>
-        <OptionCard
+    <View style={styles.settingsContent}>
+      <View style={styles.settingsGroup}>
+        <SettingsOptionRow
           icon="cube-outline"
           label="Model"
           value={modelText}
           onPress={() => open("model")}
+          accentIcon
         />
-        <OptionCard
+        <View style={styles.settingsGroupDivider} />
+        <SettingsOptionRow
           icon="scan-outline"
           label="Resolution"
           value={`${resolution.width}x${resolution.height}`}
           onPress={() => open("resolution")}
+          accentIcon
         />
       </View>
 
-      <SettingsRow
-        icon="dice-outline"
-        label="Seed"
-        value={seedText}
-        onPress={() => open("seed")}
-      />
+      <View style={styles.settingsCard}>
+        <SettingsOptionRow
+          icon="dice-outline"
+          label="Seed"
+          value={seedText}
+          onPress={() => open("seed")}
+        />
+      </View>
 
-      <View style={styles.divider} />
       <Text style={styles.sectionLabel}>PARAMETERS</Text>
-      <View style={styles.parameters}>
-        <ParameterSlider
-          label="Steps"
-          value={steps}
-          min={STEPS_CONFIG.min}
-          max={STEPS_CONFIG.max}
-          step={STEPS_CONFIG.step}
-          precision={STEPS_CONFIG.precision}
-          onChange={setSteps}
-        />
-        <ParameterSlider
-          label="CFG Scale"
-          value={promptGuidance}
-          min={CFG_CONFIG.min}
-          max={CFG_CONFIG.max}
-          step={CFG_CONFIG.step}
-          precision={CFG_CONFIG.precision}
-          onChange={setPromptGuidance}
-        />
-        <ParameterSlider
-          label="CFG Rescale"
-          value={promptGuidanceRescale}
-          min={CFG_RESCALE_CONFIG.min}
-          max={CFG_RESCALE_CONFIG.max}
-          step={CFG_RESCALE_CONFIG.step}
-          precision={CFG_RESCALE_CONFIG.precision}
-          onChange={setPromptGuidanceRescale}
-        />
+
+      <View style={styles.parameterItem}>
+        <View style={styles.parameterCard}>
+          <ParameterSlider
+            label="Steps"
+            value={steps}
+            min={STEPS_CONFIG.min}
+            max={STEPS_CONFIG.max}
+            step={STEPS_CONFIG.step}
+            precision={STEPS_CONFIG.precision}
+            onChange={setSteps}
+            settingsCard
+          />
+        </View>
+        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
       </View>
 
-      <View style={styles.selectionRows}>
-        <SettingsRow
+      <View style={styles.parameterItem}>
+        <View style={styles.parameterCard}>
+          <ParameterSlider
+            label="CFG Scale"
+            value={promptGuidance}
+            min={CFG_CONFIG.min}
+            max={CFG_CONFIG.max}
+            step={CFG_CONFIG.step}
+            precision={CFG_CONFIG.precision}
+            onChange={setPromptGuidance}
+            settingsCard
+          />
+        </View>
+        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+      </View>
+
+      <View style={styles.parameterItem}>
+        <View style={styles.parameterCard}>
+          <ParameterSlider
+            label="CFG Rescale"
+            value={promptGuidanceRescale}
+            min={CFG_RESCALE_CONFIG.min}
+            max={CFG_RESCALE_CONFIG.max}
+            step={CFG_RESCALE_CONFIG.step}
+            precision={CFG_RESCALE_CONFIG.precision}
+            onChange={setPromptGuidanceRescale}
+            settingsCard
+          />
+        </View>
+        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+      </View>
+
+      <Text style={styles.sectionLabel}>ADVANCED SETTINGS</Text>
+
+      <View style={styles.settingsGroup}>
+        <SettingsOptionRow
           icon="shuffle-outline"
           label="Sampler"
           value={samplerText}
           onPress={() => open("sampler")}
         />
-        <SettingsRow
+        <View style={styles.settingsGroupDivider} />
+        <SettingsOptionRow
           icon="pulse-outline"
           label="Schedule"
           value={scheduleText}
           onPress={() => open("schedule")}
         />
-        <SettingsRow
-          icon="sparkles-outline"
-          label="Variety+"
-          trailing={
-            <Toggle
-              value={varietyPlus}
-              label="Variety+"
-              onChange={setVarietyPlus}
-            />
-          }
-        />
-        <SettingsRow
+      </View>
+
+      <View style={styles.parameterItem}>
+        <View style={styles.settingsCard}>
+          <SettingsOptionRow
+            icon="sparkles-outline"
+            label="Variety+"
+            trailing={
+              <Toggle
+                value={varietyPlus}
+                label="Variety+"
+                onChange={setVarietyPlus}
+              />
+            }
+          />
+        </View>
+        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+      </View>
+
+      <View style={styles.settingsCard}>
+        <SettingsOptionRow
           icon="images-outline"
           label="Batch Count"
           value={String(batchCount)}
           onPress={() => open("batchCount")}
         />
       </View>
-    </>
+    </View>
   );
 }
 
@@ -810,30 +906,70 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: tokens.space[8],
   },
-  optionCards: {
-    flexDirection: "row",
-    gap: tokens.space[6],
-    marginBottom: 14,
+  settingsContent: {
+    gap: 20,
   },
-  divider: {
+  settingsGroup: {
+    overflow: "hidden",
+    borderRadius: tokens.radius.settings,
+    backgroundColor: tokens.color.card,
+  },
+  settingsCard: {
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.card,
+  },
+  settingsRow: {
+    minHeight: 58,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  settingsRowLabel: {
+    flex: 1,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
+  },
+  settingsRowValue: {
+    maxWidth: "48%",
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.base,
+  },
+  settingsRowPressed: {
+    opacity: 0.65,
+  },
+  settingsGroupDivider: {
     height: StyleSheet.hairlineWidth,
-    marginHorizontal: 4,
-    marginTop: 8,
-    marginBottom: 24,
+    marginHorizontal: 18,
     backgroundColor: tokens.color.borderSubtle,
   },
   sectionLabel: {
-    marginBottom: 16,
+    marginTop: 4,
+    marginBottom: -8,
+    paddingHorizontal: 4,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
   },
-  parameters: {
-    gap: 24,
+  parameterItem: {
+    gap: 10,
   },
-  selectionRows: {
-    marginTop: 18,
+  parameterCard: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: tokens.radius.settings,
+    backgroundColor: tokens.color.card,
+  },
+  optionDescription: {
+    paddingHorizontal: 6,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+    lineHeight: 18,
   },
   promptFields: {
     gap: 28,
