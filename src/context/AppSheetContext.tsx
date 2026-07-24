@@ -118,9 +118,9 @@ const SNAP_POINTS: Record<SheetRoute, string[]> = {
   characterOrder: ["68%"],
   characterPosition: ["68%"],
   preciseMode: ["40%"],
-  model: ["50%"],
-  sampler: ["64%"],
-  schedule: ["44%"],
+  model: ["60%"],
+  sampler: ["74%"],
+  schedule: ["52%"],
 };
 const ROUTE_FADE_IN = FadeIn.duration(100);
 const FOOTER_HEIGHT = 52;

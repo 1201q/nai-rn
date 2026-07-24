@@ -70,8 +70,20 @@ const CFG_RESCALE_CONFIG = {
   step: 0.02,
   precision: 2,
 } as const;
-const OPTION_DESCRIPTION =
-  "이 설명들은 임시 텍스트용입니다. 해당 옵션을 설명하는 텍스트입니다. 해당 옵션을 설명하는 텍스트입니다.";
+const OPTION_DESCRIPTIONS = {
+  steps:
+    "이미지를 정제하는 반복 횟수입니다. 낮으면 빠르게 구도를 시험할 수 있고, 높으면 시간과 비용이 늘지만 항상 더 좋아지지는 않습니다. Opus 티어의 무료 일반 생성 상한은 28입니다.",
+  cfgScale:
+    "프롬프트를 따르는 강도입니다. 낮으면 더 자유롭고 부드러우며, 높으면 지시와 세부 표현이 강해집니다. 너무 높으면 색과 형태가 과해질 수 있습니다.",
+  cfgRescale:
+    "높은 CFG에서 색이 지나치게 진하거나 경계가 거칠어질 때 완화합니다. 평소에는 0으로 두고 문제가 보일 때 조금씩 올려보세요.",
+  varietyPlus:
+    "초기 구도 단계의 프롬프트 제약을 줄여 포즈와 배경의 다양성을 높입니다. 세부 단계에서는 다시 프롬프트를 따르지만, UC도 늦게 적용된다는 점에 유의하세요.",
+  qualityTags:
+    "품질·미학 태그를 프롬프트에 자동으로 추가합니다. 기본 품질을 높이기 쉽지만 애니 캐릭터 쪽으로 편향되거나 원하는 텍스트가 약해질 수 있습니다.",
+  characterPositions:
+    "캐릭터가 나타날 대략적인 위치를 지정합니다. 위치는 강제 배치가 아니라 힌트이므로 위치가 보장되지는 않습니다.",
+} as const;
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -288,7 +300,9 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.steps}
+        </Text>
       </View>
 
       <View style={styles.parameterItem}>
@@ -304,7 +318,9 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.cfgScale}
+        </Text>
       </View>
 
       <View style={styles.parameterItem}>
@@ -320,7 +336,9 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.cfgRescale}
+        </Text>
       </View>
 
       <Text style={styles.sectionLabel}>ADVANCED SETTINGS</Text>
@@ -355,7 +373,9 @@ function SettingsTabContent() {
             }
           />
         </View>
-        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.varietyPlus}
+        </Text>
       </View>
 
       <View style={styles.settingsCard}>
@@ -420,7 +440,9 @@ const PromptTabContent = memo(function PromptTabContent() {
             }
           />
         </View>
-        <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.qualityTags}
+        </Text>
       </View>
 
       <View style={styles.settingsCard}>
@@ -588,7 +610,9 @@ const CharacterTabContent = memo(function CharacterTabContent() {
               }
             />
           </View>
-          <Text style={styles.optionDescription}>{OPTION_DESCRIPTION}</Text>
+          <Text style={styles.optionDescription}>
+            {OPTION_DESCRIPTIONS.characterPositions}
+          </Text>
         </View>
       </View>
     </>
