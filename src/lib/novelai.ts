@@ -574,9 +574,16 @@ function toNovelAiImageStreamEvent(
   return null;
 }
 
+function createAbortError() {
+  const error = new Error("NovelAI image generation was cancelled.");
+  error.name = "AbortError";
+  return error;
+}
+
 export async function generateNovelAiImageStream(
   input: GenerateNovelAiImageInput,
   onEvent?: (event: NovelAiImageStreamEvent) => void,
+  signal?: AbortSignal,
 ): Promise<GenerateNovelAiImageStreamResult> {
   const { token, ...requestInput } = input;
   const { seed, body } = createImageGenerationBody(requestInput);
@@ -590,10 +597,27 @@ export async function generateNovelAiImageStream(
     let finalImageBase64: string | null = null;
     let isSettled = false;
 
+    function cleanup() {
+      signal?.removeEventListener("abort", handleAbort);
+    }
+
     function settleError(error: unknown) {
       if (isSettled) return;
       isSettled = true;
+      cleanup();
       reject(error);
+    }
+
+    function settleSuccess(result: GenerateNovelAiImageStreamResult) {
+      if (isSettled) return;
+      isSettled = true;
+      cleanup();
+      resolve(result);
+    }
+
+    function handleAbort() {
+      settleError(createAbortError());
+      xhr.abort();
     }
 
     function handleStreamText(text: string) {
@@ -640,7 +664,7 @@ export async function generateNovelAiImageStream(
     };
 
     xhr.onabort = () => {
-      settleError(new Error("NovelAI image stream was aborted."));
+      settleError(createAbortError());
     };
 
     xhr.onload = () => {
@@ -651,6 +675,7 @@ export async function generateNovelAiImageStream(
       if (nextText) {
         handleStreamText(nextText);
       }
+      if (isSettled) return;
 
       if (xhr.status < 200 || xhr.status >= 300) {
         settleError(
@@ -669,21 +694,30 @@ export async function generateNovelAiImageStream(
         return;
       }
 
-      isSettled = true;
-      resolve({
+      settleSuccess({
         imageBase64: finalImageBase64,
         seed,
       });
     };
 
-    xhr.send(
-      JSON.stringify({
-        ...body,
-        parameters: {
-          ...body.parameters,
-          stream: "sse",
-        },
-      }),
-    );
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+
+    try {
+      xhr.send(
+        JSON.stringify({
+          ...body,
+          parameters: {
+            ...body.parameters,
+            stream: "sse",
+          },
+        }),
+      );
+    } catch (error: unknown) {
+      settleError(error);
+    }
   });
 }

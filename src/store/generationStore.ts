@@ -509,6 +509,7 @@ type QueueParams = {
 // (foreground service 태스크가 트리거와 별개로 읽어야 하므로).
 let pendingQueue: QueueParams | null = null;
 let queueRunning = false;
+let activeQueueAbortController: AbortController | null = null;
 
 // 부팅 시 MMKV에서 저장된 옵션을 동기 읽기 → store 초기 state로 즉시 복원.
 // 손상/구버전 데이터 방어를 위해 필드별 타입 검증 후 통과한 값만 반환.
@@ -1063,7 +1064,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   queueIndex: 0,
   queueSteps: 0,
   queueCancelRequested: false,
-  requestQueueCancel: () => set({ queueCancelRequested: true }),
+  requestQueueCancel: () => {
+    set({ queueCancelRequested: true });
+    activeQueueAbortController?.abort();
+  },
 
   generateImage: async (onSuccess, overrides) => {
     const s = get();
@@ -1305,6 +1309,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     const params = pendingQueue;
     if (!params) return;
     queueRunning = true;
+    const abortController = new AbortController();
+    activeQueueAbortController = abortController;
 
     const { token, prompt, negativePrompt, characterPrompts, opts, total } =
       params;
@@ -1387,6 +1393,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
             return;
           },
+          abortController.signal,
         );
 
         const generation = await saveGenerationImageBase64({
@@ -1413,15 +1420,24 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
         get().refreshAnlas();
       }
-      params.onSuccess?.();
+      if (!get().queueCancelRequested) {
+        params.onSuccess?.();
+      }
     } catch (error: unknown) {
       // 한 장 실패 시 큐 중단. 부분 완료분은 history 유지.
-      set({
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const wasCancelled =
+        get().queueCancelRequested || abortController.signal.aborted;
+      if (!wasCancelled) {
+        set({
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     } finally {
       pendingQueue = null;
       queueRunning = false;
+      if (activeQueueAbortController === abortController) {
+        activeQueueAbortController = null;
+      }
       await stopGenerationService();
       set({
         isLoading: false,
