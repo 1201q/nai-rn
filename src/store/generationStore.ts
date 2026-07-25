@@ -35,6 +35,11 @@ import {
 } from "../lib/i2iReference";
 import { storage } from "../lib/storage";
 import {
+  buildMetadataImportPatch,
+  type MetadataImportSelection,
+} from "../lib/metadataImport";
+import type { ParsedNaiMetadata } from "../lib/naiMetadata";
+import {
   isUcPresetIndex,
   type UcPresetIndex,
 } from "../lib/naiPresets";
@@ -387,6 +392,10 @@ type GenerationState = {
   setBatchCount: (v: number) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
+  applyMetadataImport: (
+    parsed: ParsedNaiMetadata,
+    selection: MetadataImportSelection,
+  ) => void;
   vibeReferences: VibeReference[];
   normalizeVibeStrengths: boolean;
   setNormalizeVibeStrengths: (v: boolean) => void;
@@ -662,6 +671,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setBatchCount: (v) => set({ batchCount: v }),
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
+  applyMetadataImport: (parsed, selection) =>
+    set((state) => buildMetadataImportPatch(state, parsed, selection)),
   vibeReferences: [],
   vibeReferenceExpandedIds: [],
   setVibeReferenceExpandedIds: (v) => set({ vibeReferenceExpandedIds: v }),

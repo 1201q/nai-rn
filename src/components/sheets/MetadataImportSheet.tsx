@@ -4,12 +4,12 @@ import { toast } from "sonner-native";
 
 import type { ParsedNaiMetadata } from "../../lib/naiMetadata";
 import {
-  applyMetadataImport,
   createMetadataImportSelection,
   getMetadataImportAvailability,
   hasSelectedMetadataImport,
   type MetadataCharacterImportMode,
 } from "../../lib/metadataImport";
+import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { SegmentedControl, Toggle } from "../forms/FormControls";
 import type { RegisterSheetDraft } from "./SheetDraft";
@@ -48,6 +48,9 @@ export function MetadataImportSheet({
   parsed: ParsedNaiMetadata;
   registerDraft: RegisterSheetDraft;
 }) {
+  const applyMetadataImport = useGenerationStore(
+    (state) => state.applyMetadataImport,
+  );
   const available = useMemo(
     () => getMetadataImportAvailability(parsed),
     [parsed],
@@ -76,7 +79,7 @@ export function MetadataImportSheet({
     applyMetadataImport(parsed, selection);
     toast.success("메타데이터를 가져왔습니다.");
     return true;
-  }, [canImport, parsed, selection]);
+  }, [applyMetadataImport, canImport, parsed, selection]);
 
   useEffect(() => {
     registerDraft({

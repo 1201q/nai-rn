@@ -1,10 +1,9 @@
 import { MAX_CHARACTER_PROMPTS } from "../constants/generation";
-import { useGenerationStore } from "../store/generationStore";
 import type { ParsedNaiMetadata } from "./naiMetadata";
 
 export type MetadataCharacterImportMode = "replace" | "append";
 
-type MetadataImportSelection = {
+export type MetadataImportSelection = {
   prompt: boolean;
   negativePrompt: boolean;
   characters: boolean;
@@ -13,13 +12,32 @@ type MetadataImportSelection = {
   seed: boolean;
 };
 
-type MetadataImportAvailability = {
+export type MetadataImportAvailability = {
   prompt: boolean;
   negativePrompt: boolean;
   characters: boolean;
   settings: boolean;
   seed: boolean;
 };
+
+export type MetadataImportState = {
+  prompt: string;
+  negativePrompt: string;
+  characterPrompts: NonNullable<ParsedNaiMetadata["characters"]>;
+  model: string;
+  resolution: NonNullable<ParsedNaiMetadata["resolution"]>;
+  steps: number;
+  promptGuidance: number;
+  promptGuidanceRescale: number;
+  noiseSchedule: NonNullable<ParsedNaiMetadata["noiseSchedule"]>;
+  sampler: string;
+  varietyPlus: boolean;
+  qualityToggle: boolean;
+  ucPreset: NonNullable<ParsedNaiMetadata["ucPreset"]>;
+  seed: number;
+};
+
+export type MetadataImportPatch = Partial<MetadataImportState>;
 
 export function getMetadataImportAvailability(
   parsed: ParsedNaiMetadata,
@@ -64,53 +82,54 @@ export function hasSelectedMetadataImport(
   );
 }
 
-export function applyMetadataImport(
+export function buildMetadataImportPatch(
+  state: MetadataImportState,
   parsed: ParsedNaiMetadata,
   selection: MetadataImportSelection,
-) {
-  const state = useGenerationStore.getState();
-
+): MetadataImportPatch {
+  const patch: MetadataImportPatch = {};
   if (selection.prompt && parsed.prompt !== undefined) {
-    state.setPrompt(parsed.prompt);
+    patch.prompt = parsed.prompt;
   }
   if (selection.negativePrompt && parsed.negativePrompt !== undefined) {
-    state.setNegativePrompt(parsed.negativePrompt);
+    patch.negativePrompt = parsed.negativePrompt;
   }
   if (selection.characters && parsed.characters) {
-    const characters =
+    patch.characterPrompts =
       selection.characterMode === "append"
         ? [...state.characterPrompts, ...parsed.characters].slice(
             0,
             MAX_CHARACTER_PROMPTS,
           )
         : parsed.characters;
-    state.setCharacterPrompts(characters);
   }
   if (selection.settings) {
-    if (parsed.model !== undefined) state.setModel(parsed.model);
+    if (parsed.model !== undefined) patch.model = parsed.model;
     if (parsed.resolution !== undefined) {
-      state.setResolution(parsed.resolution);
+      patch.resolution = parsed.resolution;
     }
-    if (parsed.steps !== undefined) state.setSteps(parsed.steps);
+    if (parsed.steps !== undefined) patch.steps = parsed.steps;
     if (parsed.promptGuidance !== undefined) {
-      state.setPromptGuidance(parsed.promptGuidance);
+      patch.promptGuidance = parsed.promptGuidance;
     }
     if (parsed.promptGuidanceRescale !== undefined) {
-      state.setPromptGuidanceRescale(parsed.promptGuidanceRescale);
+      patch.promptGuidanceRescale = parsed.promptGuidanceRescale;
     }
     if (parsed.noiseSchedule !== undefined) {
-      state.setNoiseSchedule(parsed.noiseSchedule);
+      patch.noiseSchedule = parsed.noiseSchedule;
     }
-    if (parsed.sampler !== undefined) state.setSampler(parsed.sampler);
+    if (parsed.sampler !== undefined) patch.sampler = parsed.sampler;
     if (parsed.varietyPlus !== undefined) {
-      state.setVarietyPlus(parsed.varietyPlus);
+      patch.varietyPlus = parsed.varietyPlus;
     }
     if (parsed.qualityToggle !== undefined) {
-      state.setQualityToggle(parsed.qualityToggle);
+      patch.qualityToggle = parsed.qualityToggle;
     }
-    if (parsed.ucPreset !== undefined) state.setUcPreset(parsed.ucPreset);
+    if (parsed.ucPreset !== undefined) patch.ucPreset = parsed.ucPreset;
   }
   if (selection.seed && parsed.seed !== undefined) {
-    state.setSeed(parsed.seed);
+    patch.seed = parsed.seed;
   }
+
+  return patch;
 }
