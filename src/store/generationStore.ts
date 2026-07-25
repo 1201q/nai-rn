@@ -44,6 +44,10 @@ import {
   type UcPresetIndex,
 } from "../lib/naiPresets";
 import {
+  createGenerationOptionsPersistence,
+  type PersistedGenerationOptions,
+} from "./generationOptionsPersistence";
+import {
   MAX_VIBE_REFERENCES,
   addVibeReferenceFromImage,
   canUseCachedVibeEncoding,
@@ -108,39 +112,6 @@ export type CustomResolution = {
   width: number;
   height: number;
 };
-
-type PersistedGenerationOptions = Partial<{
-  prompt: string;
-  negativePrompt: string;
-  qualityToggle: boolean;
-  ucPreset: UcPresetIndex;
-  characterPrompts: CharacterPrompt[];
-  characterPromptExpandedIds: string[];
-  characterPositionEnabled: boolean;
-  model: string;
-  resolution: NaiResolution;
-  customResolutions: CustomResolution[];
-  steps: number;
-  promptGuidance: number;
-  promptGuidanceRescale: number;
-  noiseSchedule: NoiseSchedule;
-  sampler: string;
-  seed: number;
-  seedLocked: boolean;
-  batchCount: number;
-  varietyPlus: boolean;
-  normalizeVibeStrengths: boolean;
-  vibeReferenceExpandedIds: string[];
-  preciseReferenceExpandedIds: string[];
-  i2iSourceImage: Pick<
-    I2ISourceImage,
-    "storagePath" | "width" | "height"
-  >;
-  i2iEnabled: boolean;
-  i2iStrength: number;
-  i2iNoise: number;
-  mainImageBlurred: boolean;
-}>;
 
 function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
@@ -1565,57 +1536,29 @@ export function useGenerationBootstrap() {
       });
   }, []);
 
-  // persist: 옵션 슬라이스 변경 시에만 write (이전 effect deps와 동일 집합)
+  // persist: 저장 대상 옵션 변경을 합쳐 마지막 상태만 write
   useEffect(() => {
-    let lastJson: string | null = null;
-
-    const unsubscribe = useGenerationStore.subscribe((state) => {
-      const nextOptions: PersistedGenerationOptions = {
-        prompt: state.prompt,
-        negativePrompt: state.negativePrompt,
-        qualityToggle: state.qualityToggle,
-        ucPreset: state.ucPreset,
-        characterPrompts: state.characterPrompts,
-        characterPromptExpandedIds: state.characterPromptExpandedIds,
-        characterPositionEnabled: state.characterPositionEnabled,
-        model: state.model,
-        resolution: state.resolution,
-        customResolutions: state.customResolutions,
-        steps: state.steps,
-        promptGuidance: state.promptGuidance,
-        promptGuidanceRescale: state.promptGuidanceRescale,
-        noiseSchedule: state.noiseSchedule,
-        sampler: state.sampler,
-        // 시드는 잠금일 때만 저장 (NAIS2 동일)
-        ...(state.seedLocked ? { seed: state.seed } : {}),
-        seedLocked: state.seedLocked,
-        batchCount: state.batchCount,
-        varietyPlus: state.varietyPlus,
-        normalizeVibeStrengths: state.normalizeVibeStrengths,
-        vibeReferenceExpandedIds: state.vibeReferenceExpandedIds,
-        preciseReferenceExpandedIds: state.preciseReferenceExpandedIds,
-        ...(state.i2iSourceImage
-          ? {
-              i2iSourceImage: {
-                storagePath: state.i2iSourceImage.storagePath,
-                width: state.i2iSourceImage.width,
-                height: state.i2iSourceImage.height,
-              },
-            }
-          : {}),
-        i2iEnabled: state.i2iEnabled,
-        i2iStrength: state.i2iStrength,
-        i2iNoise: state.i2iNoise,
-        mainImageBlurred: state.mainImageBlurred,
-      };
-
-      const json = JSON.stringify(nextOptions);
-      if (json === lastJson) return;
-      lastJson = json;
-
-      storage.set(GENERATION_OPTIONS_STORAGE_KEY, json);
+    const persistence = createGenerationOptionsPersistence({
+      initialJson:
+        storage.getString(GENERATION_OPTIONS_STORAGE_KEY) ?? null,
+      write: (json) => {
+        storage.set(GENERATION_OPTIONS_STORAGE_KEY, json);
+      },
     });
+    const unsubscribe = useGenerationStore.subscribe(
+      persistence.handleStateChange,
+    );
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        if (nextState !== "active") persistence.flush();
+      },
+    );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      appStateSubscription.remove();
+      persistence.flush();
+    };
   }, []);
 }
