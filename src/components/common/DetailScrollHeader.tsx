@@ -96,6 +96,7 @@ export function DetailHeaderOverlay({
             label="뒤로"
             size={40}
             onPress={onBack}
+            style={styles.borderlessHeaderButton}
           />
         ) : null}
 
@@ -123,6 +124,7 @@ export function DetailHeaderOverlay({
             disabled={addDisabled}
             onPress={onAdd}
             style={[
+              styles.borderlessHeaderButton,
               styles.addButton,
               !showMore && styles.addButtonWithoutMore,
             ]}
@@ -135,7 +137,7 @@ export function DetailHeaderOverlay({
             label="더 보기"
             size={40}
             onPress={onMore}
-            style={styles.moreButton}
+            style={[styles.borderlessHeaderButton, styles.moreButton]}
           />
         ) : null}
       </View>
@@ -200,6 +202,10 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     marginLeft: "auto",
+  },
+  borderlessHeaderButton: {
+    borderWidth: 0,
+    backgroundColor: tokens.color.card,
   },
   compactTitle: {
     color: tokens.color.textPrimary,

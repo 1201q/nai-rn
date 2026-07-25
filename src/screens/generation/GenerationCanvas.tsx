@@ -448,8 +448,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.overlay,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
     ...tokens.shadow.floatSm,
   },
   toolbarActions: {
@@ -482,8 +480,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.card,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
   },
   toolbarPressed: {
     opacity: 0.65,

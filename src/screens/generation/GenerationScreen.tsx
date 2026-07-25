@@ -119,12 +119,14 @@ export function GenerationScreen() {
           icon="settings-outline"
           label="이미지 세팅"
           onPress={() => router.navigate("/image-settings")}
+          style={styles.sideActionButton}
         />
         <GenerateAction />
         <IconButton
           icon="time-outline"
           label="History"
           onPress={() => router.navigate("/history")}
+          style={styles.sideActionButton}
         />
       </View>
     </View>
@@ -151,8 +153,6 @@ const styles = StyleSheet.create({
     gap: tokens.space[4],
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.overlay,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
     ...tokens.shadow.floatSm,
   },
   balanceText: {
@@ -169,6 +169,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: tokens.space[5],
     marginTop: tokens.space[8],
+  },
+  sideActionButton: {
+    borderWidth: 0,
+    backgroundColor: tokens.color.card,
   },
   progressFill: {
     position: "absolute",
