@@ -3,6 +3,12 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 
 import type { NoiseSchedule } from "../constants/generation";
+import {
+  buildGenerationHistoryPageQuery,
+  createGenerationHistoryPage,
+  type GenerationHistoryCursor,
+  type GenerationHistoryPage,
+} from "./generationHistoryPage";
 import { createInitializeOnce } from "./initializeOnce";
 import { extractPngTextMetadata } from "./novelai";
 
@@ -172,8 +178,8 @@ async function initializeGenerationHistoryStorage() {
       metadata_json TEXT NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS generations_created_at_idx
-      ON generations (created_at DESC);
+    CREATE INDEX IF NOT EXISTS generations_created_at_id_idx
+      ON generations (created_at DESC, id DESC);
   `);
 }
 
@@ -181,13 +187,17 @@ export const initGenerationHistoryStorage = createInitializeOnce(
   initializeGenerationHistoryStorage,
 );
 
-export async function listGenerations(): Promise<GenerationRecord[]> {
+export async function listGenerationPage(
+  cursor: GenerationHistoryCursor | null = null,
+): Promise<GenerationHistoryPage<GenerationRecord>> {
   await initGenerationHistoryStorage();
   const db = await getDatabase();
+  const query = buildGenerationHistoryPageQuery(cursor);
   const rows = await db.getAllAsync<GenerationRow>(
-    "SELECT * FROM generations ORDER BY created_at DESC",
+    query.sql,
+    query.params,
   );
-  return rows.map(rowToRecord);
+  return createGenerationHistoryPage(rows.map(rowToRecord));
 }
 
 export async function deleteGenerations(ids: string[]) {

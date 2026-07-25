@@ -7,9 +7,13 @@ import { create } from "zustand";
 import {
   deleteGenerations as deleteStoredGenerations,
   type GenerationRecord,
-  listGenerations,
+  listGenerationPage,
   saveGenerationImageBase64,
 } from "../lib/generationHistory";
+import {
+  mergeGenerationHistoryRecords,
+  type GenerationHistoryCursor,
+} from "../lib/generationHistoryPage";
 import notifee, { EventType } from "react-native-notify-kit";
 
 import {
@@ -430,6 +434,11 @@ type GenerationState = {
   // 생성 결과
   currentGeneration: GenerationRecord | null;
   generationHistory: GenerationRecord[];
+  generationHistoryCursor: GenerationHistoryCursor | null;
+  generationHistoryHasMore: boolean;
+  generationHistoryInitialized: boolean;
+  generationHistoryLoadingMore: boolean;
+  loadMoreGenerationHistory: () => Promise<void>;
   deleteGenerations: (ids: string[]) => Promise<void>;
   streamingPreviewUri: string | null;
   streamingStep: number | null;
@@ -1104,6 +1113,45 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   currentGeneration: null,
   generationHistory: [],
+  generationHistoryCursor: null,
+  generationHistoryHasMore: false,
+  generationHistoryInitialized: false,
+  generationHistoryLoadingMore: false,
+  loadMoreGenerationHistory: async () => {
+    const state = get();
+    if (
+      !state.generationHistoryInitialized ||
+      state.generationHistoryLoadingMore ||
+      !state.generationHistoryHasMore ||
+      !state.generationHistoryCursor
+    ) {
+      return;
+    }
+
+    set({ generationHistoryLoadingMore: true });
+    try {
+      const page = await listGenerationPage(state.generationHistoryCursor);
+      set((current) => {
+        const generationHistory = mergeGenerationHistoryRecords(
+          current.generationHistory,
+          page.records,
+        );
+        return {
+          generationHistory,
+          generationHistoryCursor: page.nextCursor,
+          generationHistoryHasMore: page.hasMore,
+          generationHistoryLoadingMore: false,
+          currentGeneration:
+            current.currentGeneration ?? generationHistory[0] ?? null,
+        };
+      });
+    } catch (error: unknown) {
+      set({
+        generationHistoryLoadingMore: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  },
   deleteGenerations: async (ids) => {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return;
@@ -1121,6 +1169,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
       return { generationHistory, currentGeneration };
     });
+
+    const state = get();
+    if (
+      state.generationHistory.length === 0 &&
+      state.generationHistoryHasMore
+    ) {
+      await state.loadMoreGenerationHistory();
+    }
   },
   streamingPreviewUri: null,
   streamingStep: null,
@@ -1589,15 +1645,26 @@ export function useGenerationBootstrap() {
         });
       });
 
-    listGenerations()
-      .then((records) => {
-        setState((state) => ({
-          generationHistory: records,
-          currentGeneration: state.currentGeneration ?? records[0] ?? null,
-        }));
+    listGenerationPage()
+      .then((page) => {
+        setState((state) => {
+          const generationHistory = mergeGenerationHistoryRecords(
+            state.generationHistory,
+            page.records,
+          );
+          return {
+            generationHistory,
+            generationHistoryCursor: page.nextCursor,
+            generationHistoryHasMore: page.hasMore,
+            generationHistoryInitialized: true,
+            currentGeneration:
+              state.currentGeneration ?? generationHistory[0] ?? null,
+          };
+        });
       })
       .catch((error: unknown) => {
         setState({
+          generationHistoryInitialized: true,
           message: error instanceof Error ? error.message : String(error),
         });
       });

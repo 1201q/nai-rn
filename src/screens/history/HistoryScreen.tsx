@@ -210,7 +210,7 @@ function HistorySelectionHeader({
           />
           <Pressable
             accessibilityRole="checkbox"
-            accessibilityLabel="전체 선택"
+            accessibilityLabel="불러온 항목 전체 선택"
             accessibilityState={{ checked: allSelected }}
             hitSlop={6}
             onPress={onToggleSelectAll}
@@ -265,6 +265,15 @@ export function HistoryScreen({
 }) {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
+  const historyInitialized = useGenerationStore(
+    (s) => s.generationHistoryInitialized,
+  );
+  const historyLoadingMore = useGenerationStore(
+    (s) => s.generationHistoryLoadingMore,
+  );
+  const loadMoreHistory = useGenerationStore(
+    (s) => s.loadMoreGenerationHistory,
+  );
   const deleteGenerations = useGenerationStore((s) => s.deleteGenerations);
   const isSheetOpen = useAppSheetOpen();
 
@@ -543,6 +552,10 @@ export function HistoryScreen({
         maxToRenderPerBatch={9}
         windowSize={7}
         scrollEventThrottle={16}
+        onEndReached={() => {
+          void loadMoreHistory();
+        }}
+        onEndReachedThreshold={0.4}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true },
@@ -565,11 +578,32 @@ export function HistoryScreen({
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
-            <Text style={styles.emptyText}>
-              이미지를 생성하면 여기에 기록이 쌓입니다
-            </Text>
+            {historyInitialized ? (
+              <>
+                <Text style={styles.emptyTitle}>
+                  아직 생성한 이미지가 없어요
+                </Text>
+                <Text style={styles.emptyText}>
+                  이미지를 생성하면 여기에 기록이 쌓입니다
+                </Text>
+              </>
+            ) : (
+              <ActivityIndicator
+                accessibilityLabel="History 불러오는 중"
+                color={tokens.color.textMuted}
+              />
+            )}
           </View>
+        }
+        ListFooterComponent={
+          historyLoadingMore ? (
+            <View style={styles.loadingFooter}>
+              <ActivityIndicator
+                accessibilityLabel="이전 History 불러오는 중"
+                color={tokens.color.textMuted}
+              />
+            </View>
+          ) : null
         }
         renderItem={({ item, index }) => (
           <HistoryTile
@@ -794,6 +828,11 @@ const styles = StyleSheet.create({
   },
   scrollHeaderSpacer: {
     height: DETAIL_SCROLL_TITLE_HEIGHT,
+  },
+  loadingFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: tokens.space[16],
   },
   selectionHeaderFade: {
     ...StyleSheet.absoluteFill,
