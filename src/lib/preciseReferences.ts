@@ -197,6 +197,8 @@ async function createThumbnail(
   height: number,
   thumbnailFileName: string,
 ) {
+  const thumbnailPath = `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
+
   try {
     const thumbnail = await ImageManipulator.manipulateAsync(
       sourceUri,
@@ -221,8 +223,9 @@ async function createThumbnail(
     } catch {
       // The thumbnail has already been copied into app storage.
     }
-    return `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
+    return thumbnailPath;
   } catch {
+    deleteStoredFile(thumbnailPath);
     return null;
   }
 }
@@ -338,9 +341,9 @@ export async function addPreciseReferenceFromImage(
   const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
   const imageFile = new File(getOriginalsDirectory(), imageFileName);
 
-  await copyImageToFile(input.uri, imageFile);
-
   try {
+    await copyImageToFile(input.uri, imageFile);
+
     const thumbnailPath = await createThumbnail(
       input.uri,
       input.width,

@@ -132,6 +132,17 @@ function fileFromStoredPath(path: string) {
   );
 }
 
+function deleteStoredFile(path: string | null) {
+  if (!path) return;
+
+  try {
+    const file = fileFromStoredPath(path);
+    if (file.exists) file.delete();
+  } catch {
+    // DB state is the source of truth; missing file cleanup can be ignored.
+  }
+}
+
 export async function initGenerationHistoryStorage() {
   ensureImageDirectories();
   const db = await getDatabase();
@@ -259,6 +270,7 @@ async function saveGenerationRecord({
       // The thumbnail has already been copied into app storage.
     }
   } catch {
+    deleteStoredFile(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
     thumbnailPath = null;
   }
 
@@ -336,19 +348,25 @@ export async function saveGenerationImageBase64({
   const thumbnailFileName = `${id}.jpg`;
   const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
 
-  originalFile.create({ overwrite: true });
-  originalFile.write(imageBase64, { encoding: "base64" });
+  try {
+    originalFile.create({ overwrite: true });
+    originalFile.write(imageBase64, { encoding: "base64" });
 
-  const imageBytes = await originalFile.bytes();
-  return saveGenerationRecord({
-    ...recordInput,
-    id,
-    createdAt,
-    imagePath,
-    thumbnailFileName,
-    originalFile,
-    metadata: extractPngTextMetadata(imageBytes),
-  });
+    const imageBytes = await originalFile.bytes();
+    return await saveGenerationRecord({
+      ...recordInput,
+      id,
+      createdAt,
+      imagePath,
+      thumbnailFileName,
+      originalFile,
+      metadata: extractPngTextMetadata(imageBytes),
+    });
+  } catch (error: unknown) {
+    deleteStoredFile(imagePath);
+    deleteStoredFile(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
+    throw error;
+  }
 }
 
 export function resolveGenerationImageUri(record: GenerationRecord) {
