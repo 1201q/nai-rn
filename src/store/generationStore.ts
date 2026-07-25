@@ -7,7 +7,6 @@ import { create } from "zustand";
 import {
   deleteGenerations as deleteStoredGenerations,
   type GenerationRecord,
-  initGenerationHistoryStorage,
   listGenerations,
   saveGenerationImageBase64,
 } from "../lib/generationHistory";
@@ -44,7 +43,6 @@ import {
   addVibeReferenceFromImage,
   canUseCachedVibeEncoding,
   deleteVibeReference as deleteStoredVibeReference,
-  initVibeReferenceStorage,
   listVibeReferences,
   readEncodedVibeReferenceBase64,
   readVibeReferenceImageBase64,
@@ -58,7 +56,6 @@ import {
   MAX_PRECISE_REFERENCES,
   addPreciseReferenceFromImage,
   deletePreciseReference as deleteStoredPreciseReference,
-  initPreciseReferenceStorage,
   listPreciseReferences,
   readPreciseReferenceProcessedBase64,
   replacePreciseReferenceImage,
@@ -1506,8 +1503,7 @@ export function useGenerationBootstrap() {
         });
       });
 
-    initGenerationHistoryStorage()
-      .then(listGenerations)
+    listGenerations()
       .then((records) => {
         setState((state) => ({
           generationHistory: records,
@@ -1520,8 +1516,7 @@ export function useGenerationBootstrap() {
         });
       });
 
-    initVibeReferenceStorage()
-      .then(listVibeReferences)
+    listVibeReferences()
       .then((references) => {
         setState((state) => {
           const referenceIds = new Set(references.map((item) => item.id));
@@ -1539,8 +1534,7 @@ export function useGenerationBootstrap() {
         });
       });
 
-    initPreciseReferenceStorage()
-      .then(listPreciseReferences)
+    listPreciseReferences()
       .then((references) => {
         setState((state) => {
           const referenceIds = new Set(references.map((item) => item.id));

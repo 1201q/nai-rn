@@ -3,6 +3,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 
 import type { NoiseSchedule } from "../constants/generation";
+import { createInitializeOnce } from "./initializeOnce";
 import { extractPngTextMetadata } from "./novelai";
 
 const DATABASE_NAME = "generation-history.db";
@@ -76,7 +77,12 @@ type GenerationRow = {
 
 function getDatabase() {
   if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME);
+    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
+      (error: unknown) => {
+        dbPromise = null;
+        throw error;
+      },
+    );
   }
   return dbPromise;
 }
@@ -143,7 +149,7 @@ function deleteStoredFile(path: string | null) {
   }
 }
 
-export async function initGenerationHistoryStorage() {
+async function initializeGenerationHistoryStorage() {
   ensureImageDirectories();
   const db = await getDatabase();
   await db.execAsync(`
@@ -170,6 +176,10 @@ export async function initGenerationHistoryStorage() {
       ON generations (created_at DESC);
   `);
 }
+
+export const initGenerationHistoryStorage = createInitializeOnce(
+  initializeGenerationHistoryStorage,
+);
 
 export async function listGenerations(): Promise<GenerationRecord[]> {
   await initGenerationHistoryStorage();

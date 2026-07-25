@@ -3,6 +3,8 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
 
+import { createInitializeOnce } from "./initializeOnce";
+
 const DATABASE_NAME = "precise-references.db";
 const REFERENCE_ROOT_DIR = "nai-references";
 const PRECISE_DIR = "precise";
@@ -92,7 +94,12 @@ function getContainRect(
 
 function getDatabase() {
   if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME);
+    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
+      (error: unknown) => {
+        dbPromise = null;
+        throw error;
+      },
+    );
   }
   return dbPromise;
 }
@@ -287,7 +294,7 @@ async function createProcessedReferenceImage(
   };
 }
 
-export async function initPreciseReferenceStorage() {
+async function initializePreciseReferenceStorage() {
   ensurePreciseDirectories();
   const db = await getDatabase();
   await db.execAsync(`
@@ -312,6 +319,10 @@ export async function initPreciseReferenceStorage() {
       ON precise_references (created_at ASC);
   `);
 }
+
+export const initPreciseReferenceStorage = createInitializeOnce(
+  initializePreciseReferenceStorage,
+);
 
 export async function listPreciseReferences(): Promise<PreciseReference[]> {
   await initPreciseReferenceStorage();

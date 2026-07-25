@@ -2,6 +2,8 @@ import { Directory, File, Paths } from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 
+import { createInitializeOnce } from "./initializeOnce";
+
 const DATABASE_NAME = "vibe-references.db";
 const REFERENCE_ROOT_DIR = "nai-references";
 const VIBES_DIR = "vibes";
@@ -63,7 +65,12 @@ type VibeReferenceSettingsPatch = Partial<
 
 function getDatabase() {
   if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME);
+    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
+      (error: unknown) => {
+        dbPromise = null;
+        throw error;
+      },
+    );
   }
   return dbPromise;
 }
@@ -197,7 +204,7 @@ async function createThumbnail(
   }
 }
 
-export async function initVibeReferenceStorage() {
+async function initializeVibeReferenceStorage() {
   ensureVibeDirectories();
   const db = await getDatabase();
   await db.execAsync(`
@@ -218,6 +225,10 @@ export async function initVibeReferenceStorage() {
       ON vibe_references (created_at ASC);
   `);
 }
+
+export const initVibeReferenceStorage = createInitializeOnce(
+  initializeVibeReferenceStorage,
+);
 
 export async function listVibeReferences(): Promise<VibeReference[]> {
   await initVibeReferenceStorage();
