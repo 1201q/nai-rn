@@ -4,6 +4,7 @@ import * as SQLite from "expo-sqlite";
 import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
 
 import { createInitializeOnce } from "./initializeOnce";
+import { createKeyedMutationQueue } from "./referenceMutation";
 
 const DATABASE_NAME = "precise-references.db";
 const REFERENCE_ROOT_DIR = "nai-references";
@@ -20,6 +21,7 @@ const DEFAULT_PRECISE_REFERENCE_FIDELITY = 0.6;
 const DEFAULT_PRECISE_REFERENCE_TYPE = "character&style";
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const settingsMutationQueue = createKeyedMutationQueue();
 
 export type PreciseReferenceType = "character" | "style" | "character&style";
 
@@ -522,41 +524,71 @@ export async function updatePreciseReferenceSettings(
   id: string,
   patch: PreciseReferenceSettingsPatch,
 ): Promise<PreciseReference | null> {
-  await initPreciseReferenceStorage();
-  const db = await getDatabase();
-  const existing = await db.getFirstAsync<PreciseReferenceRow>(
-    "SELECT * FROM precise_references WHERE id = ?",
-    [id],
-  );
-  if (!existing) return null;
+  return settingsMutationQueue.run([id], async () => {
+    await initPreciseReferenceStorage();
+    const db = await getDatabase();
+    const assignments: string[] = [];
+    const values: (string | number)[] = [];
 
-  const current = rowToRecord(existing);
-  const updatedAt = Date.now();
-  const next: PreciseReference = {
-    ...current,
-    ...patch,
-    updatedAt,
-  };
+    if (patch.enabled !== undefined) {
+      assignments.push("enabled = ?");
+      values.push(patch.enabled ? 1 : 0);
+    }
+    if (patch.strength !== undefined) {
+      assignments.push("strength = ?");
+      values.push(patch.strength);
+    }
+    if (patch.fidelity !== undefined) {
+      assignments.push("fidelity = ?");
+      values.push(patch.fidelity);
+    }
+    if (patch.referenceType !== undefined) {
+      assignments.push("reference_type = ?");
+      values.push(patch.referenceType);
+    }
+    if (assignments.length === 0) {
+      const existing = await db.getFirstAsync<PreciseReferenceRow>(
+        "SELECT * FROM precise_references WHERE id = ?",
+        [id],
+      );
+      return existing ? rowToRecord(existing) : null;
+    }
 
-  await db.runAsync(
-    `UPDATE precise_references
-       SET enabled = ?,
-           strength = ?,
-           fidelity = ?,
-           reference_type = ?,
-           updated_at = ?
-     WHERE id = ?`,
-    [
-      next.enabled ? 1 : 0,
-      next.strength,
-      next.fidelity,
-      next.referenceType,
-      next.updatedAt,
-      id,
-    ],
-  );
+    assignments.push("updated_at = ?");
+    values.push(Date.now(), id);
+    await db.runAsync(
+      `UPDATE precise_references
+         SET ${assignments.join(", ")}
+       WHERE id = ?`,
+      values,
+    );
 
-  return next;
+    const updated = await db.getFirstAsync<PreciseReferenceRow>(
+      "SELECT * FROM precise_references WHERE id = ?",
+      [id],
+    );
+    return updated ? rowToRecord(updated) : null;
+  });
+}
+
+export async function updatePreciseReferencesEnabled(
+  ids: readonly string[],
+  enabled: boolean,
+): Promise<void> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return;
+
+  await settingsMutationQueue.run(uniqueIds, async () => {
+    await initPreciseReferenceStorage();
+    const db = await getDatabase();
+    const placeholders = uniqueIds.map(() => "?").join(", ");
+    await db.runAsync(
+      `UPDATE precise_references
+         SET enabled = ?, updated_at = ?
+       WHERE id IN (${placeholders})`,
+      [enabled ? 1 : 0, Date.now(), ...uniqueIds],
+    );
+  });
 }
 
 export async function deletePreciseReference(id: string) {

@@ -41,6 +41,9 @@ export function VibeTransferScreen() {
   const setEnabled = useGenerationStore(
     (state) => state.setVibeReferenceEnabled,
   );
+  const setAllEnabled = useGenerationStore(
+    (state) => state.setVibeReferencesEnabled,
+  );
   const setStrength = useGenerationStore(
     (state) => state.setVibeReferenceStrength,
   );
@@ -128,9 +131,7 @@ export function VibeTransferScreen() {
       );
       return;
     }
-    references.forEach((reference) => {
-      if (reference.enabled !== value) setEnabled(reference.id, value);
-    });
+    setAllEnabled(value);
   }
 
   async function handleRemove(id: string) {

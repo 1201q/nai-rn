@@ -43,6 +43,7 @@ import {
   isUcPresetIndex,
   type UcPresetIndex,
 } from "../lib/naiPresets";
+import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
   type PersistedGenerationOptions,
@@ -58,6 +59,7 @@ import {
   replaceVibeReferenceImage,
   saveEncodedVibeReference,
   updateVibeReferenceSettings,
+  updateVibeReferencesEnabled,
   type VibeReference,
   type VibeReferenceImageInput,
 } from "../lib/vibeReferences";
@@ -69,6 +71,7 @@ import {
   readPreciseReferenceProcessedBase64,
   replacePreciseReferenceImage,
   updatePreciseReferenceSettings,
+  updatePreciseReferencesEnabled,
   type PreciseReference,
   type PreciseReferenceImageInput,
   type PreciseReferenceType,
@@ -379,6 +382,7 @@ type GenerationState = {
   ) => Promise<VibeReference | null>;
   removeVibeReference: (id: string) => Promise<void>;
   setVibeReferenceEnabled: (id: string, enabled: boolean) => void;
+  setVibeReferencesEnabled: (enabled: boolean) => void;
   setVibeReferenceStrength: (id: string, strength: number) => void;
   setVibeReferenceInformationExtracted: (id: string, value: number) => void;
   vibeReferenceExpandedIds: string[];
@@ -393,6 +397,7 @@ type GenerationState = {
   ) => Promise<PreciseReference | null>;
   removePreciseReference: (id: string) => Promise<void>;
   setPreciseReferenceEnabled: (id: string, enabled: boolean) => void;
+  setPreciseReferencesEnabled: (enabled: boolean) => void;
   setPreciseReferenceStrength: (id: string, strength: number) => void;
   setPreciseReferenceFidelity: (id: string, fidelity: number) => void;
   setPreciseReferenceType: (
@@ -487,6 +492,8 @@ type QueueParams = {
 let pendingQueue: QueueParams | null = null;
 let queueRunning = false;
 let activeQueueAbortController: AbortController | null = null;
+const vibeSettingsVersions = createMutationVersionTracker();
+const preciseSettingsVersions = createMutationVersionTracker();
 
 // 부팅 시 MMKV에서 저장된 옵션을 동기 읽기 → store 초기 state로 즉시 복원.
 // 손상/구버전 데이터 방어를 위해 필드별 타입 검증 후 통과한 값만 반환.
@@ -694,6 +701,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   removeVibeReference: async (id) => {
     try {
       await deleteStoredVibeReference(id);
+      vibeSettingsVersions.clear(id);
       set((state) => ({
         vibeReferences: state.vibeReferences.filter((item) => item.id !== id),
         vibeReferenceExpandedIds: state.vibeReferenceExpandedIds.filter(
@@ -717,6 +725,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return;
     }
 
+    const version = vibeSettingsVersions.start(id);
     set((state) => ({
       vibeReferences: state.vibeReferences.map((item) =>
         item.id === id ? { ...item, enabled } : item,
@@ -724,18 +733,47 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updateVibeReferenceSettings(id, { enabled })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
         set((state) => ({
           vibeReferences: replaceVibeInList(state.vibeReferences, reference),
         }));
       })
       .catch((error: unknown) => {
+        if (!vibeSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
       });
   },
+  setVibeReferencesEnabled: (enabled) => {
+    const state = get();
+    if (enabled && state.preciseReferences.some((item) => item.enabled)) {
+      set({
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+      });
+      return;
+    }
+
+    const ids = state.vibeReferences
+      .filter((item) => item.enabled !== enabled)
+      .map((item) => item.id);
+    if (ids.length === 0) return;
+
+    const idSet = new Set(ids);
+    ids.forEach((id) => vibeSettingsVersions.start(id));
+    set({
+      vibeReferences: state.vibeReferences.map((item) =>
+        idSet.has(item.id) ? { ...item, enabled } : item,
+      ),
+    });
+    updateVibeReferencesEnabled(ids, enabled).catch((error: unknown) => {
+      set({
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
   setVibeReferenceStrength: (id, strength) => {
+    const version = vibeSettingsVersions.start(id);
     set((state) => ({
       vibeReferences: state.vibeReferences.map((item) =>
         item.id === id ? { ...item, strength } : item,
@@ -743,18 +781,20 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updateVibeReferenceSettings(id, { strength })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
         set((state) => ({
           vibeReferences: replaceVibeInList(state.vibeReferences, reference),
         }));
       })
       .catch((error: unknown) => {
+        if (!vibeSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
       });
   },
   setVibeReferenceInformationExtracted: (id, value) => {
+    const version = vibeSettingsVersions.start(id);
     set((state) => ({
       vibeReferences: state.vibeReferences.map((item) =>
         item.id === id
@@ -769,12 +809,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updateVibeReferenceSettings(id, { informationExtracted: value })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
         set((state) => ({
           vibeReferences: replaceVibeInList(state.vibeReferences, reference),
         }));
       })
       .catch((error: unknown) => {
+        if (!vibeSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
@@ -832,6 +873,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   removePreciseReference: async (id) => {
     try {
       await deleteStoredPreciseReference(id);
+      preciseSettingsVersions.clear(id);
       set((state) => ({
         preciseReferences: state.preciseReferences.filter(
           (item) => item.id !== id,
@@ -864,6 +906,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return;
     }
 
+    const version = preciseSettingsVersions.start(id);
     set((state) => ({
       preciseReferences: state.preciseReferences.map((item) =>
         item.id === id ? { ...item, enabled } : item,
@@ -871,7 +914,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updatePreciseReferenceSettings(id, { enabled })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
+          return;
+        }
         set((state) => ({
           preciseReferences: replacePreciseInList(
             state.preciseReferences,
@@ -880,12 +925,47 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
+        if (!preciseSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
       });
   },
+  setPreciseReferencesEnabled: (enabled) => {
+    const state = get();
+    if (enabled && state.vibeReferences.some((item) => item.enabled)) {
+      set({
+        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+      });
+      return;
+    }
+    if (enabled && !isPreciseReferenceSupportedModel(state.model)) {
+      set({
+        message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
+      });
+      return;
+    }
+
+    const ids = state.preciseReferences
+      .filter((item) => item.enabled !== enabled)
+      .map((item) => item.id);
+    if (ids.length === 0) return;
+
+    const idSet = new Set(ids);
+    ids.forEach((id) => preciseSettingsVersions.start(id));
+    set({
+      preciseReferences: state.preciseReferences.map((item) =>
+        idSet.has(item.id) ? { ...item, enabled } : item,
+      ),
+    });
+    updatePreciseReferencesEnabled(ids, enabled).catch((error: unknown) => {
+      set({
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  },
   setPreciseReferenceStrength: (id, strength) => {
+    const version = preciseSettingsVersions.start(id);
     set((state) => ({
       preciseReferences: state.preciseReferences.map((item) =>
         item.id === id ? { ...item, strength } : item,
@@ -893,7 +973,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updatePreciseReferenceSettings(id, { strength })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
+          return;
+        }
         set((state) => ({
           preciseReferences: replacePreciseInList(
             state.preciseReferences,
@@ -902,12 +984,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
+        if (!preciseSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
       });
   },
   setPreciseReferenceFidelity: (id, fidelity) => {
+    const version = preciseSettingsVersions.start(id);
     set((state) => ({
       preciseReferences: state.preciseReferences.map((item) =>
         item.id === id ? { ...item, fidelity } : item,
@@ -915,7 +999,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updatePreciseReferenceSettings(id, { fidelity })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
+          return;
+        }
         set((state) => ({
           preciseReferences: replacePreciseInList(
             state.preciseReferences,
@@ -924,12 +1010,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
+        if (!preciseSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
       });
   },
   setPreciseReferenceType: (id, referenceType) => {
+    const version = preciseSettingsVersions.start(id);
     set((state) => ({
       preciseReferences: state.preciseReferences.map((item) =>
         item.id === id ? { ...item, referenceType } : item,
@@ -937,7 +1025,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
     updatePreciseReferenceSettings(id, { referenceType })
       .then((reference) => {
-        if (!reference) return;
+        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
+          return;
+        }
         set((state) => ({
           preciseReferences: replacePreciseInList(
             state.preciseReferences,
@@ -946,6 +1036,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }));
       })
       .catch((error: unknown) => {
+        if (!preciseSettingsVersions.isLatest(id, version)) return;
         set({
           message: error instanceof Error ? error.message : String(error),
         });
@@ -1162,9 +1253,22 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             updatedReferences.map((item) => [item.id, item]),
           );
           set((state) => ({
-            vibeReferences: state.vibeReferences.map(
-              (item) => updatedById.get(item.id) ?? item,
-            ),
+            vibeReferences: state.vibeReferences.map((item) => {
+              const updated = updatedById.get(item.id);
+              if (
+                !updated ||
+                updated.informationExtracted !== item.informationExtracted
+              ) {
+                return item;
+              }
+              return {
+                ...item,
+                encodedPath: updated.encodedPath,
+                encodedInformationExtracted:
+                  updated.encodedInformationExtracted,
+                updatedAt: Math.max(item.updatedAt, updated.updatedAt),
+              };
+            }),
           }));
         }
 

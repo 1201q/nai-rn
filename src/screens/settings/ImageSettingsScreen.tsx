@@ -628,13 +628,13 @@ function ImageReferenceTabContent() {
   const setI2IEnabled = useGenerationStore((state) => state.setI2IEnabled);
   const vibeReferences = useGenerationStore((state) => state.vibeReferences);
   const setVibeEnabled = useGenerationStore(
-    (state) => state.setVibeReferenceEnabled,
+    (state) => state.setVibeReferencesEnabled,
   );
   const preciseReferences = useGenerationStore(
     (state) => state.preciseReferences,
   );
   const setPreciseEnabled = useGenerationStore(
-    (state) => state.setPreciseReferenceEnabled,
+    (state) => state.setPreciseReferencesEnabled,
   );
 
   const vibeEnabled = vibeReferences.some((item) => item.enabled);
@@ -645,9 +645,7 @@ function ImageReferenceTabContent() {
       router.push("/vibe-transfer");
       return;
     }
-    vibeReferences.forEach((item) => {
-      if (item.enabled !== value) setVibeEnabled(item.id, value);
-    });
+    setVibeEnabled(value);
   }
 
   function togglePrecise(value: boolean) {
@@ -655,9 +653,7 @@ function ImageReferenceTabContent() {
       router.push("/precise-reference");
       return;
     }
-    preciseReferences.forEach((item) => {
-      if (item.enabled !== value) setPreciseEnabled(item.id, value);
-    });
+    setPreciseEnabled(value);
   }
 
   return (

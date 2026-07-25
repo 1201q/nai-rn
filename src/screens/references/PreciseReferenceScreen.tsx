@@ -88,6 +88,9 @@ export function PreciseReferenceScreen() {
   const setEnabled = useGenerationStore(
     (state) => state.setPreciseReferenceEnabled,
   );
+  const setAllEnabled = useGenerationStore(
+    (state) => state.setPreciseReferencesEnabled,
+  );
   const setStrength = useGenerationStore(
     (state) => state.setPreciseReferenceStrength,
   );
@@ -185,9 +188,7 @@ export function PreciseReferenceScreen() {
       );
       return;
     }
-    references.forEach((reference) => {
-      if (reference.enabled !== value) setEnabled(reference.id, value);
-    });
+    setAllEnabled(value);
   }
 
   async function handleRemove(id: string) {
