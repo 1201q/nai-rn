@@ -11,9 +11,13 @@ export const DETAIL_SCROLL_TITLE_HEIGHT = 110;
 export function DetailScrollTitle({
   title,
   scrollY,
+  containerHeight = DETAIL_SCROLL_TITLE_HEIGHT,
+  navigationSpacerHeight = 42,
 }: {
   title: string;
   scrollY: Animated.Value;
+  containerHeight?: number;
+  navigationSpacerHeight?: number;
 }) {
   const opacity = scrollY.interpolate({
     inputRange: [0, 56],
@@ -22,8 +26,10 @@ export function DetailScrollTitle({
   });
 
   return (
-    <View style={styles.scrollTitle}>
-      <View style={styles.navigationSpacer} />
+    <View style={[styles.scrollTitle, { height: containerHeight }]}>
+      <View
+        style={[styles.navigationSpacer, { height: navigationSpacerHeight }]}
+      />
       <Animated.View style={[styles.largeTitleContainer, { opacity }]}>
         <Text style={styles.largeTitle}>{title}</Text>
       </Animated.View>
@@ -40,8 +46,9 @@ export function DetailHeaderOverlay({
   addLabel = "추가",
   addDisabled = false,
   onMore,
+  showCompactTitle = true,
   showMore = true,
-  titleAlwaysVisible = false,
+  hideCompactTitleOnScroll = false,
 }: {
   title: string;
   scrollY: Animated.Value;
@@ -51,8 +58,9 @@ export function DetailHeaderOverlay({
   addLabel?: string;
   addDisabled?: boolean;
   onMore?: () => void;
+  showCompactTitle?: boolean;
   showMore?: boolean;
-  titleAlwaysVisible?: boolean;
+  hideCompactTitleOnScroll?: boolean;
 }) {
   const fadeOpacity = scrollY.interpolate({
     inputRange: [20, 84],
@@ -67,6 +75,11 @@ export function DetailHeaderOverlay({
   const compactTitleTranslateY = scrollY.interpolate({
     inputRange: [44, 78],
     outputRange: [4, 0],
+    extrapolate: "clamp",
+  });
+  const compactTitleFadeOutOpacity = scrollY.interpolate({
+    inputRange: [0, 72],
+    outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
@@ -100,21 +113,25 @@ export function DetailHeaderOverlay({
           />
         ) : null}
 
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.compactTitleContainer,
-            onAdd && showMore && styles.compactTitleContainerWithAdd,
-            !titleAlwaysVisible && {
-              opacity: compactTitleOpacity,
-              transform: [{ translateY: compactTitleTranslateY }],
-            },
-          ]}
-        >
-          <Text numberOfLines={1} style={styles.compactTitle}>
-            {title}
-          </Text>
-        </Animated.View>
+        {showCompactTitle ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.compactTitleContainer,
+              onAdd && showMore && styles.compactTitleContainerWithAdd,
+              hideCompactTitleOnScroll
+                ? { opacity: compactTitleFadeOutOpacity }
+                : {
+                    opacity: compactTitleOpacity,
+                    transform: [{ translateY: compactTitleTranslateY }],
+                  },
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.compactTitle}>
+              {title}
+            </Text>
+          </Animated.View>
+        ) : null}
 
         {onAdd ? (
           <IconButton

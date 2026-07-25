@@ -113,7 +113,7 @@ export function ReferenceDetailLayout({
         addLabel="참조 이미지 추가"
         addDisabled={addDisabled}
         showMore={false}
-        titleAlwaysVisible
+        hideCompactTitleOnScroll
       />
     </View>
   );

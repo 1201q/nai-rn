@@ -291,7 +291,7 @@ export function ImageToImageScreen() {
         topInset={insets.top}
         onBack={() => router.back()}
         showMore={false}
-        titleAlwaysVisible
+        hideCompactTitleOnScroll
       />
     </View>
   );

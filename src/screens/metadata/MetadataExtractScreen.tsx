@@ -208,7 +208,7 @@ export function MetadataExtractScreen() {
         topInset={insets.top}
         onBack={() => router.back()}
         showMore={false}
-        titleAlwaysVisible
+        hideCompactTitleOnScroll
       />
     </View>
   );

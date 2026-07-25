@@ -814,7 +814,12 @@ export function ImageSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <DetailScrollTitle title={TITLES[activeTab]} scrollY={scrollY} />
+          <DetailScrollTitle
+            title={TITLES[activeTab]}
+            scrollY={scrollY}
+            containerHeight={98}
+            navigationSpacerHeight={28}
+          />
           <View
             style={[
               styles.tabHost,
@@ -881,6 +886,7 @@ export function ImageSettingsScreen() {
           onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
           addLabel="캐릭터 추가"
           addDisabled={!canAddCharacter}
+          showCompactTitle={false}
         />
 
         <View

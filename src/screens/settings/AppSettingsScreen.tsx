@@ -224,7 +224,7 @@ export function AppSettingsScreen() {
         topInset={insets.top}
         onBack={() => router.back()}
         showMore={false}
-        titleAlwaysVisible
+        hideCompactTitleOnScroll
       />
     </View>
   );
