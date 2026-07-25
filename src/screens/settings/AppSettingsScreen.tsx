@@ -16,9 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "../../components/common/Buttons";
 import {
-  DETAIL_HEADER_TOP_OFFSET,
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
-  DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -80,7 +79,7 @@ export function AppSettingsScreen() {
           contentContainerStyle={[
             styles.content,
             {
-              paddingTop: insets.top + DETAIL_HEADER_TOP_OFFSET,
+              paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
               paddingBottom: insets.bottom + 32,
             },
           ]}
@@ -93,8 +92,6 @@ export function AppSettingsScreen() {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         >
-          <DetailScrollTitle title="App Settings" scrollY={scrollY} />
-
           <View>
             <Text style={styles.sectionLabel}>NOVELAI</Text>
 
@@ -226,6 +223,8 @@ export function AppSettingsScreen() {
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
+        showMore={false}
+        titleAlwaysVisible
       />
     </View>
   );

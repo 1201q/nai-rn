@@ -22,9 +22,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { tokens } from "../../styles/tokens";
 import {
-  DETAIL_HEADER_TOP_OFFSET,
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
-  DetailScrollTitle,
 } from "../common/DetailScrollHeader";
 import { Toggle } from "../forms/FormControls";
 
@@ -69,7 +68,7 @@ export function ReferenceDetailLayout({
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + DETAIL_HEADER_TOP_OFFSET,
+            paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
@@ -80,8 +79,6 @@ export function ReferenceDetailLayout({
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <DetailScrollTitle title={title} scrollY={scrollY} />
-
         {unavailableReason ? (
           <View style={styles.unavailableCard}>
             <View style={styles.unavailableCopy}>
@@ -115,6 +112,8 @@ export function ReferenceDetailLayout({
         onAdd={onAdd}
         addLabel="참조 이미지 추가"
         addDisabled={addDisabled}
+        showMore={false}
+        titleAlwaysVisible
       />
     </View>
   );

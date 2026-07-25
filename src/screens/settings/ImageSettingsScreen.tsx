@@ -878,7 +878,6 @@ export function ImageSettingsScreen() {
           title={TITLES[activeTab]}
           scrollY={scrollY}
           topInset={insets.top}
-          onBack={() => router.back()}
           onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
           addLabel="캐릭터 추가"
           addDisabled={!canAddCharacter}
@@ -895,6 +894,7 @@ export function ImageSettingsScreen() {
             tabs={TABS}
             activeKey={activeTab}
             onChange={handleTabChange}
+            onBack={() => router.back()}
           />
         </View>
 

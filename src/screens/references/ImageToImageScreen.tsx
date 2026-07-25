@@ -25,9 +25,8 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import {
-  DETAIL_HEADER_TOP_OFFSET,
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
-  DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
 import {
   ParameterSlider,
@@ -153,7 +152,7 @@ export function ImageToImageScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + DETAIL_HEADER_TOP_OFFSET,
+            paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
@@ -164,8 +163,6 @@ export function ImageToImageScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <DetailScrollTitle title="Image2Image" scrollY={scrollY} />
-
         <View style={styles.toggleCard}>
           <Text style={styles.toggleLabel}>Image2Image</Text>
           <Toggle
@@ -293,6 +290,8 @@ export function ImageToImageScreen() {
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
+        showMore={false}
+        titleAlwaysVisible
       />
     </View>
   );

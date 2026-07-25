@@ -18,9 +18,8 @@ import { toast } from "sonner-native";
 
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
-  DETAIL_HEADER_TOP_OFFSET,
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
-  DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
 import { MetadataDetails } from "../../components/metadata/MetadataDetails";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
@@ -98,7 +97,7 @@ export function MetadataExtractScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + DETAIL_HEADER_TOP_OFFSET,
+            paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
             paddingBottom: insets.bottom + 32,
           },
         ]}
@@ -109,8 +108,6 @@ export function MetadataExtractScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <DetailScrollTitle title="Metadata Extract" scrollY={scrollY} />
-
         <View>
           {pickedUri ? (
             <View style={styles.previewCard}>
@@ -210,6 +207,8 @@ export function MetadataExtractScreen() {
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
+        showMore={false}
+        titleAlwaysVisible
       />
     </View>
   );

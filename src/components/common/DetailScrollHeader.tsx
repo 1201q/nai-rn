@@ -5,6 +5,7 @@ import { ScreenEdgeFade } from "./ScreenEdgeFade";
 import { tokens } from "../../styles/tokens";
 
 export const DETAIL_HEADER_TOP_OFFSET = 8;
+export const DETAIL_FIXED_HEADER_CONTENT_OFFSET = 72;
 export const DETAIL_SCROLL_TITLE_HEIGHT = 110;
 
 export function DetailScrollTitle({
@@ -39,15 +40,19 @@ export function DetailHeaderOverlay({
   addLabel = "추가",
   addDisabled = false,
   onMore,
+  showMore = true,
+  titleAlwaysVisible = false,
 }: {
   title: string;
   scrollY: Animated.Value;
   topInset: number;
-  onBack: () => void;
+  onBack?: () => void;
   onAdd?: () => void;
   addLabel?: string;
   addDisabled?: boolean;
   onMore?: () => void;
+  showMore?: boolean;
+  titleAlwaysVisible?: boolean;
 }) {
   const fadeOpacity = scrollY.interpolate({
     inputRange: [20, 84],
@@ -85,19 +90,21 @@ export function DetailHeaderOverlay({
           { top: topInset + DETAIL_HEADER_TOP_OFFSET },
         ]}
       >
-        <IconButton
-          icon="chevron-back"
-          label="뒤로"
-          size={40}
-          onPress={onBack}
-        />
+        {onBack ? (
+          <IconButton
+            icon="chevron-back"
+            label="뒤로"
+            size={40}
+            onPress={onBack}
+          />
+        ) : null}
 
         <Animated.View
           pointerEvents="none"
           style={[
             styles.compactTitleContainer,
-            onAdd && styles.compactTitleContainerWithAdd,
-            {
+            onAdd && showMore && styles.compactTitleContainerWithAdd,
+            !titleAlwaysVisible && {
               opacity: compactTitleOpacity,
               transform: [{ translateY: compactTitleTranslateY }],
             },
@@ -115,16 +122,22 @@ export function DetailHeaderOverlay({
             size={40}
             disabled={addDisabled}
             onPress={onAdd}
-            style={styles.addButton}
+            style={[
+              styles.addButton,
+              !showMore && styles.addButtonWithoutMore,
+            ]}
           />
         ) : null}
 
-        <IconButton
-          icon="ellipsis-horizontal"
-          label="더 보기"
-          size={40}
-          onPress={onMore}
-        />
+        {showMore ? (
+          <IconButton
+            icon="ellipsis-horizontal"
+            label="더 보기"
+            size={40}
+            onPress={onMore}
+            style={styles.moreButton}
+          />
+        ) : null}
       </View>
     </>
   );
@@ -181,6 +194,12 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute",
     right: 48,
+  },
+  addButtonWithoutMore: {
+    right: 0,
+  },
+  moreButton: {
+    marginLeft: "auto",
   },
   compactTitle: {
     color: tokens.color.textPrimary,

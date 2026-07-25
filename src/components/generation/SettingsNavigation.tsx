@@ -115,10 +115,12 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   tabs,
   activeKey,
   onChange,
+  onBack,
 }: {
   tabs: readonly SettingsTab[];
   activeKey: string;
   onChange: (key: string) => void;
+  onBack: () => void;
 }) {
   const pillX = useSharedValue(0);
   const pillWidth = useSharedValue(0);
@@ -203,6 +205,22 @@ export const SettingsTabBar = memo(function SettingsTabBar({
     <View style={styles.tabBarShadow}>
       <View style={styles.tabBar}>
         <View style={styles.tabBarContent}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로"
+            onPress={onBack}
+            hitSlop={6}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={tokens.color.textPrimary}
+            />
+          </Pressable>
           <Reanimated.View
             pointerEvents="none"
             style={[styles.slidingPill, pillStyle]}
@@ -306,17 +324,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     borderRadius: tokens.radius.pill,
-    shadowColor: tokens.color.raised,
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
+    backgroundColor: tokens.color.card,
+    ...tokens.shadow.floatMd,
   },
   tabBar: {
     flex: 1,
     overflow: "hidden",
     borderRadius: tokens.radius.pill,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.card,
   },
   tabBarContent: {
@@ -327,7 +341,16 @@ const styles = StyleSheet.create({
     left: 4,
     flexDirection: "row",
     alignItems: "stretch",
-    gap: 2,
+    gap: tokens.space[2],
+  },
+  backButton: {
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.raised,
+    marginRight: tokens.space[3],
+    zIndex: 1,
   },
   slidingPill: {
     position: "absolute",
