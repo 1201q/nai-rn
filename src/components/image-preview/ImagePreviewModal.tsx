@@ -18,6 +18,7 @@ import { Easing as ReanimatedEasing } from "react-native-reanimated";
 import { Gallery } from "react-native-zoom-toolkit";
 
 import { useAppSheet } from "../../context/AppSheetContext";
+import { DETAIL_HEADER_TOP_OFFSET } from "../common/DetailScrollHeader";
 import { tokens } from "../../styles/tokens";
 import { styles } from "./styles";
 
@@ -191,7 +192,9 @@ export function ImagePreviewModal({
             usesHeaderCloseButton &&
               styles.previewCloseButtonHeader,
             {
-              top: insets.top + (usesHeaderCloseButton ? 14 : 12),
+              top:
+                insets.top +
+                (usesHeaderCloseButton ? DETAIL_HEADER_TOP_OFFSET : 12),
               opacity: controlsAnim,
             },
           ]}

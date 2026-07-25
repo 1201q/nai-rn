@@ -40,7 +40,6 @@ import { useAppSheetOpen } from "../../context/AppSheetContext";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
 import {
   DETAIL_HEADER_TOP_OFFSET,
-  DETAIL_SCROLL_TITLE_HEIGHT,
   DetailHeaderOverlay,
   DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
@@ -156,57 +155,38 @@ const HistoryTile = memo(function HistoryTile({
 
 function HistorySelectionHeader({
   topInset,
-  scrollY,
   selectedCount,
   allSelected,
   onToggleSelectAll,
   onCancelSelection,
 }: {
   topInset: number;
-  scrollY: Animated.Value;
   selectedCount: number;
   allSelected: boolean;
   onToggleSelectAll: () => void;
   onCancelSelection: () => void;
 }) {
-  const fadeOpacity = scrollY.interpolate({
-    inputRange: [0, 24],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-  const buttonBackgroundOpacity = scrollY.interpolate({
-    inputRange: [0, 30],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
   return (
     <>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.selectionHeaderFade, { opacity: fadeOpacity }]}
-      >
+      <View pointerEvents="none" style={styles.selectionHeaderFade}>
         <ScreenEdgeFade
           topHeight={topInset + 70}
           color={tokens.color.app}
           transparentColor="rgba(10,10,11,0)"
         />
-      </Animated.View>
+      </View>
 
       <View
         pointerEvents="box-none"
         style={[
           styles.selectionHeader,
-          { top: topInset + DETAIL_HEADER_TOP_OFFSET + 6 },
+          { top: topInset + DETAIL_HEADER_TOP_OFFSET },
         ]}
       >
         <View style={styles.selectionHeaderContent}>
-          <Animated.View
+          <View
             pointerEvents="none"
-            style={[
-              styles.selectionHeaderButtonBackground,
-              { opacity: buttonBackgroundOpacity },
-            ]}
+            style={styles.selectionHeaderButtonBackground}
           />
           <Pressable
             accessibilityRole="checkbox"
@@ -222,7 +202,7 @@ function HistorySelectionHeader({
             {allSelected ? (
               <Ionicons
                 name="checkmark"
-                size={12}
+                size={14}
                 color={tokens.color.onAccent}
               />
             ) : null}
@@ -242,12 +222,9 @@ function HistorySelectionHeader({
             pressed && styles.pressed,
           ]}
         >
-          <Animated.View
+          <View
             pointerEvents="none"
-            style={[
-              styles.selectionHeaderButtonBackground,
-              { opacity: buttonBackgroundOpacity },
-            ]}
+            style={styles.selectionHeaderButtonBackground}
           />
           <Text style={styles.selectionHeaderCancelText}>취소</Text>
         </Pressable>
@@ -258,10 +235,8 @@ function HistorySelectionHeader({
 
 export function HistoryScreen({
   onSelectionModeChange,
-  onBack,
 }: {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
-  onBack?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
@@ -572,7 +547,12 @@ export function HistoryScreen({
             {isSelectionMode ? (
               <View style={styles.scrollHeaderSpacer} />
             ) : (
-              <DetailScrollTitle title="History" scrollY={scrollY} />
+              <DetailScrollTitle
+                title="History"
+                scrollY={scrollY}
+                containerHeight={98}
+                navigationSpacerHeight={28}
+              />
             )}
           </View>
         }
@@ -636,20 +616,18 @@ export function HistoryScreen({
       {isSelectionMode ? (
         <HistorySelectionHeader
           topInset={insets.top}
-          scrollY={scrollY}
           selectedCount={selectedCount}
           allSelected={allSelected}
           onToggleSelectAll={toggleSelectAll}
           onCancelSelection={exitSelectionMode}
         />
-      ) : onBack ? (
+      ) : (
         <DetailHeaderOverlay
           title="History"
           scrollY={scrollY}
           topInset={insets.top}
-          onBack={onBack}
         />
-      ) : null}
+      )}
 
       {barMounted ? (
         <Animated.View
@@ -827,7 +805,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[8],
   },
   scrollHeaderSpacer: {
-    height: DETAIL_SCROLL_TITLE_HEIGHT,
+    height: 98,
   },
   loadingFooter: {
     alignItems: "center",
@@ -845,32 +823,30 @@ const styles = StyleSheet.create({
     right: tokens.space[8],
     zIndex: 10,
     elevation: 10,
-    height: 36,
+    height: 40,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   selectionHeaderContent: {
-    height: 36,
+    height: 40,
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.space[3],
-    paddingHorizontal: tokens.space[6],
+    gap: tokens.space[4],
+    paddingHorizontal: tokens.space[7],
     borderRadius: tokens.radius.pill,
   },
   selectionHeaderButtonBackground: {
     ...StyleSheet.absoluteFill,
     borderRadius: tokens.radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.overlay,
-    ...tokens.shadow.floatSm,
+    backgroundColor: tokens.color.card,
+    ...tokens.shadow.floatMd,
   },
   selectionHeaderCheckbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     borderColor: tokens.color.textSecondary,
     backgroundColor: "transparent",
     alignItems: "center",
@@ -883,14 +859,14 @@ const styles = StyleSheet.create({
   selectionHeaderCount: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xs,
+    fontSize: tokens.type.sm,
   },
   selectionHeaderCancel: {
-    height: 36,
-    minWidth: 58,
+    height: 40,
+    minWidth: 64,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: tokens.space[5],
+    paddingHorizontal: tokens.space[8],
     borderRadius: tokens.radius.pill,
   },
   selectionHeaderCancelText: {

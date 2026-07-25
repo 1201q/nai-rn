@@ -16,8 +16,9 @@ export const styles = StyleSheet.create({
   },
   previewCloseButtonHeader: {
     left: tokens.space[8],
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
+    ...tokens.shadow.floatMd,
   },
   previewCloseBg: {
     ...StyleSheet.absoluteFill,
