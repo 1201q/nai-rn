@@ -23,6 +23,10 @@ import {
   updateGenerationProgress,
 } from "../lib/foregroundService";
 import {
+  acquireGenerationWakeLock,
+  releaseGenerationWakeLock,
+} from "../../modules/generation-wake-lock";
+import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
   encodeNovelAiVibe,
@@ -1459,6 +1463,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     let lastNotifAt = 0;
 
     try {
+      await acquireGenerationWakeLock();
+
       for (let i = 1; i <= total; i++) {
         if (get().queueCancelRequested) break;
 
@@ -1577,6 +1583,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       if (activeQueueAbortController === abortController) {
         activeQueueAbortController = null;
       }
+      await releaseGenerationWakeLock();
       await stopGenerationService();
       set({
         isLoading: false,

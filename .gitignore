@@ -47,5 +47,7 @@ assets/tags.json
 /ios
 /android
 
+# Native module build outputs
+/modules/*/android/build/
 
 /.understand-anything
