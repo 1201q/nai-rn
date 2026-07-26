@@ -16,7 +16,7 @@ const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
 const ORIGINALS_DIR = "originals";
 const THUMBNAILS_DIR = "thumbnails";
-const THUMBNAIL_SIZE = 360;
+const THUMBNAIL_SIZE = 512;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -266,18 +266,32 @@ async function saveGenerationRecord({
   let thumbnailPath: string | null = `${THUMBNAILS_DIR}/${thumbnailFileName}`;
 
   try {
+    const isLandscape = width >= height;
+    const resizedWidth = isLandscape
+      ? Math.round((width / height) * THUMBNAIL_SIZE)
+      : THUMBNAIL_SIZE;
+    const resizedHeight = isLandscape
+      ? THUMBNAIL_SIZE
+      : Math.round((height / width) * THUMBNAIL_SIZE);
     const thumbnail = await ImageManipulator.manipulateAsync(
       originalFile.uri,
       [
         {
-          resize:
-            width >= height
-              ? { width: THUMBNAIL_SIZE }
-              : { height: THUMBNAIL_SIZE },
+          resize: isLandscape
+            ? { height: THUMBNAIL_SIZE }
+            : { width: THUMBNAIL_SIZE },
+        },
+        {
+          crop: {
+            originX: Math.floor((resizedWidth - THUMBNAIL_SIZE) / 2),
+            originY: Math.floor((resizedHeight - THUMBNAIL_SIZE) / 2),
+            width: THUMBNAIL_SIZE,
+            height: THUMBNAIL_SIZE,
+          },
         },
       ],
       {
-        compress: 0.82,
+        compress: 0.9,
         format: ImageManipulator.SaveFormat.JPEG,
       },
     );
