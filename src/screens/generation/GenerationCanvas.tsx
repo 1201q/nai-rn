@@ -342,6 +342,8 @@ export function GenerationCanvas() {
         initialIndex={0}
         animation={previewAnimation}
         onClose={closeImagePreview}
+        onSaveCurrent={saveImage}
+        onCopyCurrent={copyImage}
         metadataRecords={currentGeneration ? [currentGeneration] : undefined}
       />
     </View>

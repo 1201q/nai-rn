@@ -1,11 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,7 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { BlurView } from "expo-blur";
+import Svg, { Path } from "react-native-svg";
 import * as MediaLibrary from "expo-media-library";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
@@ -129,11 +122,16 @@ const HistoryTile = memo(function HistoryTile({
             ]}
           >
             {isSelected ? (
-              <Ionicons
-                name="checkmark"
-                size={14}
-                color={tokens.color.onAccent}
-              />
+              <Svg width={16} height={16} viewBox="0 0 16 16">
+                <Path
+                  d="M3 8.5 6.5 12 13 4.5"
+                  fill="none"
+                  stroke={tokens.color.onAccent}
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             ) : null}
           </View>
           <Pressable
@@ -143,7 +141,7 @@ const HistoryTile = memo(function HistoryTile({
           >
             <Ionicons
               name="expand-outline"
-              size={12}
+              size={15}
               color={tokens.color.textPrimary}
             />
           </Pressable>
@@ -635,18 +633,14 @@ export function HistoryScreen({
           style={[
             styles.selectionActionWrap,
             {
-              bottom: insets.bottom + 16,
+              bottom: insets.bottom + tokens.space[6],
               opacity: barUI,
               transform: [{ translateY: barTranslateY }],
             },
           ]}
         >
           <View style={styles.selectionActionShadow}>
-            <BlurView
-              intensity={60}
-              tint="dark"
-              style={styles.selectionActionBar}
-            >
+            <View style={styles.selectionActionBar}>
               <Pressable
                 style={[
                   styles.selectionActionButton,
@@ -659,14 +653,14 @@ export function HistoryScreen({
               >
                 {isSavingSelected ? (
                   <ActivityIndicator
-                    color={tokens.color.textPrimary}
+                    color={tokens.color.textSecondary}
                     size="small"
                   />
                 ) : (
                   <Ionicons
                     name="download-outline"
-                    size={20}
-                    color={tokens.color.textPrimary}
+                    size={18}
+                    color={tokens.color.textSecondary}
                   />
                 )}
                 <Text style={styles.selectionActionText}>저장</Text>
@@ -683,26 +677,19 @@ export function HistoryScreen({
               >
                 {isDeletingSelected ? (
                   <ActivityIndicator
-                    color={tokens.color.negative}
+                    color={tokens.color.textSecondary}
                     size="small"
                   />
                 ) : (
                   <Ionicons
                     name="trash-outline"
-                    size={20}
-                    color={tokens.color.negative}
+                    size={18}
+                    color={tokens.color.textSecondary}
                   />
                 )}
-                <Text
-                  style={[
-                    styles.selectionActionText,
-                    styles.selectionActionTextNegative,
-                  ]}
-                >
-                  삭제
-                </Text>
+                <Text style={[styles.selectionActionText]}>삭제</Text>
               </Pressable>
-            </BlurView>
+            </View>
           </View>
         </Animated.View>
       ) : null}
@@ -772,12 +759,12 @@ const styles = StyleSheet.create({
   },
   selectionCircle: {
     position: "absolute",
-    top: 8,
-    left: 8,
-    width: 20,
-    height: 20,
+    top: 5,
+    left: 5,
+    width: 18,
+    height: 18,
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: tokens.color.textPrimary,
     backgroundColor: "rgba(10,10,11,0.42)",
     alignItems: "center",
@@ -789,12 +776,12 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     position: "absolute",
-    bottom: 6,
-    right: 6,
+    bottom: 4,
+    right: 4,
     width: 20,
     height: 20,
-    borderRadius: tokens.radius.sm,
-    backgroundColor: tokens.color.overlay,
+    borderRadius: tokens.space[2],
+    backgroundColor: "rgba(255,255,255,0.18)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.color.borderSubtle,
     alignItems: "center",
@@ -883,24 +870,27 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   selectionActionShadow: {
+    height: 52,
     borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.card,
     ...tokens.shadow.floatMd,
   },
   selectionActionBar: {
+    height: 52,
     flexDirection: "row",
     borderRadius: tokens.radius.pill,
     padding: tokens.space[2],
-    gap: tokens.space[2],
+    gap: 0,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.overlay,
+    backgroundColor: tokens.color.card,
   },
   selectionActionButton: {
-    flexDirection: "row",
+    width: 56,
+    height: 44,
+    flexDirection: "column",
     alignItems: "center",
-    gap: tokens.space[3],
-    paddingVertical: 10,
+    justifyContent: "center",
+    gap: 1,
     paddingHorizontal: tokens.space[9],
     borderRadius: tokens.radius.pill,
   },
@@ -908,13 +898,12 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   selectionActionText: {
-    color: tokens.color.textPrimary,
+    color: tokens.color.textTertiary,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xs,
+    fontSize: 9,
+    lineHeight: 10,
   },
-  selectionActionTextNegative: {
-    color: tokens.color.negative,
-  },
+
   pressed: {
     opacity: 0.68,
   },

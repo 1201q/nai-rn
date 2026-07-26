@@ -5,6 +5,7 @@ import {
   Animated,
   Pressable,
   StyleSheet,
+  Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -189,8 +190,7 @@ export function ImagePreviewModal({
         <Animated.View
           style={[
             styles.previewCloseButton,
-            usesHeaderCloseButton &&
-              styles.previewCloseButtonHeader,
+            usesHeaderCloseButton && styles.previewCloseButtonHeader,
             {
               top:
                 insets.top +
@@ -231,7 +231,7 @@ export function ImagePreviewModal({
             style={[
               styles.previewActionWrap,
               {
-                bottom: insets.bottom + 16,
+                bottom: insets.bottom + tokens.space[6],
                 opacity: controlsAnim,
                 transform: [
                   {
@@ -245,11 +245,7 @@ export function ImagePreviewModal({
             ]}
           >
             <View style={styles.previewActionShadow}>
-              <BlurView
-                intensity={60}
-                tint="dark"
-                style={styles.previewActionBar}
-              >
+              <View style={styles.previewActionBar}>
                 {onSaveCurrent ? (
                   <Pressable
                     style={[
@@ -263,16 +259,17 @@ export function ImagePreviewModal({
                   >
                     {isSaving ? (
                       <ActivityIndicator
-                        color={tokens.color.textPrimary}
+                        color={tokens.color.textSecondary}
                         size="small"
                       />
                     ) : (
                       <Ionicons
                         name="download-outline"
-                        size={20}
-                        color={tokens.color.textPrimary}
+                        size={18}
+                        color={tokens.color.textSecondary}
                       />
                     )}
+                    <Text style={styles.previewActionText}>저장</Text>
                   </Pressable>
                 ) : null}
                 {onCopyCurrent ? (
@@ -288,16 +285,17 @@ export function ImagePreviewModal({
                   >
                     {isCopying ? (
                       <ActivityIndicator
-                        color={tokens.color.textPrimary}
+                        color={tokens.color.textSecondary}
                         size="small"
                       />
                     ) : (
                       <Ionicons
                         name="copy-outline"
-                        size={20}
-                        color={tokens.color.textPrimary}
+                        size={18}
+                        color={tokens.color.textSecondary}
                       />
                     )}
+                    <Text style={styles.previewActionText}>복사</Text>
                   </Pressable>
                 ) : null}
                 {onDeleteCurrent ? (
@@ -313,16 +311,17 @@ export function ImagePreviewModal({
                   >
                     {isDeleting ? (
                       <ActivityIndicator
-                        color={tokens.color.negative}
+                        color={tokens.color.textSecondary}
                         size="small"
                       />
                     ) : (
                       <Ionicons
                         name="trash-outline"
-                        size={20}
-                        color={tokens.color.negative}
+                        size={18}
+                        color={tokens.color.textSecondary}
                       />
                     )}
+                    <Text style={[styles.previewActionText]}>삭제</Text>
                   </Pressable>
                 ) : null}
                 {metadataRecords ? (
@@ -338,12 +337,13 @@ export function ImagePreviewModal({
                   >
                     <Ionicons
                       name="information-circle-outline"
-                      size={20}
-                      color={tokens.color.textPrimary}
+                      size={18}
+                      color={tokens.color.textSecondary}
                     />
+                    <Text style={styles.previewActionText}>정보</Text>
                   </Pressable>
                 ) : null}
-              </BlurView>
+              </View>
             </View>
           </Animated.View>
         ) : null}
