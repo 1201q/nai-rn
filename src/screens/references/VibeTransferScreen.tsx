@@ -32,9 +32,6 @@ export function VibeTransferScreen() {
     (state) => state.setNormalizeVibeStrengths,
   );
   const addReference = useGenerationStore((state) => state.addVibeReference);
-  const replaceReference = useGenerationStore(
-    (state) => state.replaceVibeReference,
-  );
   const removeReference = useGenerationStore(
     (state) => state.removeVibeReference,
   );
@@ -58,14 +55,13 @@ export function VibeTransferScreen() {
   );
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [adding, setAdding] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const enabled = references.some((item) => item.enabled);
   const canAdd = references.length < MAX_VIBE_REFERENCES;
 
-  async function pickImage(targetId?: string) {
-    if (adding || busyId) return;
-    if (!targetId && activePreciseCount > 0) {
+  async function pickImage() {
+    if (adding) return;
+    if (activePreciseCount > 0) {
       setMessage(
         "Vibe Transfer는 Precise Reference와 함께 사용할 수 없습니다.",
       );
@@ -73,8 +69,7 @@ export function VibeTransferScreen() {
     }
 
     try {
-      if (targetId) setBusyId(targetId);
-      else setAdding(true);
+      setAdding(true);
 
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -98,25 +93,18 @@ export function VibeTransferScreen() {
         fileName: asset.fileName,
         mimeType: asset.mimeType,
       };
-      const reference = targetId
-        ? await replaceReference(targetId, input)
-        : await addReference(input);
+      const reference = await addReference(input);
       if (!reference) return;
 
       const current = useGenerationStore.getState().vibeReferenceExpandedIds;
       setExpandedIds(
         current.includes(reference.id) ? current : [...current, reference.id],
       );
-      toast.success(
-        targetId
-          ? "Vibe 이미지를 교체했습니다."
-          : "Vibe 이미지를 추가했습니다.",
-      );
+      toast.success("Vibe 이미지를 추가했습니다.");
     } catch {
       setMessage("Vibe 이미지를 선택하지 못했습니다.");
     } finally {
       setAdding(false);
-      setBusyId(null);
     }
   }
 
@@ -211,11 +199,9 @@ export function VibeTransferScreen() {
               }}
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
-              busy={busyId === reference.id}
               enableDisabled={activePreciseCount > 0}
               onToggleExpanded={() => toggleExpanded(reference.id)}
               onToggleEnabled={(value) => setEnabled(reference.id, value)}
-              onReplace={() => void pickImage(reference.id)}
               onRemove={() => void handleRemove(reference.id)}
             >
               <ParameterSlider

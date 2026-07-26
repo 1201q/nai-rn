@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   Animated,
   type LayoutChangeEvent,
   Pressable,
@@ -161,11 +160,9 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
   status,
   enabled,
   expanded,
-  busy,
   enableDisabled = false,
   onToggleExpanded,
   onToggleEnabled,
-  onReplace,
   onRemove,
   children,
 }: {
@@ -176,11 +173,9 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
   status?: ReferenceCardStatus;
   enabled: boolean;
   expanded: boolean;
-  busy: boolean;
   enableDisabled?: boolean;
   onToggleExpanded: () => void;
   onToggleEnabled: (value: boolean) => void;
-  onReplace: () => void;
   onRemove: () => void;
   children: ReactNode;
 }) {
@@ -325,26 +320,17 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
           ]}
         >
           <View style={styles.previewCard}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Reference ${index + 1} 이미지 교체`}
-              disabled={busy}
-              onPress={onReplace}
+            <ExpoImage
+              source={{ uri: imageUri }}
+              contentFit="cover"
+              contentPosition="center"
+              cachePolicy="memory-disk"
+              transition={120}
               style={StyleSheet.absoluteFill}
-            >
-              <ExpoImage
-                source={{ uri: imageUri }}
-                contentFit="cover"
-                contentPosition="center"
-                cachePolicy="memory-disk"
-                transition={120}
-                style={StyleSheet.absoluteFill}
-              />
-            </Pressable>
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Reference ${index + 1} 삭제`}
-              disabled={busy}
               hitSlop={5}
               onPress={onRemove}
               style={({ pressed }) => [
@@ -358,11 +344,6 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
                 color={tokens.color.negative}
               />
             </Pressable>
-            {busy ? (
-              <View pointerEvents="none" style={styles.busyOverlay}>
-                <ActivityIndicator color={tokens.color.textPrimary} />
-              </View>
-            ) : null}
           </View>
           <View style={styles.controls}>{children}</View>
         </View>
@@ -537,16 +518,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: "rgba(23,23,26,0.86)",
-  },
-  busyOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tokens.color.scrim,
   },
   controls: {
     marginTop: 22,

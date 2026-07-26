@@ -79,9 +79,6 @@ export function PreciseReferenceScreen() {
     (state) => state.vibeReferences.filter((item) => item.enabled).length,
   );
   const addReference = useGenerationStore((state) => state.addPreciseReference);
-  const replaceReference = useGenerationStore(
-    (state) => state.replacePreciseReference,
-  );
   const removeReference = useGenerationStore(
     (state) => state.removePreciseReference,
   );
@@ -105,20 +102,19 @@ export function PreciseReferenceScreen() {
   );
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [adding, setAdding] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const modelSupported = isSupportedModel(model);
   const enabled = references.some((item) => item.enabled);
   const canAdd = references.length < MAX_PRECISE_REFERENCES;
   const enableBlocked = activeVibeCount > 0 || !modelSupported;
 
-  async function pickImage(targetId?: string) {
-    if (adding || busyId) return;
-    if (!targetId && !modelSupported) {
+  async function pickImage() {
+    if (adding) return;
+    if (!modelSupported) {
       setMessage("Precise Reference는 V4.5 모델에서 사용할 수 있습니다.");
       return;
     }
-    if (!targetId && activeVibeCount > 0) {
+    if (activeVibeCount > 0) {
       setMessage(
         "Precise Reference는 Vibe Transfer와 함께 사용할 수 없습니다.",
       );
@@ -126,8 +122,7 @@ export function PreciseReferenceScreen() {
     }
 
     try {
-      if (targetId) setBusyId(targetId);
-      else setAdding(true);
+      setAdding(true);
 
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -151,25 +146,18 @@ export function PreciseReferenceScreen() {
         fileName: asset.fileName,
         mimeType: asset.mimeType,
       };
-      const reference = targetId
-        ? await replaceReference(targetId, input)
-        : await addReference(input);
+      const reference = await addReference(input);
       if (!reference) return;
 
       const current = useGenerationStore.getState().preciseReferenceExpandedIds;
       setExpandedIds(
         current.includes(reference.id) ? current : [...current, reference.id],
       );
-      toast.success(
-        targetId
-          ? "Precise Reference 이미지를 교체했습니다."
-          : "Precise Reference 이미지를 추가했습니다.",
-      );
+      toast.success("Precise Reference 이미지를 추가했습니다.");
     } catch {
       setMessage("Precise Reference 이미지를 선택하지 못했습니다.");
     } finally {
       setAdding(false);
-      setBusyId(null);
     }
   }
 
@@ -243,11 +231,9 @@ export function PreciseReferenceScreen() {
               }
               enabled={reference.enabled}
               expanded={expandedIds.includes(reference.id)}
-              busy={busyId === reference.id}
               enableDisabled={enableBlocked}
               onToggleExpanded={() => toggleExpanded(reference.id)}
               onToggleEnabled={(value) => setEnabled(reference.id, value)}
-              onReplace={() => void pickImage(reference.id)}
               onRemove={() => void handleRemove(reference.id)}
             >
               <ModeSelector
