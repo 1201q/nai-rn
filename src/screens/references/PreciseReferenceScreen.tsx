@@ -235,7 +235,7 @@ export function PreciseReferenceScreen() {
               index={index}
               imageUri={imageUri}
               thumbnailUri={thumbnailUri}
-              subtitle={`${modeLabel(reference.referenceType)} · F ${formatValue(reference.fidelity)} · S ${formatValue(reference.strength)}`}
+              subtitle={`${modeLabel(reference.referenceType)} · S ${formatValue(reference.strength)} · F ${formatValue(reference.fidelity)}`}
               status={
                 reference.enabled
                   ? { label: "5 Anlas", tone: "cost" }
@@ -255,22 +255,24 @@ export function PreciseReferenceScreen() {
                 onPress={() => openPreciseMode(reference.id)}
               />
               <ParameterSlider
-                label="Fidelity"
-                value={reference.fidelity}
-                min={0}
-                max={1}
-                step={0.01}
-                precision={2}
-                onChange={(value) => setFidelity(reference.id, value)}
-              />
-              <ParameterSlider
                 label="Strength"
                 value={reference.strength}
                 min={0}
                 max={1}
-                step={0.01}
+                step={0.05}
                 precision={2}
                 onChange={(value) => setStrength(reference.id, value)}
+                settingsCard
+              />
+              <ParameterSlider
+                label="Fidelity"
+                value={reference.fidelity}
+                min={0}
+                max={1}
+                step={0.05}
+                precision={2}
+                onChange={(value) => setFidelity(reference.id, value)}
+                settingsCard
               />
               {reference.enabled ? (
                 <ReferenceUsageNotice
@@ -306,9 +308,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   controlLabel: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type.base,
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.md,
   },
   modeSelector: {
     height: 52,

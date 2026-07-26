@@ -253,24 +253,30 @@ export function ImageToImageScreen() {
               exiting={PARAMETERS_EXITING}
               style={styles.parameters}
             >
-              <ParameterSlider
-                label="Strength"
-                value={strength}
-                min={0.01}
-                max={0.99}
-                step={0.01}
-                precision={2}
-                onChange={setStrength}
-              />
-              <ParameterSlider
-                label="Noise"
-                value={noise}
-                min={0}
-                max={0.99}
-                step={0.01}
-                precision={2}
-                onChange={setNoise}
-              />
+              <View style={styles.parameterCard}>
+                <ParameterSlider
+                  label="Strength"
+                  value={strength}
+                  min={0.01}
+                  max={0.99}
+                  step={0.01}
+                  precision={2}
+                  onChange={setStrength}
+                  settingsCard
+                />
+              </View>
+              <View style={styles.parameterCard}>
+                <ParameterSlider
+                  label="Noise"
+                  value={noise}
+                  min={0}
+                  max={0.99}
+                  step={0.01}
+                  precision={2}
+                  onChange={setNoise}
+                  settingsCard
+                />
+              </View>
             </Reanimated.View>
           ) : null}
 
@@ -374,7 +380,13 @@ const styles = StyleSheet.create({
   },
   parameters: {
     marginTop: 24,
-    gap: 26,
+    gap: 20,
+  },
+  parameterCard: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: tokens.radius.settings,
+    backgroundColor: tokens.color.card,
   },
   disabledScrim: {
     zIndex: 1,

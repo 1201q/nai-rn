@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import Reanimated, {
   useAnimatedProps,
   useAnimatedStyle,
@@ -105,7 +106,10 @@ export const ParameterSlider = memo(function ParameterSlider({
     const next = Number(
       Math.min(max, Math.max(min, value + direction * step)).toFixed(precision),
     );
-    if (next !== value) onChange(next);
+    if (next !== value) {
+      Haptics.selectionAsync().catch(() => {});
+      onChange(next);
+    }
   };
 
   return (
@@ -369,12 +373,16 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.md,
   },
   sliderValue: {
+    height: 24,
     minWidth: 48,
     padding: 0,
     textAlign: "right",
+    textAlignVertical: "center",
     color: tokens.color.accent,
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
+    lineHeight: 24,
+    includeFontPadding: false,
   },
   settingsSliderValue: {
     color: tokens.color.textTertiary,

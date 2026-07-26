@@ -153,9 +153,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
-  const [stack, setStack] = useState<StackEntry[]>([
-    { route: IDLE_ROUTE },
-  ]);
+  const [stack, setStack] = useState<StackEntry[]>([{ route: IDLE_ROUTE }]);
   const stackRef = useRef<StackEntry[]>([{ route: IDLE_ROUTE }]);
   const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
   const [draftController, setDraftController] =
@@ -166,15 +164,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const closeAlertOpenRef = useRef(false);
   const hasCloseGuard = Boolean(draftController?.dirty);
 
-  const apply = useCallback(
-    (next: StackEntry[]) => {
-      draftControllerRef.current = null;
-      setDraftController(null);
-      stackRef.current = next;
-      setStack(next);
-    },
-    [],
-  );
+  const apply = useCallback((next: StackEntry[]) => {
+    draftControllerRef.current = null;
+    setDraftController(null);
+    stackRef.current = next;
+    setStack(next);
+  }, []);
 
   // 직접 진입: 스택 초기화. 시트는 단일 상세만 표시.
   const resetTo = useCallback(
@@ -360,8 +355,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [back]);
 
-  const backdropCloseDisabled =
-    stack[stack.length - 1].route === "batchCount";
+  const backdropCloseDisabled = stack[stack.length - 1].route === "batchCount";
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -516,10 +510,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                 </BottomSheetTouchableOpacity>
               )}
               <Text
-                style={[
-                  sheetStyles.titleBase,
-                  sheetStyles.title,
-                ]}
+                style={[sheetStyles.titleBase, sheetStyles.title]}
                 numberOfLines={1}
               >
                 {titleFor(route)}
@@ -550,18 +541,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             contentContainerStyle={
               route === "metadataView"
                 ? sheetStyles.metadataScrollContent
-                : [
-                    sheetStyles.scrollContentBase,
-                    sheetStyles.scrollContent,
-                  ]
+                : [sheetStyles.scrollContentBase, sheetStyles.scrollContent]
             }
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Reanimated.View
-              key={route}
-              style={sheetStyles.routeContent}
-            >
+            <Reanimated.View key={route} style={sheetStyles.routeContent}>
               <Reanimated.View
                 entering={ROUTE_FADE_IN}
                 style={sheetStyles.routeContent}
@@ -586,9 +571,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   <CharacterOrderSheet registerDraft={registerDraft} />
                 ) : route === "characterPosition" ? (
                   current.characterId ? (
-                    <CharacterPositionSheet
-                      characterId={current.characterId}
-                    />
+                    <CharacterPositionSheet characterId={current.characterId} />
                   ) : null
                 ) : route === "preciseMode" ? (
                   current.preciseReferenceId ? (
@@ -620,9 +603,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
           <View
             style={
-              showDraftFooter
-                ? draftFooterStyle
-                : sheetStyles.footerHidden
+              showDraftFooter ? draftFooterStyle : sheetStyles.footerHidden
             }
           >
             <View style={sheetStyles.footerButton}>
@@ -648,8 +629,8 @@ const sheetStyles = StyleSheet.create({
     flex: 1,
   },
   sheetBackground: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
     backgroundColor: tokens.color.card,
   },
   metadataSheetBackground: {

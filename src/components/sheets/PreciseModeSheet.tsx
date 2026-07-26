@@ -8,7 +8,7 @@ import {
 } from "./SelectionSheet";
 
 const MODE_OPTIONS: readonly SelectionOption<PreciseReferenceType>[] = [
-  { label: "Both", value: "character&style" },
+  { label: "Both (Character & Style)", value: "character&style" },
   { label: "Character", value: "character" },
   { label: "Style", value: "style" },
 ];

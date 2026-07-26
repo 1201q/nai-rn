@@ -204,7 +204,7 @@ export function VibeTransferScreen() {
               index={index}
               imageUri={imageUri}
               thumbnailUri={thumbnailUri}
-              subtitle={`I ${formatValue(reference.informationExtracted)} · S ${formatValue(reference.strength)}`}
+              subtitle={`S ${formatValue(reference.strength)} · I ${formatValue(reference.informationExtracted)}`}
               status={{
                 label: cached ? "Cached" : "2 Anlas",
                 tone: cached ? "cached" : "cost",
@@ -219,22 +219,24 @@ export function VibeTransferScreen() {
               onRemove={() => void handleRemove(reference.id)}
             >
               <ParameterSlider
-                label="Information Extracted"
-                value={reference.informationExtracted}
-                min={0}
-                max={1}
-                step={0.01}
-                precision={2}
-                onChange={(value) => setInformation(reference.id, value)}
-              />
-              <ParameterSlider
-                label="Strength"
+                label="Reference Strength"
                 value={reference.strength}
-                min={0}
+                min={0.01}
                 max={1}
                 step={0.01}
                 precision={2}
                 onChange={(value) => setStrength(reference.id, value)}
+                settingsCard
+              />
+              <ParameterSlider
+                label="Information Extracted"
+                value={reference.informationExtracted}
+                min={0.01}
+                max={1}
+                step={0.01}
+                precision={2}
+                onChange={(value) => setInformation(reference.id, value)}
+                settingsCard
               />
               <ReferenceUsageNotice
                 tone={cached ? "cached" : "cost"}
