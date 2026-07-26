@@ -52,7 +52,7 @@ export const CHARACTER_BADGE_COLORS = [
   tokens.color.badge4,
 ] as const;
 
-const CARD_EDITOR_HEIGHT = 204;
+const CARD_EDITOR_HEIGHT = 240;
 const CARD_BODY_HEIGHT = CARD_EDITOR_HEIGHT + tokens.space[6];
 const PROMPT_MODE_BASE_WIDTH = 46;
 const PROMPT_MODE_NEGATIVE_WIDTH = 68;

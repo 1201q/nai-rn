@@ -10,7 +10,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -105,13 +104,11 @@ function SettingsTabPane({
   tabKey,
   activeTab,
   transitionDirection,
-  onLayout,
   children,
 }: {
   tabKey: SettingsTabKey;
   activeTab: SettingsTabKey;
   transitionDirection: TabTransitionDirection;
-  onLayout: (key: SettingsTabKey, event: LayoutChangeEvent) => void;
   children: ReactNode;
 }) {
   const active = tabKey === activeTab;
@@ -154,7 +151,6 @@ function SettingsTabPane({
       accessibilityElementsHidden={!active}
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
       pointerEvents={active ? "auto" : "none"}
-      onLayout={(event) => onLayout(tabKey, event)}
       style={[
         styles.tabPane,
         active ? styles.activeTabPane : styles.inactiveTabPane,
@@ -732,11 +728,7 @@ export function ImageSettingsScreen() {
     character: false,
     imageRef: false,
   });
-  const [tabHeights, setTabHeights] = useState<
-    Partial<Record<SettingsTabKey, number>>
-  >({});
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
-  const pendingMountFrameRef = useRef<number | null>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const handleTabChange = useCallback(
@@ -751,42 +743,12 @@ export function ImageSettingsScreen() {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       scrollY.setValue(0);
 
-      if (pendingMountFrameRef.current !== null) {
-        cancelAnimationFrame(pendingMountFrameRef.current);
-        pendingMountFrameRef.current = null;
-      }
-
-      setActiveTab(nextTab);
-
-      if (!mountedTabs[nextTab]) {
-        pendingMountFrameRef.current = requestAnimationFrame(() => {
-          pendingMountFrameRef.current = null;
-          setMountedTabs((current) =>
-            current[nextTab] ? current : { ...current, [nextTab]: true },
-          );
-        });
-      }
-    },
-    [activeTab, mountedTabs, scrollY],
-  );
-
-  useEffect(
-    () => () => {
-      if (pendingMountFrameRef.current !== null) {
-        cancelAnimationFrame(pendingMountFrameRef.current);
-      }
-    },
-    [],
-  );
-
-  const handleTabLayout = useCallback(
-    (key: SettingsTabKey, event: LayoutChangeEvent) => {
-      const height = event.nativeEvent.layout.height;
-      setTabHeights((current) =>
-        current[key] === height ? current : { ...current, [key]: height },
+      setMountedTabs((current) =>
+        current[nextTab] ? current : { ...current, [nextTab]: true },
       );
+      setActiveTab(nextTab);
     },
-    [],
+    [activeTab, scrollY],
   );
 
   return (
@@ -820,20 +782,12 @@ export function ImageSettingsScreen() {
             containerHeight={98}
             navigationSpacerHeight={28}
           />
-          <View
-            style={[
-              styles.tabHost,
-              {
-                height: tabHeights[activeTab] ?? tabHeights.settings ?? 1,
-              },
-            ]}
-          >
+          <View style={styles.tabHost}>
             {mountedTabs.settings ? (
               <SettingsTabPane
                 tabKey="settings"
                 activeTab={activeTab}
                 transitionDirection={transitionDirection}
-                onLayout={handleTabLayout}
               >
                 <SettingsTabContent />
               </SettingsTabPane>
@@ -843,7 +797,6 @@ export function ImageSettingsScreen() {
                 tabKey="prompt"
                 activeTab={activeTab}
                 transitionDirection={transitionDirection}
-                onLayout={handleTabLayout}
               >
                 <PromptTabContent />
               </SettingsTabPane>
@@ -853,7 +806,6 @@ export function ImageSettingsScreen() {
                 tabKey="character"
                 activeTab={activeTab}
                 transitionDirection={transitionDirection}
-                onLayout={handleTabLayout}
               >
                 <CharacterTabContent />
               </SettingsTabPane>
@@ -863,7 +815,6 @@ export function ImageSettingsScreen() {
                 tabKey="imageRef"
                 activeTab={activeTab}
                 transitionDirection={transitionDirection}
-                onLayout={handleTabLayout}
               >
                 <ImageReferenceTabContent />
               </SettingsTabPane>
@@ -924,15 +875,17 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   tabPane: {
+    width: "100%",
+  },
+  activeTabPane: {
+    position: "relative",
+    zIndex: 1,
+  },
+  inactiveTabPane: {
     position: "absolute",
     top: 0,
     right: 0,
     left: 0,
-  },
-  activeTabPane: {
-    zIndex: 1,
-  },
-  inactiveTabPane: {
     zIndex: 0,
   },
   scroll: {
