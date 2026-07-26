@@ -9,6 +9,10 @@ const CHANNEL_ID = "generation";
 const NOTIF_ID = "generation-progress";
 export const CANCEL_ACTION_ID = "cancel";
 
+const LIVE_UPDATE_TYPE_KEY = "nairn.liveUpdate";
+const LIVE_UPDATE_SEGMENT_COUNT_KEY = "nairn.liveUpdateSegmentCount";
+const LIVE_UPDATE_SHORT_TEXT_KEY = "nairn.liveUpdateShortText";
+
 let channelReady = false;
 
 async function ensureNotifReady() {
@@ -40,6 +44,17 @@ function progressConfig(doneSteps: number, totalSteps: number) {
     : { indeterminate: true };
 }
 
+function liveUpdateData(imageIndex: number, imageTotal: number) {
+  if (imageTotal < 2) return undefined;
+
+  return {
+    [LIVE_UPDATE_TYPE_KEY]: "generation",
+    [LIVE_UPDATE_SEGMENT_COUNT_KEY]: String(imageTotal),
+    [LIVE_UPDATE_SHORT_TEXT_KEY]:
+      imageIndex > 0 ? `${imageIndex}/${imageTotal}` : "준비 중",
+  };
+}
+
 // 반환값: foreground service 알림이 떠서 등록 태스크가 큐를 구동할지 여부.
 // false면 호출 측이 직접 큐를 돌려야 함(포그라운드 한정).
 export async function startGenerationService(
@@ -53,6 +68,7 @@ export async function startGenerationService(
       id: NOTIF_ID,
       title: "이미지 생성",
       body: progressBody(0, total, 0, total * steps),
+      data: liveUpdateData(0, total),
       android: {
         channelId: CHANNEL_ID,
         asForegroundService: true,
@@ -82,6 +98,7 @@ export async function updateGenerationProgress(
       id: NOTIF_ID,
       title: "이미지 생성",
       body: progressBody(imageIndex, imageTotal, doneSteps, totalSteps),
+      data: liveUpdateData(imageIndex, imageTotal),
       android: {
         channelId: CHANNEL_ID,
         asForegroundService: true,

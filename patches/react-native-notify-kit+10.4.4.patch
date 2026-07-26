@@ -1,0 +1,88 @@
+diff --git a/node_modules/react-native-notify-kit/android/build.gradle b/node_modules/react-native-notify-kit/android/build.gradle
+index 9ebcef2..0df32b7 100644
+--- a/node_modules/react-native-notify-kit/android/build.gradle
++++ b/node_modules/react-native-notify-kit/android/build.gradle
+@@ -62,7 +62,7 @@ if (project.hasProperty('reactNativeProjects')) {
+ 
+ android {
+   namespace = "io.invertase.notifee"
+-  compileSdk = 35
++  compileSdk = 36
+ 
+   defaultConfig {
+     minSdk = 24
+@@ -139,7 +139,7 @@ dependencies {
+   implementation 'com.facebook.fresco:fresco:2.6.0' // https://github.com/facebook/fresco/releases
+   implementation("com.google.guava:guava:33.5.0-android") // https://github.com/google/guava
+   compileOnly 'org.checkerframework:checker-qual:3.43.0' // required by Guava's nullness annotations
+-  implementation 'androidx.core:core:1.6.0'
++  implementation 'androidx.core:core:1.18.0'
+ 
+   // NotifeeCoreDatabase_Impl is generated against Room 2.8.4's RoomOpenDelegate API
+   // (stable since Room 2.6.0). If bumping this version, verify the generated _Impl class
+diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
+index 467841b..74fd3c1 100644
+--- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
++++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
+@@ -90,6 +90,9 @@ class NotificationManager {
+   private static final String TAG = "NotificationManager";
+   private static final String EXTRA_NOTIFEE_NOTIFICATION = "notifee.notification";
+   private static final String EXTRA_NOTIFEE_TRIGGER = "notifee.trigger";
++  private static final String LIVE_UPDATE_TYPE_KEY = "nairn.liveUpdate";
++  private static final String LIVE_UPDATE_SEGMENT_COUNT_KEY = "nairn.liveUpdateSegmentCount";
++  private static final String LIVE_UPDATE_SHORT_TEXT_KEY = "nairn.liveUpdateShortText";
+ 
+   // Denylist for getDisplayedNotifications() data extraction — pairs with
+   // EXCLUDED_DATA_KEY_PREFIXES below. `fcm_options` is the Firebase HTTP v1
+@@ -286,8 +289,49 @@ class NotificationManager {
+ 
+             NotificationAndroidModel.AndroidProgress progress = androidModel.getProgress();
+             if (progress != null) {
+-              builder.setProgress(
+-                  progress.getMax(), progress.getCurrent(), progress.getIndeterminate());
++              Bundle notificationData = notificationModel.getData();
++              boolean liveUpdateApplied = false;
++
++              if (Build.VERSION.SDK_INT >= 36
++                  && "generation".equals(notificationData.getString(LIVE_UPDATE_TYPE_KEY))) {
++                try {
++                  int segmentCount =
++                      Integer.parseInt(
++                          notificationData.getString(LIVE_UPDATE_SEGMENT_COUNT_KEY, "0"));
++                  int progressMax = progress.getMax();
++
++                  if (segmentCount >= 2
++                      && progressMax > 0
++                      && progressMax % segmentCount == 0) {
++                    NotificationCompat.ProgressStyle progressStyle =
++                        new NotificationCompat.ProgressStyle()
++                            .setProgress(progress.getCurrent())
++                            .setProgressIndeterminate(progress.getIndeterminate())
++                            .setStyledByProgress(true);
++                    int segmentLength = progressMax / segmentCount;
++
++                    for (int index = 0; index < segmentCount; index++) {
++                      progressStyle.addProgressSegment(
++                          new NotificationCompat.ProgressStyle.Segment(segmentLength)
++                              .setId(index + 1));
++                    }
++
++                    builder
++                        .setStyle(progressStyle)
++                        .setRequestPromotedOngoing(true)
++                        .setShortCriticalText(
++                            notificationData.getString(LIVE_UPDATE_SHORT_TEXT_KEY, ""));
++                    liveUpdateApplied = true;
++                  }
++                } catch (NumberFormatException ignored) {
++                  // Fall back to the standard progress notification below.
++                }
++              }
++
++              if (!liveUpdateApplied) {
++                builder.setProgress(
++                    progress.getMax(), progress.getCurrent(), progress.getIndeterminate());
++              }
+             }
+ 
+             if (androidModel.getShortcutId() != null) {
