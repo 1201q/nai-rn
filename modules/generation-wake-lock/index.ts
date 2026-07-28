@@ -7,6 +7,7 @@ type GenerationWakeLockNativeModule = {
   acquire(timeoutMs: number): Promise<boolean>;
   release(): Promise<boolean>;
   isHeld(): Promise<boolean>;
+  wait(delayMs: number): Promise<boolean>;
 };
 
 const nativeModule =
@@ -44,4 +45,23 @@ export async function isGenerationWakeLockHeld(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function waitForGenerationInterval(
+  delayMs: number,
+): Promise<void> {
+  const normalizedDelayMs = Math.max(0, Math.trunc(delayMs));
+
+  if (nativeModule) {
+    try {
+      await nativeModule.wait(normalizedDelayMs);
+      return;
+    } catch {
+      // Fall back to a JS timer when the native module is unavailable at runtime.
+    }
+  }
+
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, normalizedDelayMs);
+  });
 }

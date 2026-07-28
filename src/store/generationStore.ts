@@ -25,6 +25,7 @@ import {
 import {
   acquireGenerationWakeLock,
   releaseGenerationWakeLock,
+  waitForGenerationInterval,
 } from "../../modules/generation-wake-lock";
 import {
   type GenerateNovelAiCharacterPrompt,
@@ -96,6 +97,7 @@ const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
 // 알림 step 갱신 throttle (네이티브 displayNotification 호출 상한)
 const NOTIF_PROGRESS_THROTTLE_MS = 800;
+const BATCH_REQUEST_INTERVAL_MS = 500;
 const DEFAULT_I2I_STRENGTH = 0.7;
 const DEFAULT_I2I_NOISE = 0;
 
@@ -507,6 +509,29 @@ let queueRunning = false;
 let activeQueueAbortController: AbortController | null = null;
 const vibeSettingsVersions = createMutationVersionTracker();
 const preciseSettingsVersions = createMutationVersionTracker();
+
+async function waitForNextBatchRequest(signal: AbortSignal): Promise<boolean> {
+  if (signal.aborted) return Promise.resolve(false);
+
+  let onAbort: (() => void) | undefined;
+  const abortPromise = new Promise<boolean>((resolve) => {
+    onAbort = () => resolve(false);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+
+  try {
+    return await Promise.race([
+      waitForGenerationInterval(BATCH_REQUEST_INTERVAL_MS).then(
+        () => !signal.aborted,
+      ),
+      abortPromise,
+    ]);
+  } finally {
+    if (onAbort) {
+      signal.removeEventListener("abort", onAbort);
+    }
+  }
+}
 
 // 부팅 시 MMKV에서 저장된 옵션을 동기 읽기 → store 초기 state로 즉시 복원.
 // 손상/구버전 데이터 방어를 위해 필드별 타입 검증 후 통과한 값만 반환.
@@ -1219,7 +1244,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
-    const total = Math.min(20, Math.max(1, s.batchCount));
+    const total = Math.min(100, Math.max(1, s.batchCount));
     let width = s.resolution.width;
     let height = s.resolution.height;
     let i2iImageBase64: string | undefined;
@@ -1564,6 +1589,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           streamingGenerationId: null,
         }));
         get().refreshAnlas();
+
+        if (
+          i < total &&
+          !(await waitForNextBatchRequest(abortController.signal))
+        ) {
+          break;
+        }
       }
       if (!get().queueCancelRequested) {
         params.onSuccess?.();

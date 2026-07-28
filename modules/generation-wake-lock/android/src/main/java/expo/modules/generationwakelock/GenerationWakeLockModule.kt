@@ -2,8 +2,10 @@ package expo.modules.generationwakelock
 
 import android.content.Context
 import android.os.PowerManager
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlinx.coroutines.delay
 
 private const val WAKE_LOCK_TAG = "nairn:imageGeneration"
 
@@ -23,6 +25,14 @@ class GenerationWakeLockModule : Module() {
 
     AsyncFunction("isHeld") {
       wakeLock?.isHeld == true
+    }
+
+    AsyncFunction("wait") Coroutine { delayMs: Double ->
+      require(delayMs.isFinite() && delayMs >= 0) {
+        "Wait duration must be a finite non-negative number."
+      }
+      delay(delayMs.toLong())
+      true
     }
 
     OnDestroy {
