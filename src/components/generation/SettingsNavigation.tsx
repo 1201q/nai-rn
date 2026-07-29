@@ -1,29 +1,10 @@
-import { memo, useCallback, useEffect, useRef, type ReactNode } from "react";
-import {
-  AppState,
-  type LayoutChangeEvent,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { memo, type ReactNode } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import Reanimated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 import { tokens } from "../../styles/tokens";
 
 type IconName = keyof typeof Ionicons.glyphMap;
-
-const TAB_TIMING = {
-  duration: 180,
-  easing: Easing.out(Easing.cubic),
-};
 
 export const OptionCard = memo(function OptionCard({
   icon,
@@ -122,85 +103,6 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   onChange: (key: string) => void;
   onBack: () => void;
 }) {
-  const pillX = useSharedValue(0);
-  const pillWidth = useSharedValue(0);
-  const pillOpacity = useSharedValue(0);
-  const pillReady = useRef(false);
-  const activeKeyRef = useRef(activeKey);
-  const tabLayouts = useRef<Record<string, { x: number; width: number }>>({});
-  activeKeyRef.current = activeKey;
-
-  const pillStyle = useAnimatedStyle(() => ({
-    width: pillWidth.value,
-    opacity: pillOpacity.value,
-    transform: [{ translateX: pillX.value }],
-  }));
-
-  const animatePill = useCallback(
-    (key: string, animated = true) => {
-      const layout = tabLayouts.current[key];
-      if (!layout) return;
-
-      pillReady.current = true;
-      pillX.value = animated ? withTiming(layout.x, TAB_TIMING) : layout.x;
-      pillWidth.value = layout.width;
-      pillOpacity.value = animated ? withTiming(1, { duration: 80 }) : 1;
-    },
-    [pillOpacity, pillWidth, pillX],
-  );
-
-  useEffect(() => {
-    animatePill(activeKey);
-  }, [activeKey, animatePill]);
-
-  useFocusEffect(
-    useCallback(() => {
-      const frame = requestAnimationFrame(() => {
-        animatePill(activeKeyRef.current, false);
-      });
-
-      return () => cancelAnimationFrame(frame);
-    }, [animatePill]),
-  );
-
-  useEffect(() => {
-    let frame: number | null = null;
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") return;
-
-      if (frame !== null) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        animatePill(activeKeyRef.current, false);
-      });
-    });
-
-    return () => {
-      subscription.remove();
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, [animatePill]);
-
-  const handleTabLayout = (key: string) => (event: LayoutChangeEvent) => {
-    const { x, width } = event.nativeEvent.layout;
-    if (!Number.isFinite(x) || !Number.isFinite(width) || width <= 0) return;
-
-    tabLayouts.current[key] = { x, width };
-    if (key !== activeKeyRef.current) return;
-
-    if (!pillReady.current) {
-      pillReady.current = true;
-      pillX.value = x;
-      pillWidth.value = width;
-      pillOpacity.value = 1;
-      return;
-    }
-
-    pillX.value = withTiming(x, TAB_TIMING);
-    pillWidth.value = withTiming(width, TAB_TIMING);
-    pillOpacity.value = withTiming(1, { duration: 80 });
-  };
-
   return (
     <View style={styles.tabBarShadow}>
       <View style={styles.tabBar}>
@@ -221,28 +123,18 @@ export const SettingsTabBar = memo(function SettingsTabBar({
               color={tokens.color.textPrimary}
             />
           </Pressable>
-          <Reanimated.View
-            pointerEvents="none"
-            style={[styles.slidingPill, pillStyle]}
-          />
           {tabs.map((tab) => {
             const active = tab.key === activeKey;
             return (
-              <Reanimated.View
-                key={tab.key}
-                onLayout={handleTabLayout(tab.key)}
-                style={styles.tabSlot}
-              >
+              <View key={tab.key} style={styles.tabSlot}>
                 <Pressable
                   accessibilityRole="tab"
                   accessibilityLabel={tab.label}
                   accessibilityState={{ selected: active }}
-                  onPress={() => {
-                    animatePill(tab.key);
-                    onChange(tab.key);
-                  }}
+                  onPress={() => onChange(tab.key)}
                   style={({ pressed }) => [
                     styles.tab,
+                    active && styles.tabActive,
                     pressed && styles.pressed,
                   ]}
                 >
@@ -265,7 +157,7 @@ export const SettingsTabBar = memo(function SettingsTabBar({
                     {tab.label}
                   </Text>
                 </Pressable>
-              </Reanimated.View>
+              </View>
             );
           })}
         </View>
@@ -352,14 +244,6 @@ const styles = StyleSheet.create({
     marginRight: tokens.space[3],
     zIndex: 1,
   },
-  slidingPill: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.accent,
-  },
   tabSlot: {
     flex: 1,
     zIndex: 1,
@@ -371,6 +255,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 1,
     borderRadius: tokens.radius.pill,
+  },
+  tabActive: {
+    backgroundColor: tokens.color.accent,
   },
   tabLabel: {
     color: tokens.color.onAccent,
