@@ -1,5 +1,9 @@
+import "react-native-gesture-handler";
+
+import { registerRootComponent } from "expo";
 import notifee, { EventType } from "react-native-notify-kit";
 
+import App from "./App";
 import { CANCEL_ACTION_ID } from "./src/lib/foregroundService";
 import { useGenerationStore } from "./src/store/generationStore";
 
@@ -20,6 +24,5 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   }
 });
 
-// expo-router/entry가 AppRegistry 등록 및 파일 기반 라우팅 초기화를 담당한다.
-// notifee foreground-service 등록은 위에서 top-level로 먼저 수행했다.
-import "expo-router/entry";
+// Register the app only after the foreground-service handlers are configured.
+registerRootComponent(App);

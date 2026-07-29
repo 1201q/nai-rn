@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -24,6 +24,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
+import type { AppNavigation } from "../../navigation/types";
 import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
@@ -51,7 +52,7 @@ const PARAMETERS_LAYOUT = LinearTransition.duration(200).easing(
 );
 
 export function ImageToImageScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<AppNavigation>();
   const insets = useSafeAreaInsets();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const setSourceImage = useGenerationStore((state) => state.setI2ISourceImage);
@@ -295,7 +296,7 @@ export function ImageToImageScreen() {
         title="Image2Image"
         scrollY={scrollY}
         topInset={insets.top}
-        onBack={() => router.back()}
+        onBack={() => navigation.goBack()}
         showMore={false}
         hideCompactTitleOnScroll
       />

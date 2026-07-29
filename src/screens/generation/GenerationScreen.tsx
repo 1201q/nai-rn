@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 import Reanimated, {
   Easing,
   useAnimatedStyle,
@@ -11,6 +11,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { AppNavigation } from "../../navigation/types";
 import {
   IconButton,
   PrimaryButton,
@@ -79,7 +80,7 @@ function GenerateAction() {
 
 export function GenerationScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const navigation = useNavigation<AppNavigation>();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
 
   return (
@@ -95,7 +96,7 @@ export function GenerationScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="ANLAS 토큰 설정"
-          onPress={() => router.navigate("/settings")}
+          onPress={() => navigation.navigate("AppSettings")}
           style={({ pressed }) => [
             styles.balancePill,
             pressed && styles.balancePillPressed,
@@ -118,14 +119,14 @@ export function GenerationScreen() {
         <IconButton
           icon="settings-outline"
           label="이미지 세팅"
-          onPress={() => router.navigate("/image-settings")}
+          onPress={() => navigation.navigate("ImageSettings")}
           style={styles.sideActionButton}
         />
         <GenerateAction />
         <IconButton
           icon="time-outline"
           label="History"
-          onPress={() => router.navigate("/history")}
+          onPress={() => navigation.navigate("History")}
           style={styles.sideActionButton}
         />
       </View>

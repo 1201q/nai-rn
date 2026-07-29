@@ -43,7 +43,6 @@ export default {
       bundler: "metro",
     },
     plugins: [
-      "expo-router",
       "expo-secure-store",
       "expo-sqlite",
       "expo-image",
