@@ -91,7 +91,10 @@ export function GenerationScreen() {
     >
       <StatusBar style="light" />
 
-      <View style={styles.balanceRow}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.topActions, { top: insets.top + 8 }]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="ANLAS 토큰 설정"
@@ -110,8 +113,17 @@ export function GenerationScreen() {
             {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
           </Text>
         </Pressable>
+
+        <IconButton
+          icon="ellipsis-horizontal"
+          label="더 보기"
+          size={40}
+          onPress={() => router.navigate("/settings")}
+          style={styles.moreButton}
+        />
       </View>
 
+      <View style={styles.topActionsSpacer} />
       <GenerationCanvas />
 
       <View style={styles.bottomActions}>
@@ -140,20 +152,28 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
     gap: tokens.space[5],
   },
-  balanceRow: {
+  topActions: {
+    position: "absolute",
+    left: tokens.space[8],
+    right: tokens.space[8],
+    zIndex: 3,
     height: 40,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  topActionsSpacer: {
+    height: 40,
   },
   balancePill: {
-    height: 36,
-    paddingHorizontal: tokens.space[6],
+    height: 40,
+    paddingHorizontal: tokens.space[7],
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[4],
     borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.overlay,
-    ...tokens.shadow.floatSm,
+    backgroundColor: tokens.color.card,
+    ...tokens.shadow.floatMd,
   },
   balanceText: {
     color: tokens.color.textPrimary,
@@ -162,6 +182,10 @@ const styles = StyleSheet.create({
   },
   balancePillPressed: {
     opacity: 0.68,
+  },
+  moreButton: {
+    borderWidth: 0,
+    backgroundColor: tokens.color.card,
   },
   bottomActions: {
     height: 54,
