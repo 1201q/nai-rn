@@ -326,6 +326,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const handleChange = useCallback(
     (index: number) => {
+      if (__DEV__) {
+        console.log("[app-sheet] change", {
+          index,
+          route: stackRef.current[stackRef.current.length - 1]?.route,
+        });
+      }
       const nextOpen = index >= 0;
       if (nextOpen !== openRef.current) {
         openRef.current = nextOpen;
@@ -337,6 +343,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const handleCloseComplete = useCallback(() => {
+    if (__DEV__) {
+      console.log("[app-sheet] close", {
+        route: stackRef.current[stackRef.current.length - 1]?.route,
+        trackedOpen: openRef.current,
+      });
+    }
     // Closing can interrupt the opening animation while the internal index is
     // still -1. In that case onChange(-1) is skipped, but onClose still fires.
     if (!openRef.current) return;

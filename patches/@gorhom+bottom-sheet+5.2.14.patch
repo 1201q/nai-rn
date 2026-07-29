@@ -1,0 +1,153 @@
+diff --git a/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheetBackdrop/BottomSheetBackdrop.js b/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheetBackdrop/BottomSheetBackdrop.js
+index f779d6d..dc22ffa 100644
+--- a/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheetBackdrop/BottomSheetBackdrop.js
++++ b/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheetBackdrop/BottomSheetBackdrop.js
+@@ -13,6 +13,12 @@ var _constants = require("./constants");
+ var _styles = require("./styles");
+ var _jsxRuntime = require("react/jsx-runtime");
+ function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (const t in e) "default" !== t && {}.hasOwnProperty.call(e, t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, t)) && (i.get || i.set) ? o(f, t, i) : f[t] = e[t]); return f; })(e, t); }
++const CLOSED_INDEX_EPSILON = 0.01;
++function isBackdropClosed(index, disappearsOnIndex) {
++  'worklet';
++
++  return index <= disappearsOnIndex + CLOSED_INDEX_EPSILON;
++}
+ const BottomSheetBackdropComponent = ({
+   animatedIndex,
+   opacity: _providedOpacity,
+@@ -44,7 +50,7 @@ const BottomSheetBackdropComponent = ({
+   //#endregion
+ 
+   //#region variables
+-  const [pointerEvents, setPointerEvents] = (0, _react.useState)(enableTouchThrough ? 'none' : 'auto');
++  const [pointerEvents, setPointerEvents] = (0, _react.useState)('none');
+   //#endregion
+ 
+   //#region callbacks
+@@ -80,7 +86,7 @@ const BottomSheetBackdropComponent = ({
+   //#endregion
+ 
+   //#region effects
+-  (0, _reactNativeReanimated.useAnimatedReaction)(() => animatedIndex.value <= disappearsOnIndex, (shouldDisableTouchability, previous) => {
++  (0, _reactNativeReanimated.useAnimatedReaction)(() => isBackdropClosed(animatedIndex.value, disappearsOnIndex), (shouldDisableTouchability, previous) => {
+     if (shouldDisableTouchability === previous) {
+       return;
+     }
+@@ -91,10 +97,11 @@ const BottomSheetBackdropComponent = ({
+   // [link](https://github.com/gorhom/react-native-bottom-sheet/issues/1376)
+   (0, _react.useEffect)(() => {
+     isMounted.current = true;
++    handleContainerTouchability(enableTouchThrough || isBackdropClosed(animatedIndex.value, disappearsOnIndex));
+     return () => {
+       isMounted.current = false;
+     };
+-  }, []);
++  }, [animatedIndex, disappearsOnIndex, enableTouchThrough, handleContainerTouchability]);
+   //#endregion
+ 
+   const AnimatedView = /*#__PURE__*/(0, _jsxRuntime.jsx)(_reactNativeReanimated.default.View, {
+diff --git a/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheetBackdrop/BottomSheetBackdrop.js b/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheetBackdrop/BottomSheetBackdrop.js
+index aac25f6..f12a723 100644
+--- a/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheetBackdrop/BottomSheetBackdrop.js
++++ b/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheetBackdrop/BottomSheetBackdrop.js
+@@ -8,6 +8,12 @@ import { useBottomSheet } from '../../hooks';
+ import { DEFAULT_ACCESSIBILITY_HINT, DEFAULT_ACCESSIBILITY_LABEL, DEFAULT_ACCESSIBILITY_ROLE, DEFAULT_ACCESSIBLE, DEFAULT_APPEARS_ON_INDEX, DEFAULT_DISAPPEARS_ON_INDEX, DEFAULT_ENABLE_TOUCH_THROUGH, DEFAULT_OPACITY, DEFAULT_PRESS_BEHAVIOR } from './constants';
+ import { styles } from './styles';
+ import { jsx as _jsx } from "react/jsx-runtime";
++const CLOSED_INDEX_EPSILON = 0.01;
++function isBackdropClosed(index, disappearsOnIndex) {
++  'worklet';
++
++  return index <= disappearsOnIndex + CLOSED_INDEX_EPSILON;
++}
+ const BottomSheetBackdropComponent = ({
+   animatedIndex,
+   opacity: _providedOpacity,
+@@ -39,7 +45,7 @@ const BottomSheetBackdropComponent = ({
+   //#endregion
+ 
+   //#region variables
+-  const [pointerEvents, setPointerEvents] = useState(enableTouchThrough ? 'none' : 'auto');
++  const [pointerEvents, setPointerEvents] = useState('none');
+   //#endregion
+ 
+   //#region callbacks
+@@ -75,7 +81,7 @@ const BottomSheetBackdropComponent = ({
+   //#endregion
+ 
+   //#region effects
+-  useAnimatedReaction(() => animatedIndex.value <= disappearsOnIndex, (shouldDisableTouchability, previous) => {
++  useAnimatedReaction(() => isBackdropClosed(animatedIndex.value, disappearsOnIndex), (shouldDisableTouchability, previous) => {
+     if (shouldDisableTouchability === previous) {
+       return;
+     }
+@@ -86,10 +92,11 @@ const BottomSheetBackdropComponent = ({
+   // [link](https://github.com/gorhom/react-native-bottom-sheet/issues/1376)
+   useEffect(() => {
+     isMounted.current = true;
++    handleContainerTouchability(enableTouchThrough || isBackdropClosed(animatedIndex.value, disappearsOnIndex));
+     return () => {
+       isMounted.current = false;
+     };
+-  }, []);
++  }, [animatedIndex, disappearsOnIndex, enableTouchThrough, handleContainerTouchability]);
+   //#endregion
+ 
+   const AnimatedView = /*#__PURE__*/_jsx(Animated.View, {
+diff --git a/node_modules/@gorhom/bottom-sheet/src/components/bottomSheetBackdrop/BottomSheetBackdrop.tsx b/node_modules/@gorhom/bottom-sheet/src/components/bottomSheetBackdrop/BottomSheetBackdrop.tsx
+index a0345b0..5bddc97 100644
+--- a/node_modules/@gorhom/bottom-sheet/src/components/bottomSheetBackdrop/BottomSheetBackdrop.tsx
++++ b/node_modules/@gorhom/bottom-sheet/src/components/bottomSheetBackdrop/BottomSheetBackdrop.tsx
+@@ -30,6 +30,13 @@ import {
+ import { styles } from './styles';
+ import type { BottomSheetDefaultBackdropProps } from './types';
+ 
++const CLOSED_INDEX_EPSILON = 0.01;
++
++function isBackdropClosed(index: number, disappearsOnIndex: number) {
++  'worklet';
++  return index <= disappearsOnIndex + CLOSED_INDEX_EPSILON;
++}
++
+ const BottomSheetBackdropComponent = ({
+   animatedIndex,
+   opacity: _providedOpacity,
+@@ -62,7 +69,7 @@ const BottomSheetBackdropComponent = ({
+   //#region variables
+   const [pointerEvents, setPointerEvents] = useState<
+     ViewProps['pointerEvents']
+-  >(enableTouchThrough ? 'none' : 'auto');
++  >('none');
+   //#endregion
+ 
+   //#region callbacks
+@@ -120,7 +127,7 @@ const BottomSheetBackdropComponent = ({
+ 
+   //#region effects
+   useAnimatedReaction(
+-    () => animatedIndex.value <= disappearsOnIndex,
++    () => isBackdropClosed(animatedIndex.value, disappearsOnIndex),
+     (shouldDisableTouchability, previous) => {
+       if (shouldDisableTouchability === previous) {
+         return;
+@@ -134,10 +141,19 @@ const BottomSheetBackdropComponent = ({
+   // [link](https://github.com/gorhom/react-native-bottom-sheet/issues/1376)
+   useEffect(() => {
+     isMounted.current = true;
++    handleContainerTouchability(
++      enableTouchThrough ||
++        isBackdropClosed(animatedIndex.value, disappearsOnIndex)
++    );
+     return () => {
+       isMounted.current = false;
+     };
+-  }, []);
++  }, [
++    animatedIndex,
++    disappearsOnIndex,
++    enableTouchThrough,
++    handleContainerTouchability,
++  ]);
+   //#endregion
+ 
+   const AnimatedView = (

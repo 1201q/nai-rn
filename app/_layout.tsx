@@ -63,110 +63,141 @@ export default function RootLayout() {
                   screenOptions={{
                     headerShown: false,
                     animation: "default",
-                    animationDuration: 0.1,
                     contentStyle: { backgroundColor: tokens.color.app },
                   }}
+                  screenListeners={({ route }) => ({
+                    focus: () => {
+                      if (__DEV__) {
+                        console.log("[navigation] focus", {
+                          route: route.name,
+                        });
+                      }
+                    },
+                    blur: () => {
+                      if (__DEV__) {
+                        console.log("[navigation] blur", {
+                          route: route.name,
+                        });
+                      }
+                    },
+                    transitionStart: (event) => {
+                      if (__DEV__) {
+                        console.log("[navigation] transitionStart", {
+                          route: route.name,
+                          closing: event.data.closing,
+                        });
+                      }
+                    },
+                    transitionEnd: (event) => {
+                      if (__DEV__) {
+                        console.log("[navigation] transitionEnd", {
+                          route: route.name,
+                          closing: event.data.closing,
+                        });
+                      }
+                    },
+                  })}
                 />
               </PortalProvider>
               {/* PortalHost보다 뒤에 렌더링해 preview 위에 표시한다. */}
-                <Toaster
-                  position="bottom-center"
-                  theme="dark"
-                  duration={2000}
-                  offset={84}
-                  icons={{
-                    success: (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={tokens.color.accent}
-                      />
-                    ),
-                    error: (
-                      <Ionicons
-                        name="close-circle-outline"
-                        size={20}
-                        color={tokens.color.negative}
-                      />
-                    ),
-                    warning: (
-                      <Ionicons
-                        name="warning-outline"
-                        size={20}
-                        color={tokens.color.accent}
-                      />
-                    ),
-                    info: (
-                      <Ionicons
-                        name="information-circle-outline"
-                        size={20}
-                        color={tokens.color.textSecondary}
-                      />
-                    ),
-                    loading: (
-                      <ActivityIndicator
-                        size="small"
-                        color={tokens.color.accent}
-                      />
-                    ),
-                  }}
-                  toastOptions={{
-                    toastContainerStyle: {
-                      width: "auto",
-                      maxWidth: toastMaxWidth,
-                      alignSelf: "center",
-                    },
-                    style: {
-                      width: "auto",
-                      maxWidth: toastMaxWidth,
-                      marginHorizontal: 0,
-                      padding: tokens.space[8],
-                      borderRadius: tokens.radius.pill,
-                      // borderWidth: 1,
-                      // borderColor: tokens.color.borderSubtle,
-                      backgroundColor: tokens.color.toast,
-                      ...tokens.shadow.floatMd,
-                    },
-                    toastContentStyle: {
-                      gap: tokens.space[6],
-                    },
-                    textContainerStyle: {
-                      flex: 0,
-                      flexShrink: 1,
-                    },
-                    titleStyle: {
-                      color: tokens.color.textPrimary,
-                      fontFamily: tokens.font.semibold,
-                      fontSize: tokens.type.base,
-                      lineHeight: 20,
-                    },
-                    descriptionStyle: {
-                      color: tokens.color.textSecondary,
-                      fontFamily: tokens.font.regular,
-                      fontSize: tokens.type.sm,
-                      lineHeight: 20,
-                    },
-                    actionButtonStyle: {
-                      paddingHorizontal: tokens.space[7],
-                      paddingVertical: tokens.space[3],
-                      borderWidth: 0,
-                      backgroundColor: tokens.color.accent,
-                    },
-                    actionButtonTextStyle: {
-                      color: tokens.color.onAccent,
-                      fontFamily: tokens.font.semibold,
-                      fontSize: tokens.type.sm,
-                    },
-                    cancelButtonTextStyle: {
-                      color: tokens.color.textTertiary,
-                      fontFamily: tokens.font.semibold,
-                      fontSize: tokens.type.sm,
-                    },
-                    error: {
-                      borderColor: tokens.color.borderNegative,
-                    },
-                  }}
-                />
+              <Toaster
+                position="bottom-center"
+                theme="dark"
+                duration={2000}
+                offset={84}
+                icons={{
+                  success: (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={tokens.color.accent}
+                    />
+                  ),
+                  error: (
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={20}
+                      color={tokens.color.negative}
+                    />
+                  ),
+                  warning: (
+                    <Ionicons
+                      name="warning-outline"
+                      size={20}
+                      color={tokens.color.accent}
+                    />
+                  ),
+                  info: (
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={20}
+                      color={tokens.color.textSecondary}
+                    />
+                  ),
+                  loading: (
+                    <ActivityIndicator
+                      size="small"
+                      color={tokens.color.accent}
+                    />
+                  ),
+                }}
+                toastOptions={{
+                  toastContainerStyle: {
+                    width: "auto",
+                    maxWidth: toastMaxWidth,
+                    alignSelf: "center",
+                  },
+                  style: {
+                    width: "auto",
+                    maxWidth: toastMaxWidth,
+                    marginHorizontal: 0,
+                    padding: tokens.space[8],
+                    borderRadius: tokens.radius.pill,
+                    // borderWidth: 1,
+                    // borderColor: tokens.color.borderSubtle,
+                    backgroundColor: tokens.color.toast,
+                    ...tokens.shadow.floatMd,
+                  },
+                  toastContentStyle: {
+                    gap: tokens.space[6],
+                  },
+                  textContainerStyle: {
+                    flex: 0,
+                    flexShrink: 1,
+                  },
+                  titleStyle: {
+                    color: tokens.color.textPrimary,
+                    fontFamily: tokens.font.semibold,
+                    fontSize: tokens.type.base,
+                    lineHeight: 20,
+                  },
+                  descriptionStyle: {
+                    color: tokens.color.textSecondary,
+                    fontFamily: tokens.font.regular,
+                    fontSize: tokens.type.sm,
+                    lineHeight: 20,
+                  },
+                  actionButtonStyle: {
+                    paddingHorizontal: tokens.space[7],
+                    paddingVertical: tokens.space[3],
+                    borderWidth: 0,
+                    backgroundColor: tokens.color.accent,
+                  },
+                  actionButtonTextStyle: {
+                    color: tokens.color.onAccent,
+                    fontFamily: tokens.font.semibold,
+                    fontSize: tokens.type.sm,
+                  },
+                  cancelButtonTextStyle: {
+                    color: tokens.color.textTertiary,
+                    fontFamily: tokens.font.semibold,
+                    fontSize: tokens.type.sm,
+                  },
+                  error: {
+                    borderColor: tokens.color.borderNegative,
+                  },
+                }}
+              />
             </AppSheetProvider>
           </GenerationOptionsProvider>
         </KeyboardProvider>
