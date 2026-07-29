@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Reanimated, {
   Easing,
@@ -19,6 +18,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAppNavigation } from "../../navigation/appNavigation";
 import { tokens } from "../../styles/tokens";
 import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
@@ -56,7 +56,7 @@ export function ReferenceDetailLayout({
   addDisabled?: boolean;
   children: ReactNode;
 }) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -107,7 +107,7 @@ export function ReferenceDetailLayout({
         title={title}
         scrollY={scrollY}
         topInset={insets.top}
-        onBack={() => router.back()}
+        onBack={navigation.back}
         onAdd={onAdd}
         addLabel="참조 이미지 추가"
         addDisabled={addDisabled}

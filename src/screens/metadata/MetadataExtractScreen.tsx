@@ -11,7 +11,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -25,11 +24,12 @@ import { MetadataDetails } from "../../components/metadata/MetadataDetails";
 import { parseNaiMetadata, type ParsedNaiMetadata } from "../../lib/naiMetadata";
 import { hasImportableMetadata } from "../../lib/metadataImport";
 import { extractPngTextMetadata } from "../../lib/novelai";
+import { useAppNavigation } from "../../navigation/appNavigation";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
 export function MetadataExtractScreen() {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const insets = useSafeAreaInsets();
   const { openMetadataImport } = useAppSheet();
   const setMessage = useGenerationStore((state) => state.setMessage);
@@ -206,7 +206,7 @@ export function MetadataExtractScreen() {
         title="Metadata Extract"
         scrollY={scrollY}
         topInset={insets.top}
-        onBack={() => router.back()}
+        onBack={navigation.back}
         showMore={false}
         hideCompactTitleOnScroll
       />

@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +18,7 @@ import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
+import { useAppNavigation } from "../../navigation/appNavigation";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
@@ -29,7 +29,7 @@ type Feedback = {
 
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
   const saveToken = useGenerationStore((state) => state.saveToken);
@@ -222,7 +222,7 @@ export function AppSettingsScreen() {
         title="App Settings"
         scrollY={scrollY}
         topInset={insets.top}
-        onBack={() => router.back()}
+        onBack={navigation.back}
         showMore={false}
         hideCompactTitleOnScroll
       />

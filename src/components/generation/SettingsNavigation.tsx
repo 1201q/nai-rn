@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useNavigated, useUnloaded } from "navigation-react-native";
 import Reanimated, {
   Easing,
   useAnimatedStyle,
@@ -127,6 +127,7 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   const pillOpacity = useSharedValue(0);
   const pillReady = useRef(false);
   const activeKeyRef = useRef(activeKey);
+  const focusFrameRef = useRef<number | null>(null);
   const tabLayouts = useRef<Record<string, { x: number; width: number }>>({});
   activeKeyRef.current = activeKey;
 
@@ -153,15 +154,21 @@ export const SettingsTabBar = memo(function SettingsTabBar({
     animatePill(activeKey);
   }, [activeKey, animatePill]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const frame = requestAnimationFrame(() => {
-        animatePill(activeKeyRef.current, false);
-      });
+  useNavigated(() => {
+    if (focusFrameRef.current !== null) {
+      cancelAnimationFrame(focusFrameRef.current);
+    }
+    focusFrameRef.current = requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      animatePill(activeKeyRef.current, false);
+    });
+  });
 
-      return () => cancelAnimationFrame(frame);
-    }, [animatePill]),
-  );
+  useUnloaded(() => {
+    if (focusFrameRef.current === null) return;
+    cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = null;
+  });
 
   useEffect(() => {
     let frame: number | null = null;

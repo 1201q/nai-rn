@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   KeyboardAwareScrollView,
@@ -55,6 +54,7 @@ import {
   type CharacterPrompt,
   useGenerationStore,
 } from "../../store/generationStore";
+import { useAppNavigation } from "../../navigation/appNavigation";
 import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
 
@@ -616,7 +616,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
 });
 
 function ImageReferenceTabContent() {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const i2iEnabled = useGenerationStore((state) => state.i2iEnabled);
   const i2iStrength = useGenerationStore((state) => state.i2iStrength);
@@ -638,7 +638,7 @@ function ImageReferenceTabContent() {
 
   function toggleVibe(value: boolean) {
     if (value && vibeReferences.length === 0) {
-      router.push("/vibe-transfer");
+      navigation.navigate("vibeTransfer");
       return;
     }
     setVibeEnabled(value);
@@ -646,7 +646,7 @@ function ImageReferenceTabContent() {
 
   function togglePrecise(value: boolean) {
     if (value && preciseReferences.length === 0) {
-      router.push("/precise-reference");
+      navigation.navigate("preciseReference");
       return;
     }
     setPreciseEnabled(value);
@@ -666,9 +666,9 @@ function ImageReferenceTabContent() {
               : undefined
           }
           thumbnailUri={sourceImage?.uri}
-          onPress={() => router.push("/image-to-image")}
+          onPress={() => navigation.navigate("imageToImage")}
           onToggle={(value) => {
-            if (value && !sourceImage) router.push("/image-to-image");
+            if (value && !sourceImage) navigation.navigate("imageToImage");
             else setI2IEnabled(value);
           }}
         />
@@ -684,7 +684,7 @@ function ImageReferenceTabContent() {
               : undefined
           }
           toggleDisabled={preciseEnabled}
-          onPress={() => router.push("/vibe-transfer")}
+          onPress={() => navigation.navigate("vibeTransfer")}
           onToggle={toggleVibe}
         />
         <View style={styles.settingsGroupDivider} />
@@ -697,7 +697,7 @@ function ImageReferenceTabContent() {
             vibeEnabled ? "Vibe Transfer와 동시에 켤 수 없습니다." : undefined
           }
           toggleDisabled={vibeEnabled}
-          onPress={() => router.push("/precise-reference")}
+          onPress={() => navigation.navigate("preciseReference")}
           onToggle={togglePrecise}
         />
       </View>
@@ -705,7 +705,7 @@ function ImageReferenceTabContent() {
         variant="pill"
         icon="scan-outline"
         label="Metadata Extract"
-        onPress={() => router.push("/metadata-extract")}
+        onPress={() => navigation.navigate("metadataExtract")}
       />
     </View>
   );
@@ -713,7 +713,7 @@ function ImageReferenceTabContent() {
 
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const canAddCharacter = useGenerationStore(
     (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
   );
@@ -851,7 +851,7 @@ export function ImageSettingsScreen() {
             tabs={TABS}
             activeKey={activeTab}
             onChange={handleTabChange}
-            onBack={() => router.back()}
+            onBack={navigation.back}
           />
         </View>
 

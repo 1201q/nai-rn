@@ -37,12 +37,14 @@
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.3",
     "expo-media-library": "~57.0.3",
-    "expo-router": "~57.0.7",
     "expo-secure-store": "~57.0.1",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "html-entities": "2.5.3",
     "jszip": "^3.10.1",
+    "navigation": "6.4.0",
+    "navigation-react": "4.17.0",
+    "navigation-react-native": "9.36.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.0",
@@ -73,7 +75,9 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "modulePathIgnorePatterns": ["<rootDir>/.claude/worktrees/"]
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/worktrees/"
+    ]
   },
   "private": true
 }
