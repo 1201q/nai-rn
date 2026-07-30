@@ -8,14 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  Alert,
-  BackHandler,
-  StyleSheet,
-  Text,
-  View,
-  type AlertButton,
-} from "react-native";
+import { Alert, StyleSheet, Text, View, type AlertButton } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -27,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 
+import { useBackClaim } from "../../modules/back-claim";
 import type { GenerationRecord } from "../lib/generationHistory";
 import {
   parseNaiMetadataJson,
@@ -357,15 +351,11 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     resetTo({ route: IDLE_ROUTE });
   }, [resetTo]);
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (closeAlertOpenRef.current) return false;
-      if (!openRef.current) return false;
-      back();
-      return true;
-    });
-    return () => sub.remove();
-  }, [back]);
+  useBackClaim(isOpen, () => {
+    if (closeAlertOpenRef.current) return;
+    if (!openRef.current) return;
+    back();
+  });
 
   const backdropCloseDisabled = stack[stack.length - 1].route === "batchCount";
   const renderBackdrop = useCallback(

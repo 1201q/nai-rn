@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.backclaim'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.backclaim"
+
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // 앱이 이미 더 높은 버전을 가져오므로 하한만 선언한다.
+  implementation 'androidx.activity:activity:1.9.0'
+}

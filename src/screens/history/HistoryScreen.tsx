@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  BackHandler,
   Pressable,
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import * as MediaLibrary from "expo-media-library";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 
+import { useBackClaim } from "../../../modules/back-claim";
 import { useGenerationStore } from "../../store/generationStore";
 import {
   type GenerationRecord,
@@ -431,33 +431,11 @@ export function HistoryScreen({
     }
   }
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (!isSelectionMode) return false;
-        exitSelectionMode();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [isSelectionMode]);
+  useBackClaim(isSelectionMode, exitSelectionMode);
 
   // 미리보기 하드웨어 백(이전 RN Modal onRequestClose 대체). 시트가 preview 위에
-  // 떠 있으면 시트가 먼저 닫히도록 양보(전역 호스트 핸들러로 넘김).
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (isPreviewOpen && !isSheetOpen) {
-          closePreview();
-          return true;
-        }
-        return false;
-      },
-    );
-    return () => subscription.remove();
-  }, [isPreviewOpen, isSheetOpen]);
+  // 떠 있으면 시트가 먼저 닫히도록 양보(시트 쪽 claim으로 넘김).
+  useBackClaim(isPreviewOpen && !isSheetOpen, closePreview);
 
   useEffect(() => {
     onSelectionModeChange?.(isSelectionMode);

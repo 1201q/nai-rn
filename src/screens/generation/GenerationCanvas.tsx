@@ -1,9 +1,8 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  BackHandler,
   Easing,
   Pressable,
   StyleSheet,
@@ -21,6 +20,7 @@ import {
   useAppSheet,
   useAppSheetOpen,
 } from "../../context/AppSheetContext";
+import { useBackClaim } from "../../../modules/back-claim";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import {
   getI2IEffectiveResolution,
@@ -167,19 +167,7 @@ export function GenerationCanvas() {
     });
   }
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (isImagePreviewOpen && !isSheetOpen) {
-          closeImagePreview();
-          return true;
-        }
-        return false;
-      },
-    );
-    return () => subscription.remove();
-  }, [isImagePreviewOpen, isSheetOpen]);
+  useBackClaim(isImagePreviewOpen && !isSheetOpen, closeImagePreview);
 
   async function saveImage() {
     if (!currentImageUri || isSaving) return;
