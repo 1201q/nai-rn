@@ -87,6 +87,7 @@ export default {
         },
       ],
       "expo-status-bar",
+      "./plugins/withNavigationBackFix",
     ],
     extra: {
       eas: {

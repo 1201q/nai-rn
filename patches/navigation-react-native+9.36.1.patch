@@ -1,0 +1,17 @@
+diff --git a/node_modules/navigation-react-native/navigation.react.native.js b/node_modules/navigation-react-native/navigation.react.native.js
+index 7d47647..49bb3f2 100644
+--- a/node_modules/navigation-react-native/navigation.react.native.js
++++ b/node_modules/navigation-react-native/navigation.react.native.js
+@@ -118,6 +118,12 @@ class Scene extends React__default.Component {
+     }
+     handleBack() {
+         var { navigationEvent } = this.state;
++        var { crumb, navigationEvent: { stateNavigator: currentNavigator } } = this.props;
++        // 팝된 뒤에도 onPopped가 오기 전까지 Scene이 mount된 채로 남는다. 그 사이 stale한
++        // navigationEvent(peek navigator)가 canNavigateBack(1)=true를 반환해 back을 삼켜버리므로,
++        // 현재 최상단 Scene만 back을 처리하게 한다.
++        if (crumb !== currentNavigator.stateContext.crumbs.length)
++            return false;
+         if (navigationEvent && navigationEvent.stateNavigator.canNavigateBack(1)) {
+             navigationEvent.stateNavigator.navigateBack(1);
+             return true;
