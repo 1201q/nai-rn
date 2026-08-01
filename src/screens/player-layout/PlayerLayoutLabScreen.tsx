@@ -511,7 +511,14 @@ export function PlayerLayoutLabScreen() {
     () =>
       Gesture.Pan()
         .enabled(!panelOpen)
-        .minDistance(1)
+        .activeOffsetY([
+          -theme.motion.panActivationOffset,
+          theme.motion.panActivationOffset,
+        ])
+        .failOffsetX([
+          -theme.motion.panHorizontalFailOffset,
+          theme.motion.panHorizontalFailOffset,
+        ])
         .onBegin(() => {
           cancelAnimation(sheetY);
         })
@@ -706,14 +713,14 @@ export function PlayerLayoutLabScreen() {
         style={[styles.scrim, scrimAnimatedStyle]}
       />
 
-      <Reanimated.View
-        style={[
-          styles.generationSheet,
-          { height },
-          sheetAnimatedStyle,
-        ]}
-      >
-        <GestureDetector gesture={sheetPanGesture}>
+      <GestureDetector gesture={sheetPanGesture}>
+        <Reanimated.View
+          style={[
+            styles.generationSheet,
+            { height },
+            sheetAnimatedStyle,
+          ]}
+        >
           <Reanimated.View style={[styles.sheetHeader, headerAnimatedStyle]}>
             <Reanimated.View
               animatedProps={miniAnimatedProps}
@@ -779,11 +786,10 @@ export function PlayerLayoutLabScreen() {
               </View>
             </Reanimated.View>
           </Reanimated.View>
-        </GestureDetector>
 
-        <Reanimated.View
-          style={[styles.sheetThumbnail, thumbnailAnimatedStyle]}
-        >
+          <Reanimated.View
+            style={[styles.sheetThumbnail, thumbnailAnimatedStyle]}
+          >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
@@ -817,7 +823,7 @@ export function PlayerLayoutLabScreen() {
               </>
             )}
           </Pressable>
-        </Reanimated.View>
+          </Reanimated.View>
 
         <Reanimated.View
           animatedProps={dockAnimatedProps}
@@ -928,10 +934,10 @@ export function PlayerLayoutLabScreen() {
           </View>
         </Reanimated.View>
 
-        <Reanimated.View
-          animatedProps={fullContentAnimatedProps}
-          style={[styles.fullBottom, fullContentAnimatedStyle]}
-        >
+          <Reanimated.View
+            animatedProps={fullContentAnimatedProps}
+            style={[styles.fullBottom, fullContentAnimatedStyle]}
+          >
           <LinearGradient
             colors={["transparent", theme.color.sheet]}
             locations={[0, 0.28]}
@@ -982,8 +988,9 @@ export function PlayerLayoutLabScreen() {
               <Text style={styles.fullGenerateCost}>0 Anlas</Text>
             </Pressable>
           </View>
+          </Reanimated.View>
         </Reanimated.View>
-      </Reanimated.View>
+      </GestureDetector>
 
       <Reanimated.View
         pointerEvents="none"

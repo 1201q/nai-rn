@@ -77,5 +77,7 @@ export const playerLayoutTokens = {
     miniFadeMultiplier: 2.2,
     contentFadeStart: 0.45,
     contentFadeRange: 0.55,
+    panActivationOffset: 4,
+    panHorizontalFailOffset: 12,
   },
 } as const;
