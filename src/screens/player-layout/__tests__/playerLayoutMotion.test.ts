@@ -2,6 +2,8 @@ import {
   fadeAfterContentThreshold,
   getContainedImageTarget,
   getDraggedSheetY,
+  getExpandedSheetGeometry,
+  getImageFrame,
   getPanelDragY,
   getPanelProgress,
   getSheetProgress,
@@ -19,14 +21,13 @@ describe("player layout sheet motion", () => {
 
   test("keeps sheet-derived values aligned at the collapsed endpoint", () => {
     expect(getSheetVisuals(0)).toEqual({
-      headerHeight: 76,
+      headerHeight: 68,
       fullHeaderTop: 20,
-      bodyTop: 698,
+      bodyTop: 782,
       scrimOpacity: 0,
       tabBarY: 0,
       tabBarOpacity: 1,
       miniOpacity: 1,
-      homeBarOpacity: 0,
       contentOpacity: 0,
     });
   });
@@ -34,13 +35,12 @@ describe("player layout sheet motion", () => {
   test("keeps sheet-derived values aligned at the expanded endpoint", () => {
     expect(getSheetVisuals(1)).toEqual({
       headerHeight: 130,
-      fullHeaderTop: 74,
-      bodyTop: 608,
+      fullHeaderTop: 54,
+      bodyTop: 692,
       scrimOpacity: 0.55,
       tabBarY: 96,
       tabBarOpacity: 0,
       miniOpacity: 0,
-      homeBarOpacity: 1,
       contentOpacity: 1,
     });
   });
@@ -65,7 +65,8 @@ describe("player layout sheet motion", () => {
   });
 
   test("limits direct dragging to the specified rubber-band range", () => {
-    expect(getDraggedSheetY(0, -100, 700)).toBe(-40);
+    expect(getDraggedSheetY(0, -100, 700)).toBe(0);
+    expect(getDraggedSheetY(700, -800, 700)).toBe(-40);
     expect(getDraggedSheetY(700, 100, 700)).toBe(760);
   });
 
@@ -79,16 +80,16 @@ describe("player layout sheet motion", () => {
     });
     expect(getThumbnailVisuals(0.5)).toEqual({
       left: 13,
-      top: 75,
+      top: 64,
       width: 204,
-      height: 252,
+      height: 306,
       borderRadius: 14,
     });
     expect(getThumbnailVisuals(1)).toEqual({
       left: 14,
-      top: 134,
+      top: 112,
       width: 364,
-      height: 460,
+      height: 568,
       borderRadius: 18,
     });
   });
@@ -96,37 +97,58 @@ describe("player layout sheet motion", () => {
   test("supports a proportionally fitted narrow-screen target", () => {
     expect(getThumbnailVisuals(1, 332, 419)).toEqual({
       left: 14,
-      top: 134,
+      top: 112,
       width: 332,
       height: 419,
       borderRadius: 18,
     });
   });
 
+  test("fits the image and actions above bottom controls without overlap", () => {
+    expect(getExpandedSheetGeometry(864)).toEqual({
+      actionTop: 692,
+      actionTopCollapsed: 782,
+      entryTop: 742,
+      imageFrameHeight: 568,
+    });
+    expect(getExpandedSheetGeometry(800)).toEqual({
+      actionTop: 628,
+      actionTopCollapsed: 718,
+      entryTop: 678,
+      imageFrameHeight: 506,
+    });
+    expect(getImageFrame(402, 568)).toEqual({
+      left: 14,
+      top: 112,
+      width: 364,
+      height: 568,
+    });
+  });
+
   test("contains portrait, landscape, and square images without distortion", () => {
     expect(getContainedImageTarget(402, 832, 1216)).toEqual({
-      left: 39,
-      top: 134,
-      width: 315,
-      height: 460,
+      left: 14,
+      top: 130,
+      width: 364,
+      height: 532,
     });
     expect(getContainedImageTarget(402, 1216, 832)).toEqual({
       left: 14,
-      top: 240,
+      top: 272,
       width: 364,
       height: 249,
     });
     expect(getContainedImageTarget(402, 1024, 1024)).toEqual({
       left: 14,
-      top: 182,
+      top: 214,
       width: 364,
       height: 364,
     });
     expect(getContainedImageTarget(402, 640, 1472)).toEqual({
-      left: 96,
-      top: 134,
-      width: 200,
-      height: 460,
+      left: 73,
+      top: 112,
+      width: 247,
+      height: 568,
     });
   });
 
@@ -139,13 +161,12 @@ describe("player layout sheet motion", () => {
   test("uses q for the second thumbnail morph and content fade", () => {
     expect(getThumbnailVisuals(1, 364, 460, 1)).toEqual({
       left: 14,
-      top: 64,
+      top: 52,
       width: 44,
       height: 44,
       borderRadius: 10,
     });
     expect(getSheetVisuals(1, 1).contentOpacity).toBe(0);
-    expect(getSheetVisuals(1, 1).homeBarOpacity).toBe(1);
   });
 
   test("closes the panel only after dragging beyond 150 pixels", () => {

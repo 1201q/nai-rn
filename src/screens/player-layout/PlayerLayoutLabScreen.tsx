@@ -33,6 +33,7 @@ import { monoFont, tokens } from "../../styles/tokens";
 import {
   getDraggedSheetY,
   getContainedImageTarget,
+  getExpandedSheetGeometry,
   getPanelDragY,
   getPanelProgress,
   getSheetProgress,
@@ -385,10 +386,12 @@ export function PlayerLayoutLabScreen() {
     0,
     height - theme.layout.miniHeight - theme.layout.tabBarHeight,
   );
+  const expandedGeometry = getExpandedSheetGeometry(height);
   const imageTarget = getContainedImageTarget(
     width,
     selectedImage?.width ?? DEFAULT_IMAGE_SIZE.width,
     selectedImage?.height ?? DEFAULT_IMAGE_SIZE.height,
+    expandedGeometry.imageFrameHeight,
   );
   const panelTravel = Math.max(0, height - theme.layout.panelTop);
   const sheetY = useSharedValue(collapsed);
@@ -405,7 +408,12 @@ export function PlayerLayoutLabScreen() {
     ),
   );
   const visuals = useDerivedValue(() =>
-    getSheetVisuals(progress.value, panelProgress.value),
+    getSheetVisuals(
+      progress.value,
+      panelProgress.value,
+      expandedGeometry.actionTop,
+      expandedGeometry.actionTopCollapsed,
+    ),
   );
 
   useEffect(() => {
@@ -442,9 +450,6 @@ export function PlayerLayoutLabScreen() {
   const tabBarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: visuals.value.tabBarOpacity,
     transform: [{ translateY: visuals.value.tabBarY }],
-  }));
-  const homeBarAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: visuals.value.homeBarOpacity,
   }));
   const thumbnailAnimatedStyle = useAnimatedStyle(() =>
     getThumbnailVisuals(
@@ -992,11 +997,6 @@ export function PlayerLayoutLabScreen() {
         </Reanimated.View>
       </GestureDetector>
 
-      <Reanimated.View
-        pointerEvents="none"
-        style={[styles.homeBarBackground, homeBarAnimatedStyle]}
-      />
-
       <BottomTabs
         activeTab={activeTab}
         animatedProps={tabBarAnimatedProps}
@@ -1051,11 +1051,11 @@ const styles = StyleSheet.create({
   },
   miniBarPressTarget: {
     flex: 1,
-    paddingTop: 16,
     paddingRight: 12,
     paddingLeft: 68,
+    paddingBottom: theme.layout.miniBottomGap,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 12,
   },
   miniCopy: {
@@ -1280,7 +1280,7 @@ const styles = StyleSheet.create({
     zIndex: 14,
     paddingTop: 12,
     paddingBottom: theme.layout.fullBottomPadding,
-    gap: 12,
+    gap: theme.layout.fullBottomGap,
   },
   entryBadges: {
     paddingHorizontal: theme.layout.mainInset,
@@ -1328,15 +1328,6 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.semibold,
     fontSize: 13,
     opacity: 0.65,
-  },
-  homeBarBackground: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 45,
-    height: theme.layout.homeBarHeight,
-    backgroundColor: theme.color.sheet,
   },
   scrollContent: {
     paddingBottom: theme.layout.contentBottom,

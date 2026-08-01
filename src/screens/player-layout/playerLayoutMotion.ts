@@ -22,9 +22,11 @@ export function getDraggedSheetY(
   collapsed: number,
 ) {
   "worklet";
+  const minSheetY = base <= 0 ? 0 : theme.motion.openThreshold;
+
   return clamp(
     base + translationY,
-    theme.motion.openThreshold,
+    minSheetY,
     collapsed + theme.motion.closedRubberBand,
   );
 }
@@ -60,36 +62,85 @@ export function shouldClosePanel(translationY: number) {
   return translationY > theme.motion.panelCloseThreshold;
 }
 
-export function getContainedImageTarget(
+export function getImageFrame(
   viewportWidth: number,
-  sourceWidth: number,
-  sourceHeight: number,
+  maxFrameHeight: number = theme.layout.fullImageHeight,
 ) {
   "worklet";
   const frameWidth = Math.min(
     theme.layout.fullImageWidth,
     Math.max(0, viewportWidth - theme.layout.mainInset * 2),
   );
-  const frameHeight =
+  const frameHeight = Math.min(
+    maxFrameHeight,
     (frameWidth / theme.layout.fullImageWidth) *
-    theme.layout.fullImageHeight;
+      theme.layout.fullImageHeight,
+  );
   const frameLeft = theme.layout.fullImageLeft;
+
+  return {
+    left: Math.round(frameLeft),
+    top: theme.layout.fullImageTop,
+    width: Math.round(frameWidth),
+    height: Math.round(frameHeight),
+  };
+}
+
+export function getContainedImageTarget(
+  viewportWidth: number,
+  sourceWidth: number,
+  sourceHeight: number,
+  maxFrameHeight: number = theme.layout.fullImageHeight,
+) {
+  "worklet";
+  const frame = getImageFrame(viewportWidth, maxFrameHeight);
   const safeSourceWidth = Math.max(1, sourceWidth);
   const safeSourceHeight = Math.max(1, sourceHeight);
   const scale = Math.min(
-    frameWidth / safeSourceWidth,
-    frameHeight / safeSourceHeight,
+    frame.width / safeSourceWidth,
+    frame.height / safeSourceHeight,
   );
   const width = Math.round(safeSourceWidth * scale);
   const height = Math.round(safeSourceHeight * scale);
 
   return {
-    left: Math.round(frameLeft + (frameWidth - width) / 2),
-    top: Math.round(
-      theme.layout.fullImageTop + (frameHeight - height) / 2,
-    ),
+    left: Math.round(frame.left + (frame.width - width) / 2),
+    top: Math.round(frame.top + (frame.height - height) / 2),
     width,
     height,
+  };
+}
+
+export function getExpandedSheetGeometry(viewportHeight: number) {
+  "worklet";
+  const entryTop =
+    viewportHeight -
+    theme.layout.fullBottomPadding -
+    theme.layout.fullGenerateHeight -
+    theme.layout.fullBottomGap -
+    theme.layout.entryChipHeight;
+  const actionTop = Math.round(
+    entryTop -
+      theme.layout.imageActionToEntryGap -
+      theme.layout.imageActionHeight,
+  );
+  const imageFrameHeight = Math.round(
+    Math.min(
+      theme.layout.fullImageHeight,
+      Math.max(
+        theme.layout.miniImageSize,
+        actionTop -
+          theme.layout.imageToActionGap -
+          theme.layout.fullImageTop,
+      ),
+    ),
+  );
+
+  return {
+    actionTop,
+    actionTopCollapsed: actionTop + theme.layout.actionTravel,
+    entryTop: Math.round(entryTop),
+    imageFrameHeight,
   };
 }
 
@@ -150,7 +201,12 @@ export function getThumbnailVisuals(
   };
 }
 
-export function getSheetVisuals(progress: number, panelProgress = 0) {
+export function getSheetVisuals(
+  progress: number,
+  panelProgress = 0,
+  actionTopExpanded: number = theme.layout.actionTopExpanded,
+  actionTopCollapsed: number = theme.layout.actionTopCollapsed,
+) {
   "worklet";
   const p = clamp(progress, 0, 1);
   const q = clamp(panelProgress, 0, 1);
@@ -170,16 +226,15 @@ export function getSheetVisuals(progress: number, panelProgress = 0) {
             theme.layout.fullHeaderTopCollapsed),
     ),
     bodyTop: Math.round(
-      theme.layout.actionTopExpanded +
+      actionTopExpanded +
         (1 - p) *
-          (theme.layout.actionTopCollapsed - theme.layout.actionTopExpanded),
+          (actionTopCollapsed - actionTopExpanded),
     ),
     scrimOpacity: p * theme.motion.scrimMaxOpacity,
     tabBarY: Math.round(p * theme.layout.tabBarTravel),
     tabBarOpacity:
       1 - Math.min(1, p * theme.motion.tabBarFadeMultiplier),
     miniOpacity: 1 - Math.min(1, p * theme.motion.miniFadeMultiplier),
-    homeBarOpacity: fadeAfterContentThreshold(p),
     contentOpacity,
   };
 }
