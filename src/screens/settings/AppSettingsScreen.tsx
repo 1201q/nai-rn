@@ -215,39 +215,37 @@ export function AppSettingsScreen() {
               </View>
             ) : null}
 
-            {__DEV__ ? (
-              <View style={styles.experimentsSection}>
-                <Text style={styles.sectionLabel}>EXPERIMENTS</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Player Layout Lab 열기"
-                  onPress={() => router.push("/player-layout-lab")}
-                  style={({ pressed }) => [
-                    styles.experimentRow,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.cardIcon}>
-                    <Ionicons
-                      name="albums-outline"
-                      size={19}
-                      color={tokens.color.accent}
-                    />
-                  </View>
-                  <View style={styles.cardCopy}>
-                    <Text style={styles.cardTitle}>Player Layout Lab</Text>
-                    <Text style={styles.cardDescription}>
-                      3단계 제스처 레이아웃 프로토타입
-                    </Text>
-                  </View>
+            <View style={styles.experimentsSection}>
+              <Text style={styles.sectionLabel}>EXPERIMENTS</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Player Layout Lab 열기"
+                onPress={() => router.push("/player-layout-lab")}
+                style={({ pressed }) => [
+                  styles.experimentRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.cardIcon}>
                   <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={tokens.color.textMuted}
+                    name="albums-outline"
+                    size={19}
+                    color={tokens.color.accent}
                   />
-                </Pressable>
-              </View>
-            ) : null}
+                </View>
+                <View style={styles.cardCopy}>
+                  <Text style={styles.cardTitle}>Player Layout Lab</Text>
+                  <Text style={styles.cardDescription}>
+                    3단계 제스처 레이아웃 프로토타입
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={tokens.color.textMuted}
+                />
+              </Pressable>
+            </View>
           </View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
