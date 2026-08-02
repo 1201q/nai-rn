@@ -31,6 +31,10 @@ import { toast } from "sonner-native";
 
 import { monoFont, tokens } from "../../styles/tokens";
 import {
+  PlayerDetailPanelContent,
+  type PlayerPanelTab,
+} from "./PlayerDetailPanelContent";
+import {
   getDraggedSheetY,
   getContainedImageTarget,
   getExpandedSheetGeometry,
@@ -45,7 +49,7 @@ import {
 import { playerLayoutTokens as theme } from "./playerLayoutTokens";
 
 type LabTab = "main" | "history" | "settings";
-type PanelTab = "prompt" | "settings" | "character" | "imageRef";
+type PanelTab = PlayerPanelTab;
 type IconName = keyof typeof Ionicons.glyphMap;
 type SelectedImage = {
   uri: string;
@@ -900,17 +904,12 @@ export function PlayerLayoutLabScreen() {
               </View>
             </Reanimated.View>
           </GestureDetector>
-          <View style={styles.panelShellBody}>
-            <Ionicons
-              name="swap-vertical-outline"
-              size={28}
-              color={theme.color.accent}
+          {panelOpen ? (
+            <PlayerDetailPanelContent
+              activeTab={panelTab}
+              onSelectTab={setPanelTab}
             />
-            <Text style={styles.panelShellTitle}>Motion shell</Text>
-            <Text style={styles.panelShellDescription}>
-              패널 콘텐츠 없이 2단계 morph와 닫기 제스처만 검증합니다.
-            </Text>
-          </View>
+          ) : null}
         </Reanimated.View>
 
         <Reanimated.View
@@ -1217,31 +1216,6 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  panelShellBody: {
-    marginHorizontal: theme.layout.panelInset,
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 28,
-    alignItems: "center",
-    gap: 8,
-    borderRadius: theme.radius.panelCard,
-    borderWidth: 1,
-    borderColor: theme.color.borderSubtle,
-    backgroundColor: theme.color.card,
-  },
-  panelShellTitle: {
-    color: theme.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 16,
-  },
-  panelShellDescription: {
-    maxWidth: 260,
-    color: theme.color.textTertiary,
-    fontFamily: tokens.font.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
   },
   imageActionsRow: {
     position: "absolute",

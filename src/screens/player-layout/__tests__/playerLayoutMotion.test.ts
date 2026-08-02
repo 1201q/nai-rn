@@ -175,4 +175,5 @@ describe("player layout sheet motion", () => {
     expect(getPanelDragY(-20, 738)).toBe(0);
     expect(getPanelDragY(800, 738)).toBe(738);
   });
+
 });
