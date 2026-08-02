@@ -1,12 +1,19 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { monoFont, tokens } from "../../styles/tokens";
 import { playerLayoutTokens as theme } from "./playerLayoutTokens";
@@ -19,6 +26,8 @@ export type PlayerPanelTab =
 export type PlayerPanelDetail = "model";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+const PANEL_CONTENT_EASING = Easing.bezier(...theme.motion.easing);
 
 const PANEL_TABS: ReadonlyArray<{
   id: PlayerPanelTab;
@@ -668,9 +677,43 @@ export function PlayerDetailPanelContent({
   onSelectTab: (tab: PlayerPanelTab) => void;
   onOpenModel: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const detailProgress = useSharedValue(activeDetail ? 1 : 0);
+
+  useEffect(() => {
+    detailProgress.value = withTiming(activeDetail ? 1 : 0, {
+      duration: theme.motion.fadeDuration,
+      easing: PANEL_CONTENT_EASING,
+    });
+  }, [activeDetail, detailProgress]);
+
+  const rootScreenAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: 1 - detailProgress.value,
+    transform: [
+      {
+        translateX: Math.round(-width * 0.2 * detailProgress.value),
+      },
+    ],
+  }));
+  const detailScreenAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: detailProgress.value,
+    transform: [
+      {
+        translateX: Math.round(width * (1 - detailProgress.value)),
+      },
+    ],
+  }));
+
   return (
     <View style={styles.panelContent}>
-      {activeDetail === null ? (
+      <Reanimated.View
+        accessibilityElementsHidden={activeDetail !== null}
+        importantForAccessibility={
+          activeDetail === null ? "auto" : "no-hide-descendants"
+        }
+        pointerEvents={activeDetail === null ? "auto" : "none"}
+        style={[styles.panelScreen, rootScreenAnimatedStyle]}
+      >
         <View accessibilityRole="tablist" style={styles.panelTabs}>
           {PANEL_TABS.map((tab) => {
             const active = tab.id === activeTab;
@@ -707,33 +750,60 @@ export function PlayerDetailPanelContent({
             );
           })}
         </View>
-      ) : null}
 
-      <ScrollView
-        key={activeDetail ?? activeTab}
-        bounces={false}
-        nestedScrollEnabled
-        overScrollMode="never"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        style={[
-          styles.panelScroll,
-          activeDetail && styles.panelDetailScroll,
-        ]}
-        contentContainerStyle={styles.panelScrollContent}
-      >
-        {activeDetail === "model" ? (
-          <ModelContent />
-        ) : (
+        <ScrollView
+          key={activeTab}
+          bounces={false}
+          nestedScrollEnabled
+          overScrollMode="never"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={styles.panelScroll}
+          contentContainerStyle={styles.panelScrollContent}
+        >
           <PanelBody tab={activeTab} onOpenModel={onOpenModel} />
-        )}
-      </ScrollView>
+        </ScrollView>
+      </Reanimated.View>
+
+      <Reanimated.View
+        accessibilityElementsHidden={activeDetail === null}
+        importantForAccessibility={
+          activeDetail === null ? "no-hide-descendants" : "auto"
+        }
+        pointerEvents={activeDetail === null ? "none" : "auto"}
+        style={[
+          styles.panelScreen,
+          styles.panelDetailScreen,
+          detailScreenAnimatedStyle,
+        ]}
+      >
+        <ScrollView
+          bounces={false}
+          nestedScrollEnabled
+          overScrollMode="never"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={[styles.panelScroll, styles.panelDetailScroll]}
+          contentContainerStyle={styles.panelScrollContent}
+        >
+          <ModelContent />
+        </ScrollView>
+      </Reanimated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  panelContent: { flex: 1 },
+  panelContent: { flex: 1, overflow: "hidden" },
+  panelScreen: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.color.panel,
+  },
+  panelDetailScreen: { zIndex: 1 },
   panelTabs: {
     height: 44,
     paddingHorizontal: theme.layout.panelInset,
