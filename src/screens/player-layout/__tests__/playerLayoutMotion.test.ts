@@ -106,16 +106,16 @@ describe("player layout sheet motion", () => {
 
   test("fits the image and actions above bottom controls without overlap", () => {
     expect(getExpandedSheetGeometry(864)).toEqual({
-      actionTop: 692,
-      actionTopCollapsed: 782,
-      entryTop: 742,
+      actionTop: 734,
+      actionTopCollapsed: 824,
+      controlsTop: 790,
       imageFrameHeight: 568,
     });
     expect(getExpandedSheetGeometry(800)).toEqual({
-      actionTop: 628,
-      actionTopCollapsed: 718,
-      entryTop: 678,
-      imageFrameHeight: 506,
+      actionTop: 670,
+      actionTopCollapsed: 760,
+      controlsTop: 726,
+      imageFrameHeight: 548,
     });
     expect(getImageFrame(402, 568)).toEqual({
       left: 14,

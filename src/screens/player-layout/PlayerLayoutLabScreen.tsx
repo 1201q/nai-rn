@@ -102,37 +102,6 @@ const IMAGE_ACTIONS: IconName[] = [
   "dice-outline",
   "information-circle-outline",
 ];
-const ENTRY_BADGES: Array<{
-  id: PanelTab;
-  icon: IconName;
-  label: string;
-  value: string;
-}> = [
-  {
-    id: "prompt",
-    icon: "document-text-outline",
-    label: "프롬프트",
-    value: "142",
-  },
-  {
-    id: "settings",
-    icon: "settings-outline",
-    label: "설정",
-    value: "28 · 5.0",
-  },
-  {
-    id: "character",
-    icon: "person-outline",
-    label: "캐릭터",
-    value: "2",
-  },
-  {
-    id: "imageRef",
-    icon: "options-outline",
-    label: "고급 기능",
-    value: "0",
-  },
-];
 const PANEL_TITLES: Record<PanelTab, string> = {
   prompt: "프롬프트",
   settings: "설정",
@@ -932,15 +901,14 @@ export function PlayerLayoutLabScreen() {
             animatedProps={fullContentAnimatedProps}
             style={[styles.imageActionsRow, imageActionsAnimatedStyle]}
           >
-            <View style={styles.imageActionsPill}>
-              {IMAGE_ACTIONS.map((icon, index) => (
+            <View style={styles.imageActionsGroup}>
+              {IMAGE_ACTIONS.map((icon) => (
                 <Pressable
                   key={icon}
                   accessibilityRole="button"
                   accessibilityLabel={icon}
                   style={({ pressed }) => [
                     styles.imageAction,
-                    index > 0 && styles.imageActionDivider,
                     pressed && styles.pressed,
                   ]}
                 >
@@ -964,33 +932,22 @@ export function PlayerLayoutLabScreen() {
               pointerEvents="none"
               style={StyleSheet.absoluteFill}
             />
-            <ScrollView
-              horizontal
-              contentContainerStyle={styles.entryBadges}
-              showsHorizontalScrollIndicator={false}
-            >
-              {ENTRY_BADGES.map((badge) => (
-                <Pressable
-                  key={badge.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={badge.label}
-                  onPress={() => openPanel(badge.id)}
-                  style={({ pressed }) => [
-                    styles.entryBadge,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name={badge.icon}
-                    size={15}
-                    color={theme.color.textSecondary}
-                  />
-                  <Text style={styles.entryBadgeLabel}>{badge.label}</Text>
-                  <Text style={styles.entryBadgeValue}>{badge.value}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
             <View style={styles.fullGenerateWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="생성 세부 설정 열기"
+                onPress={() => openPanel(panelTab)}
+                style={({ pressed }) => [
+                  styles.panelEntryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={22}
+                  color={theme.color.textSecondary}
+                />
+              </Pressable>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Generate placeholder"
@@ -1251,26 +1208,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.layout.mainInset,
     alignItems: "flex-end",
   },
-  imageActionsPill: {
+  imageActionsGroup: {
     height: theme.layout.imageActionHeight,
-    paddingHorizontal: 2,
     flexDirection: "row",
     alignItems: "center",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: theme.color.borderSubtle,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.card,
+    gap: 8,
   },
   imageAction: {
     width: 40,
     height: theme.layout.imageActionHeight,
     alignItems: "center",
     justifyContent: "center",
-  },
-  imageActionDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: theme.color.borderSubtle,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.color.borderSubtle,
+    backgroundColor: theme.color.raised,
   },
   fullBottom: {
     position: "absolute",
@@ -1280,34 +1232,21 @@ const styles = StyleSheet.create({
     zIndex: 14,
     paddingTop: 12,
     paddingBottom: theme.layout.fullBottomPadding,
-    gap: theme.layout.fullBottomGap,
-  },
-  entryBadges: {
-    paddingHorizontal: theme.layout.mainInset,
-    gap: 8,
-  },
-  entryBadge: {
-    height: theme.layout.entryChipHeight,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.raised,
-  },
-  entryBadgeLabel: {
-    color: theme.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 12.5,
-  },
-  entryBadgeValue: {
-    color: theme.color.textMuted,
-    fontFamily: monoFont,
-    fontSize: 11,
   },
   fullGenerateWrap: {
     height: theme.layout.fullGenerateHeight,
     paddingHorizontal: theme.layout.mainInset,
+    flexDirection: "row",
+    gap: 10,
+  },
+  panelEntryButton: {
+    width: theme.layout.fullGenerateHeight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.color.borderSubtle,
+    backgroundColor: theme.color.raised,
   },
   fullGenerateButton: {
     flex: 1,

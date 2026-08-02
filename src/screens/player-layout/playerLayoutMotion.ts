@@ -113,15 +113,13 @@ export function getContainedImageTarget(
 
 export function getExpandedSheetGeometry(viewportHeight: number) {
   "worklet";
-  const entryTop =
+  const controlsTop =
     viewportHeight -
     theme.layout.fullBottomPadding -
-    theme.layout.fullGenerateHeight -
-    theme.layout.fullBottomGap -
-    theme.layout.entryChipHeight;
+    theme.layout.fullGenerateHeight;
   const actionTop = Math.round(
-    entryTop -
-      theme.layout.imageActionToEntryGap -
+    controlsTop -
+      theme.layout.imageActionToControlsGap -
       theme.layout.imageActionHeight,
   );
   const imageFrameHeight = Math.round(
@@ -139,7 +137,7 @@ export function getExpandedSheetGeometry(viewportHeight: number) {
   return {
     actionTop,
     actionTopCollapsed: actionTop + theme.layout.actionTravel,
-    entryTop: Math.round(entryTop),
+    controlsTop: Math.round(controlsTop),
     imageFrameHeight,
   };
 }

@@ -56,11 +56,9 @@ export const playerLayoutTokens = {
     actionTravel: 90,
     tabBarTravel: 96,
     fullBottomPadding: 20,
-    imageActionHeight: 34,
+    imageActionHeight: 40,
     imageToActionGap: 10,
-    imageActionToEntryGap: 16,
-    entryChipHeight: 36,
-    fullBottomGap: 12,
+    imageActionToControlsGap: 16,
     fullGenerateHeight: 54,
   },
   radius: {
