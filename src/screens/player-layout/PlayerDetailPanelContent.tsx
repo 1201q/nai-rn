@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,10 +9,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
+  cancelAnimation,
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { monoFont, tokens } from "../../styles/tokens";
@@ -666,6 +669,70 @@ function PanelBody({
   }
 }
 
+type PanelTabScreenRole = "incoming" | "outgoing" | "hidden";
+
+function AnimatedPanelTabScreen({
+  tab,
+  role,
+  direction,
+  progress,
+  width,
+  onOpenModel,
+}: {
+  tab: PlayerPanelTab;
+  role: PanelTabScreenRole;
+  direction: SharedValue<number>;
+  progress: SharedValue<number>;
+  width: number;
+  onOpenModel: () => void;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    if (role === "hidden") {
+      return {
+        opacity: 0,
+        transform: [{ translateX: 0 }],
+      };
+    }
+
+    const value = progress.value;
+    const translateX =
+      role === "incoming"
+        ? width * 0.2 * direction.value * (1 - value)
+        : -width * 0.2 * direction.value * value;
+
+    return {
+      opacity: role === "incoming" ? value : 1 - value,
+      transform: [{ translateX: Math.round(translateX) }],
+    };
+  });
+  const active = role === "incoming";
+
+  return (
+    <Reanimated.View
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+      pointerEvents={active ? "auto" : "none"}
+      style={[
+        styles.panelTabScreen,
+        role === "incoming" && styles.panelTabIncomingScreen,
+        animatedStyle,
+      ]}
+    >
+      <ScrollView
+        bounces={false}
+        nestedScrollEnabled
+        overScrollMode="never"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={styles.panelTabScroll}
+        contentContainerStyle={styles.panelScrollContent}
+      >
+        <PanelBody tab={tab} onOpenModel={onOpenModel} />
+      </ScrollView>
+    </Reanimated.View>
+  );
+}
+
 export function PlayerDetailPanelContent({
   activeTab,
   activeDetail,
@@ -679,6 +746,14 @@ export function PlayerDetailPanelContent({
 }) {
   const { width } = useWindowDimensions();
   const detailProgress = useSharedValue(activeDetail ? 1 : 0);
+  const tabTransitionProgress = useSharedValue(1);
+  const tabTransitionDirection = useSharedValue(1);
+  const [displayedTab, setDisplayedTab] = useState(activeTab);
+  const [outgoingTab, setOutgoingTab] = useState<PlayerPanelTab | null>(null);
+
+  const clearOutgoingTab = useCallback(() => {
+    setOutgoingTab(null);
+  }, []);
 
   useEffect(() => {
     detailProgress.value = withTiming(activeDetail ? 1 : 0, {
@@ -686,6 +761,36 @@ export function PlayerDetailPanelContent({
       easing: PANEL_CONTENT_EASING,
     });
   }, [activeDetail, detailProgress]);
+
+  useEffect(() => {
+    if (activeTab === displayedTab) return;
+
+    cancelAnimation(tabTransitionProgress);
+    tabTransitionDirection.value =
+      PANEL_TABS.findIndex((tab) => tab.id === activeTab) >
+      PANEL_TABS.findIndex((tab) => tab.id === displayedTab)
+        ? 1
+        : -1;
+    tabTransitionProgress.value = 0;
+    setOutgoingTab(displayedTab);
+    setDisplayedTab(activeTab);
+    tabTransitionProgress.value = withTiming(
+      1,
+      {
+        duration: theme.motion.fadeDuration,
+        easing: PANEL_CONTENT_EASING,
+      },
+      (finished) => {
+        if (finished) runOnJS(clearOutgoingTab)();
+      },
+    );
+  }, [
+    activeTab,
+    clearOutgoingTab,
+    displayedTab,
+    tabTransitionDirection,
+    tabTransitionProgress,
+  ]);
 
   const rootScreenAnimatedStyle = useAnimatedStyle(() => ({
     opacity: 1 - detailProgress.value,
@@ -751,18 +856,28 @@ export function PlayerDetailPanelContent({
           })}
         </View>
 
-        <ScrollView
-          key={activeTab}
-          bounces={false}
-          nestedScrollEnabled
-          overScrollMode="never"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          style={styles.panelScroll}
-          contentContainerStyle={styles.panelScrollContent}
-        >
-          <PanelBody tab={activeTab} onOpenModel={onOpenModel} />
-        </ScrollView>
+        <View style={styles.panelTabViewport}>
+          {PANEL_TABS.map((tab) => {
+            const role: PanelTabScreenRole =
+              tab.id === displayedTab
+                ? "incoming"
+                : tab.id === outgoingTab
+                  ? "outgoing"
+                  : "hidden";
+
+            return (
+              <AnimatedPanelTabScreen
+                key={tab.id}
+                tab={tab.id}
+                role={role}
+                direction={tabTransitionDirection}
+                progress={tabTransitionProgress}
+                width={width}
+                onOpenModel={onOpenModel}
+              />
+            );
+          })}
+        </View>
       </Reanimated.View>
 
       <Reanimated.View
@@ -834,6 +949,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   panelTabLabelActive: { color: theme.color.onAccent },
+  panelTabViewport: {
+    flex: 1,
+    marginTop: 10,
+    overflow: "hidden",
+  },
+  panelTabScreen: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.color.panel,
+  },
+  panelTabIncomingScreen: { zIndex: 1 },
+  panelTabScroll: { flex: 1 },
   panelScroll: { flex: 1, marginTop: 10 },
   panelDetailScroll: { marginTop: 0 },
   panelScrollContent: {
