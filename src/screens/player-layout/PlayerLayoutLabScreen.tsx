@@ -32,6 +32,7 @@ import { toast } from "sonner-native";
 import { monoFont, tokens } from "../../styles/tokens";
 import {
   PlayerDetailPanelContent,
+  type PlayerPanelDetail,
   type PlayerPanelTab,
 } from "./PlayerDetailPanelContent";
 import {
@@ -383,7 +384,12 @@ export function PlayerLayoutLabScreen() {
   const [expanded, setExpanded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("settings");
-  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [panelDetail, setPanelDetail] = useState<PlayerPanelDetail | null>(
+    null,
+  );
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
+    null,
+  );
   const [imagePickerBusy, setImagePickerBusy] = useState(false);
   const tileWidth = (width - 4) / 3;
   const collapsed = Math.max(
@@ -404,12 +410,7 @@ export function PlayerLayoutLabScreen() {
     getSheetProgress(sheetY.value, collapsed),
   );
   const panelProgress = useDerivedValue(() =>
-    getPanelProgress(
-      panelOpen,
-      panelDrag.value,
-      panelTravel,
-      progress.value,
-    ),
+    getPanelProgress(panelOpen, panelDrag.value, panelTravel, progress.value),
   );
   const visuals = useDerivedValue(() =>
     getSheetVisuals(
@@ -483,8 +484,7 @@ export function PlayerLayoutLabScreen() {
     pointerEvents: progress.value > 0.5 ? ("none" as const) : ("auto" as const),
   }));
   const miniAnimatedProps = useAnimatedProps(() => ({
-    pointerEvents:
-      progress.value > 0.4 ? ("none" as const) : ("auto" as const),
+    pointerEvents: progress.value > 0.4 ? ("none" as const) : ("auto" as const),
   }));
   const fullContentAnimatedProps = useAnimatedProps(() => ({
     pointerEvents:
@@ -533,17 +533,10 @@ export function PlayerLayoutLabScreen() {
         })
         .onUpdate((event) => {
           const base = expanded ? 0 : collapsed;
-          sheetY.value = getDraggedSheetY(
-            base,
-            event.translationY,
-            collapsed,
-          );
+          sheetY.value = getDraggedSheetY(base, event.translationY, collapsed);
         })
         .onEnd((event) => {
-          const nextExpanded = shouldExpandSheet(
-            expanded,
-            event.translationY,
-          );
+          const nextExpanded = shouldExpandSheet(expanded, event.translationY);
           sheetY.value = withTiming(nextExpanded ? 0 : collapsed, {
             duration: theme.motion.sheetDuration,
             easing: SHEET_EASING,
@@ -566,6 +559,7 @@ export function PlayerLayoutLabScreen() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setPanelOpen(false);
+        setPanelDetail(null);
         panelDrag.value = panelTravel;
       });
     });
@@ -589,6 +583,10 @@ export function PlayerLayoutLabScreen() {
         "hardwareBackPress",
         () => {
           if (panelOpen) {
+            if (panelDetail) {
+              setPanelDetail(null);
+              return true;
+            }
             closePanel();
             return true;
           }
@@ -601,13 +599,14 @@ export function PlayerLayoutLabScreen() {
       );
 
       return () => subscription.remove();
-    }, [closePanel, closeSheet, expanded, panelOpen]),
+    }, [closePanel, closeSheet, expanded, panelDetail, panelOpen]),
   );
   const openPanel = useCallback(
     (nextTab: PanelTab) => {
       cancelAnimation(panelDrag);
       panelDrag.value = panelTravel;
       setPanelTab(nextTab);
+      setPanelDetail(null);
       setPanelOpen(true);
       requestAnimationFrame(() => {
         panelDrag.value = withTiming(0, {
@@ -708,9 +707,7 @@ export function PlayerLayoutLabScreen() {
         pointerEvents={expanded ? "none" : "auto"}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === "main" ? (
-          <MainTab onOpenSheet={openSheet} />
-        ) : null}
+        {activeTab === "main" ? <MainTab onOpenSheet={openSheet} /> : null}
         {activeTab === "history" ? (
           <HistoryTab tileWidth={tileWidth} onOpenSheet={openSheet} />
         ) : null}
@@ -724,11 +721,7 @@ export function PlayerLayoutLabScreen() {
 
       <GestureDetector gesture={sheetPanGesture}>
         <Reanimated.View
-          style={[
-            styles.generationSheet,
-            { height },
-            sheetAnimatedStyle,
-          ]}
+          style={[styles.generationSheet, { height }, sheetAnimatedStyle]}
         >
           <Reanimated.View style={[styles.sheetHeader, headerAnimatedStyle]}>
             <Reanimated.View
@@ -799,199 +792,222 @@ export function PlayerLayoutLabScreen() {
           <Reanimated.View
             style={[styles.sheetThumbnail, thumbnailAnimatedStyle]}
           >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              panelOpen ? "디테일 패널 닫기" : "테스트 이미지 선택"
-            }
-            accessibilityState={{ disabled: imagePickerBusy }}
-            disabled={imagePickerBusy}
-            onPress={handleImagePress}
-            style={({ pressed }) => [
-              styles.imagePressTarget,
-              pressed && styles.pressed,
-            ]}
-          >
-            {selectedImage ? (
-              <ExpoImage
-                contentFit="cover"
-                source={{ uri: selectedImage.uri }}
-                style={StyleSheet.absoluteFill}
-                transition={0}
-              />
-            ) : (
-              <>
-                <StripePlaceholder />
-                <View pointerEvents="none" style={styles.imagePickerHint}>
-                  <Ionicons
-                    name="image-outline"
-                    size={18}
-                    color={theme.color.textTertiary}
-                  />
-                </View>
-              </>
-            )}
-          </Pressable>
-          </Reanimated.View>
-
-        <Reanimated.View
-          animatedProps={dockAnimatedProps}
-          style={[styles.panelDock, dockAnimatedStyle]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="디테일 패널 닫기"
-            onPress={closePanel}
-            style={({ pressed }) => [
-              styles.panelDockPressTarget,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.panelDockCopy}>
-              <Text numberOfLines={1} style={styles.miniTitle}>
-                NAI Diffusion Anime V4.5 · Full
-              </Text>
-              <Text numberOfLines={1} style={styles.miniMeta}>
-                {selectedImage?.width ?? DEFAULT_IMAGE_SIZE.width} x{" "}
-                {selectedImage?.height ?? DEFAULT_IMAGE_SIZE.height} · 28 steps
-              </Text>
-            </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Generate placeholder"
-              onPress={(event) => event.stopPropagation()}
+              accessibilityLabel={
+                panelOpen ? "디테일 패널 닫기" : "테스트 이미지 선택"
+              }
+              accessibilityState={{ disabled: imagePickerBusy }}
+              disabled={imagePickerBusy}
+              onPress={handleImagePress}
               style={({ pressed }) => [
-                styles.dockGenerateButton,
+                styles.imagePressTarget,
                 pressed && styles.pressed,
               ]}
             >
-              <Ionicons
-                name="sparkles"
-                size={17}
-                color={theme.color.onAccent}
-              />
+              {selectedImage ? (
+                <ExpoImage
+                  contentFit="cover"
+                  source={{ uri: selectedImage.uri }}
+                  style={StyleSheet.absoluteFill}
+                  transition={0}
+                />
+              ) : (
+                <>
+                  <StripePlaceholder />
+                  <View pointerEvents="none" style={styles.imagePickerHint}>
+                    <Ionicons
+                      name="image-outline"
+                      size={18}
+                      color={theme.color.textTertiary}
+                    />
+                  </View>
+                </>
+              )}
             </Pressable>
-          </Pressable>
-        </Reanimated.View>
+          </Reanimated.View>
 
-        <Reanimated.View
-          animatedProps={panelAnimatedProps}
-          style={[styles.detailPanel, panelAnimatedStyle]}
-        >
-          <GestureDetector gesture={panelPanGesture}>
-            <Reanimated.View style={styles.detailPanelHeader}>
-              <View style={styles.panelHandleArea}>
-                <View style={styles.panelHandle} />
+          <Reanimated.View
+            animatedProps={dockAnimatedProps}
+            style={[styles.panelDock, dockAnimatedStyle]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="디테일 패널 닫기"
+              onPress={closePanel}
+              style={({ pressed }) => [
+                styles.panelDockPressTarget,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.panelDockCopy}>
+                <Text numberOfLines={1} style={styles.miniTitle}>
+                  NAI Diffusion Anime V4.5 · Full
+                </Text>
+                <Text numberOfLines={1} style={styles.miniMeta}>
+                  {selectedImage?.width ?? DEFAULT_IMAGE_SIZE.width} x{" "}
+                  {selectedImage?.height ?? DEFAULT_IMAGE_SIZE.height} · 28
+                  steps
+                </Text>
               </View>
-              <View style={styles.panelTitleRow}>
-                <Text style={styles.panelTitle}>{PANEL_TITLES[panelTab]}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="디테일 패널 닫기"
-                  hitSlop={8}
-                  onPress={closePanel}
-                  style={({ pressed }) => [
-                    styles.panelCloseButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={theme.color.textSecondary}
-                  />
-                </Pressable>
-              </View>
-            </Reanimated.View>
-          </GestureDetector>
-          {panelOpen ? (
-            <PlayerDetailPanelContent
-              activeTab={panelTab}
-              onSelectTab={setPanelTab}
-            />
-          ) : null}
-        </Reanimated.View>
-
-        <Reanimated.View
-          animatedProps={fullContentAnimatedProps}
-          style={[styles.imageActionsRow, imageActionsAnimatedStyle]}
-        >
-          <View style={styles.imageActionsPill}>
-            {IMAGE_ACTIONS.map((icon, index) => (
               <Pressable
-                key={icon}
                 accessibilityRole="button"
-                accessibilityLabel={icon}
+                accessibilityLabel="Generate placeholder"
+                onPress={(event) => event.stopPropagation()}
                 style={({ pressed }) => [
-                  styles.imageAction,
-                  index > 0 && styles.imageActionDivider,
+                  styles.dockGenerateButton,
                   pressed && styles.pressed,
                 ]}
               >
                 <Ionicons
-                  name={icon}
-                  size={16}
-                  color={theme.color.textTertiary}
+                  name="sparkles"
+                  size={17}
+                  color={theme.color.onAccent}
                 />
               </Pressable>
-            ))}
-          </View>
-        </Reanimated.View>
+            </Pressable>
+          </Reanimated.View>
+
+          <Reanimated.View
+            animatedProps={panelAnimatedProps}
+            style={[styles.detailPanel, panelAnimatedStyle]}
+          >
+            <GestureDetector gesture={panelPanGesture}>
+              <Reanimated.View style={styles.detailPanelHeader}>
+                <View style={styles.panelHandleArea}>
+                  <View style={styles.panelHandle} />
+                </View>
+                <View style={styles.panelTitleRow}>
+                  {panelDetail ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="패널 내부 뒤로가기"
+                      hitSlop={8}
+                      onPress={() => setPanelDetail(null)}
+                      style={({ pressed }) => [
+                        styles.panelBackButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="chevron-back"
+                        size={24}
+                        color={theme.color.textSecondary}
+                      />
+                    </Pressable>
+                  ) : null}
+                  <Text style={styles.panelTitle}>
+                    {panelDetail === "model" ? "Model" : PANEL_TITLES[panelTab]}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="디테일 패널 닫기"
+                    hitSlop={8}
+                    onPress={closePanel}
+                    style={({ pressed }) => [
+                      styles.panelCloseButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={theme.color.textSecondary}
+                    />
+                  </Pressable>
+                </View>
+              </Reanimated.View>
+            </GestureDetector>
+            {panelOpen ? (
+              <PlayerDetailPanelContent
+                activeTab={panelTab}
+                activeDetail={panelDetail}
+                onOpenModel={() => setPanelDetail("model")}
+                onSelectTab={setPanelTab}
+              />
+            ) : null}
+          </Reanimated.View>
+
+          <Reanimated.View
+            animatedProps={fullContentAnimatedProps}
+            style={[styles.imageActionsRow, imageActionsAnimatedStyle]}
+          >
+            <View style={styles.imageActionsPill}>
+              {IMAGE_ACTIONS.map((icon, index) => (
+                <Pressable
+                  key={icon}
+                  accessibilityRole="button"
+                  accessibilityLabel={icon}
+                  style={({ pressed }) => [
+                    styles.imageAction,
+                    index > 0 && styles.imageActionDivider,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={icon}
+                    size={16}
+                    color={theme.color.textTertiary}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </Reanimated.View>
 
           <Reanimated.View
             animatedProps={fullContentAnimatedProps}
             style={[styles.fullBottom, fullContentAnimatedStyle]}
           >
-          <LinearGradient
-            colors={["transparent", theme.color.sheet]}
-            locations={[0, 0.28]}
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-          />
-          <ScrollView
-            horizontal
-            contentContainerStyle={styles.entryBadges}
-            showsHorizontalScrollIndicator={false}
-          >
-            {ENTRY_BADGES.map((badge) => (
+            <LinearGradient
+              colors={["transparent", theme.color.sheet]}
+              locations={[0, 0.28]}
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            />
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.entryBadges}
+              showsHorizontalScrollIndicator={false}
+            >
+              {ENTRY_BADGES.map((badge) => (
+                <Pressable
+                  key={badge.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={badge.label}
+                  onPress={() => openPanel(badge.id)}
+                  style={({ pressed }) => [
+                    styles.entryBadge,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={badge.icon}
+                    size={15}
+                    color={theme.color.textSecondary}
+                  />
+                  <Text style={styles.entryBadgeLabel}>{badge.label}</Text>
+                  <Text style={styles.entryBadgeValue}>{badge.value}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <View style={styles.fullGenerateWrap}>
               <Pressable
-                key={badge.label}
                 accessibilityRole="button"
-                accessibilityLabel={badge.label}
-                onPress={() => openPanel(badge.id)}
+                accessibilityLabel="Generate placeholder"
                 style={({ pressed }) => [
-                  styles.entryBadge,
+                  styles.fullGenerateButton,
                   pressed && styles.pressed,
                 ]}
               >
                 <Ionicons
-                  name={badge.icon}
-                  size={15}
-                  color={theme.color.textSecondary}
+                  name="sparkles"
+                  size={18}
+                  color={theme.color.onAccent}
                 />
-                <Text style={styles.entryBadgeLabel}>{badge.label}</Text>
-                <Text style={styles.entryBadgeValue}>{badge.value}</Text>
+                <Text style={styles.fullGenerateLabel}>Generate</Text>
+                <Text style={styles.fullGenerateCost}>0 Anlas</Text>
               </Pressable>
-            ))}
-          </ScrollView>
-          <View style={styles.fullGenerateWrap}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Generate placeholder"
-              style={({ pressed }) => [
-                styles.fullGenerateButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name="sparkles"
-                size={18}
-                color={theme.color.onAccent}
-              />
-              <Text style={styles.fullGenerateLabel}>Generate</Text>
-              <Text style={styles.fullGenerateCost}>0 Anlas</Text>
-            </Pressable>
-          </View>
+            </View>
           </Reanimated.View>
         </Reanimated.View>
       </GestureDetector>
@@ -1211,11 +1227,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     letterSpacing: -0.4,
   },
+  panelBackButton: {
+    width: 32,
+    height: 32,
+    marginLeft: -9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: -4,
+  },
   panelCloseButton: {
     width: 32,
     height: 32,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: -4,
+    marginTop: -4,
   },
   imageActionsRow: {
     position: "absolute",

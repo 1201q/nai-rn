@@ -16,6 +16,7 @@ export type PlayerPanelTab =
   | "settings"
   | "character"
   | "imageRef";
+export type PlayerPanelDetail = "model";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -64,6 +65,7 @@ function SettingsRow({
   trailing,
   accentIcon = false,
   minHeight = 56,
+  onPress,
 }: {
   icon: IconName;
   label: string;
@@ -71,9 +73,10 @@ function SettingsRow({
   trailing?: ReactNode;
   accentIcon?: boolean;
   minHeight?: number;
+  onPress?: () => void;
 }) {
-  return (
-    <View style={[styles.settingsRow, { minHeight }]}>
+  const content = (
+    <>
       <Ionicons
         name={icon}
         size={19}
@@ -92,8 +95,27 @@ function SettingsRow({
           color={theme.color.textMuted}
         />
       )}
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          { minHeight },
+          pressed && styles.pressed,
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={[styles.settingsRow, { minHeight }]}>{content}</View>;
 }
 
 function SettingsGroup({ children }: { children: ReactNode }) {
@@ -210,7 +232,7 @@ function PromptContent() {
   );
 }
 
-function SettingsContent() {
+function SettingsContent({ onOpenModel }: { onOpenModel: () => void }) {
   const [variety, setVariety] = useState(false);
 
   return (
@@ -221,6 +243,7 @@ function SettingsContent() {
           label="Model"
           value="V4.5 Full"
           accentIcon
+          onPress={onOpenModel}
         />
         <SettingsRow
           icon="scan-outline"
@@ -258,6 +281,73 @@ function SettingsContent() {
           }
         />
         </SettingsGroup>
+      </View>
+    </View>
+  );
+}
+
+const MODEL_OPTIONS = [
+  {
+    id: "v45-full",
+    name: "NAI Diffusion Anime V4.5 Full",
+    description: "가장 높은 표현력과 프롬프트 이해도",
+  },
+  {
+    id: "v45-curated",
+    name: "NAI Diffusion Anime V4.5 Curated",
+    description: "선별된 학습 데이터 기반의 안정적인 결과",
+  },
+  {
+    id: "v4-full",
+    name: "NAI Diffusion Anime V4 Full",
+    description: "기존 V4 스타일과 호환되는 범용 모델",
+  },
+] as const;
+
+function ModelContent() {
+  const [selectedModel, setSelectedModel] = useState("v45-full");
+
+  return (
+    <View>
+      <View style={styles.modelNotice}>
+        <Text style={styles.modelNoticeTitle}>MODEL</Text>
+        <Text style={styles.modelNoticeDescription}>
+          패널 내부 상세 화면 전환을 확인하기 위한 임시 콘텐츠입니다.
+        </Text>
+      </View>
+
+      <View style={styles.modelOptionStack}>
+        {MODEL_OPTIONS.map((model) => {
+          const selected = model.id === selectedModel;
+          return (
+            <Pressable
+              key={model.id}
+              accessibilityRole="radio"
+              accessibilityLabel={model.name}
+              accessibilityState={{ selected }}
+              onPress={() => setSelectedModel(model.id)}
+              style={({ pressed }) => [
+                styles.modelOption,
+                selected && styles.modelOptionSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.modelOptionCopy}>
+                <Text style={styles.modelOptionTitle}>{model.name}</Text>
+                <Text style={styles.modelOptionDescription}>
+                  {model.description}
+                </Text>
+              </View>
+              <Ionicons
+                name={selected ? "radio-button-on" : "radio-button-off"}
+                size={21}
+                color={
+                  selected ? theme.color.accent : theme.color.textMuted
+                }
+              />
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -548,12 +638,18 @@ function AdvancedContent() {
   );
 }
 
-function PanelBody({ tab }: { tab: PlayerPanelTab }) {
+function PanelBody({
+  tab,
+  onOpenModel,
+}: {
+  tab: PlayerPanelTab;
+  onOpenModel: () => void;
+}) {
   switch (tab) {
     case "prompt":
       return <PromptContent />;
     case "settings":
-      return <SettingsContent />;
+      return <SettingsContent onOpenModel={onOpenModel} />;
     case "character":
       return <CharacterContent />;
     case "imageRef":
@@ -563,61 +659,74 @@ function PanelBody({ tab }: { tab: PlayerPanelTab }) {
 
 export function PlayerDetailPanelContent({
   activeTab,
+  activeDetail,
   onSelectTab,
+  onOpenModel,
 }: {
   activeTab: PlayerPanelTab;
+  activeDetail: PlayerPanelDetail | null;
   onSelectTab: (tab: PlayerPanelTab) => void;
+  onOpenModel: () => void;
 }) {
   return (
     <View style={styles.panelContent}>
-      <View accessibilityRole="tablist" style={styles.panelTabs}>
-        {PANEL_TABS.map((tab) => {
-          const active = tab.id === activeTab;
-          return (
-            <Pressable
-              key={tab.id}
-              accessibilityRole="tab"
-              accessibilityLabel={tab.label}
-              accessibilityState={{ selected: active }}
-              onPress={() => onSelectTab(tab.id)}
-              style={({ pressed }) => [
-                styles.panelTab,
-                active && styles.panelTabActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name={tab.icon}
-                size={15}
-                color={
-                  active ? theme.color.onAccent : theme.color.textTertiary
-                }
-              />
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.panelTabLabel,
-                  active && styles.panelTabLabelActive,
+      {activeDetail === null ? (
+        <View accessibilityRole="tablist" style={styles.panelTabs}>
+          {PANEL_TABS.map((tab) => {
+            const active = tab.id === activeTab;
+            return (
+              <Pressable
+                key={tab.id}
+                accessibilityRole="tab"
+                accessibilityLabel={tab.label}
+                accessibilityState={{ selected: active }}
+                onPress={() => onSelectTab(tab.id)}
+                style={({ pressed }) => [
+                  styles.panelTab,
+                  active && styles.panelTabActive,
+                  pressed && styles.pressed,
                 ]}
               >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+                <Ionicons
+                  name={tab.icon}
+                  size={15}
+                  color={
+                    active ? theme.color.onAccent : theme.color.textTertiary
+                  }
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.panelTabLabel,
+                    active && styles.panelTabLabelActive,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       <ScrollView
-        key={activeTab}
+        key={activeDetail ?? activeTab}
         bounces={false}
         nestedScrollEnabled
         overScrollMode="never"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        style={styles.panelScroll}
+        style={[
+          styles.panelScroll,
+          activeDetail && styles.panelDetailScroll,
+        ]}
         contentContainerStyle={styles.panelScrollContent}
       >
-        <PanelBody tab={activeTab} />
+        {activeDetail === "model" ? (
+          <ModelContent />
+        ) : (
+          <PanelBody tab={activeTab} onOpenModel={onOpenModel} />
+        )}
       </ScrollView>
     </View>
   );
@@ -656,6 +765,7 @@ const styles = StyleSheet.create({
   },
   panelTabLabelActive: { color: theme.color.onAccent },
   panelScroll: { flex: 1, marginTop: 10 },
+  panelDetailScroll: { marginTop: 0 },
   panelScrollContent: {
     paddingHorizontal: theme.layout.panelInset,
     paddingTop: 2,
@@ -781,6 +891,54 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   settingsBlockGap: { marginTop: 16 },
+  modelNotice: {
+    marginHorizontal: -16,
+    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 4,
+    backgroundColor: theme.color.raised,
+  },
+  modelNoticeTitle: {
+    color: theme.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: 11,
+    letterSpacing: 0.66,
+  },
+  modelNoticeDescription: {
+    color: theme.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modelOptionStack: { gap: 12 },
+  modelOption: {
+    minHeight: 76,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderRadius: theme.radius.panelCard,
+    borderWidth: 1,
+    borderColor: theme.color.borderSubtle,
+    backgroundColor: theme.color.card,
+  },
+  modelOptionSelected: { borderColor: theme.color.accent },
+  modelOptionCopy: { flex: 1, minWidth: 0 },
+  modelOptionTitle: {
+    color: theme.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  modelOptionDescription: {
+    marginTop: 3,
+    color: theme.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   parameterStack: { gap: 16 },
   parameterCard: {
     paddingHorizontal: 18,
