@@ -22,7 +22,9 @@ import {
   type PromptHighlightTextInputHandle,
 } from "./PromptHighlightTextInput";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+import type { PromptTokenTarget } from "../../lib/promptTokens/metrics";
 import { tokens } from "../../styles/tokens";
+import { PromptTokenCounter } from "./PromptTokenCounter";
 
 const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
 
@@ -213,6 +215,7 @@ export const PromptField = memo(function PromptField({
   placeholder,
   minHeight,
   negative = false,
+  tokenTarget,
   onCommit,
 }: {
   label: string;
@@ -220,6 +223,7 @@ export const PromptField = memo(function PromptField({
   placeholder: string;
   minHeight: number;
   negative?: boolean;
+  tokenTarget: PromptTokenTarget;
   onCommit: (value: string) => void;
 }) {
   const inputRef = useRef<PromptHighlightTextInputHandle>(null);
@@ -282,7 +286,11 @@ export const PromptField = memo(function PromptField({
           value={text}
           style={styles.promptInput}
         />
-        <Text style={styles.promptCount}>{text.length}자</Text>
+        <PromptTokenCounter
+          target={tokenTarget}
+          draftText={text}
+          style={styles.promptCount}
+        />
       </View>
     </View>
   );
@@ -446,9 +454,6 @@ const styles = StyleSheet.create({
   },
   promptCount: {
     alignSelf: "flex-end",
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type["2xs"],
   },
   segmentedControl: {
     height: 32,

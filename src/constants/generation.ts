@@ -4,6 +4,29 @@ export type NoiseSchedule =
   | "exponential"
   | "polyexponential";
 
+export type ImagePromptTokenizerType = "t5" | "clip";
+
+export type ImagePromptTokenPolicy = {
+  tokenizer: ImagePromptTokenizerType;
+  maxTokens: number;
+};
+
+export const IMAGE_PROMPT_TOKEN_POLICIES: Readonly<
+  Record<string, ImagePromptTokenPolicy>
+> = {
+  "nai-diffusion-4-5-full": { tokenizer: "t5", maxTokens: 512 },
+  "nai-diffusion-4-5-curated": { tokenizer: "t5", maxTokens: 512 },
+  "nai-diffusion-4-curated-preview": { tokenizer: "t5", maxTokens: 512 },
+  "nai-diffusion-3": { tokenizer: "clip", maxTokens: 225 },
+  "nai-diffusion-furry-3": { tokenizer: "clip", maxTokens: 225 },
+};
+
+export function getImagePromptTokenPolicy(
+  model: string,
+): ImagePromptTokenPolicy | undefined {
+  return IMAGE_PROMPT_TOKEN_POLICIES[model];
+}
+
 export type NaiResolution = {
   label: string;
   width: number;

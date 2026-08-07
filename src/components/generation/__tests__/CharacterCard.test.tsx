@@ -52,6 +52,22 @@ jest.mock("../../forms/FormControls", () => {
   };
 });
 
+jest.mock("../../forms/PromptTokenCounter", () => {
+  const React = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+
+  return {
+    PromptTokenCounter: ({
+      target,
+    }: {
+      target: { channel: "positive" | "negative" };
+    }) =>
+      React.createElement(View, {
+        accessibilityLabel: `token-${target.channel}`,
+      }),
+  };
+});
+
 jest.mock("../../../hooks/usePromptAutocomplete", () => ({
   usePromptAutocomplete: ({
     onChangeText,
@@ -67,6 +83,36 @@ jest.mock("../../../hooks/usePromptAutocomplete", () => ({
 }));
 
 describe("CharacterCard prompt drafts", () => {
+  it("switches the token target with the prompt mode", async () => {
+    const { getByLabelText, queryByLabelText } = await render(
+      <CharacterCard
+        item={{
+          id: "character-1",
+          prompt: "base",
+          negativePrompt: "negative",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        }}
+        index={0}
+        expanded
+        positionEnabled={false}
+        canCopy
+        canReorder={false}
+        onToggleExpand={jest.fn()}
+        onUpdate={jest.fn()}
+        onCopy={jest.fn()}
+        onDelete={jest.fn()}
+        onOpenOrder={jest.fn()}
+        onOpenPosition={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText("token-positive")).toBeTruthy();
+    await fireEvent.press(getByLabelText("Negative"));
+    expect(queryByLabelText("token-positive")).toBeNull();
+    expect(getByLabelText("token-negative")).toBeTruthy();
+  });
+
   it("commits the latest prompt when the card unmounts", async () => {
     const onUpdate = jest.fn();
     const { getByLabelText, unmount } = await render(

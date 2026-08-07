@@ -34,6 +34,7 @@ import {
   generateNovelAiImageStream,
   getNovelAiAnlasBalance,
 } from "../lib/novelai";
+import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
 import {
@@ -312,24 +313,6 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
         position,
       },
     ];
-  });
-}
-
-function resolveActiveCharacterPrompts(
-  characterPrompts: CharacterPrompt[],
-): GenerateNovelAiCharacterPrompt[] {
-  return characterPrompts.flatMap((item) => {
-    if (!item.enabled) {
-      return [];
-    }
-
-    const prompt = item.prompt.trim();
-    const negativePrompt = item.negativePrompt.trim();
-    if (!prompt && !negativePrompt) {
-      return [];
-    }
-
-    return [{ prompt, negativePrompt, position: item.position }];
   });
 }
 

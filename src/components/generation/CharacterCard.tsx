@@ -29,6 +29,7 @@ import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { Toggle } from "../forms/FormControls";
+import { PromptTokenCounter } from "../forms/PromptTokenCounter";
 
 type PromptMode = "base" | "negative";
 type MenuAction = {
@@ -582,6 +583,15 @@ export const CharacterCard = memo(function CharacterCard({
               progress={modeProgress}
               onChange={changeMode}
             />
+            <PromptTokenCounter
+              target={{
+                scope: "character",
+                characterId: item.id,
+                channel: mode === "base" ? "positive" : "negative",
+              }}
+              draftText={activeText}
+              style={styles.characterTokenCounter}
+            />
             <Pressable
               ref={menuAnchorRef}
               accessibilityRole="button"
@@ -746,8 +756,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginLeft: -2,
+  },
+  characterTokenCounter: {
+    marginLeft: "auto",
+    marginRight: 8,
   },
   promptModeTabs: {
     position: "relative",

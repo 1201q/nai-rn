@@ -57,6 +57,7 @@ import {
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
+import { warmPromptTokenizerForModel } from "../../lib/promptTokens/loader";
 
 type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
 type TabTransitionDirection = -1 | 0 | 1;
@@ -408,6 +409,7 @@ const PromptTabContent = memo(function PromptTabContent() {
           value={prompt}
           placeholder="1girl, ..."
           minHeight={250}
+          tokenTarget={{ scope: "base", channel: "positive" }}
           onCommit={setPrompt}
         />
         <PromptField
@@ -416,6 +418,7 @@ const PromptTabContent = memo(function PromptTabContent() {
           placeholder="lowres, bad anatomy, ..."
           minHeight={168}
           negative
+          tokenTarget={{ scope: "base", channel: "negative" }}
           onCommit={setNegativePrompt}
         />
       </View>
@@ -717,6 +720,7 @@ export function ImageSettingsScreen() {
   const canAddCharacter = useGenerationStore(
     (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
   );
+  const model = useGenerationStore((state) => state.model);
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
   const [transitionDirection, setTransitionDirection] =
     useState<TabTransitionDirection>(0);
@@ -730,6 +734,10 @@ export function ImageSettingsScreen() {
   });
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    warmPromptTokenizerForModel(model).catch(() => {});
+  }, [model]);
 
   const handleTabChange = useCallback(
     (key: string) => {

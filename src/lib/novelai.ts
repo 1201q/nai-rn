@@ -1,9 +1,6 @@
 import type { NoiseSchedule } from "../constants/generation";
-import {
-  mergeQualityTags,
-  mergeUcPreset,
-  type UcPresetIndex,
-} from "./naiPresets";
+import { prepareImagePromptCaptions } from "./imagePromptCaptions";
+import { type UcPresetIndex } from "./naiPresets";
 
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
@@ -330,7 +327,7 @@ export async function encodeNovelAiVibe(
   return arrayBufferToBase64(buffer);
 }
 
-function createImageGenerationBody({
+export function createImageGenerationBody({
   prompt,
   negativePrompt,
   characterPrompts = [],
@@ -360,8 +357,16 @@ function createImageGenerationBody({
   preciseReferenceTypes = [],
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
-  const mergedPrompt = mergeQualityTags(prompt, qualityToggle);
-  const mergedNegativePrompt = mergeUcPreset(negativePrompt, ucPreset);
+  const captions = prepareImagePromptCaptions({
+    model,
+    prompt,
+    negativePrompt,
+    qualityToggle,
+    ucPreset,
+    characterPrompts,
+  });
+  const mergedPrompt = captions.positiveBaseCaption;
+  const mergedNegativePrompt = captions.negativeBaseCaption;
   const shouldUseV4Prompt = isV4Model(model);
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
@@ -380,18 +385,24 @@ function createImageGenerationBody({
     preciseReferenceTypes.length === preciseReferenceImages.length
       ? preciseReferenceTypes
       : preciseReferenceImages.map(() => "character&style" as const);
-  const v4PromptCharacterCaptions = characterPrompts.map((item) =>
-    createV4CharacterCaption(
-      item.prompt,
-      useCharacterCoords ? item.position : { x: 0.5, y: 0.5 },
-    ),
+  const v4PromptCharacterCaptions = captions.positiveCharacterCaptions.map(
+    (caption, index) =>
+      createV4CharacterCaption(
+        caption,
+        useCharacterCoords
+          ? characterPrompts[index].position
+          : { x: 0.5, y: 0.5 },
+      ),
   );
-  const v4NegativePromptCharacterCaptions = characterPrompts.map((item) =>
-    createV4CharacterCaption(
-      item.negativePrompt,
-      useCharacterCoords ? item.position : { x: 0.5, y: 0.5 },
-    ),
-  );
+  const v4NegativePromptCharacterCaptions =
+    captions.negativeCharacterCaptions.map((caption, index) =>
+      createV4CharacterCaption(
+        caption,
+        useCharacterCoords
+          ? characterPrompts[index].position
+          : { x: 0.5, y: 0.5 },
+      ),
+    );
   const parameters = {
     width,
     height,
