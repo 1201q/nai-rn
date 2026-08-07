@@ -18,19 +18,52 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
+import { PrimaryButton } from "../../components/common/Buttons";
+import {
+  ParameterSlider,
+  Toggle,
+} from "../../components/forms/FormControls";
+import type {
+  RegisterSheetDraft,
+  SheetDraftController,
+} from "../../components/sheets/SheetDraft";
+import { MODELS, NOISE_SCHEDULES, SAMPLERS } from "../../constants/generation";
+import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
+import {
+  PlayerSettingDetailContent,
+  type PlayerPanelDetail,
+} from "./PlayerSettingDetailContent";
 import { playerLayoutTokens as theme } from "./playerLayoutTokens";
+
+export type { PlayerPanelDetail } from "./PlayerSettingDetailContent";
 
 export type PlayerPanelTab =
   | "prompt"
   | "settings"
   | "character"
   | "imageRef";
-export type PlayerPanelDetail = "model";
-
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const PANEL_CONTENT_EASING = Easing.bezier(...theme.motion.easing);
+const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
+const GUIDANCE_CONFIG = { min: 0, max: 10, step: 0.1, precision: 1 } as const;
+const GUIDANCE_RESCALE_CONFIG = {
+  min: 0,
+  max: 1,
+  step: 0.02,
+  precision: 2,
+} as const;
+const OPTION_DESCRIPTIONS = {
+  steps:
+    "이미지를 정제하는 반복 횟수입니다. 낮으면 빠르게 구도를 시험할 수 있고, 높으면 시간과 비용이 늘지만 항상 더 좋아지지는 않습니다. Opus 티어의 무료 일반 생성 상한은 28입니다.",
+  guidance:
+    "프롬프트를 따르는 강도입니다. 낮으면 더 자유롭고 부드러우며, 높으면 지시와 세부 표현이 강해집니다. 너무 높으면 색과 형태가 과해질 수 있습니다.",
+  guidanceRescale:
+    "높은 CFG에서 색이 지나치게 진하거나 경계가 거칠어질 때 완화합니다. 평소에는 0으로 두고 문제가 보일 때 조금씩 올려보세요.",
+  varietyPlus:
+    "초기 구도 단계의 프롬프트 제약을 줄여 포즈와 배경의 다양성을 높입니다. 세부 단계에서는 다시 프롬프트를 따르지만, UC도 늦게 적용된다는 점에 유의하세요.",
+} as const;
 
 const PANEL_TABS: ReadonlyArray<{
   id: PlayerPanelTab;
@@ -145,29 +178,39 @@ function SettingsGroup({ children }: { children: ReactNode }) {
   );
 }
 
-function ParameterCard({
+function ParameterItem({
   label,
   value,
-  progress,
+  config,
+  description,
+  onChange,
 }: {
   label: string;
-  value: string;
-  progress: number;
+  value: number;
+  config: {
+    min: number;
+    max: number;
+    step: number;
+    precision: number;
+  };
+  description: string;
+  onChange: (value: number) => void;
 }) {
   return (
-    <View style={styles.parameterCard}>
-      <View style={styles.parameterHeader}>
-        <Text style={styles.parameterLabel}>{label}</Text>
-        <Text style={styles.parameterValue}>{value}</Text>
+    <View style={styles.parameterItem}>
+      <View style={styles.parameterCard}>
+        <ParameterSlider
+          label={label}
+          value={value}
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          precision={config.precision}
+          onChange={onChange}
+          settingsCard
+        />
       </View>
-      <View style={styles.sliderRow}>
-        <Ionicons name="remove-outline" size={18} color={theme.color.textMuted} />
-        <View style={styles.sliderTrack}>
-          <View style={[styles.sliderFill, { width: `${progress}%` }]} />
-          <View style={[styles.sliderThumb, { left: `${progress}%` }]} />
-        </View>
-        <Ionicons name="add-outline" size={18} color={theme.color.textMuted} />
-      </View>
+      <Text style={styles.optionDescription}>{description}</Text>
     </View>
   );
 }
@@ -244,8 +287,38 @@ function PromptContent() {
   );
 }
 
-function SettingsContent({ onOpenModel }: { onOpenModel: () => void }) {
-  const [variety, setVariety] = useState(false);
+function SettingsContent({
+  onOpenDetail,
+}: {
+  onOpenDetail: (detail: PlayerPanelDetail) => void;
+}) {
+  const model = useGenerationStore((state) => state.model);
+  const resolution = useGenerationStore((state) => state.resolution);
+  const seed = useGenerationStore((state) => state.seed);
+  const seedLocked = useGenerationStore((state) => state.seedLocked);
+  const steps = useGenerationStore((state) => state.steps);
+  const setSteps = useGenerationStore((state) => state.setSteps);
+  const promptGuidance = useGenerationStore((state) => state.promptGuidance);
+  const setPromptGuidance = useGenerationStore(
+    (state) => state.setPromptGuidance,
+  );
+  const promptGuidanceRescale = useGenerationStore(
+    (state) => state.promptGuidanceRescale,
+  );
+  const setPromptGuidanceRescale = useGenerationStore(
+    (state) => state.setPromptGuidanceRescale,
+  );
+  const sampler = useGenerationStore((state) => state.sampler);
+  const noiseSchedule = useGenerationStore((state) => state.noiseSchedule);
+  const varietyPlus = useGenerationStore((state) => state.varietyPlus);
+  const setVarietyPlus = useGenerationStore((state) => state.setVarietyPlus);
+
+  const modelText = MODELS.find((item) => item.value === model)?.label ?? model;
+  const samplerText =
+    SAMPLERS.find((item) => item.value === sampler)?.label ?? sampler;
+  const scheduleText =
+    NOISE_SCHEDULES.find((item) => item.value === noiseSchedule)?.label ??
+    noiseSchedule;
 
   return (
     <View>
@@ -253,113 +326,89 @@ function SettingsContent({ onOpenModel }: { onOpenModel: () => void }) {
         <SettingsRow
           icon="cube-outline"
           label="Model"
-          value="V4.5 Full"
+          value={modelText}
           accentIcon
-          onPress={onOpenModel}
+          onPress={() => onOpenDetail("model")}
         />
         <SettingsRow
           icon="scan-outline"
           label="Resolution"
-          value="832 x 1216"
+          value={`${resolution.width} x ${resolution.height}`}
           accentIcon
+          onPress={() => onOpenDetail("resolution")}
         />
       </SettingsGroup>
 
       <View style={styles.settingsBlockGap}>
         <SettingsGroup>
-          <SettingsRow icon="dice-outline" label="Seed" value="3841102" />
+          <SettingsRow
+            icon="dice-outline"
+            label="Seed"
+            value={seedLocked ? String(seed) : "Random"}
+            onPress={() => onOpenDetail("seed")}
+          />
         </SettingsGroup>
       </View>
 
       <SectionLabel>PARAMETERS</SectionLabel>
       <View style={styles.parameterStack}>
-        <ParameterCard label="Steps" value="28" progress={55} />
-        <ParameterCard label="Guidance" value="5" progress={50} />
-        <ParameterCard label="Guidance Rescale" value="0" progress={0} />
+        <ParameterItem
+          label="Steps"
+          value={steps}
+          config={STEPS_CONFIG}
+          description={OPTION_DESCRIPTIONS.steps}
+          onChange={setSteps}
+        />
+        <ParameterItem
+          label="Guidance"
+          value={promptGuidance}
+          config={GUIDANCE_CONFIG}
+          description={OPTION_DESCRIPTIONS.guidance}
+          onChange={setPromptGuidance}
+        />
+        <ParameterItem
+          label="Guidance Rescale"
+          value={promptGuidanceRescale}
+          config={GUIDANCE_RESCALE_CONFIG}
+          description={OPTION_DESCRIPTIONS.guidanceRescale}
+          onChange={setPromptGuidanceRescale}
+        />
       </View>
 
       <SectionLabel>ADVANCED SETTINGS</SectionLabel>
       <SettingsGroup>
-        <SettingsRow icon="shuffle-outline" label="Sampler" value="Euler Ancestral" />
-        <SettingsRow icon="pulse-outline" label="Schedule" value="Karras" />
+        <SettingsRow
+          icon="shuffle-outline"
+          label="Sampler"
+          value={samplerText}
+          onPress={() => onOpenDetail("sampler")}
+        />
+        <SettingsRow
+          icon="pulse-outline"
+          label="Schedule"
+          value={scheduleText}
+          onPress={() => onOpenDetail("schedule")}
+        />
       </SettingsGroup>
       <View style={styles.settingsBlockGap}>
-        <SettingsGroup>
-        <SettingsRow
-          icon="sparkles-outline"
-          label="Variety+"
-          trailing={
-            <PanelSwitch label="Variety+" value={variety} onChange={setVariety} />
-          }
-        />
-        </SettingsGroup>
-      </View>
-    </View>
-  );
-}
-
-const MODEL_OPTIONS = [
-  {
-    id: "v45-full",
-    name: "NAI Diffusion Anime V4.5 Full",
-    description: "가장 높은 표현력과 프롬프트 이해도",
-  },
-  {
-    id: "v45-curated",
-    name: "NAI Diffusion Anime V4.5 Curated",
-    description: "선별된 학습 데이터 기반의 안정적인 결과",
-  },
-  {
-    id: "v4-full",
-    name: "NAI Diffusion Anime V4 Full",
-    description: "기존 V4 스타일과 호환되는 범용 모델",
-  },
-] as const;
-
-function ModelContent() {
-  const [selectedModel, setSelectedModel] = useState("v45-full");
-
-  return (
-    <View>
-      <View style={styles.modelNotice}>
-        <Text style={styles.modelNoticeTitle}>MODEL</Text>
-        <Text style={styles.modelNoticeDescription}>
-          패널 내부 상세 화면 전환을 확인하기 위한 임시 콘텐츠입니다.
-        </Text>
-      </View>
-
-      <View style={styles.modelOptionStack}>
-        {MODEL_OPTIONS.map((model) => {
-          const selected = model.id === selectedModel;
-          return (
-            <Pressable
-              key={model.id}
-              accessibilityRole="radio"
-              accessibilityLabel={model.name}
-              accessibilityState={{ selected }}
-              onPress={() => setSelectedModel(model.id)}
-              style={({ pressed }) => [
-                styles.modelOption,
-                selected && styles.modelOptionSelected,
-                pressed && styles.pressed,
-              ]}
-            >
-              <View style={styles.modelOptionCopy}>
-                <Text style={styles.modelOptionTitle}>{model.name}</Text>
-                <Text style={styles.modelOptionDescription}>
-                  {model.description}
-                </Text>
-              </View>
-              <Ionicons
-                name={selected ? "radio-button-on" : "radio-button-off"}
-                size={21}
-                color={
-                  selected ? theme.color.accent : theme.color.textMuted
-                }
-              />
-            </Pressable>
-          );
-        })}
+        <View style={styles.parameterItem}>
+          <SettingsGroup>
+            <SettingsRow
+              icon="sparkles-outline"
+              label="Variety+"
+              trailing={
+                <Toggle
+                  label="Variety+"
+                  value={varietyPlus}
+                  onChange={setVarietyPlus}
+                />
+              }
+            />
+          </SettingsGroup>
+          <Text style={styles.optionDescription}>
+            {OPTION_DESCRIPTIONS.varietyPlus}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -652,16 +701,16 @@ function AdvancedContent() {
 
 function PanelBody({
   tab,
-  onOpenModel,
+  onOpenDetail,
 }: {
   tab: PlayerPanelTab;
-  onOpenModel: () => void;
+  onOpenDetail: (detail: PlayerPanelDetail) => void;
 }) {
   switch (tab) {
     case "prompt":
       return <PromptContent />;
     case "settings":
-      return <SettingsContent onOpenModel={onOpenModel} />;
+      return <SettingsContent onOpenDetail={onOpenDetail} />;
     case "character":
       return <CharacterContent />;
     case "imageRef":
@@ -670,6 +719,7 @@ function PanelBody({
 }
 
 type PanelTabScreenRole = "incoming" | "outgoing" | "hidden";
+type PanelDetailScreenRole = "incoming" | "outgoing";
 
 function AnimatedPanelTabScreen({
   tab,
@@ -677,14 +727,14 @@ function AnimatedPanelTabScreen({
   direction,
   progress,
   width,
-  onOpenModel,
+  onOpenDetail,
 }: {
   tab: PlayerPanelTab;
   role: PanelTabScreenRole;
   direction: SharedValue<number>;
   progress: SharedValue<number>;
   width: number;
-  onOpenModel: () => void;
+  onOpenDetail: (detail: PlayerPanelDetail) => void;
 }) {
   const animatedStyle = useAnimatedStyle(() => {
     if (role === "hidden") {
@@ -727,8 +777,87 @@ function AnimatedPanelTabScreen({
         style={styles.panelTabScroll}
         contentContainerStyle={styles.panelScrollContent}
       >
-        <PanelBody tab={tab} onOpenModel={onOpenModel} />
+        <PanelBody tab={tab} onOpenDetail={onOpenDetail} />
       </ScrollView>
+    </Reanimated.View>
+  );
+}
+
+function AnimatedPlayerDetailScreen({
+  activeDraft,
+  detail,
+  direction,
+  onOpenDetail,
+  onReturnToSettings,
+  onSaveDraft,
+  progress,
+  registerDraft,
+  role,
+  width,
+}: {
+  activeDraft: SheetDraftController | null;
+  detail: PlayerPanelDetail;
+  direction: SharedValue<number>;
+  onOpenDetail: (detail: PlayerPanelDetail) => void;
+  onReturnToSettings: () => void;
+  onSaveDraft: () => void;
+  progress: SharedValue<number>;
+  registerDraft: RegisterSheetDraft;
+  role: PanelDetailScreenRole;
+  width: number;
+}) {
+  const active = role === "incoming";
+  const animatedStyle = useAnimatedStyle(() => {
+    const value = progress.value;
+    const translateX =
+      role === "incoming"
+        ? width * direction.value * (1 - value)
+        : -width * 0.2 * direction.value * value;
+    return {
+      opacity: role === "incoming" ? value : 1 - value,
+      transform: [{ translateX: Math.round(translateX) }],
+    };
+  });
+
+  return (
+    <Reanimated.View
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+      pointerEvents={active ? "auto" : "none"}
+      style={[
+        styles.playerDetailRoute,
+        active && styles.playerDetailRouteIncoming,
+        animatedStyle,
+      ]}
+    >
+      <ScrollView
+        bounces={false}
+        nestedScrollEnabled
+        overScrollMode="never"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={[styles.panelScroll, styles.panelDetailScroll]}
+        contentContainerStyle={[
+          styles.panelDetailScrollContent,
+          active && activeDraft && styles.panelDetailScrollContentWithFooter,
+        ]}
+      >
+        <PlayerSettingDetailContent
+          detail={detail}
+          onCommitAndReturnToSettings={onReturnToSettings}
+          onOpenDetail={onOpenDetail}
+          registerDraft={registerDraft}
+        />
+      </ScrollView>
+      {active && activeDraft ? (
+        <View style={styles.draftFooter}>
+          <PrimaryButton
+            label="저장"
+            disabled={!activeDraft.canSave}
+            onPress={onSaveDraft}
+          />
+        </View>
+      ) : null}
     </Reanimated.View>
   );
 }
@@ -736,31 +865,107 @@ function AnimatedPanelTabScreen({
 export function PlayerDetailPanelContent({
   activeTab,
   activeDetail,
+  detailDepth,
+  activeDraft,
   onSelectTab,
-  onOpenModel,
+  onOpenDetail,
+  onCommitDetailBack,
+  onReturnToSettings,
+  registerDraft,
 }: {
   activeTab: PlayerPanelTab;
   activeDetail: PlayerPanelDetail | null;
+  detailDepth: number;
+  activeDraft: SheetDraftController | null;
   onSelectTab: (tab: PlayerPanelTab) => void;
-  onOpenModel: () => void;
+  onOpenDetail: (detail: PlayerPanelDetail) => void;
+  onCommitDetailBack: () => void;
+  onReturnToSettings: () => void;
+  registerDraft: RegisterSheetDraft;
 }) {
   const { width } = useWindowDimensions();
   const detailProgress = useSharedValue(activeDetail ? 1 : 0);
+  const detailTransitionProgress = useSharedValue(1);
+  const detailTransitionDirection = useSharedValue(1);
   const tabTransitionProgress = useSharedValue(1);
   const tabTransitionDirection = useSharedValue(1);
   const [displayedTab, setDisplayedTab] = useState(activeTab);
   const [outgoingTab, setOutgoingTab] = useState<PlayerPanelTab | null>(null);
+  const [displayedDetail, setDisplayedDetail] =
+    useState<PlayerPanelDetail | null>(activeDetail);
+  const [displayedDetailDepth, setDisplayedDetailDepth] = useState(detailDepth);
+  const [outgoingDetail, setOutgoingDetail] =
+    useState<PlayerPanelDetail | null>(null);
 
   const clearOutgoingTab = useCallback(() => {
     setOutgoingTab(null);
   }, []);
+  const clearOutgoingDetail = useCallback(() => {
+    setOutgoingDetail(null);
+  }, []);
+  const clearDisplayedDetail = useCallback(() => {
+    setDisplayedDetail(null);
+    setOutgoingDetail(null);
+  }, []);
+  const handleDraftSave = useCallback(() => {
+    if (!activeDraft?.save()) return;
+    if (activeDetail === "resolutionCustom") onCommitDetailBack();
+    else onReturnToSettings();
+  }, [
+    activeDetail,
+    activeDraft,
+    onCommitDetailBack,
+    onReturnToSettings,
+  ]);
 
   useEffect(() => {
-    detailProgress.value = withTiming(activeDetail ? 1 : 0, {
-      duration: theme.motion.fadeDuration,
-      easing: PANEL_CONTENT_EASING,
-    });
-  }, [activeDetail, detailProgress]);
+    cancelAnimation(detailProgress);
+    detailProgress.value = withTiming(
+      activeDetail ? 1 : 0,
+      {
+        duration: theme.motion.fadeDuration,
+        easing: PANEL_CONTENT_EASING,
+      },
+      (finished) => {
+        if (finished && !activeDetail) runOnJS(clearDisplayedDetail)();
+      },
+    );
+  }, [activeDetail, clearDisplayedDetail, detailProgress]);
+
+  useEffect(() => {
+    if (!activeDetail || activeDetail === displayedDetail) return;
+    if (!displayedDetail) {
+      setDisplayedDetail(activeDetail);
+      setDisplayedDetailDepth(detailDepth);
+      return;
+    }
+
+    cancelAnimation(detailTransitionProgress);
+    detailTransitionDirection.value =
+      detailDepth > displayedDetailDepth ? 1 : -1;
+    detailTransitionProgress.value = 0;
+    setOutgoingDetail(displayedDetail);
+    setDisplayedDetail(activeDetail);
+    setDisplayedDetailDepth(detailDepth);
+    detailTransitionProgress.value = withTiming(
+      1,
+      {
+        duration: theme.motion.fadeDuration,
+        easing: PANEL_CONTENT_EASING,
+      },
+      (finished) => {
+        if (finished) runOnJS(clearOutgoingDetail)();
+      },
+    );
+  }, [
+    activeDetail,
+    clearOutgoingDetail,
+    detailDepth,
+    detailTransitionDirection,
+    detailTransitionProgress,
+    displayedDetail,
+    displayedDetailDepth,
+  ]);
 
   useEffect(() => {
     if (activeTab === displayedTab) return;
@@ -873,7 +1078,7 @@ export function PlayerDetailPanelContent({
                 direction={tabTransitionDirection}
                 progress={tabTransitionProgress}
                 width={width}
-                onOpenModel={onOpenModel}
+                onOpenDetail={onOpenDetail}
               />
             );
           })}
@@ -892,17 +1097,34 @@ export function PlayerDetailPanelContent({
           detailScreenAnimatedStyle,
         ]}
       >
-        <ScrollView
-          bounces={false}
-          nestedScrollEnabled
-          overScrollMode="never"
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          style={[styles.panelScroll, styles.panelDetailScroll]}
-          contentContainerStyle={styles.panelScrollContent}
-        >
-          <ModelContent />
-        </ScrollView>
+        {outgoingDetail ? (
+          <AnimatedPlayerDetailScreen
+            activeDraft={null}
+            detail={outgoingDetail}
+            direction={detailTransitionDirection}
+            onOpenDetail={onOpenDetail}
+            onReturnToSettings={onReturnToSettings}
+            onSaveDraft={handleDraftSave}
+            progress={detailTransitionProgress}
+            registerDraft={registerDraft}
+            role="outgoing"
+            width={width}
+          />
+        ) : null}
+        {displayedDetail ? (
+          <AnimatedPlayerDetailScreen
+            activeDraft={activeDraft}
+            detail={displayedDetail}
+            direction={detailTransitionDirection}
+            onOpenDetail={onOpenDetail}
+            onReturnToSettings={onReturnToSettings}
+            onSaveDraft={handleDraftSave}
+            progress={detailTransitionProgress}
+            registerDraft={registerDraft}
+            role="incoming"
+            width={width}
+          />
+        ) : null}
       </Reanimated.View>
     </View>
   );
@@ -919,6 +1141,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.panel,
   },
   panelDetailScreen: { zIndex: 1 },
+  playerDetailRoute: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: theme.color.panel,
+  },
+  playerDetailRouteIncoming: { zIndex: 1 },
   panelTabs: {
     height: 44,
     paddingHorizontal: theme.layout.panelInset,
@@ -966,6 +1197,22 @@ const styles = StyleSheet.create({
   panelTabScroll: { flex: 1 },
   panelScroll: { flex: 1, marginTop: 10 },
   panelDetailScroll: { marginTop: 0 },
+  panelDetailScrollContent: {
+    paddingHorizontal: 0,
+    paddingTop: 2,
+    paddingBottom: 60,
+  },
+  panelDetailScrollContentWithFooter: { paddingBottom: 112 },
+  draftFooter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 76,
+    paddingHorizontal: theme.layout.panelInset,
+    paddingTop: 10,
+    backgroundColor: theme.color.panel,
+  },
   panelScrollContent: {
     paddingHorizontal: theme.layout.panelInset,
     paddingTop: 2,
@@ -1091,53 +1338,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   settingsBlockGap: { marginTop: 16 },
-  modelNotice: {
-    marginHorizontal: -16,
-    marginBottom: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 4,
-    backgroundColor: theme.color.raised,
-  },
-  modelNoticeTitle: {
+  parameterItem: { gap: 8 },
+  optionDescription: {
+    paddingHorizontal: 4,
     color: theme.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: 11,
-    letterSpacing: 0.66,
-  },
-  modelNoticeDescription: {
-    color: theme.color.textTertiary,
     fontFamily: tokens.font.regular,
     fontSize: 12,
     lineHeight: 18,
-  },
-  modelOptionStack: { gap: 12 },
-  modelOption: {
-    minHeight: 76,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    borderRadius: theme.radius.panelCard,
-    borderWidth: 1,
-    borderColor: theme.color.borderSubtle,
-    backgroundColor: theme.color.card,
-  },
-  modelOptionSelected: { borderColor: theme.color.accent },
-  modelOptionCopy: { flex: 1, minWidth: 0 },
-  modelOptionTitle: {
-    color: theme.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  modelOptionDescription: {
-    marginTop: 3,
-    color: theme.color.textMuted,
-    fontFamily: tokens.font.regular,
-    fontSize: 12,
-    lineHeight: 17,
   },
   parameterStack: { gap: 16 },
   parameterCard: {
@@ -1147,48 +1354,6 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: theme.radius.panelCard,
     backgroundColor: theme.color.card,
-  },
-  parameterHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  parameterLabel: {
-    color: theme.color.textPrimary,
-    fontFamily: tokens.font.regular,
-    fontSize: 16,
-  },
-  parameterValue: {
-    color: theme.color.textTertiary,
-    fontFamily: monoFont,
-    fontSize: 16,
-  },
-  sliderRow: {
-    height: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  sliderTrack: {
-    flex: 1,
-    height: 3,
-    position: "relative",
-    borderRadius: 2,
-    backgroundColor: theme.color.borderSubtle,
-  },
-  sliderFill: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: theme.color.accent,
-  },
-  sliderThumb: {
-    position: "absolute",
-    top: -5.5,
-    width: 14,
-    height: 14,
-    marginLeft: -7,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.accent,
   },
   characterBanner: {
     marginTop: -4,

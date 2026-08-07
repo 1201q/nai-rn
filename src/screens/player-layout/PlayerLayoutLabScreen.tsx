@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   BackHandler,
   Pressable,
   ScrollView,
@@ -7,6 +8,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type AlertButton,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
@@ -29,12 +31,21 @@ import Reanimated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
+import type {
+  RegisterSheetDraft,
+  SheetDraftController,
+} from "../../components/sheets/SheetDraft";
 import { monoFont, tokens } from "../../styles/tokens";
 import {
   PlayerDetailPanelContent,
   type PlayerPanelDetail,
   type PlayerPanelTab,
 } from "./PlayerDetailPanelContent";
+import { PLAYER_PANEL_DETAIL_TITLES } from "./PlayerSettingDetailContent";
+import {
+  popPlayerPanelDetail,
+  pushPlayerPanelDetail,
+} from "./playerSettingNavigation";
 import {
   getDraggedSheetY,
   getContainedImageTarget,
@@ -147,7 +158,7 @@ function MainTab({ onOpenSheet }: { onOpenSheet: () => void }) {
   return (
     <View style={styles.mainContent}>
       <View style={styles.mainHeader}>
-        <Text style={styles.brand}>Rendra</Text>
+        <Text style={styles.screenTitle}>Rendra</Text>
         <View style={styles.balancePill}>
           <Ionicons
             name="diamond-outline"
@@ -253,7 +264,7 @@ function HistoryTab({
 function SettingsTab() {
   return (
     <View style={styles.settingsContent}>
-      <Text style={styles.settingsTitle}>Settings</Text>
+      <Text style={styles.screenTitle}>Settings</Text>
 
       <View style={styles.accountCard}>
         <View style={styles.avatar}>
@@ -353,9 +364,16 @@ export function PlayerLayoutLabScreen() {
   const [expanded, setExpanded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("settings");
-  const [panelDetail, setPanelDetail] = useState<PlayerPanelDetail | null>(
+  const [panelDetailStack, setPanelDetailStack] = useState<
+    PlayerPanelDetail[]
+  >([]);
+  const [panelDraft, setPanelDraft] = useState<SheetDraftController | null>(
     null,
   );
+  const panelDraftRef = useRef<SheetDraftController | null>(null);
+  const panelCloseAlertOpenRef = useRef(false);
+  const panelDetail =
+    panelDetailStack[panelDetailStack.length - 1] ?? null;
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
     null,
   );
@@ -528,7 +546,9 @@ export function PlayerLayoutLabScreen() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setPanelOpen(false);
-        setPanelDetail(null);
+        setPanelDetailStack([]);
+        panelDraftRef.current = null;
+        setPanelDraft(null);
         panelDrag.value = panelTravel;
       });
     });
@@ -546,6 +566,79 @@ export function PlayerLayoutLabScreen() {
       },
     );
   }, [commitPanelClosed, panelDrag, panelTravel]);
+  const registerPanelDraft = useCallback<RegisterSheetDraft>((controller) => {
+    panelDraftRef.current = controller;
+    setPanelDraft(controller);
+  }, []);
+  const requestPanelDraftExit = useCallback(
+    (target: "back" | "close", afterExit: () => void) => {
+      const controller = panelDraftRef.current;
+      if (!controller?.dirty) {
+        afterExit();
+        return;
+      }
+      if (panelCloseAlertOpenRef.current) return;
+
+      panelCloseAlertOpenRef.current = true;
+      const finishAlert = () => {
+        panelCloseAlertOpenRef.current = false;
+      };
+      const buttons: AlertButton[] = [
+        {
+          text: "계속 편집",
+          style: "cancel" as const,
+          onPress: finishAlert,
+        },
+        {
+          text:
+            target === "back"
+              ? "저장하지 않고 뒤로가기"
+              : "저장하지 않고 닫기",
+          style: "destructive" as const,
+          onPress: () => {
+            finishAlert();
+            afterExit();
+          },
+        },
+      ];
+      if (controller.canSave) {
+        buttons.push({
+          text:
+            target === "back" ? "저장하고 뒤로가기" : "저장하고 닫기",
+          style: "default" as const,
+          onPress: () => {
+            finishAlert();
+            if (controller.save()) afterExit();
+          },
+        });
+      }
+
+      Alert.alert(controller.promptTitle, controller.promptMessage, buttons, {
+        cancelable: true,
+        onDismiss: finishAlert,
+      });
+    },
+    [],
+  );
+  const pushPanelDetail = useCallback((detail: PlayerPanelDetail) => {
+    setPanelDetailStack((current) => pushPlayerPanelDetail(current, detail));
+  }, []);
+  const popPanelDetail = useCallback(() => {
+    panelDraftRef.current = null;
+    setPanelDraft(null);
+    setPanelDetailStack(popPlayerPanelDetail);
+  }, []);
+  const returnToPanelSettings = useCallback(() => {
+    panelDraftRef.current = null;
+    setPanelDraft(null);
+    setPanelDetailStack([]);
+  }, []);
+  const handlePanelDetailBack = useCallback(() => {
+    requestPanelDraftExit("back", popPanelDetail);
+  }, [popPanelDetail, requestPanelDraftExit]);
+  const requestPanelClose = useCallback(() => {
+    requestPanelDraftExit("close", closePanel);
+  }, [closePanel, requestPanelDraftExit]);
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener(
@@ -553,10 +646,10 @@ export function PlayerLayoutLabScreen() {
         () => {
           if (panelOpen) {
             if (panelDetail) {
-              setPanelDetail(null);
+              handlePanelDetailBack();
               return true;
             }
-            closePanel();
+            requestPanelClose();
             return true;
           }
           if (expanded) {
@@ -568,14 +661,23 @@ export function PlayerLayoutLabScreen() {
       );
 
       return () => subscription.remove();
-    }, [closePanel, closeSheet, expanded, panelDetail, panelOpen]),
+    }, [
+      closeSheet,
+      expanded,
+      handlePanelDetailBack,
+      panelDetail,
+      panelOpen,
+      requestPanelClose,
+    ]),
   );
   const openPanel = useCallback(
     (nextTab: PanelTab) => {
       cancelAnimation(panelDrag);
       panelDrag.value = panelTravel;
       setPanelTab(nextTab);
-      setPanelDetail(null);
+      setPanelDetailStack([]);
+      panelDraftRef.current = null;
+      setPanelDraft(null);
       setPanelOpen(true);
       requestAnimationFrame(() => {
         panelDrag.value = withTiming(0, {
@@ -599,6 +701,14 @@ export function PlayerLayoutLabScreen() {
         })
         .onEnd((event) => {
           if (shouldClosePanel(event.translationY)) {
+            if (panelDraft?.dirty) {
+              panelDrag.value = withTiming(0, {
+                duration: theme.motion.sheetDuration,
+                easing: SHEET_EASING,
+              });
+              runOnJS(requestPanelClose)();
+              return;
+            }
             panelDrag.value = withTiming(
               panelTravel + theme.motion.panelClosedOvershoot,
               {
@@ -623,7 +733,14 @@ export function PlayerLayoutLabScreen() {
             easing: SHEET_EASING,
           });
         }),
-    [commitPanelClosed, panelDrag, panelOpen, panelTravel],
+    [
+      commitPanelClosed,
+      panelDraft?.dirty,
+      panelDrag,
+      panelOpen,
+      panelTravel,
+      requestPanelClose,
+    ],
   );
   const pickImage = useCallback(async () => {
     if (imagePickerBusy) return;
@@ -657,11 +774,11 @@ export function PlayerLayoutLabScreen() {
   }, [imagePickerBusy]);
   const handleImagePress = useCallback(() => {
     if (panelOpen) {
-      closePanel();
+      requestPanelClose();
       return;
     }
     void pickImage();
-  }, [closePanel, panelOpen, pickImage]);
+  }, [panelOpen, pickImage, requestPanelClose]);
 
   return (
     <View style={styles.screen}>
@@ -803,7 +920,7 @@ export function PlayerLayoutLabScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="디테일 패널 닫기"
-              onPress={closePanel}
+              onPress={requestPanelClose}
               style={({ pressed }) => [
                 styles.panelDockPressTarget,
                 pressed && styles.pressed,
@@ -852,7 +969,7 @@ export function PlayerLayoutLabScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="패널 내부 뒤로가기"
                       hitSlop={8}
-                      onPress={() => setPanelDetail(null)}
+                      onPress={handlePanelDetailBack}
                       style={({ pressed }) => [
                         styles.panelBackButton,
                         pressed && styles.pressed,
@@ -866,13 +983,15 @@ export function PlayerLayoutLabScreen() {
                     </Pressable>
                   ) : null}
                   <Text style={styles.panelTitle}>
-                    {panelDetail === "model" ? "Model" : PANEL_TITLES[panelTab]}
+                    {panelDetail
+                      ? PLAYER_PANEL_DETAIL_TITLES[panelDetail]
+                      : PANEL_TITLES[panelTab]}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="디테일 패널 닫기"
                     hitSlop={8}
-                    onPress={closePanel}
+                    onPress={requestPanelClose}
                     style={({ pressed }) => [
                       styles.panelCloseButton,
                       pressed && styles.pressed,
@@ -891,8 +1010,13 @@ export function PlayerLayoutLabScreen() {
               <PlayerDetailPanelContent
                 activeTab={panelTab}
                 activeDetail={panelDetail}
-                onOpenModel={() => setPanelDetail("model")}
+                activeDraft={panelDraft}
+                detailDepth={panelDetailStack.length}
+                onCommitDetailBack={popPanelDetail}
+                onOpenDetail={pushPanelDetail}
+                onReturnToSettings={returnToPanelSettings}
                 onSelectTab={setPanelTab}
+                registerDraft={registerPanelDraft}
               />
             ) : null}
           </Reanimated.View>
@@ -1282,11 +1406,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  brand: {
+  screenTitle: {
     color: theme.color.textPrimary,
     fontFamily: tokens.font.bold,
-    fontSize: 22,
-    letterSpacing: -0.3,
+    fontSize: 26,
+    letterSpacing: -0.4,
   },
   balancePill: {
     height: 34,
@@ -1393,12 +1517,6 @@ const styles = StyleSheet.create({
   settingsContent: {
     paddingHorizontal: theme.layout.panelInset,
     gap: 16,
-  },
-  settingsTitle: {
-    color: theme.color.textPrimary,
-    fontFamily: tokens.font.bold,
-    fontSize: 26,
-    letterSpacing: -0.4,
   },
   accountCard: {
     padding: 14,

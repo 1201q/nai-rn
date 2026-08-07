@@ -1,29 +1,38 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+import {
+  createRandomSeed,
+  getSeedDraftValue,
+  MAX_SEED,
+  sanitizeSeedText,
+} from "../../lib/generationSettingDrafts";
 import { Toggle } from "../forms/FormControls";
 import {
   type RegisterSheetDraft,
   type SheetDraftController,
 } from "./SheetDraft";
 
-const MAX_SEED = 4_294_967_295;
 const SEED_ACCESSIBILITY_HINT = `0에서 ${MAX_SEED.toLocaleString()} 사이의 숫자`;
 
-function randomSeed() {
-  return Math.floor(Math.random() * (MAX_SEED + 1));
-}
-
-export const SeedSheet = memo(function SeedSheet({
+export const SeedEditor = memo(function SeedEditor({
   onSaveAndClose,
   registerDraft,
+  nativeInput = false,
 }: {
   onSaveAndClose: () => void;
   registerDraft: RegisterSheetDraft;
+  nativeInput?: boolean;
 }) {
   const seed = useGenerationStore((state) => state.seed);
   const setSeed = useGenerationStore((state) => state.setSeed);
@@ -33,12 +42,7 @@ export const SeedSheet = memo(function SeedSheet({
   const [draftText, setDraftText] = useState(initialText);
   const [draftLocked, setDraftLocked] = useState(seedLocked);
 
-  const parsedSeed = draftText === "" ? 0 : Number(draftText);
-  const valid =
-    draftText === "" ||
-    (Number.isSafeInteger(parsedSeed) &&
-      parsedSeed >= 0 &&
-      parsedSeed <= MAX_SEED);
+  const { parsed: parsedSeed, valid } = getSeedDraftValue(draftText);
   const dirty = draftText !== initialText || draftLocked !== seedLocked;
   const canSave = dirty && valid;
 
@@ -78,30 +82,31 @@ export const SeedSheet = memo(function SeedSheet({
   }, [commitDraft, onSaveAndClose]);
 
   const handleTextChange = useCallback((value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
+    const digits = sanitizeSeedText(value);
     setDraftText(digits);
     setDraftLocked(digits.length > 0);
   }, []);
 
   const handleRandomize = useCallback(() => {
-    setDraftText(String(randomSeed()));
+    setDraftText(String(createRandomSeed()));
     setDraftLocked(true);
   }, []);
 
   const handleLockChange = useCallback(
     (locked: boolean) => {
       if (locked && draftText === "") {
-        setDraftText(String(randomSeed()));
+        setDraftText(String(createRandomSeed()));
       }
       setDraftLocked(locked);
     },
     [draftText],
   );
+  const Input = nativeInput ? TextInput : BottomSheetTextInput;
 
   return (
     <View style={styles.content}>
       <View style={[styles.inputRow, !valid && styles.inputRowInvalid]}>
-        <BottomSheetTextInput
+        <Input
           accessibilityLabel="Seed 값"
           accessibilityHint={SEED_ACCESSIBILITY_HINT}
           value={draftText}
@@ -148,6 +153,21 @@ export const SeedSheet = memo(function SeedSheet({
       </View>
 
     </View>
+  );
+});
+
+export const SeedSheet = memo(function SeedSheet({
+  onSaveAndClose,
+  registerDraft,
+}: {
+  onSaveAndClose: () => void;
+  registerDraft: RegisterSheetDraft;
+}) {
+  return (
+    <SeedEditor
+      onSaveAndClose={onSaveAndClose}
+      registerDraft={registerDraft}
+    />
   );
 });
 

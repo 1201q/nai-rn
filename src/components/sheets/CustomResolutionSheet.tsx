@@ -6,7 +6,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -20,8 +26,14 @@ import Reanimated, {
 
 import {
   DEFAULT_NAI_RESOLUTION,
-  NAI_RESOLUTIONS,
 } from "../../constants/generation";
+import {
+  customResolutionListSignature,
+  getCustomResolutionDraftState,
+  RESOLUTION_STEP,
+  shouldResetDeletedCustomResolution,
+  snapResolutionDimension,
+} from "../../lib/generationSettingDrafts";
 import {
   type CustomResolution,
   useGenerationStore,
@@ -32,7 +44,6 @@ import {
   type SheetDraftController,
 } from "./SheetDraft";
 
-const RESOLUTION_STEP = 64;
 const ROW_HEIGHT = 56;
 
 type Positions = Record<string, number>;
@@ -62,27 +73,6 @@ function objectMove(positions: Positions, from: number, to: number): Positions {
 function clamp(value: number, min: number, max: number) {
   "worklet";
   return Math.min(Math.max(value, min), max);
-}
-
-function isDefaultResolution(width: number, height: number) {
-  return (
-    NAI_RESOLUTIONS.find((group) => group.group === "Normal")?.options.some(
-      (item) => item.width === width && item.height === height,
-    ) ?? false
-  );
-}
-
-function snapDimension(value: string) {
-  if (!value) return "";
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) return "";
-  return String(
-    Math.max(RESOLUTION_STEP, Math.round(parsed / RESOLUTION_STEP) * 64),
-  );
-}
-
-function listSignature(items: CustomResolution[]) {
-  return items.map((item) => `${item.id}:${item.width}x${item.height}`).join("|");
 }
 
 function createCustomResolutionId() {
@@ -220,11 +210,13 @@ const DraggableResolutionRow = memo(function DraggableResolutionRow({
   );
 });
 
-export const CustomResolutionSheet = memo(
-  function CustomResolutionSheet({
+export const CustomResolutionEditor = memo(
+  function CustomResolutionEditor({
     registerDraft,
+    nativeInput = false,
   }: {
     registerDraft: RegisterSheetDraft;
+    nativeInput?: boolean;
   }) {
     const resolution = useGenerationStore((state) => state.resolution);
     const setResolution = useGenerationStore((state) => state.setResolution);
@@ -234,7 +226,9 @@ export const CustomResolutionSheet = memo(
     const setCustomResolutions = useGenerationStore(
       (state) => state.setCustomResolutions,
     );
-    const initialSignature = useRef(listSignature(customResolutions)).current;
+    const initialSignature = useRef(
+      customResolutionListSignature(customResolutions),
+    ).current;
     const [items, setItems] = useState<CustomResolution[]>(customResolutions);
     const [widthText, setWidthText] = useState("");
     const [heightText, setHeightText] = useState("");
@@ -246,28 +240,13 @@ export const CustomResolutionSheet = memo(
       positions.value = buildPositions(items);
     }, [items, positions]);
 
-    const width = Number.parseInt(widthText, 10);
-    const height = Number.parseInt(heightText, 10);
-    const inputsEmpty = widthText === "" && heightText === "";
-    const inputsComplete = widthText !== "" && heightText !== "";
-    const inputValid =
-      inputsComplete &&
-      Number.isSafeInteger(width) &&
-      Number.isSafeInteger(height) &&
-      width >= RESOLUTION_STEP &&
-      height >= RESOLUTION_STEP &&
-      width % RESOLUTION_STEP === 0 &&
-      height % RESOLUTION_STEP === 0;
-    const duplicate =
-      inputValid &&
-      (isDefaultResolution(width, height) ||
-        items.some((item) => item.width === width && item.height === height));
-    const listDirty = listSignature(items) !== initialSignature;
-    const dirty = listDirty || !inputsEmpty;
-    const canSave =
-      dirty &&
-      ((inputsEmpty && listDirty) || (inputValid && !duplicate));
-    const inputInvalid = !inputsEmpty && (!inputValid || duplicate);
+    const { canSave, dirty, height, inputInvalid, inputsEmpty, width } =
+      getCustomResolutionDraftState({
+        heightText,
+        initialSignature,
+        items,
+        widthText,
+      });
 
     const commitDraft = useCallback(() => {
       if (!canSave) return false;
@@ -283,11 +262,10 @@ export const CustomResolutionSheet = memo(
       setCustomResolutions(nextItems);
 
       if (
-        !isDefaultResolution(resolution.width, resolution.height) &&
-        !nextItems.some(
-          (item) =>
-            item.width === resolution.width &&
-            item.height === resolution.height,
+        shouldResetDeletedCustomResolution(
+          resolution.width,
+          resolution.height,
+          nextItems,
         )
       ) {
         setResolution(DEFAULT_NAI_RESOLUTION);
@@ -352,6 +330,7 @@ export const CustomResolutionSheet = memo(
       () => [styles.list, { height: items.length * ROW_HEIGHT }],
       [items.length],
     );
+    const Input = nativeInput ? TextInput : BottomSheetTextInput;
 
     return (
       <View style={styles.content}>
@@ -360,13 +339,15 @@ export const CustomResolutionSheet = memo(
             style={[styles.inputBox, inputInvalid && styles.inputBoxInvalid]}
           >
             <Text style={styles.inputLabel}>Width</Text>
-            <BottomSheetTextInput
+            <Input
               accessibilityLabel="커스텀 해상도 너비"
               value={widthText}
               onChangeText={(value) =>
                 handleDimensionChange(setWidthText, value)
               }
-              onEndEditing={() => setWidthText(snapDimension(widthText))}
+              onEndEditing={() =>
+                setWidthText(snapResolutionDimension(widthText))
+              }
               keyboardType="number-pad"
               returnKeyType="done"
               placeholder="0"
@@ -389,13 +370,15 @@ export const CustomResolutionSheet = memo(
             style={[styles.inputBox, inputInvalid && styles.inputBoxInvalid]}
           >
             <Text style={styles.inputLabel}>Height</Text>
-            <BottomSheetTextInput
+            <Input
               accessibilityLabel="커스텀 해상도 높이"
               value={heightText}
               onChangeText={(value) =>
                 handleDimensionChange(setHeightText, value)
               }
-              onEndEditing={() => setHeightText(snapDimension(heightText))}
+              onEndEditing={() =>
+                setHeightText(snapResolutionDimension(heightText))
+              }
               keyboardType="number-pad"
               returnKeyType="done"
               placeholder="0"
@@ -431,6 +414,16 @@ export const CustomResolutionSheet = memo(
         )}
       </View>
     );
+  },
+);
+
+export const CustomResolutionSheet = memo(
+  function CustomResolutionSheet({
+    registerDraft,
+  }: {
+    registerDraft: RegisterSheetDraft;
+  }) {
+    return <CustomResolutionEditor registerDraft={registerDraft} />;
   },
 );
 
