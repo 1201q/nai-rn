@@ -1,0 +1,626 @@
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
+index ffd3220..92dff42 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
+@@ -75,16 +75,22 @@ public class MarkdownFormatter {
+         break;
+       case "mention-here":
+         setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionHereColor()), start, end);
+-        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionHereBackgroundColor(), markdownStyle.getMentionHereBorderRadius(), start, end), start, end);
++        setSpan(ssb, new MarkdownBackgroundSpan(
++          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionHereBackgroundColor(),
++          markdownStyle.getMentionHereBorderRadius(), start, end), start, end);
+         break;
+       case "mention-user":
+         // TODO: change mention color when it mentions current user
+         setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionUserColor()), start, end);
+-        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionUserBackgroundColor(), markdownStyle.getMentionUserBorderRadius(), start, end), start, end);
++        setSpan(ssb, new MarkdownBackgroundSpan(
++          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionUserBackgroundColor(),
++          markdownStyle.getMentionUserBorderRadius(), start, end), start, end);
+         break;
+       case "mention-report":
+         setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionReportColor()), start, end);
+-        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionReportBackgroundColor(), markdownStyle.getMentionReportBorderRadius(), start, end), start, end);
++        setSpan(ssb, new MarkdownBackgroundSpan(
++          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionReportBackgroundColor(),
++          markdownStyle.getMentionReportBorderRadius(), start, end), start, end);
+         break;
+       case "syntax":
+         setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getSyntaxColor()), start, end);
+@@ -125,6 +131,13 @@ public class MarkdownFormatter {
+         setSpan(ssb, span, start, end);
+         break;
+     }
++
++    if (markdownRange.getForegroundColor() != null) {
++      setSpan(ssb, new MarkdownForegroundColorSpan(markdownRange.getForegroundColor()), start, end);
++    }
++    if (markdownRange.getFontFamily() != null) {
++      setSpan(ssb, new MarkdownFontFamilySpan(markdownRange.getFontFamily(), mAssetManager), start, end);
++    }
+   }
+ 
+   private void setSpan(@NonNull SpannableStringBuilder ssb, @NonNull MarkdownSpan span, int start, int end) {
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
+index 3e108db..d1e8553 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
+@@ -1,6 +1,9 @@
+ package com.expensify.livemarkdown;
+ 
++import android.graphics.Color;
++
+ import androidx.annotation.NonNull;
++import androidx.annotation.Nullable;
+ 
+ import com.facebook.react.bridge.ReactContext;
+ import com.facebook.react.util.RNLog;
+@@ -63,10 +66,21 @@ public class MarkdownParser {
+           int start = range.getInt("start");
+           int length = range.getInt("length");
+           int depth = range.optInt("depth", 1);
++          Integer backgroundColor = parseColor(range, "backgroundColor");
++          Integer foregroundColor = parseColor(range, "foregroundColor");
++          String fontFamily = range.optString("fontFamily", null);
+           if (length == 0 || start + length > text.length()) {
+             continue;
+           }
+-          markdownRanges.add(new MarkdownRange(type, start, length, depth));
++          markdownRanges.add(new MarkdownRange(
++            type,
++            start,
++            length,
++            depth,
++            backgroundColor,
++            foregroundColor,
++            fontFamily
++          ));
+         }
+       } catch (JSONException e) {
+         RNLog.w(mReactContext, "[react-native-live-markdown] Incorrect schema of worklet parser output: " + e.getMessage());
+@@ -86,4 +100,14 @@ public class MarkdownParser {
+       Systrace.endSection(0);
+     }
+   }
++
++  private static @Nullable Integer parseColor(@NonNull JSONObject range, @NonNull String key) throws JSONException {
++    JSONObject color = range.optJSONObject(key);
++    if (color == null) {
++      return null;
++    }
++
++    int alpha = (int) Math.round(color.getDouble("alpha") * 255);
++    return Color.argb(alpha, color.getInt("red"), color.getInt("green"), color.getInt("blue"));
++  }
+ }
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
+index 1fda115..fd7ae64 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
+@@ -1,6 +1,7 @@
+ package com.expensify.livemarkdown;
+ 
+ import androidx.annotation.NonNull;
++import androidx.annotation.Nullable;
+ 
+ public class MarkdownRange {
+   private final @NonNull String mType;
+@@ -8,13 +9,27 @@ public class MarkdownRange {
+   private final int mEnd;
+   private final int mLength;
+   private final int mDepth;
++  private final @Nullable Integer mBackgroundColor;
++  private final @Nullable Integer mForegroundColor;
++  private final @Nullable String mFontFamily;
+ 
+-  public MarkdownRange(@NonNull String type, int start, int length, int depth) {
++  public MarkdownRange(
++    @NonNull String type,
++    int start,
++    int length,
++    int depth,
++    @Nullable Integer backgroundColor,
++    @Nullable Integer foregroundColor,
++    @Nullable String fontFamily
++  ) {
+     mType = type;
+     mStart = start;
+     mEnd = start + length;
+     mLength = length;
+     mDepth = depth;
++    mBackgroundColor = backgroundColor;
++    mForegroundColor = foregroundColor;
++    mFontFamily = fontFamily;
+   }
+ 
+   public String getType() {
+@@ -36,4 +51,16 @@ public class MarkdownRange {
+   public int getDepth() {
+     return mDepth;
+   }
++
++  public @Nullable Integer getBackgroundColor() {
++    return mBackgroundColor;
++  }
++
++  public @Nullable Integer getForegroundColor() {
++    return mForegroundColor;
++  }
++
++  public @Nullable String getFontFamily() {
++    return mFontFamily;
++  }
+ }
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
+index 69427e8..a65f10c 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
+@@ -1,6 +1,7 @@
+ package com.expensify.livemarkdown;
+ 
+ import android.content.Context;
++import android.graphics.Canvas;
+ import android.text.Editable;
+ import android.text.SpannableStringBuilder;
+ import android.text.TextWatcher;
+@@ -10,6 +11,7 @@ import android.view.View;
+ import com.facebook.react.bridge.ReactContext;
+ import com.facebook.react.views.textinput.ReactEditText;
+ import com.facebook.react.views.view.ReactViewGroup;
++import com.expensify.livemarkdown.spans.MarkdownBackgroundSpan;
+ 
+ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+ 
+@@ -37,7 +39,7 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+       mMarkdownUtils.setMarkdownStyle(mMarkdownStyle);
+       mMarkdownUtils.setParserId(mParserId);
+       mReactEditText = (ReactEditText) child;
+-      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils);
++      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils, this::postInvalidateOnAnimation);
+       mReactEditText.addTextChangedListener(mTextWatcher);
+       applyNewStyles();
+     }
+@@ -54,6 +56,39 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+     }
+   }
+ 
++  @Override
++  protected void dispatchDraw(Canvas canvas) {
++    drawMarkdownBackgrounds(canvas);
++    super.dispatchDraw(canvas);
++  }
++
++  private void drawMarkdownBackgrounds(Canvas canvas) {
++    if (mReactEditText == null) {
++      return;
++    }
++
++    Editable editable = mReactEditText.getText();
++    if (editable == null) {
++      return;
++    }
++
++    MarkdownBackgroundSpan[] spans = editable.getSpans(
++      0,
++      editable.length(),
++      MarkdownBackgroundSpan.class
++    );
++    if (spans.length == 0) {
++      return;
++    }
++
++    int saveCount = canvas.save();
++    canvas.translate(mReactEditText.getLeft(), mReactEditText.getTop());
++    for (MarkdownBackgroundSpan span : spans) {
++      span.drawBehindTextInput(canvas, mReactEditText);
++    }
++    canvas.restoreToCount(saveCount);
++  }
++
+   protected void setMarkdownStyle(MarkdownStyle markdownStyle) {
+     mMarkdownStyle = markdownStyle;
+     if (mMarkdownUtils != null) {
+@@ -75,6 +110,7 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+       Editable editable = mReactEditText.getText();
+       if (editable instanceof SpannableStringBuilder ssb) {
+         mMarkdownUtils.applyMarkdownFormatting(ssb);
++        postInvalidateOnAnimation();
+       }
+     }
+   }
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
+index d182be1..2a21cc9 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
+@@ -8,9 +8,11 @@ import androidx.annotation.NonNull;
+ 
+ public class MarkdownTextWatcher implements TextWatcher {
+   private final @NonNull MarkdownUtils mMarkdownUtils;
++  private final @NonNull Runnable mOnFormatted;
+ 
+-  public MarkdownTextWatcher(@NonNull MarkdownUtils markdownUtils) {
++  public MarkdownTextWatcher(@NonNull MarkdownUtils markdownUtils, @NonNull Runnable onFormatted) {
+     mMarkdownUtils = markdownUtils;
++    mOnFormatted = onFormatted;
+   }
+ 
+   @Override
+@@ -27,6 +29,7 @@ public class MarkdownTextWatcher implements TextWatcher {
+   public void afterTextChanged(Editable editable) {
+     if (editable instanceof SpannableStringBuilder ssb) {
+       mMarkdownUtils.applyMarkdownFormatting(ssb);
++      mOnFormatted.run();
+     }
+   }
+ }
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
+index 557fc71..df70b80 100644
+--- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
+@@ -4,29 +4,31 @@ import android.graphics.Canvas;
+ import android.graphics.Paint;
+ import android.graphics.Path;
+ import android.graphics.RectF;
+-import android.text.StaticLayout;
+-import android.text.TextPaint;
++import android.text.Editable;
++import android.text.Layout;
+ import android.text.style.LineBackgroundSpan;
+ 
+ import androidx.annotation.ColorInt;
+ import androidx.annotation.NonNull;
+ 
++import com.facebook.react.views.textinput.ReactEditText;
++
+ public class MarkdownBackgroundSpan implements MarkdownSpan, LineBackgroundSpan {
+ 
+-  private final int backgroundColor;
+   private final int mentionStart;
+   private final int mentionEnd;
+   private final float borderRadius;
+ 
+-  private StaticLayout layout;
+-  private Path backgroundPath;
++  private final Path backgroundPath;
++  private final Paint backgroundPaint;
+ 
+   public MarkdownBackgroundSpan(@ColorInt int backgroundColor, float borderRadius, int mentionStart, int mentionEnd) {
+-    this.backgroundColor = backgroundColor;
+     this.borderRadius = borderRadius;
+     this.mentionStart = mentionStart;
+     this.mentionEnd = mentionEnd;
+     this.backgroundPath = new Path();
++    this.backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
++    this.backgroundPaint.setColor(backgroundColor);
+   }
+ 
+   @Override
+@@ -43,37 +45,76 @@ public class MarkdownBackgroundSpan implements MarkdownSpan, LineBackgroundSpan
+     int end,
+     int lnum
+   ) {
+-    CharSequence lineText = text.subSequence(start, end);
+-    if (layout == null || layout.getText() != lineText || layout.getWidth() != right || layout.getLineEnd(0) != lineText.length()) {
+-      int currentLineStart = 0;
+-      int currentLineEnd = lineText.length();
+-      // Create layout for the current line only
+-      layout = StaticLayout.Builder.obtain(lineText, currentLineStart, currentLineEnd, (TextPaint) paint, right).build();
+-
+-      int relativeMentionStart = mentionStart - start;
+-      int relativeMentionEnd = mentionEnd - start;
+-
+-      boolean mentionStartsInCurrentLine = currentLineStart <= relativeMentionStart;
+-      boolean mentionEndsInCurrentLine = currentLineEnd >= relativeMentionEnd;
+-
+-      float startX = layout.getPrimaryHorizontal(mentionStartsInCurrentLine ? relativeMentionStart: currentLineStart);
+-      float endX = layout.getPrimaryHorizontal(mentionEndsInCurrentLine ? relativeMentionEnd : currentLineEnd);
+-
+-      Paint.FontMetrics fm = paint.getFontMetrics();
+-      float startY = baseline + fm.ascent;
+-      float endY = baseline + fm.descent;
++    // Intentionally empty. Android draws the native caret before LineBackgroundSpans,
++    // so drawing here would cover it. The decorator draws these backgrounds before
++    // dispatching the ReactEditText instead.
++  }
+ 
+-      RectF lineRect = new RectF(startX, startY, endX, endY);
+-      backgroundPath.reset();
+-      backgroundPath.addRoundRect(lineRect, createRadii(mentionStartsInCurrentLine, mentionEndsInCurrentLine), Path.Direction.CW);
++  public void drawBehindTextInput(
++    @NonNull Canvas canvas,
++    @NonNull ReactEditText editText
++  ) {
++    Layout layout = editText.getLayout();
++    Editable editable = editText.getText();
++    if (layout == null || editable == null || editable.length() == 0) {
++      return;
+     }
+ 
+-    int originalColor = paint.getColor();
+-    paint.setColor(backgroundColor);
++    int rangeStart = Math.max(0, Math.min(mentionStart, editable.length()));
++    int rangeEnd = Math.max(rangeStart, Math.min(mentionEnd, editable.length()));
++    if (rangeStart == rangeEnd) {
++      return;
++    }
+ 
+-    canvas.drawPath(backgroundPath, paint);
++    int startLine = layout.getLineForOffset(rangeStart);
++    int endLine = layout.getLineForOffset(rangeEnd - 1);
++    Paint.FontMetrics fontMetrics = editText.getPaint().getFontMetrics();
++
++    int saveCount = canvas.save();
++    canvas.clipRect(0, 0, editText.getWidth(), editText.getHeight());
++    canvas.translate(
++      editText.getCompoundPaddingLeft() - editText.getScrollX(),
++      editText.getExtendedPaddingTop() - editText.getScrollY()
++    );
++
++    backgroundPath.reset();
++    for (int line = startLine; line <= endLine; line++) {
++      int lineStart = layout.getLineStart(line);
++      int lineEnd = layout.getLineEnd(line);
++      int segmentStart = Math.max(rangeStart, lineStart);
++      int segmentEnd = Math.min(rangeEnd, lineEnd);
++      boolean startsRange = segmentStart == rangeStart;
++      boolean endsRange = segmentEnd == rangeEnd;
++
++      if (segmentEnd > segmentStart && editable.charAt(segmentEnd - 1) == '\n') {
++        segmentEnd -= 1;
++      }
++      if (segmentStart == segmentEnd) {
++        continue;
++      }
++
++      float firstX = layout.getPrimaryHorizontal(segmentStart);
++      float secondX = segmentEnd == lineEnd && !endsRange
++        ? layout.getLineRight(line)
++        : layout.getPrimaryHorizontal(segmentEnd);
++      float left = Math.min(firstX, secondX);
++      float right = Math.max(firstX, secondX);
++      float baseline = layout.getLineBaseline(line);
++      RectF lineRect = new RectF(
++        left,
++        baseline + fontMetrics.ascent,
++        right,
++        baseline + fontMetrics.descent
++      );
++      backgroundPath.addRoundRect(
++        lineRect,
++        createRadii(startsRange, endsRange),
++        Path.Direction.CW
++      );
++    }
+ 
+-    paint.setColor(originalColor);
++    canvas.drawPath(backgroundPath, backgroundPaint);
++    canvas.restoreToCount(saveCount);
+   }
+ 
+   private float[] createRadii(boolean roundedLeft, boolean roundedRight) {
+diff --git a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm
+index 350653c..aa0476b 100644
+--- a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm
++++ b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm
+@@ -20,9 +20,12 @@
+ 
+   for (MarkdownRange *markdownRange in markdownRanges) {
+     [self applyRangeToAttributedString:attributedString
+-                                  type:std::string([markdownRange.type UTF8String])
++                                 type:std::string([markdownRange.type UTF8String])
+                                  range:markdownRange.range
+                                  depth:markdownRange.depth
++                       backgroundColor:markdownRange.backgroundColor
++                       foregroundColor:markdownRange.foregroundColor
++                            fontFamily:markdownRange.fontFamily
+                          markdownStyle:markdownStyle
+                  defaultTextAttributes:defaultTextAttributes];
+   }
+@@ -39,9 +42,12 @@
+ }
+ 
+ - (void)applyRangeToAttributedString:(NSMutableAttributedString *)attributedString
+-                                type:(const std::string)type
++                               type:(const std::string)type
+                                range:(const NSRange)range
+                                depth:(const int)depth
++                     backgroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)backgroundColor
++                     foregroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)foregroundColor
++                          fontFamily:(nullable NSString *)fontFamily
+                        markdownStyle:(nonnull RCTMarkdownStyle *)markdownStyle
+                defaultTextAttributes:(nonnull NSDictionary<NSAttributedStringKey, id> *)defaultTextAttributes
+ {
+@@ -94,20 +100,20 @@
+     [self applyMentionFormatting:attributedString
+                            range:range
+                  mentionColor:markdownStyle.mentionHereColor
+-                 backgroundColor:markdownStyle.mentionHereBackgroundColor
++                 backgroundColor:[self colorFromComponents:backgroundColor fallback:markdownStyle.mentionHereBackgroundColor]
+                     borderRadius:markdownStyle.mentionHereBorderRadius];
+   } else if (type == "mention-user") {
+     // TODO: change mention color when it mentions current user
+     [self applyMentionFormatting:attributedString
+                            range:range
+                  mentionColor:markdownStyle.mentionUserColor
+-                 backgroundColor:markdownStyle.mentionUserBackgroundColor
++                 backgroundColor:[self colorFromComponents:backgroundColor fallback:markdownStyle.mentionUserBackgroundColor]
+                     borderRadius:markdownStyle.mentionUserBorderRadius];
+   } else if (type == "mention-report") {
+     [self applyMentionFormatting:attributedString
+                            range:range
+                  mentionColor:markdownStyle.mentionReportColor
+-                 backgroundColor:markdownStyle.mentionReportBackgroundColor
++                 backgroundColor:[self colorFromComponents:backgroundColor fallback:markdownStyle.mentionReportBackgroundColor]
+                     borderRadius:markdownStyle.mentionReportBorderRadius];
+   } else if (type == "link") {
+     [attributedString addAttribute:NSUnderlineStyleAttributeName value:[NSNumber numberWithInteger:NSUnderlineStyleSingle] range:range];
+@@ -126,6 +132,35 @@
+     [attributedString addAttribute:NSBackgroundColorAttributeName value:markdownStyle.preBackgroundColor range:rangeForBackground];
+     // TODO: pass background color and ranges to layout manager
+   }
++
++  if (foregroundColor != nil) {
++    UIColor *color = [self colorFromComponents:foregroundColor fallback:UIColor.clearColor];
++    [attributedString addAttribute:NSForegroundColorAttributeName value:color range:range];
++  }
++  if (fontFamily != nil) {
++    UIFont *font = [attributedString attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
++    font = [RCTFont updateFont:font
++                    withFamily:fontFamily
++                          size:nil
++                        weight:nil
++                         style:nil
++                       variant:nil
++               scaleMultiplier:0];
++    [attributedString addAttribute:NSFontAttributeName value:font range:range];
++  }
++}
++
++- (UIColor *)colorFromComponents:(nullable NSDictionary<NSString *, NSNumber *> *)components
++                         fallback:(UIColor *)fallback
++{
++  if (components == nil) {
++    return fallback;
++  }
++
++  return [UIColor colorWithRed:[components[@"red"] doubleValue] / 255.0
++                         green:[components[@"green"] doubleValue] / 255.0
++                          blue:[components[@"blue"] doubleValue] / 255.0
++                         alpha:[components[@"alpha"] doubleValue]];
+ }
+ 
+ - (void)applyMentionFormatting:(NSMutableAttributedString *)attributedString
+diff --git a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownParser.mm b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownParser.mm
+index fe46961..f837422 100644
+--- a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownParser.mm
++++ b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownParser.mm
+@@ -51,13 +51,52 @@
+         const auto &start = static_cast<int>(item.getProperty(rt, "start").asNumber());
+         const auto &length = static_cast<int>(item.getProperty(rt, "length").asNumber());
+         const auto &depth = item.hasProperty(rt, "depth") ? static_cast<int>(item.getProperty(rt, "depth").asNumber()) : 1;
++        NSDictionary<NSString *, NSNumber *> *backgroundColor = nil;
++        if (item.hasProperty(rt, "backgroundColor")) {
++          const auto &backgroundColorValue = item.getProperty(rt, "backgroundColor");
++          if (backgroundColorValue.isObject()) {
++            const auto &color = backgroundColorValue.asObject(rt);
++            backgroundColor = @{
++              @"red": @(color.getProperty(rt, "red").asNumber()),
++              @"green": @(color.getProperty(rt, "green").asNumber()),
++              @"blue": @(color.getProperty(rt, "blue").asNumber()),
++              @"alpha": @(color.getProperty(rt, "alpha").asNumber()),
++            };
++          }
++        }
++        NSDictionary<NSString *, NSNumber *> *foregroundColor = nil;
++        if (item.hasProperty(rt, "foregroundColor")) {
++          const auto &foregroundColorValue = item.getProperty(rt, "foregroundColor");
++          if (foregroundColorValue.isObject()) {
++            const auto &color = foregroundColorValue.asObject(rt);
++            foregroundColor = @{
++              @"red": @(color.getProperty(rt, "red").asNumber()),
++              @"green": @(color.getProperty(rt, "green").asNumber()),
++              @"blue": @(color.getProperty(rt, "blue").asNumber()),
++              @"alpha": @(color.getProperty(rt, "alpha").asNumber()),
++            };
++          }
++        }
++        NSString *fontFamily = nil;
++        if (item.hasProperty(rt, "fontFamily")) {
++          const auto &fontFamilyValue = item.getProperty(rt, "fontFamily");
++          if (fontFamilyValue.isString()) {
++            const auto &fontFamilyString = fontFamilyValue.asString(rt).utf8(rt);
++            fontFamily = @(fontFamilyString.c_str());
++          }
++        }
+ 
+         if (length == 0 || start + length > text.length) {
+           continue;
+         }
+ 
+         NSRange range = NSMakeRange(start, length);
+-        MarkdownRange *markdownRange = [[MarkdownRange alloc] initWithType:@(type.c_str()) range:range depth:depth];
++        MarkdownRange *markdownRange = [[MarkdownRange alloc] initWithType:@(type.c_str())
++                                                                      range:range
++                                                                      depth:depth
++                                                            backgroundColor:backgroundColor
++                                                            foregroundColor:foregroundColor
++                                                                 fontFamily:fontFamily];
+         [markdownRanges addObject:markdownRange];
+       }
+     } catch (const jsi::JSError &error) {
+diff --git a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.h b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.h
+index 3c44a94..9e0e96e 100644
+--- a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.h
++++ b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.h
+@@ -7,8 +7,16 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic, strong) NSString *type;
+ @property (nonatomic) NSRange range;
+ @property (nonatomic) NSUInteger depth;
++@property (nonatomic, strong, nullable) NSDictionary<NSString *, NSNumber *> *backgroundColor;
++@property (nonatomic, strong, nullable) NSDictionary<NSString *, NSNumber *> *foregroundColor;
++@property (nonatomic, strong, nullable) NSString *fontFamily;
+ 
+-- (instancetype)initWithType:(NSString *)type range:(NSRange)range depth:(NSUInteger)depth;
++- (instancetype)initWithType:(NSString *)type
++                       range:(NSRange)range
++                       depth:(NSUInteger)depth
++             backgroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)backgroundColor
++             foregroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)foregroundColor
++                  fontFamily:(nullable NSString *)fontFamily;
+ 
+ NS_ASSUME_NONNULL_END
+ 
+diff --git a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.mm b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.mm
+index 067a392..d689aae 100644
+--- a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.mm
++++ b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownRange.mm
+@@ -2,12 +2,20 @@
+ 
+ @implementation MarkdownRange
+ 
+-- (instancetype)initWithType:(NSString *)type range:(NSRange)range depth:(NSUInteger)depth {
++- (instancetype)initWithType:(NSString *)type
++                       range:(NSRange)range
++                       depth:(NSUInteger)depth
++             backgroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)backgroundColor
++             foregroundColor:(nullable NSDictionary<NSString *, NSNumber *> *)foregroundColor
++                  fontFamily:(nullable NSString *)fontFamily {
+   self = [super init];
+   if (self) {
+     _type = type;
+     _range = range;
+     _depth = depth;
++    _backgroundColor = backgroundColor;
++    _foregroundColor = foregroundColor;
++    _fontFamily = fontFamily;
+   }
+   return self;
+ }
+diff --git a/node_modules/@expensify/react-native-live-markdown/src/web/utils/parserUtils.ts b/node_modules/@expensify/react-native-live-markdown/src/web/utils/parserUtils.ts
+index ce9d842..a468cfc 100644
+--- a/node_modules/@expensify/react-native-live-markdown/src/web/utils/parserUtils.ts
++++ b/node_modules/@expensify/react-native-live-markdown/src/web/utils/parserUtils.ts
+@@ -264,6 +264,22 @@ function parseRangesToHTMLNodes(
+ 
+       if (!disableInlineStyles) {
+         addStyleToBlock(span, range.type, markdownStyle, isMultiline);
++        const dynamicRange = range as MarkdownRange & {
++          backgroundColor?: {red: number; green: number; blue: number; alpha: number};
++          foregroundColor?: {red: number; green: number; blue: number; alpha: number};
++          fontFamily?: string;
++        };
++        const backgroundColor = dynamicRange.backgroundColor;
++        if (backgroundColor) {
++          span.style.backgroundColor = `rgba(${backgroundColor.red}, ${backgroundColor.green}, ${backgroundColor.blue}, ${backgroundColor.alpha})`;
++        }
++        const foregroundColor = dynamicRange.foregroundColor;
++        if (foregroundColor) {
++          span.style.color = `rgba(${foregroundColor.red}, ${foregroundColor.green}, ${foregroundColor.blue}, ${foregroundColor.alpha})`;
++        }
++        if (dynamicRange.fontFamily) {
++          span.style.fontFamily = dynamicRange.fontFamily;
++        }
+       }
+ 
+       const spanNode = appendNode(span, currentParentNode, range.type, range.length);
