@@ -275,6 +275,10 @@ export const CharacterCard = memo(function CharacterCard({
   const menuAnchorRef = useRef<View>(null);
   const promptInputRef = useRef<PromptHighlightTextInputHandle>(null);
   const focusedRef = useRef(false);
+  const baseTextRef = useRef(item.prompt);
+  const negativeTextRef = useRef(item.negativePrompt);
+  const itemRef = useRef(item);
+  const onUpdateRef = useRef(onUpdate);
   const [mode, setMode] = useState<PromptMode>("base");
   const [baseText, setBaseText] = useState(item.prompt);
   const [negativeText, setNegativeText] = useState(item.negativePrompt);
@@ -282,11 +286,18 @@ export const CharacterCard = memo(function CharacterCard({
   const [menuTop, setMenuTop] = useState(24);
   const [renaming, setRenaming] = useState(false);
   const [renameText, setRenameText] = useState("");
+  itemRef.current = item;
+  onUpdateRef.current = onUpdate;
   const activeText = mode === "base" ? baseText : negativeText;
   const handlePromptTextChange = useCallback(
     (text: string) => {
-      if (mode === "base") setBaseText(text);
-      else setNegativeText(text);
+      if (mode === "base") {
+        baseTextRef.current = text;
+        setBaseText(text);
+      } else {
+        negativeTextRef.current = text;
+        setNegativeText(text);
+      }
     },
     [mode],
   );
@@ -373,16 +384,45 @@ export const CharacterCard = memo(function CharacterCard({
 
   useEffect(() => {
     if (focusedRef.current) return;
+    baseTextRef.current = item.prompt;
+    negativeTextRef.current = item.negativePrompt;
     setBaseText(item.prompt);
     setNegativeText(item.negativePrompt);
   }, [item.negativePrompt, item.prompt]);
 
+  useEffect(
+    () => () => {
+      const currentItem = itemRef.current;
+      const promptChanged = baseTextRef.current !== currentItem.prompt;
+      const negativePromptChanged =
+        negativeTextRef.current !== currentItem.negativePrompt;
+      if (!promptChanged && !negativePromptChanged) return;
+
+      onUpdateRef.current(currentItem.id, {
+        ...(promptChanged ? { prompt: baseTextRef.current } : {}),
+        ...(negativePromptChanged
+          ? { negativePrompt: negativeTextRef.current }
+          : {}),
+      });
+    },
+    [],
+  );
+
   function commitMode(targetMode: PromptMode) {
-    if (targetMode === "base" && baseText !== item.prompt) {
-      onUpdate(item.id, { prompt: baseText });
+    const currentItem = itemRef.current;
+    if (
+      targetMode === "base" &&
+      baseTextRef.current !== currentItem.prompt
+    ) {
+      onUpdateRef.current(currentItem.id, { prompt: baseTextRef.current });
     }
-    if (targetMode === "negative" && negativeText !== item.negativePrompt) {
-      onUpdate(item.id, { negativePrompt: negativeText });
+    if (
+      targetMode === "negative" &&
+      negativeTextRef.current !== currentItem.negativePrompt
+    ) {
+      onUpdateRef.current(currentItem.id, {
+        negativePrompt: negativeTextRef.current,
+      });
     }
   }
 
