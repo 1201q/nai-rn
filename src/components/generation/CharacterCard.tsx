@@ -18,7 +18,6 @@ import Reanimated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  type SharedValue,
 } from "react-native-reanimated";
 
 import {
@@ -29,9 +28,9 @@ import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { Toggle } from "../forms/FormControls";
+import { PromptModeTabs, type PromptMode } from "../forms/PromptModeTabs";
 import { PromptTokenCounter } from "../forms/PromptTokenCounter";
 
-type PromptMode = "base" | "negative";
 type MenuAction = {
   key: string;
   label: string;
@@ -41,11 +40,6 @@ type MenuAction = {
   destructive?: boolean;
 };
 
-const MODES = [
-  { value: "base", label: "Base" },
-  { value: "negative", label: "Negative" },
-] as const;
-
 export const CHARACTER_BADGE_COLORS = [
   tokens.color.badge1,
   tokens.color.badge2,
@@ -53,70 +47,13 @@ export const CHARACTER_BADGE_COLORS = [
   tokens.color.badge4,
 ] as const;
 
-const CARD_EDITOR_HEIGHT = 240;
-const CARD_BODY_HEIGHT = CARD_EDITOR_HEIGHT + tokens.space[6];
-const PROMPT_MODE_BASE_WIDTH = 46;
-const PROMPT_MODE_NEGATIVE_WIDTH = 68;
+const CARD_EDITOR_HEIGHT = 300;
+const CARD_BODY_HEIGHT = CARD_EDITOR_HEIGHT;
+const CARD_COLLAPSED_RADIUS = 32;
 const CARD_BODY_TIMING = {
   duration: 180,
   easing: Easing.out(Easing.cubic),
 };
-
-function PromptModeTabs({
-  value,
-  progress,
-  onChange,
-}: {
-  value: PromptMode;
-  progress: SharedValue<number>;
-  onChange: (value: string) => void;
-}) {
-  const indicatorStyle = useAnimatedStyle(() => ({
-    width: interpolate(
-      progress.value,
-      [0, 1],
-      [PROMPT_MODE_BASE_WIDTH, PROMPT_MODE_NEGATIVE_WIDTH],
-    ),
-    transform: [{ translateX: progress.value * PROMPT_MODE_BASE_WIDTH }],
-  }));
-
-  return (
-    <View style={styles.promptModeTabs}>
-      <Reanimated.View
-        pointerEvents="none"
-        style={[styles.promptModeIndicator, indicatorStyle]}
-      />
-      {MODES.map((option) => {
-        const active = option.value === value;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="radio"
-            accessibilityLabel={option.label}
-            accessibilityState={{ selected: active }}
-            onPress={() => onChange(option.value)}
-            style={({ pressed }) => [
-              styles.promptModeTab,
-              option.value === "base"
-                ? styles.promptModeBaseTab
-                : styles.promptModeNegativeTab,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.promptModeLabel,
-                active && styles.promptModeLabelActive,
-              ]}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
 
 function CharacterActionMenu({
   visible,
@@ -309,7 +246,6 @@ export const CharacterCard = memo(function CharacterCard({
   });
   const bodyHeight = useSharedValue(expanded ? CARD_BODY_HEIGHT : 0);
   const bodyOpacity = useSharedValue(expanded ? 1 : 0);
-  const modeProgress = useSharedValue(mode === "negative" ? 1 : 0);
   const positionProgress = useSharedValue(positionEnabled ? 1 : 0);
 
   const displayName = item.name?.trim() || `Character ${index + 1}`;
@@ -320,11 +256,11 @@ export const CharacterCard = memo(function CharacterCard({
     height: bodyHeight.value,
     opacity: bodyOpacity.value,
   }));
-  const editorBorderStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(
-      modeProgress.value,
-      [0, 1],
-      [tokens.color.borderSubtle, tokens.color.borderNegative],
+  const cardStyle = useAnimatedStyle(() => ({
+    borderRadius: interpolate(
+      bodyHeight.value,
+      [0, CARD_BODY_HEIGHT],
+      [CARD_COLLAPSED_RADIUS, tokens.radius.settings],
     ),
   }));
   const badgeStyle = useAnimatedStyle(() => ({
@@ -370,13 +306,6 @@ export const CharacterCard = memo(function CharacterCard({
   }, [bodyHeight, bodyOpacity, expanded]);
 
   useEffect(() => {
-    modeProgress.value = withTiming(mode === "negative" ? 1 : 0, {
-      duration: 150,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [mode, modeProgress]);
-
-  useEffect(() => {
     positionProgress.value = withTiming(positionEnabled ? 1 : 0, {
       duration: 160,
       easing: Easing.out(Easing.cubic),
@@ -411,10 +340,7 @@ export const CharacterCard = memo(function CharacterCard({
 
   function commitMode(targetMode: PromptMode) {
     const currentItem = itemRef.current;
-    if (
-      targetMode === "base" &&
-      baseTextRef.current !== currentItem.prompt
-    ) {
+    if (targetMode === "base" && baseTextRef.current !== currentItem.prompt) {
       onUpdateRef.current(currentItem.id, { prompt: baseTextRef.current });
     }
     if (
@@ -427,10 +353,10 @@ export const CharacterCard = memo(function CharacterCard({
     }
   }
 
-  function changeMode(next: string) {
+  function changeMode(next: PromptMode) {
     commitMode(mode);
     autocomplete.clearSuggestions();
-    setMode(next as PromptMode);
+    setMode(next);
   }
 
   function openMenu() {
@@ -451,7 +377,9 @@ export const CharacterCard = memo(function CharacterCard({
   }
 
   return (
-    <View style={[styles.card, !item.enabled && styles.cardDisabled]}>
+    <Reanimated.View
+      style={[styles.card, cardStyle, !item.enabled && styles.cardDisabled]}
+    >
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -509,7 +437,7 @@ export const CharacterCard = memo(function CharacterCard({
         >
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
+            size={20}
             color={tokens.color.textMuted}
           />
         </Pressable>
@@ -551,7 +479,7 @@ export const CharacterCard = memo(function CharacterCard({
         pointerEvents={expanded ? "auto" : "none"}
         style={[styles.editorClip, bodyStyle]}
       >
-        <Reanimated.View style={[styles.editor, editorBorderStyle]}>
+        <View style={styles.editor}>
           <PromptHighlightTextInput
             ref={promptInputRef}
             accessibilityLabel={
@@ -578,11 +506,7 @@ export const CharacterCard = memo(function CharacterCard({
             style={styles.promptInput}
           />
           <View style={styles.editorFooter}>
-            <PromptModeTabs
-              value={mode}
-              progress={modeProgress}
-              onChange={changeMode}
-            />
+            <PromptModeTabs value={mode} onChange={changeMode} />
             <PromptTokenCounter
               target={{
                 scope: "character",
@@ -605,12 +529,12 @@ export const CharacterCard = memo(function CharacterCard({
             >
               <Ionicons
                 name="ellipsis-horizontal"
-                size={15}
+                size={17}
                 color={tokens.color.textTertiary}
               />
             </Pressable>
           </View>
-        </Reanimated.View>
+        </View>
       </Reanimated.View>
 
       <CharacterActionMenu
@@ -625,45 +549,46 @@ export const CharacterCard = memo(function CharacterCard({
         onCopy={() => onCopy(item.id)}
         onDelete={() => onDelete(item.id)}
       />
-    </View>
+    </Reanimated.View>
   );
 });
 
 const styles = StyleSheet.create({
   card: {
     overflow: "hidden",
-    borderRadius: tokens.radius.settings,
+    borderRadius: CARD_COLLAPSED_RADIUS,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.card,
   },
   cardDisabled: {
     opacity: 0.55,
   },
   header: {
-    height: 58,
-    paddingLeft: 12,
-    paddingRight: 4,
+    height: 64,
+    paddingLeft: 16,
+    paddingRight: 6,
     flexDirection: "row",
     alignItems: "center",
   },
   headerMain: {
     flex: 1,
     minWidth: 0,
-    height: 58,
+    height: 64,
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
+    gap: 12,
   },
   badge: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 38,
     borderRadius: tokens.radius.md,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 1,
   },
   badgeText: {
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.sm,
+    fontSize: tokens.type.base,
   },
   titleGroup: {
     flex: 1,
@@ -671,9 +596,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
+    fontFamily: tokens.font.semibold,
     fontSize: tokens.type.md,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   coordinatesSlot: {
     marginTop: 1,
@@ -697,7 +622,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerIcon: {
-    width: 42,
+    width: 40,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
@@ -733,15 +658,9 @@ const styles = StyleSheet.create({
   },
   editor: {
     height: CARD_EDITOR_HEIGHT,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    padding: 12,
-    paddingVertical: 10,
-    // paddingBottom: 10,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.app,
+    paddingHorizontal: tokens.space[8],
+    paddingTop: 0,
+    paddingBottom: 16,
   },
   promptInput: {
     flex: 1,
@@ -749,66 +668,25 @@ const styles = StyleSheet.create({
     padding: 0,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.sm,
-    lineHeight: 20,
+    fontSize: tokens.type.base,
+    lineHeight: 22,
   },
   editorFooter: {
-    marginTop: 4,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: -2,
   },
   characterTokenCounter: {
     marginLeft: "auto",
     marginRight: 8,
   },
-  promptModeTabs: {
-    position: "relative",
-    width: PROMPT_MODE_BASE_WIDTH + PROMPT_MODE_NEGATIVE_WIDTH + 6,
-    height: 32,
-    padding: 3,
-    flexDirection: "row",
-    alignItems: "center",
-    overflow: "hidden",
-    borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.card,
-  },
-  promptModeIndicator: {
-    position: "absolute",
-    top: 3,
-    left: 3,
-    width: PROMPT_MODE_BASE_WIDTH,
-    height: 26,
-    borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.accent,
-  },
-  promptModeTab: {
-    height: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  promptModeBaseTab: {
-    width: PROMPT_MODE_BASE_WIDTH,
-  },
-  promptModeNegativeTab: {
-    width: PROMPT_MODE_NEGATIVE_WIDTH,
-  },
-  promptModeLabel: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type["3xs"],
-  },
-  promptModeLabelActive: {
-    color: tokens.color.onAccent,
-    fontFamily: tokens.font.semibold,
-  },
   moreButton: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 9,
-    backgroundColor: tokens.color.card,
+    borderRadius: 10,
+    backgroundColor: tokens.color.app,
   },
   modalRoot: {
     flex: 1,

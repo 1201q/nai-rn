@@ -21,8 +21,8 @@ import {
   PromptHighlightTextInput,
   type PromptHighlightTextInputHandle,
 } from "./PromptHighlightTextInput";
+import { PromptModeTabs, type PromptMode } from "./PromptModeTabs";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
-import type { PromptTokenTarget } from "../../lib/promptTokens/metrics";
 import { tokens } from "../../styles/tokens";
 import { PromptTokenCounter } from "./PromptTokenCounter";
 
@@ -209,87 +209,138 @@ export const ParameterSlider = memo(function ParameterSlider({
   );
 });
 
-export const PromptField = memo(function PromptField({
-  label,
-  value,
-  placeholder,
-  minHeight,
-  negative = false,
-  tokenTarget,
-  onCommit,
+export const PromptEditor = memo(function PromptEditor({
+  prompt,
+  negativePrompt,
+  onCommitPrompt,
+  onCommitNegativePrompt,
 }: {
-  label: string;
-  value: string;
-  placeholder: string;
-  minHeight: number;
-  negative?: boolean;
-  tokenTarget: PromptTokenTarget;
-  onCommit: (value: string) => void;
+  prompt: string;
+  negativePrompt: string;
+  onCommitPrompt: (value: string) => void;
+  onCommitNegativePrompt: (value: string) => void;
 }) {
   const inputRef = useRef<PromptHighlightTextInputHandle>(null);
   const focusedRef = useRef(false);
-  const latestRef = useRef(value);
-  const [text, setText] = useState(value);
+  const promptRef = useRef(prompt);
+  const negativePromptRef = useRef(negativePrompt);
+  const committedPromptRef = useRef(prompt);
+  const committedNegativePromptRef = useRef(negativePrompt);
+  const onCommitPromptRef = useRef(onCommitPrompt);
+  const onCommitNegativePromptRef = useRef(onCommitNegativePrompt);
+  const [mode, setMode] = useState<PromptMode>("base");
+  const [promptText, setPromptText] = useState(prompt);
+  const [negativePromptText, setNegativePromptText] = useState(negativePrompt);
+  committedPromptRef.current = prompt;
+  committedNegativePromptRef.current = negativePrompt;
+  onCommitPromptRef.current = onCommitPrompt;
+  onCommitNegativePromptRef.current = onCommitNegativePrompt;
 
-  const handleTextChange = useCallback((next: string) => {
-    latestRef.current = next;
-    setText(next);
-  }, []);
+  const activeText = mode === "base" ? promptText : negativePromptText;
+
+  const handleTextChange = useCallback(
+    (next: string) => {
+      if (mode === "base") {
+        promptRef.current = next;
+        setPromptText(next);
+      } else {
+        negativePromptRef.current = next;
+        setNegativePromptText(next);
+      }
+    },
+    [mode],
+  );
   const autocomplete = usePromptAutocomplete({
-    value: text,
+    value: activeText,
     onChangeText: handleTextChange,
     inputRef,
   });
+
   useEffect(() => {
     if (focusedRef.current) return;
-    latestRef.current = value;
-    setText(value);
-  }, [value]);
+    promptRef.current = prompt;
+    negativePromptRef.current = negativePrompt;
+    setPromptText(prompt);
+    setNegativePromptText(negativePrompt);
+  }, [negativePrompt, prompt]);
 
   useEffect(
     () => () => {
-      onCommit(latestRef.current);
+      if (promptRef.current !== committedPromptRef.current) {
+        onCommitPromptRef.current(promptRef.current);
+      }
+      if (
+        negativePromptRef.current !== committedNegativePromptRef.current
+      ) {
+        onCommitNegativePromptRef.current(negativePromptRef.current);
+      }
     },
-    [onCommit],
+    [],
   );
 
+  function commitMode(targetMode: PromptMode) {
+    if (
+      targetMode === "base" &&
+      promptRef.current !== committedPromptRef.current
+    ) {
+      onCommitPromptRef.current(promptRef.current);
+    }
+    if (
+      targetMode === "negative" &&
+      negativePromptRef.current !== committedNegativePromptRef.current
+    ) {
+      onCommitNegativePromptRef.current(negativePromptRef.current);
+    }
+  }
+
+  function changeMode(next: PromptMode) {
+    if (next === mode) return;
+    commitMode(mode);
+    autocomplete.clearSuggestions();
+    setMode(next);
+  }
+
   return (
-    <View style={styles.promptField}>
-      <Text style={styles.promptLabel}>{label}</Text>
-      <View
-        style={[
-          styles.promptCard,
-          { minHeight },
-          negative && styles.promptCardNegative,
-        ]}
-      >
-        <PromptHighlightTextInput
-          ref={inputRef}
-          accessibilityLabel={label}
-          multiline
-          textAlignVertical="top"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder={placeholder}
-          placeholderTextColor={tokens.color.textMuted}
-          onFocus={() => {
-            focusedRef.current = true;
-            autocomplete.activateSuggestions();
-          }}
-          onBlur={() => {
-            focusedRef.current = false;
-            onCommit(latestRef.current);
-            autocomplete.deactivateSuggestions();
-          }}
-          onChangeText={autocomplete.handleChangeText}
-          onSelectionChange={autocomplete.handleSelectionChange}
-          value={text}
-          style={styles.promptInput}
-        />
+    <View
+      style={[
+        styles.promptCard,
+        mode === "negative" && styles.promptCardNegative,
+      ]}
+    >
+      <PromptHighlightTextInput
+        ref={inputRef}
+        accessibilityLabel={
+          mode === "base" ? "Base prompt" : "Negative prompt"
+        }
+        multiline
+        textAlignVertical="top"
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder={mode === "base" ? "1girl, ..." : "lowres, bad anatomy, ..."}
+        placeholderTextColor={tokens.color.textMuted}
+        onFocus={() => {
+          focusedRef.current = true;
+          autocomplete.activateSuggestions();
+        }}
+        onBlur={() => {
+          focusedRef.current = false;
+          commitMode(mode);
+          autocomplete.deactivateSuggestions();
+        }}
+        onChangeText={autocomplete.handleChangeText}
+        onSelectionChange={autocomplete.handleSelectionChange}
+        value={activeText}
+        style={styles.promptInput}
+      />
+      <View style={styles.promptFooter}>
+        <PromptModeTabs value={mode} onChange={changeMode} />
         <PromptTokenCounter
-          target={tokenTarget}
-          draftText={text}
-          style={styles.promptCount}
+          target={{
+            scope: "base",
+            channel: mode === "base" ? "positive" : "negative",
+          }}
+          draftText={activeText}
+          style={styles.promptTokenCounter}
         />
       </View>
     </View>
@@ -419,22 +470,11 @@ const styles = StyleSheet.create({
   sliderStepButtonPressed: {
     opacity: 0.6,
   },
-  promptField: {
-    gap: 12,
-  },
-  promptLabel: {
-    paddingHorizontal: 4,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
-    letterSpacing: tokens.tracking.wide,
-    textTransform: "uppercase",
-  },
   promptCard: {
+    height: 420,
     paddingHorizontal: tokens.space[8],
     paddingTop: 16,
-    paddingBottom: 14,
-    gap: 10,
+    paddingBottom: 16,
     borderRadius: tokens.radius.settings,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
@@ -452,8 +492,13 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.base,
     lineHeight: 22,
   },
-  promptCount: {
-    alignSelf: "flex-end",
+  promptFooter: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  promptTokenCounter: {
+    marginLeft: "auto",
   },
   segmentedControl: {
     height: 32,

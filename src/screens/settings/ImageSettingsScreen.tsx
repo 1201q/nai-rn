@@ -38,7 +38,7 @@ import {
 } from "../../components/common/DetailScrollHeader";
 import {
   ParameterSlider,
-  PromptField,
+  PromptEditor,
   Toggle,
 } from "../../components/forms/FormControls";
 import {
@@ -403,25 +403,12 @@ const PromptTabContent = memo(function PromptTabContent() {
 
   return (
     <View style={styles.promptContent}>
-      <View style={styles.promptFields}>
-        <PromptField
-          label="Prompt"
-          value={prompt}
-          placeholder="1girl, ..."
-          minHeight={250}
-          tokenTarget={{ scope: "base", channel: "positive" }}
-          onCommit={setPrompt}
-        />
-        <PromptField
-          label="Negative Prompt"
-          value={negativePrompt}
-          placeholder="lowres, bad anatomy, ..."
-          minHeight={168}
-          negative
-          tokenTarget={{ scope: "base", channel: "negative" }}
-          onCommit={setNegativePrompt}
-        />
-      </View>
+      <PromptEditor
+        prompt={prompt}
+        negativePrompt={negativePrompt}
+        onCommitPrompt={setPrompt}
+        onCommitNegativePrompt={setNegativePrompt}
+      />
 
       <Text style={styles.sectionLabel}>PROMPT SETTINGS</Text>
 
@@ -570,9 +557,6 @@ const CharacterTabContent = memo(function CharacterTabContent() {
 
   return (
     <>
-      <Text style={styles.characterSectionLabel}>
-        캐릭터 ({characterPrompts.length})
-      </Text>
       <View style={styles.characterCards}>
         {characterPrompts.map((item, index) => (
           <CharacterCard
@@ -969,9 +953,6 @@ const styles = StyleSheet.create({
   },
   promptContent: {
     gap: 20,
-  },
-  promptFields: {
-    gap: 28,
   },
   characterSectionLabel: {
     marginBottom: 12,
