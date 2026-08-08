@@ -15,11 +15,40 @@ export function getPromptTokenCounterColor(
   ) {
     return tokens.color.textMuted;
   }
-  if (metrics.totalTokens > metrics.maxTokens) return tokens.color.negative;
-  if (metrics.totalTokens / metrics.maxTokens >= 0.9) {
-    return tokens.color.accent;
+  return metrics.totalTokens > metrics.maxTokens
+    ? tokens.color.negative
+    : tokens.color.accent;
+}
+
+export function getPromptTokenProgress(metrics: PromptTokenMetrics): number {
+  if (
+    metrics.status !== "ready" ||
+    metrics.totalTokens === null ||
+    metrics.maxTokens === null ||
+    metrics.maxTokens <= 0
+  ) {
+    return 0;
   }
-  return tokens.color.textMuted;
+  return Math.max(0, Math.min(1, metrics.totalTokens / metrics.maxTokens));
+}
+
+export function getPromptTokenFieldProgress(
+  metrics: PromptTokenMetrics,
+): number {
+  if (
+    metrics.status !== "ready" ||
+    metrics.fieldTokens === null ||
+    metrics.totalTokens === null ||
+    metrics.maxTokens === null ||
+    metrics.maxTokens <= 0 ||
+    !metrics.includedInTotal
+  ) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    Math.min(1, metrics.fieldTokens / metrics.maxTokens, metrics.totalTokens / metrics.maxTokens),
+  );
 }
 
 export function formatPromptTokenTooltip(
@@ -31,7 +60,14 @@ export function formatPromptTokenTooltip(
   if (metrics.status !== "ready") return "토큰을 계산할 수 없습니다";
 
   const remaining = metrics.remainingTokens ?? 0;
-  const usage = `이 입력 ${metrics.fieldTokens} · 전체 ${metrics.totalTokens} / ${metrics.maxTokens}`;
+  const includedFieldTokens = metrics.includedInTotal
+    ? (metrics.fieldTokens ?? 0)
+    : 0;
+  const otherTokens = Math.max(
+    0,
+    (metrics.totalTokens ?? 0) - includedFieldTokens,
+  );
+  const usage = `이 입력 ${metrics.fieldTokens} · 다른 입력 ${otherTokens} · 전체 ${metrics.totalTokens} / ${metrics.maxTokens}`;
   const balance =
     remaining >= 0 ? `${remaining} 남음` : `${Math.abs(remaining)} 초과`;
   if (target.scope === "character" && !metrics.includedInTotal) {

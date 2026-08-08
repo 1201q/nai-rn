@@ -10,18 +10,26 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 
 import { getImagePromptTokenPolicy } from "../../constants/generation";
 import { usePromptTokenMetrics } from "../../hooks/usePromptTokenMetrics";
 import type { PromptTokenTarget } from "../../lib/promptTokens/metrics";
 import { useGenerationStore } from "../../store/generationStore";
-import { monoFont, tokens } from "../../styles/tokens";
+import { tokens } from "../../styles/tokens";
 import {
   formatPromptTokenTooltip,
   getPromptTokenCounterColor,
+  getPromptTokenFieldProgress,
+  getPromptTokenProgress,
 } from "./promptTokenPresentation";
 
 type AnchorRect = { x: number; y: number; width: number; height: number };
+
+const RING_SIZE = 24;
+const RING_STROKE_WIDTH = 2.5;
+const RING_RADIUS = (RING_SIZE - RING_STROKE_WIDTH) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export const PromptTokenCounter = memo(function PromptTokenCounter({
   target,
@@ -42,6 +50,8 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
   const visible = anchor !== null;
 
   const counterColor = getPromptTokenCounterColor(metrics);
+  const totalProgress = getPromptTokenProgress(metrics);
+  const fieldProgress = getPromptTokenFieldProgress(metrics);
 
   const counterText =
     metrics.status === "ready"
@@ -49,6 +59,14 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
       : metrics.status === "loading" && metrics.maxTokens !== null
         ? `— / ${metrics.maxTokens}`
         : "계산 불가";
+  const accessibilityLabel =
+    metrics.status === "ready"
+      ? `프롬프트 토큰 사용량, 현재 입력 ${metrics.fieldTokens}, 다른 프롬프트 ${Math.max(
+          0,
+          (metrics.totalTokens ?? 0) -
+            (metrics.includedInTotal ? (metrics.fieldTokens ?? 0) : 0),
+        )}, 전체 ${counterText}`
+      : `프롬프트 토큰 사용량 ${counterText}`;
 
   const tooltipText = formatPromptTokenTooltip(
     metrics,
@@ -99,7 +117,7 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
       <Pressable
         ref={anchorRef}
         accessibilityRole="button"
-        accessibilityLabel={`프롬프트 토큰 ${counterText}`}
+        accessibilityLabel={accessibilityLabel}
         accessibilityHint="남은 토큰 정보를 표시합니다"
         hitSlop={8}
         onPress={toggleTooltip}
@@ -109,9 +127,54 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
           pressed && styles.counterPressed,
         ]}
       >
-        <Text style={[styles.counterText, { color: counterColor }]}>
-          {counterText}
-        </Text>
+        <View style={styles.ringContainer}>
+          <Svg
+            accessible={false}
+            width={RING_SIZE}
+            height={RING_SIZE}
+            viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+          >
+            <Circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RING_RADIUS}
+              fill="none"
+              stroke={tokens.color.borderSubtleStrong}
+              strokeWidth={RING_STROKE_WIDTH}
+            />
+            {totalProgress > 0 ? (
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke={tokens.color.textMuted}
+                strokeWidth={RING_STROKE_WIDTH}
+                strokeLinecap="round"
+                strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                strokeDashoffset={RING_CIRCUMFERENCE * (1 - totalProgress)}
+                transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+              />
+            ) : null}
+            {fieldProgress > 0 ? (
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke={counterColor}
+                strokeWidth={RING_STROKE_WIDTH}
+                strokeLinecap="round"
+                strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                strokeDashoffset={RING_CIRCUMFERENCE * (1 - fieldProgress)}
+                transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+              />
+            ) : null}
+          </Svg>
+          {metrics.status === "error" || metrics.status === "unavailable" ? (
+            <Text style={styles.ringUnavailable}>-</Text>
+          ) : null}
+        </View>
       </Pressable>
 
       <Modal
@@ -159,19 +222,26 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
 
 const styles = StyleSheet.create({
   counter: {
-    minHeight: 24,
-    paddingHorizontal: 2,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   counterPressed: {
     opacity: 0.6,
   },
-  counterText: {
-    fontFamily: monoFont,
-    fontSize: tokens.type["2xs"],
-    fontWeight: "500",
-    fontVariant: ["tabular-nums"],
+  ringContainer: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringUnavailable: {
+    position: "absolute",
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type["3xs"],
+    lineHeight: 13,
   },
   modalRoot: {
     flex: 1,
