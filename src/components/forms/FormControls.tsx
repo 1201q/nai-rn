@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   settingsSliderLabel: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.md,
+    fontSize: 17,
   },
   sliderValue: {
     height: 24,
@@ -446,6 +446,7 @@ const styles = StyleSheet.create({
   settingsSliderValue: {
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
+    fontSize: 17,
   },
   sliderTrack: {
     height: 14,

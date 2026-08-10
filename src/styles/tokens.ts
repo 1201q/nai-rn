@@ -5,14 +5,14 @@ import { Platform } from "react-native";
 
 export const tokens = {
   color: {
-    app: "#0A0A0B", // 앱 캔버스 / 화면 배경
-    card: "#17171A", // 기본 카드 / 행 배경
-    cardAlt: "#151517", // 교차 타일 배경
-    sunken: "#111113", // 드롭다운 / 옵션 리스트 배경
-    raised: "#1D1D20", // 팝오버 / 컨텍스트 메뉴
-    toast: "#232326", // 토스트 전용 표면 - raised보다 한 단계 밝음
-    overlay: "rgba(23,23,26,0.88)", // floating 글래스 pill/바 (blur 대용 solid)
-    scrim: "rgba(10,10,11,0.75)", // 이미지 딤 스크림
+    app: "#121116", // 앱 캔버스 / 화면 배경
+    card: "#1C1B22", // 기본 카드 / 행 배경
+    cardAlt: "#19181E", // 교차 타일 배경
+    sunken: "#15141A", // 드롭다운 / 옵션 리스트 배경
+    raised: "#24232B", // 팝오버 / 컨텍스트 메뉴
+    toast: "#2C2B34", // 토스트 전용 표면 - raised보다 한 단계 밝음
+    overlay: "rgba(28,27,34,0.88)", // floating 글래스 pill/바 (blur 대용 solid)
+    scrim: "rgba(18,17,22,0.75)", // 이미지 딤 스크림
 
     accent: "#FFC93C", // 워엄 앰버 - 모든 인터랙티브/활성 상태
     accentHover: "#FFDA7A",

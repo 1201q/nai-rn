@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[8],
+    paddingHorizontal: tokens.space[6],
   },
   uploadCard: {
     width: "100%",

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[8],
+    paddingHorizontal: tokens.space[6],
   },
   toggleCard: {
     minHeight: 58,

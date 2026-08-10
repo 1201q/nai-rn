@@ -91,14 +91,14 @@ const TABS: readonly SettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
   { key: "prompt", label: "프롬프트", icon: "document-text-outline" },
   { key: "character", label: "캐릭터", icon: "person-outline" },
-  { key: "imageRef", label: "이미지 참조", icon: "image-outline" },
+  { key: "imageRef", label: "고급 기능", icon: "image-outline" },
 ];
 
 const TITLES: Record<SettingsTabKey, string> = {
   settings: "설정",
   prompt: "프롬프트",
   character: "캐릭터",
-  imageRef: "이미지 참조",
+  imageRef: "고급 기능",
 };
 
 function SettingsTabPane({
@@ -243,7 +243,6 @@ function SettingsTabContent() {
   const noiseSchedule = useGenerationStore((state) => state.noiseSchedule);
   const varietyPlus = useGenerationStore((state) => state.varietyPlus);
   const setVarietyPlus = useGenerationStore((state) => state.setVarietyPlus);
-  const batchCount = useGenerationStore((state) => state.batchCount);
 
   const modelText = MODELS.find((item) => item.value === model)?.label ?? model;
   const samplerText =
@@ -373,15 +372,6 @@ function SettingsTabContent() {
         <Text style={styles.optionDescription}>
           {OPTION_DESCRIPTIONS.varietyPlus}
         </Text>
-      </View>
-
-      <View style={styles.settingsCard}>
-        <SettingsOptionRow
-          icon="images-outline"
-          label="Batch Count"
-          value={String(batchCount)}
-          onPress={() => open("batchCount")}
-        />
       </View>
     </View>
   );
@@ -604,6 +594,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
 
 function ImageReferenceTabContent() {
   const router = useRouter();
+  const { open } = useAppSheet();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const i2iEnabled = useGenerationStore((state) => state.i2iEnabled);
   const i2iStrength = useGenerationStore((state) => state.i2iStrength);
@@ -619,6 +610,7 @@ function ImageReferenceTabContent() {
   const setPreciseEnabled = useGenerationStore(
     (state) => state.setPreciseReferencesEnabled,
   );
+  const batchCount = useGenerationStore((state) => state.batchCount);
 
   const vibeEnabled = vibeReferences.some((item) => item.enabled);
   const preciseEnabled = preciseReferences.some((item) => item.enabled);
@@ -688,12 +680,21 @@ function ImageReferenceTabContent() {
           onToggle={togglePrecise}
         />
       </View>
-      <ReferenceRow
-        variant="pill"
-        icon="scan-outline"
-        label="Metadata Extract"
-        onPress={() => router.push("/metadata-extract")}
-      />
+      <View style={styles.settingsGroup}>
+        <SettingsOptionRow
+          icon="scan-outline"
+          label="Metadata Extract"
+          onPress={() => router.push("/metadata-extract")}
+          accentIcon
+        />
+        <View style={styles.settingsGroupDivider} />
+        <SettingsOptionRow
+          icon="images-outline"
+          label="Batch Count"
+          value={String(batchCount)}
+          onPress={() => open("batchCount")}
+        />
+      </View>
     </View>
   );
 }
@@ -768,12 +769,14 @@ export function ImageSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <DetailScrollTitle
-            title={TITLES[activeTab]}
-            scrollY={scrollY}
-            containerHeight={98}
-            navigationSpacerHeight={28}
-          />
+          <View style={styles.headerTitle}>
+            <DetailScrollTitle
+              title={TITLES[activeTab]}
+              scrollY={scrollY}
+              containerHeight={90}
+              navigationSpacerHeight={28}
+            />
+          </View>
           <View style={styles.tabHost}>
             {mountedTabs.settings ? (
               <SettingsTabPane
@@ -884,7 +887,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: tokens.space[8],
+    paddingHorizontal: tokens.space[6],
+  },
+  headerTitle: {
+    paddingHorizontal: tokens.space[2],
   },
   settingsContent: {
     gap: 20,
@@ -910,13 +916,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.md,
+    fontSize: 17,
   },
   settingsRowValue: {
     maxWidth: "48%",
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.base,
+    fontSize: tokens.type.md,
   },
   settingsRowPressed: {
     opacity: 0.65,

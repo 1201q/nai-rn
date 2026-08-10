@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.app,
   },
   content: {
-    paddingHorizontal: tokens.space[8],
+    paddingHorizontal: tokens.space[6],
   },
   summaryCard: {
     minHeight: 58,

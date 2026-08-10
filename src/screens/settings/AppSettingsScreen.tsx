@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: tokens.space[8],
+    paddingHorizontal: tokens.space[6],
   },
   sectionLabel: {
     marginBottom: 12,
