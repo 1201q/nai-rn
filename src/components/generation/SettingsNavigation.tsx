@@ -96,33 +96,15 @@ export const SettingsTabBar = memo(function SettingsTabBar({
   tabs,
   activeKey,
   onChange,
-  onBack,
 }: {
   tabs: readonly SettingsTab[];
   activeKey: string;
   onChange: (key: string) => void;
-  onBack: () => void;
 }) {
   return (
     <View style={styles.tabBarShadow}>
       <View style={styles.tabBar}>
         <View style={styles.tabBarContent}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="뒤로"
-            onPress={onBack}
-            hitSlop={6}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color={tokens.color.textPrimary}
-            />
-          </Pressable>
           {tabs.map((tab) => {
             const active = tab.key === activeKey;
             return (
@@ -213,7 +195,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   tabBarShadow: {
-    flex: 1,
+    width: 244,
     height: 52,
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.card,
@@ -234,15 +216,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: tokens.space[2],
-  },
-  backButton: {
-    width: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.raised,
-    marginRight: tokens.space[3],
-    zIndex: 1,
   },
   tabSlot: {
     flex: 1,

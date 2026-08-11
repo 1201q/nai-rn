@@ -687,7 +687,6 @@ function AdvancedFeaturesContent() {
 
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const canAddCharacter = useGenerationStore(
     (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
   );
@@ -822,7 +821,6 @@ export function ImageSettingsScreen() {
             tabs={TABS}
             activeKey={activeTab}
             onChange={handleTabChange}
-            onBack={() => router.back()}
           />
         </View>
 
@@ -973,5 +971,6 @@ const styles = StyleSheet.create({
     height: 52,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
 });
