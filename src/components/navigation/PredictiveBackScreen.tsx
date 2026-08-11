@@ -27,10 +27,10 @@ const MAX_PEEK_X_RATIO = 0.12;
 const MAX_PEEK_Y_RATIO = 0.03;
 const CORNER_RADIUS = 32;
 const MAX_DIM = 0.35;
-const ENTER_DURATION = 280;
-const EXIT_DURATION = 240;
+const ENTER_DURATION = 220;
+const EXIT_DURATION = 180;
 const EASING = Easing.out(Easing.bezierFn(0.25, 0.46, 0.45, 0.94));
-const SPRING = { damping: 28, stiffness: 260, mass: 0.85 };
+const SPRING = { damping: 30, stiffness: 320, mass: 0.75 };
 
 export function PredictiveBackScreen({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
