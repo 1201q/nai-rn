@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   Animated,
-  Easing,
   Keyboard,
   Pressable,
   StyleSheet,
@@ -19,13 +18,16 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import PagerView from "react-native-pager-view";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
-  type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 
-import { useAppSheet } from "../../context/AppSheetContext";
+import {
+  useAppSheet,
+  useAppSheetOpen,
+} from "../../context/AppSheetContext";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import { CharacterCard } from "../../components/generation/CharacterCard";
 import { ReferenceRow } from "../../components/generation/ReferenceRow";
@@ -60,7 +62,6 @@ import { getUcPresetLabel } from "../../lib/naiPresets";
 import { warmPromptTokenizerForModel } from "../../lib/promptTokens/loader";
 
 type SettingsTabKey = "settings" | "prompt" | "character";
-type TabTransitionDirection = -1 | 0 | 1;
 
 const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
 const CFG_CONFIG = { min: 0, max: 10, step: 0.1, precision: 1 } as const;
@@ -98,68 +99,6 @@ const TITLES: Record<SettingsTabKey, string> = {
   prompt: "프롬프트",
   character: "캐릭터",
 };
-
-function SettingsTabPane({
-  tabKey,
-  activeTab,
-  transitionDirection,
-  children,
-}: {
-  tabKey: SettingsTabKey;
-  activeTab: SettingsTabKey;
-  transitionDirection: TabTransitionDirection;
-  children: ReactNode;
-}) {
-  const active = tabKey === activeTab;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (active) {
-      translateX.setValue(transitionDirection * 12);
-    }
-
-    const animation = active
-      ? Animated.parallel([
-          Animated.timing(opacity, {
-            toValue: 1,
-            duration: 160,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateX, {
-            toValue: 0,
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ])
-      : Animated.timing(opacity, {
-          toValue: 0,
-          duration: 0,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        });
-
-    animation.start();
-    return () => animation.stop();
-  }, [active, opacity, transitionDirection, translateX]);
-
-  return (
-    <Animated.View
-      accessibilityElementsHidden={!active}
-      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
-      pointerEvents={active ? "auto" : "none"}
-      style={[
-        styles.tabPane,
-        active ? styles.activeTabPane : styles.inactiveTabPane,
-        { opacity, transform: [{ translateX }] },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-}
 
 function SettingsOptionRow({
   icon,
@@ -687,22 +626,18 @@ function AdvancedFeaturesContent() {
 
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const isSheetOpen = useAppSheetOpen();
   const canAddCharacter = useGenerationStore(
     (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
   );
   const model = useGenerationStore((state) => state.model);
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
-  const [transitionDirection, setTransitionDirection] =
-    useState<TabTransitionDirection>(0);
-  const [mountedTabs, setMountedTabs] = useState<
-    Record<SettingsTabKey, boolean>
-  >({
-    settings: true,
-    prompt: false,
-    character: false,
-  });
-  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const pagerRef = useRef<PagerView>(null);
+  const scrollValues = useRef<Record<SettingsTabKey, Animated.Value>>({
+    settings: new Animated.Value(0),
+    prompt: new Animated.Value(0),
+    character: new Animated.Value(0),
+  }).current;
 
   useEffect(() => {
     warmPromptTokenizerForModel(model).catch(() => {});
@@ -713,28 +648,29 @@ export function ImageSettingsScreen() {
       const nextTab = key as SettingsTabKey;
       if (nextTab === activeTab) return;
 
-      const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
       const nextIndex = TABS.findIndex((tab) => tab.key === nextTab);
-      setTransitionDirection(nextIndex > currentIndex ? 1 : -1);
-      Keyboard.dismiss();
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-      scrollY.setValue(0);
+      if (nextIndex < 0) return;
 
-      setMountedTabs((current) =>
-        current[nextTab] ? current : { ...current, [nextTab]: true },
-      );
-      setActiveTab(nextTab);
+      Keyboard.dismiss();
+      pagerRef.current?.setPage(nextIndex);
     },
-    [activeTab, scrollY],
+    [activeTab],
   );
 
-  return (
-    <SuggestionBarProvider>
-      <View style={styles.screen}>
-        <StatusBar style="light" />
+  const handlePageSelected = useCallback((position: number) => {
+    const nextTab = TABS[position]?.key as SettingsTabKey | undefined;
+    if (!nextTab) return;
 
+    Keyboard.dismiss();
+    setActiveTab(nextTab);
+  }, []);
+
+  function renderPage(tabKey: SettingsTabKey, children: ReactNode) {
+    const pageScrollY = scrollValues[tabKey];
+
+    return (
+      <View key={tabKey} collapsable={false} style={styles.pagerPage}>
         <KeyboardAwareScrollView
-          ref={scrollRef}
           bottomOffset={72}
           style={styles.scroll}
           contentContainerStyle={[
@@ -745,7 +681,7 @@ export function ImageSettingsScreen() {
             },
           ]}
           onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            [{ nativeEvent: { contentOffset: { y: pageScrollY } } }],
             { useNativeDriver: false },
           )}
           scrollEventThrottle={16}
@@ -755,42 +691,37 @@ export function ImageSettingsScreen() {
         >
           <View style={styles.headerTitle}>
             <DetailScrollTitle
-              title={TITLES[activeTab]}
-              scrollY={scrollY}
+              title={TITLES[tabKey]}
+              scrollY={pageScrollY}
               containerHeight={90}
               navigationSpacerHeight={28}
             />
           </View>
-          <View style={styles.tabHost}>
-            {mountedTabs.settings ? (
-              <SettingsTabPane
-                tabKey="settings"
-                activeTab={activeTab}
-                transitionDirection={transitionDirection}
-              >
-                <SettingsTabContent />
-              </SettingsTabPane>
-            ) : null}
-            {mountedTabs.prompt ? (
-              <SettingsTabPane
-                tabKey="prompt"
-                activeTab={activeTab}
-                transitionDirection={transitionDirection}
-              >
-                <PromptTabContent />
-              </SettingsTabPane>
-            ) : null}
-            {mountedTabs.character ? (
-              <SettingsTabPane
-                tabKey="character"
-                activeTab={activeTab}
-                transitionDirection={transitionDirection}
-              >
-                <CharacterTabContent />
-              </SettingsTabPane>
-            ) : null}
-          </View>
+          {children}
         </KeyboardAwareScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <SuggestionBarProvider>
+      <View style={styles.screen}>
+        <StatusBar style="light" />
+
+        <PagerView
+          ref={pagerRef}
+          initialPage={0}
+          offscreenPageLimit={2}
+          scrollEnabled={!isSheetOpen}
+          onPageSelected={(event) =>
+            handlePageSelected(event.nativeEvent.position)
+          }
+          style={styles.pager}
+        >
+          {renderPage("settings", <SettingsTabContent />)}
+          {renderPage("prompt", <PromptTabContent />)}
+          {renderPage("character", <CharacterTabContent />)}
+        </PagerView>
 
         <View pointerEvents="none" style={styles.edgeFade}>
           <ScreenEdgeFade
@@ -802,7 +733,7 @@ export function ImageSettingsScreen() {
 
         <DetailHeaderOverlay
           title={TITLES[activeTab]}
-          scrollY={scrollY}
+          scrollY={scrollValues[activeTab]}
           topInset={insets.top}
           onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
           addLabel="캐릭터 추가"
@@ -840,22 +771,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.color.app,
   },
-  tabHost: {
-    position: "relative",
+  pager: {
+    flex: 1,
   },
-  tabPane: {
-    width: "100%",
-  },
-  activeTabPane: {
-    position: "relative",
-    zIndex: 1,
-  },
-  inactiveTabPane: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    left: 0,
-    zIndex: 0,
+  pagerPage: {
+    flex: 1,
   },
   scroll: {
     flex: 1,
