@@ -37,6 +37,7 @@ import {
   DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
 import { useScalePress } from "../../hooks/useScalePress";
+import { usePredictiveBackHandler } from "../../native/predictiveBack";
 import { tokens } from "../../styles/tokens";
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable);
@@ -304,6 +305,14 @@ export function HistoryScreen({
     setIsSelectionMode(false);
     setSelectedIds(new Set());
   }
+
+  usePredictiveBackHandler(isSelectionMode, {
+    onCommit: exitSelectionMode,
+  });
+
+  usePredictiveBackHandler(isPreviewOpen && !isSheetOpen, {
+    onCommit: closePreview,
+  });
 
   const enterSelectionMode = useCallback((id: string) => {
     Haptics.selectionAsync().catch(() => {});

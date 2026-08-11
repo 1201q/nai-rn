@@ -49,6 +49,7 @@ import { BatchCountSheet } from "../components/sheets/BatchCountSheet";
 import { MetadataImportSheet } from "../components/sheets/MetadataImportSheet";
 import type { SheetDraftController } from "../components/sheets/SheetDraft";
 import { PrimaryButton } from "../components/common/Buttons";
+import { usePredictiveBackHandler } from "../native/predictiveBack";
 import { tokens } from "../styles/tokens";
 
 //  상세/선택 화면이 공유하는 전역 단일 바텀시트 라우트.
@@ -251,6 +252,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     };
     requestDraftExit("back", goBack);
   }, [apply, forceClose, requestDraftExit]);
+
+  usePredictiveBackHandler(isOpen, { onCommit: back });
 
   const openEntry = useCallback(
     (entry: OpenStackEntry) => {

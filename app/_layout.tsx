@@ -4,7 +4,12 @@ import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import { ActivityIndicator, LogBox, useWindowDimensions } from "react-native";
+import {
+  ActivityIndicator,
+  LogBox,
+  Platform,
+  useWindowDimensions,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -13,6 +18,8 @@ import { Toaster, toast } from "sonner-native";
 
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
+import { PredictiveBackScreen } from "../src/components/navigation/PredictiveBackScreen";
+import { initializePredictiveBack } from "../src/native/predictiveBack";
 import { useGenerationStore } from "../src/store/generationStore";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
 import { tokens } from "../src/styles/tokens";
@@ -45,6 +52,10 @@ export default function RootLayout() {
     setMessage(null);
   }, [message, setMessage]);
 
+  useEffect(() => {
+    initializePredictiveBack();
+  }, []);
+
   if (fontError) throw fontError;
   if (!fontsLoaded) return null;
 
@@ -60,10 +71,24 @@ export default function RootLayout() {
                   시트(BottomSheet)보다 먼저 그려져 z 순서: 시트 > preview > pager. */}
               <PortalProvider>
                 <Stack
+                  screenLayout={({ children }) =>
+                    Platform.OS === "android" ? (
+                      <PredictiveBackScreen>{children}</PredictiveBackScreen>
+                    ) : (
+                      children
+                    )
+                  }
                   screenOptions={{
                     headerShown: false,
-                    animation: "default",
-                    contentStyle: { backgroundColor: tokens.color.app },
+                    animation: Platform.OS === "android" ? "none" : "default",
+                    presentation:
+                      Platform.OS === "android" ? "transparentModal" : "card",
+                    contentStyle: {
+                      backgroundColor:
+                        Platform.OS === "android"
+                          ? "transparent"
+                          : tokens.color.app,
+                    },
                   }}
                   screenListeners={({ route }) => ({
                     focus: () => {

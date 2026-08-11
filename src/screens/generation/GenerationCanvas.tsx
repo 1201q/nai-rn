@@ -28,6 +28,7 @@ import {
 } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 import { ImagePreviewModal } from "../../components/image-preview/ImagePreviewModal";
+import { usePredictiveBackHandler } from "../../native/predictiveBack";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
 const TOOLBAR_EXPANDED_WIDTH = 260;
@@ -166,6 +167,10 @@ export function GenerationCanvas() {
       if (finished) setIsImagePreviewOpen(false);
     });
   }
+
+  usePredictiveBackHandler(isImagePreviewOpen && !isSheetOpen, {
+    onCommit: closeImagePreview,
+  });
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
