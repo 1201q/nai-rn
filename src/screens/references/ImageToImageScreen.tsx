@@ -317,13 +317,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: tokens.radius.pill,
+    borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
   toggleLabel: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.md,
+    fontSize: 17,
+    lineHeight: 22,
   },
   imageSection: {
     marginTop: 24,

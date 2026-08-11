@@ -59,7 +59,7 @@ import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
 import { warmPromptTokenizerForModel } from "../../lib/promptTokens/loader";
 
-type SettingsTabKey = "settings" | "prompt" | "character" | "imageRef";
+type SettingsTabKey = "settings" | "prompt" | "character";
 type TabTransitionDirection = -1 | 0 | 1;
 
 const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
@@ -91,14 +91,12 @@ const TABS: readonly SettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
   { key: "prompt", label: "프롬프트", icon: "document-text-outline" },
   { key: "character", label: "캐릭터", icon: "person-outline" },
-  { key: "imageRef", label: "고급 기능", icon: "image-outline" },
 ];
 
 const TITLES: Record<SettingsTabKey, string> = {
   settings: "설정",
   prompt: "프롬프트",
   character: "캐릭터",
-  imageRef: "고급 기능",
 };
 
 function SettingsTabPane({
@@ -171,7 +169,7 @@ function SettingsOptionRow({
   trailing,
   accentIcon = false,
 }: {
-  icon: IconName;
+  icon?: IconName;
   label: string;
   value?: string;
   onPress?: () => void;
@@ -180,11 +178,13 @@ function SettingsOptionRow({
 }) {
   const content = (
     <>
-      <Ionicons
-        name={icon}
-        size={20}
-        color={accentIcon ? tokens.color.accent : tokens.color.textTertiary}
-      />
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={20}
+          color={accentIcon ? tokens.color.accent : tokens.color.textTertiary}
+        />
+      ) : null}
       <Text style={styles.settingsRowLabel}>{label}</Text>
       {value ? (
         <Text style={styles.settingsRowValue} numberOfLines={1}>
@@ -256,7 +256,6 @@ function SettingsTabContent() {
     <View style={styles.settingsContent}>
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
-          icon="cube-outline"
           label="Model"
           value={modelText}
           onPress={() => open("model")}
@@ -264,7 +263,6 @@ function SettingsTabContent() {
         />
         <View style={styles.settingsGroupDivider} />
         <SettingsOptionRow
-          icon="scan-outline"
           label="Resolution"
           value={`${resolution.width}x${resolution.height}`}
           onPress={() => open("resolution")}
@@ -274,7 +272,6 @@ function SettingsTabContent() {
 
       <View style={styles.settingsCard}>
         <SettingsOptionRow
-          icon="dice-outline"
           label="Seed"
           value={seedText}
           onPress={() => open("seed")}
@@ -341,14 +338,12 @@ function SettingsTabContent() {
 
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
-          icon="shuffle-outline"
           label="Sampler"
           value={samplerText}
           onPress={() => open("sampler")}
         />
         <View style={styles.settingsGroupDivider} />
         <SettingsOptionRow
-          icon="pulse-outline"
           label="Schedule"
           value={scheduleText}
           onPress={() => open("schedule")}
@@ -358,7 +353,6 @@ function SettingsTabContent() {
       <View style={styles.parameterItem}>
         <View style={styles.settingsCard}>
           <SettingsOptionRow
-            icon="sparkles-outline"
             label="Variety+"
             trailing={
               <Toggle
@@ -373,6 +367,10 @@ function SettingsTabContent() {
           {OPTION_DESCRIPTIONS.varietyPlus}
         </Text>
       </View>
+
+      <Text style={styles.sectionLabel}>ADVANCED FEATURES</Text>
+
+      <AdvancedFeaturesContent />
     </View>
   );
 }
@@ -405,7 +403,6 @@ const PromptTabContent = memo(function PromptTabContent() {
       <View style={styles.parameterItem}>
         <View style={styles.settingsCard}>
           <SettingsOptionRow
-            icon="pricetag-outline"
             label="Quality Tags"
             trailing={
               <Toggle
@@ -423,7 +420,6 @@ const PromptTabContent = memo(function PromptTabContent() {
 
       <View style={styles.settingsCard}>
         <SettingsOptionRow
-          icon="shield-outline"
           label="UC Preset"
           value={getUcPresetLabel(ucPreset)}
           onPress={() => open("ucPreset")}
@@ -572,7 +568,6 @@ const CharacterTabContent = memo(function CharacterTabContent() {
         <View style={styles.parameterItem}>
           <View style={styles.settingsCard}>
             <SettingsOptionRow
-              icon="location-outline"
               label="Character Positions"
               trailing={
                 <Toggle
@@ -592,7 +587,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
   );
 });
 
-function ImageReferenceTabContent() {
+function AdvancedFeaturesContent() {
   const router = useRouter();
   const { open } = useAppSheet();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
@@ -636,7 +631,6 @@ function ImageReferenceTabContent() {
       <View style={styles.settingsGroup}>
         <ReferenceRow
           variant="grouped"
-          icon="image-outline"
           label="Image2Image"
           enabled={i2iEnabled}
           stateLabel={
@@ -654,7 +648,6 @@ function ImageReferenceTabContent() {
         <View style={styles.settingsGroupDivider} />
         <ReferenceRow
           variant="grouped"
-          icon="color-palette-outline"
           label="Vibe Transfer"
           enabled={vibeEnabled}
           stateLabel={
@@ -669,7 +662,6 @@ function ImageReferenceTabContent() {
         <View style={styles.settingsGroupDivider} />
         <ReferenceRow
           variant="grouped"
-          icon="person-outline"
           label="Precise Reference"
           enabled={preciseEnabled}
           stateLabel={
@@ -682,14 +674,12 @@ function ImageReferenceTabContent() {
       </View>
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
-          icon="scan-outline"
           label="Metadata Extract"
           onPress={() => router.push("/metadata-extract")}
           accentIcon
         />
         <View style={styles.settingsGroupDivider} />
         <SettingsOptionRow
-          icon="images-outline"
           label="Batch Count"
           value={String(batchCount)}
           onPress={() => open("batchCount")}
@@ -715,7 +705,6 @@ export function ImageSettingsScreen() {
     settings: true,
     prompt: false,
     character: false,
-    imageRef: false,
   });
   const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -803,15 +792,6 @@ export function ImageSettingsScreen() {
                 transitionDirection={transitionDirection}
               >
                 <CharacterTabContent />
-              </SettingsTabPane>
-            ) : null}
-            {mountedTabs.imageRef ? (
-              <SettingsTabPane
-                tabKey="imageRef"
-                activeTab={activeTab}
-                transitionDirection={transitionDirection}
-              >
-                <ImageReferenceTabContent />
               </SettingsTabPane>
             ) : null}
           </View>
@@ -902,7 +882,7 @@ const styles = StyleSheet.create({
   },
   settingsCard: {
     overflow: "hidden",
-    borderRadius: tokens.radius.pill,
+    borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
   settingsRow: {
@@ -917,6 +897,7 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
     fontSize: 17,
+    lineHeight: 22,
   },
   settingsRowValue: {
     maxWidth: "48%",

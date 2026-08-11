@@ -28,7 +28,7 @@ export const ReferenceRow = memo(function ReferenceRow({
   onPress,
   onToggle,
 }: {
-  icon: IconName;
+  icon?: IconName;
   label: string;
   variant: "grouped" | "pill";
   enabled?: boolean;
@@ -39,6 +39,9 @@ export const ReferenceRow = memo(function ReferenceRow({
   onToggle?: (value: boolean) => void;
 }) {
   const hasToggle = enabled !== undefined && onToggle !== undefined;
+  const secondaryText =
+    stateLabel ?? (hasToggle ? (enabled ? "켜짐" : "꺼짐") : undefined);
+  const hasSecondary = secondaryText !== undefined;
   const imageScrimOpacity = useSharedValue(
     enabled
       ? IMAGE_SCRIM_ENABLED_OPACITY
@@ -65,6 +68,7 @@ export const ReferenceRow = memo(function ReferenceRow({
       style={[
         styles.row,
         variant === "grouped" ? styles.rowGrouped : styles.rowPill,
+        hasSecondary && styles.rowWithSecondary,
       ]}
     >
       {thumbnailUri ? (
@@ -92,13 +96,13 @@ export const ReferenceRow = memo(function ReferenceRow({
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons name={icon} size={21} color={tokens.color.accent} />
+        {icon ? (
+          <Ionicons name={icon} size={21} color={tokens.color.accent} />
+        ) : null}
         <View style={styles.copy}>
           <Text style={styles.label}>{label}</Text>
-          {hasToggle ? (
-            <Text style={styles.state}>
-              {stateLabel ?? (enabled ? "켜짐" : "꺼짐")}
-            </Text>
+          {hasSecondary ? (
+            <Text style={styles.state}>{secondaryText}</Text>
           ) : null}
         </View>
       </Pressable>
@@ -141,13 +145,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rowGrouped: {
-    paddingVertical: 12,
+    minHeight: 58,
     backgroundColor: "transparent",
+  },
+  rowWithSecondary: {
+    minHeight: 76,
+    paddingVertical: 15,
   },
   rowPill: {
     minHeight: 58,
     paddingVertical: 10,
-    borderRadius: tokens.radius.pill,
+    borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
   imageScrim: {
@@ -173,18 +181,19 @@ const styles = StyleSheet.create({
   label: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.md,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 22,
   },
   state: {
-    marginTop: 2,
-    color: tokens.color.textMuted,
+    marginTop: 4,
+    color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 16,
+    fontSize: tokens.type.sm,
+    lineHeight: 20,
   },
   trailing: {
-    paddingHorizontal: 14,
+    paddingLeft: 14,
+    paddingRight: 18,
   },
   chevronButton: {
     width: 48,

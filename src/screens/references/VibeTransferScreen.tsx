@@ -244,14 +244,14 @@ export function VibeTransferScreen() {
 
 const styles = StyleSheet.create({
   normalizeCard: {
-    minHeight: 58,
+    minHeight: 76,
     marginTop: 12,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 15,
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: tokens.radius.settings,
+    borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
   normalizeCopy: {
@@ -261,15 +261,15 @@ const styles = StyleSheet.create({
   normalizeTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type.md,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 22,
   },
   normalizeDescription: {
     marginTop: 4,
-    color: tokens.color.textMuted,
+    color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 16,
+    fontSize: tokens.type.sm,
+    lineHeight: 20,
   },
   sectionTitle: {
     marginTop: 24,
