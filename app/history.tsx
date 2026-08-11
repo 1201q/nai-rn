@@ -1,5 +1,5 @@
-import { HistoryScreen } from "../src/screens/history/HistoryScreen";
+import { MainPagerScreen } from "../src/screens/main/MainPagerScreen";
 
 export default function HistoryRoute() {
-  return <HistoryScreen />;
+  return <MainPagerScreen initialPage={1} />;
 }

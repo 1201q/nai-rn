@@ -77,7 +77,11 @@ function GenerateAction() {
   );
 }
 
-export function GenerationScreen() {
+export function GenerationScreen({
+  onOpenHistory,
+}: {
+  onOpenHistory?: () => void;
+} = {}) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
@@ -137,7 +141,7 @@ export function GenerationScreen() {
         <IconButton
           icon="time-outline"
           label="History"
-          onPress={() => router.navigate("/history")}
+          onPress={onOpenHistory ?? (() => router.navigate("/history"))}
           style={styles.sideActionButton}
         />
       </View>

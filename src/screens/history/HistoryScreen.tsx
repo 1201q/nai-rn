@@ -232,9 +232,9 @@ function HistorySelectionHeader({
 }
 
 export function HistoryScreen({
-  onSelectionModeChange,
+  onPagingEnabledChange,
 }: {
-  onSelectionModeChange?: (isSelectionMode: boolean) => void;
+  onPagingEnabledChange?: (enabled: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
@@ -460,9 +460,9 @@ export function HistoryScreen({
   }, [isPreviewOpen, isSheetOpen]);
 
   useEffect(() => {
-    onSelectionModeChange?.(isSelectionMode);
-    return () => onSelectionModeChange?.(false);
-  }, [isSelectionMode, onSelectionModeChange]);
+    onPagingEnabledChange?.(!isSelectionMode && !isPreviewOpen);
+    return () => onPagingEnabledChange?.(true);
+  }, [isPreviewOpen, isSelectionMode, onPagingEnabledChange]);
 
   // 배경 페이드: 선택 모드 동안 유지 (선택 개수 0 이어도 흐림 유지).
   useEffect(() => {
