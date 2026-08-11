@@ -49,7 +49,7 @@ export const CHARACTER_BADGE_COLORS = [
 
 const CARD_EDITOR_HEIGHT = 300;
 const CARD_BODY_HEIGHT = CARD_EDITOR_HEIGHT;
-const CARD_COLLAPSED_RADIUS = 32;
+const CARD_COLLAPSED_RADIUS = tokens.radius.settings;
 const CARD_BODY_TIMING = {
   duration: 180,
   easing: Easing.out(Easing.cubic),
@@ -597,12 +597,12 @@ const styles = StyleSheet.create({
   title: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.md,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 21,
   },
   coordinatesSlot: {
     marginTop: 1,
-    height: 15,
+    height: 16,
     overflow: "hidden",
   },
   coordinates: {
@@ -612,8 +612,8 @@ const styles = StyleSheet.create({
     left: 0,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 15,
+    fontSize: tokens.type.xs,
+    lineHeight: 16,
   },
   toggleSlot: {
     width: 52,

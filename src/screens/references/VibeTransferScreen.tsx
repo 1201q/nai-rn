@@ -178,7 +178,7 @@ export function VibeTransferScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>
-        Reference Images ({references.length})
+        이미지 ({references.length})
       </Text>
       <View style={styles.cards}>
         {references.map((reference, index) => {
@@ -275,9 +275,9 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
     paddingHorizontal: 4,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.xs,
     letterSpacing: tokens.tracking.wide,
   },
   cards: {

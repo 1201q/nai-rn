@@ -278,8 +278,6 @@ function SettingsTabContent() {
         />
       </View>
 
-      <Text style={styles.sectionLabel}>PARAMETERS</Text>
-
       <View style={styles.parameterItem}>
         <View style={styles.parameterCard}>
           <ParameterSlider
@@ -334,8 +332,6 @@ function SettingsTabContent() {
         </Text>
       </View>
 
-      <Text style={styles.sectionLabel}>ADVANCED SETTINGS</Text>
-
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
           label="Sampler"
@@ -368,7 +364,7 @@ function SettingsTabContent() {
         </Text>
       </View>
 
-      <Text style={styles.sectionLabel}>ADVANCED FEATURES</Text>
+      <Text style={styles.sectionLabel}>고급 기능</Text>
 
       <AdvancedFeaturesContent />
     </View>
@@ -398,7 +394,7 @@ const PromptTabContent = memo(function PromptTabContent() {
         onCommitNegativePrompt={setNegativePrompt}
       />
 
-      <Text style={styles.sectionLabel}>PROMPT SETTINGS</Text>
+      <Text style={styles.sectionLabel}>프롬프트 설정</Text>
 
       <View style={styles.parameterItem}>
         <View style={styles.settingsCard}>
@@ -564,7 +560,7 @@ const CharacterTabContent = memo(function CharacterTabContent() {
       </View>
 
       <View style={styles.characterPositionSection}>
-        <Text style={styles.characterSectionLabel}>POSITION SETTING</Text>
+        <Text style={styles.characterSectionLabel}>캐릭터 프롬프트 설정</Text>
         <View style={styles.parameterItem}>
           <View style={styles.settingsCard}>
             <SettingsOptionRow
@@ -917,9 +913,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: -8,
     paddingHorizontal: 4,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.xs,
     letterSpacing: tokens.tracking.wide,
   },
   parameterItem: {
@@ -944,9 +940,9 @@ const styles = StyleSheet.create({
   characterSectionLabel: {
     marginBottom: 12,
     paddingHorizontal: 4,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.bold,
+    fontSize: tokens.type.xs,
     letterSpacing: tokens.tracking.wide,
   },
   characterCards: {
