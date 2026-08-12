@@ -550,28 +550,50 @@ const CharacterPromptCards = memo(function CharacterPromptCards() {
           </Pressable>
         </Reanimated.View>
       ) : (
-        characterPrompts.map((item, index) => (
-          <Reanimated.View
-            key={item.id}
-            entering={CHARACTER_PROMPT_ENTERING}
-            exiting={CHARACTER_PROMPT_EXITING}
-          >
-            <CharacterCard
-              item={item}
-              index={index}
-              expanded={expandedIds.includes(item.id)}
-              positionEnabled={positionEnabled}
-              canCopy={canAdd}
-              canReorder={characterPrompts.length > 1}
-              onToggleExpand={toggleExpanded}
-              onUpdate={updateCharacter}
-              onCopy={copyCharacter}
-              onDelete={deleteCharacter}
-              onOpenOrder={openCharacterOrder}
-              onOpenPosition={openCharacterPosition}
-            />
-          </Reanimated.View>
-        ))
+        <>
+          {characterPrompts.map((item, index) => (
+            <Reanimated.View
+              key={item.id}
+              entering={CHARACTER_PROMPT_ENTERING}
+              exiting={CHARACTER_PROMPT_EXITING}
+            >
+              <CharacterCard
+                item={item}
+                index={index}
+                expanded={expandedIds.includes(item.id)}
+                positionEnabled={positionEnabled}
+                canCopy={canAdd}
+                canReorder={characterPrompts.length > 1}
+                onToggleExpand={toggleExpanded}
+                onUpdate={updateCharacter}
+                onCopy={copyCharacter}
+                onDelete={deleteCharacter}
+                onOpenOrder={openCharacterOrder}
+                onOpenPosition={openCharacterPosition}
+              />
+            </Reanimated.View>
+          ))}
+          {canAdd ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="캐릭터 프롬프트 추가"
+              onPress={addCharacterPrompt}
+              style={({ pressed }) => [
+                styles.addCharacterPromptButton,
+                pressed && styles.emptyCharacterPromptsPressed,
+              ]}
+            >
+              <Ionicons
+                name="add"
+                size={20}
+                color={tokens.color.accent}
+              />
+              <Text style={styles.addCharacterPromptButtonLabel}>
+                캐릭터 프롬프트 추가
+              </Text>
+            </Pressable>
+          ) : null}
+        </>
       )}
     </View>
   );
@@ -714,9 +736,6 @@ function AdvancedFeaturesContent() {
 export function ImageSettingsScreen() {
   const insets = useSafeAreaInsets();
   const isSheetOpen = useAppSheetOpen();
-  const canAddCharacter = useGenerationStore(
-    (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
-  );
   const model = useGenerationStore((state) => state.model);
   const initialTab = useRef(lastViewedTab).current;
   const initialPage = TABS.findIndex((tab) => tab.key === initialTab);
@@ -823,9 +842,6 @@ export function ImageSettingsScreen() {
           title={TITLES[activeTab]}
           scrollY={scrollValues[activeTab]}
           topInset={insets.top}
-          onAdd={activeTab === "prompt" ? addCharacterPrompt : undefined}
-          addLabel="캐릭터 추가"
-          addDisabled={!canAddCharacter}
           showCompactTitle={false}
         />
 
@@ -972,6 +988,23 @@ const styles = StyleSheet.create({
   },
   emptyCharacterPromptsPressed: {
     opacity: 0.68,
+  },
+  addCharacterPromptButton: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.space[4],
+    borderRadius: tokens.radius.settings,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: tokens.color.borderSubtleStrong,
+    backgroundColor: tokens.color.card,
+  },
+  addCharacterPromptButtonLabel: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
   },
   referenceRows: {
     gap: 20,

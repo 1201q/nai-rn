@@ -69,7 +69,7 @@ export function ReferenceDetailLayout({
           styles.content,
           {
             paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
-            paddingBottom: insets.bottom + 32,
+            paddingBottom: insets.bottom + 104,
           },
         ]}
         onScroll={Animated.event(
@@ -109,12 +109,28 @@ export function ReferenceDetailLayout({
         scrollY={scrollY}
         topInset={insets.top}
         onBack={() => router.back()}
-        onAdd={onAdd}
-        addLabel="참조 이미지 추가"
-        addDisabled={addDisabled}
         showMore={false}
         hideCompactTitleOnScroll
       />
+
+      {onAdd ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="이미지 추가"
+          accessibilityState={{ disabled: addDisabled }}
+          disabled={addDisabled}
+          onPress={onAdd}
+          style={({ pressed }) => [
+            styles.floatingAddButton,
+            { bottom: insets.bottom + tokens.space[8] },
+            addDisabled && styles.floatingAddButtonDisabled,
+            pressed && !addDisabled && styles.pressed,
+          ]}
+        >
+          <Ionicons name="add" size={20} color={tokens.color.onAccent} />
+          <Text style={styles.floatingAddButtonLabel}>이미지 추가</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -409,6 +425,28 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: tokens.space[6],
+  },
+  floatingAddButton: {
+    position: "absolute",
+    right: tokens.space[8],
+    zIndex: 4,
+    height: 52,
+    paddingHorizontal: tokens.space[9],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.space[4],
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.accent,
+    ...tokens.shadow.floatMd,
+  },
+  floatingAddButtonDisabled: {
+    opacity: 0.4,
+  },
+  floatingAddButtonLabel: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
   },
   summaryCard: {
     minHeight: 58,

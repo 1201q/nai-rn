@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   tabBarShadow: {
-    width: 244,
+    width: 184,
     height: 52,
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.card,
