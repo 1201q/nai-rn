@@ -35,6 +35,7 @@ export const PREDICTIVE_BACK_HAS_PROGRESS =
   nativeModule?.progressAvailable === true;
 
 const owners = new Map<object, PredictiveBackHandlers>();
+const observers = new Set<PredictiveBackHandlers>();
 let subscriptions: Array<{ remove: () => void }> | null = null;
 let appliedMode: "app" | "system" | null = null;
 
@@ -51,12 +52,23 @@ function dispatch(
   event?: PredictiveBackEvent,
 ) {
   const handler = currentHandlers()?.[name];
-  if (!handler) return;
+  if (handler) {
+    if (name === "onStart" || name === "onProgress") {
+      (handler as (nextEvent: PredictiveBackEvent) => void)(event!);
+    } else {
+      (handler as () => void)();
+    }
+  }
 
-  if (name === "onStart" || name === "onProgress") {
-    (handler as (nextEvent: PredictiveBackEvent) => void)(event!);
-  } else {
-    (handler as () => void)();
+  for (const observer of observers) {
+    const observerHandler = observer[name];
+    if (!observerHandler) continue;
+
+    if (name === "onStart" || name === "onProgress") {
+      (observerHandler as (nextEvent: PredictiveBackEvent) => void)(event!);
+    } else {
+      (observerHandler as () => void)();
+    }
   }
 }
 
@@ -109,6 +121,14 @@ export function acquirePredictiveBack(
 export function releasePredictiveBack(token: object) {
   if (!nativeModule || !owners.delete(token)) return;
   applyMode(true);
+}
+
+export function observePredictiveBack(handlers: PredictiveBackHandlers) {
+  if (!nativeModule) return () => {};
+
+  ensureSubscribed();
+  observers.add(handlers);
+  return () => observers.delete(handlers);
 }
 
 export function usePredictiveBackHandler(
