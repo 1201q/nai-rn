@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  ActivityIndicator,
   Animated,
   type LayoutChangeEvent,
   Pressable,
@@ -151,6 +152,46 @@ export const ReferenceUsageNotice = memo(function ReferenceUsageNotice({
     </View>
   );
 });
+
+export const ReferenceEmptyPlaceholder = memo(
+  function ReferenceEmptyPlaceholder({
+    label,
+    busy = false,
+    onPress,
+  }: {
+    label: string;
+    busy?: boolean;
+    onPress: () => void;
+  }) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, 현재 0개`}
+        accessibilityState={{ busy, disabled: busy }}
+        disabled={busy}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.emptyPlaceholder,
+          pressed && styles.pressed,
+        ]}
+      >
+        {busy ? (
+          <ActivityIndicator color={tokens.color.textMuted} />
+        ) : (
+          <>
+            <Ionicons
+              name="add-circle-outline"
+              size={32}
+              color={tokens.color.textMuted}
+            />
+            <Text style={styles.emptyPlaceholderLabel}>{label}</Text>
+            <Text style={styles.emptyPlaceholderCount}>현재 0개</Text>
+          </>
+        )}
+      </Pressable>
+    );
+  },
+);
 
 export const ReferenceImageCard = memo(function ReferenceImageCard({
   index,
@@ -410,6 +451,27 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: tokens.type.sm,
     lineHeight: 20,
+  },
+  emptyPlaceholder: {
+    minHeight: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: tokens.radius.settings,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: tokens.color.borderSubtleStrong,
+    backgroundColor: tokens.color.card,
+  },
+  emptyPlaceholderLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.xs,
+  },
+  emptyPlaceholderCount: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
   },
   referenceCard: {
     position: "relative",

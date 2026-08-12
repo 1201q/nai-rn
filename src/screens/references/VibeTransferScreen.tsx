@@ -5,6 +5,7 @@ import { toast } from "sonner-native";
 
 import {
   ReferenceDetailLayout,
+  ReferenceEmptyPlaceholder,
   ReferenceImageCard,
   ReferenceUsageNotice,
 } from "../../components/references/ReferenceDetail";
@@ -181,61 +182,69 @@ export function VibeTransferScreen() {
         이미지 ({references.length})
       </Text>
       <View style={styles.cards}>
-        {references.map((reference, index) => {
-          const imageUri = resolveVibeReferenceImageUri(reference);
-          const thumbnailUri =
-            resolveVibeReferenceThumbnailUri(reference) ?? imageUri;
-          const cached = canUseCachedVibeEncoding(reference);
-          return (
-            <ReferenceImageCard
-              key={reference.id}
-              index={index}
-              imageUri={imageUri}
-              thumbnailUri={thumbnailUri}
-              subtitle={`S ${formatValue(reference.strength)} · I ${formatValue(reference.informationExtracted)}`}
-              status={{
-                label: cached ? "Cached" : "2 Anlas",
-                tone: cached ? "cached" : "cost",
-              }}
-              enabled={reference.enabled}
-              expanded={expandedIds.includes(reference.id)}
-              enableDisabled={activePreciseCount > 0}
-              onToggleExpanded={() => toggleExpanded(reference.id)}
-              onToggleEnabled={(value) => setEnabled(reference.id, value)}
-              onRemove={() => void handleRemove(reference.id)}
-            >
-              <ParameterSlider
-                label="Reference Strength"
-                value={reference.strength}
-                min={0.01}
-                max={1}
-                step={0.01}
-                precision={2}
-                onChange={(value) => setStrength(reference.id, value)}
-                settingsCard
-              />
-              <ParameterSlider
-                label="Information Extracted"
-                value={reference.informationExtracted}
-                min={0.01}
-                max={1}
-                step={0.01}
-                precision={2}
-                onChange={(value) => setInformation(reference.id, value)}
-                settingsCard
-              />
-              <ReferenceUsageNotice
-                tone={cached ? "cached" : "cost"}
-                title={cached ? "Encoded vibe cached" : "2 Anlas"}
-                description={
-                  cached
-                    ? "현재 Information Extracted 값의 인코딩 캐시를 사용합니다."
-                    : "활성화한 다음 생성에서 Vibe 인코딩에 2 Anlas가 사용됩니다."
-                }
-              />
-            </ReferenceImageCard>
-          );
-        })}
+        {references.length === 0 ? (
+          <ReferenceEmptyPlaceholder
+            label="Vibe 이미지 추가"
+            busy={adding}
+            onPress={() => void pickImage()}
+          />
+        ) : (
+          references.map((reference, index) => {
+            const imageUri = resolveVibeReferenceImageUri(reference);
+            const thumbnailUri =
+              resolveVibeReferenceThumbnailUri(reference) ?? imageUri;
+            const cached = canUseCachedVibeEncoding(reference);
+            return (
+              <ReferenceImageCard
+                key={reference.id}
+                index={index}
+                imageUri={imageUri}
+                thumbnailUri={thumbnailUri}
+                subtitle={`S ${formatValue(reference.strength)} · I ${formatValue(reference.informationExtracted)}`}
+                status={{
+                  label: cached ? "Cached" : "2 Anlas",
+                  tone: cached ? "cached" : "cost",
+                }}
+                enabled={reference.enabled}
+                expanded={expandedIds.includes(reference.id)}
+                enableDisabled={activePreciseCount > 0}
+                onToggleExpanded={() => toggleExpanded(reference.id)}
+                onToggleEnabled={(value) => setEnabled(reference.id, value)}
+                onRemove={() => void handleRemove(reference.id)}
+              >
+                <ParameterSlider
+                  label="Reference Strength"
+                  value={reference.strength}
+                  min={0.01}
+                  max={1}
+                  step={0.01}
+                  precision={2}
+                  onChange={(value) => setStrength(reference.id, value)}
+                  settingsCard
+                />
+                <ParameterSlider
+                  label="Information Extracted"
+                  value={reference.informationExtracted}
+                  min={0.01}
+                  max={1}
+                  step={0.01}
+                  precision={2}
+                  onChange={(value) => setInformation(reference.id, value)}
+                  settingsCard
+                />
+                <ReferenceUsageNotice
+                  tone={cached ? "cached" : "cost"}
+                  title={cached ? "Encoded vibe cached" : "2 Anlas"}
+                  description={
+                    cached
+                      ? "현재 Information Extracted 값의 인코딩 캐시를 사용합니다."
+                      : "활성화한 다음 생성에서 Vibe 인코딩에 2 Anlas가 사용됩니다."
+                  }
+                />
+              </ReferenceImageCard>
+            );
+          })
+        )}
       </View>
 
     </ReferenceDetailLayout>

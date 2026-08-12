@@ -7,6 +7,7 @@ import { toast } from "sonner-native";
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
   ReferenceDetailLayout,
+  ReferenceEmptyPlaceholder,
   ReferenceImageCard,
   ReferenceUsageNotice,
 } from "../../components/references/ReferenceDetail";
@@ -213,63 +214,71 @@ export function PreciseReferenceScreen() {
         이미지 ({references.length})
       </Text>
       <View style={styles.cards}>
-        {references.map((reference, index) => {
-          const imageUri = resolvePreciseReferenceImageUri(reference);
-          const thumbnailUri =
-            resolvePreciseReferenceThumbnailUri(reference) ?? imageUri;
-          return (
-            <ReferenceImageCard
-              key={reference.id}
-              index={index}
-              imageUri={imageUri}
-              thumbnailUri={thumbnailUri}
-              subtitle={`${modeLabel(reference.referenceType)} · S ${formatValue(reference.strength)} · F ${formatValue(reference.fidelity)}`}
-              status={
-                reference.enabled
-                  ? { label: "5 Anlas", tone: "cost" }
-                  : undefined
-              }
-              enabled={reference.enabled}
-              expanded={expandedIds.includes(reference.id)}
-              enableDisabled={enableBlocked}
-              onToggleExpanded={() => toggleExpanded(reference.id)}
-              onToggleEnabled={(value) => setEnabled(reference.id, value)}
-              onRemove={() => void handleRemove(reference.id)}
-            >
-              <ModeSelector
-                value={reference.referenceType}
-                onPress={() => openPreciseMode(reference.id)}
-              />
-              <ParameterSlider
-                label="Strength"
-                value={reference.strength}
-                min={0}
-                max={1}
-                step={0.05}
-                precision={2}
-                onChange={(value) => setStrength(reference.id, value)}
-                settingsCard
-              />
-              <ParameterSlider
-                label="Fidelity"
-                value={reference.fidelity}
-                min={0}
-                max={1}
-                step={0.05}
-                precision={2}
-                onChange={(value) => setFidelity(reference.id, value)}
-                settingsCard
-              />
-              {reference.enabled ? (
-                <ReferenceUsageNotice
-                  tone="cost"
-                  title="5 Anlas per generation"
-                  description="활성화된 Precise Reference는 생성할 때마다 5 Anlas를 사용합니다."
+        {references.length === 0 ? (
+          <ReferenceEmptyPlaceholder
+            label="Precise 이미지 추가"
+            busy={adding}
+            onPress={() => void pickImage()}
+          />
+        ) : (
+          references.map((reference, index) => {
+            const imageUri = resolvePreciseReferenceImageUri(reference);
+            const thumbnailUri =
+              resolvePreciseReferenceThumbnailUri(reference) ?? imageUri;
+            return (
+              <ReferenceImageCard
+                key={reference.id}
+                index={index}
+                imageUri={imageUri}
+                thumbnailUri={thumbnailUri}
+                subtitle={`${modeLabel(reference.referenceType)} · S ${formatValue(reference.strength)} · F ${formatValue(reference.fidelity)}`}
+                status={
+                  reference.enabled
+                    ? { label: "5 Anlas", tone: "cost" }
+                    : undefined
+                }
+                enabled={reference.enabled}
+                expanded={expandedIds.includes(reference.id)}
+                enableDisabled={enableBlocked}
+                onToggleExpanded={() => toggleExpanded(reference.id)}
+                onToggleEnabled={(value) => setEnabled(reference.id, value)}
+                onRemove={() => void handleRemove(reference.id)}
+              >
+                <ModeSelector
+                  value={reference.referenceType}
+                  onPress={() => openPreciseMode(reference.id)}
                 />
-              ) : null}
-            </ReferenceImageCard>
-          );
-        })}
+                <ParameterSlider
+                  label="Strength"
+                  value={reference.strength}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  precision={2}
+                  onChange={(value) => setStrength(reference.id, value)}
+                  settingsCard
+                />
+                <ParameterSlider
+                  label="Fidelity"
+                  value={reference.fidelity}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  precision={2}
+                  onChange={(value) => setFidelity(reference.id, value)}
+                  settingsCard
+                />
+                {reference.enabled ? (
+                  <ReferenceUsageNotice
+                    tone="cost"
+                    title="5 Anlas per generation"
+                    description="활성화된 Precise Reference는 생성할 때마다 5 Anlas를 사용합니다."
+                  />
+                ) : null}
+              </ReferenceImageCard>
+            );
+          })
+        )}
       </View>
 
     </ReferenceDetailLayout>

@@ -9,6 +9,7 @@ import {
 import {
   Animated,
   Keyboard,
+  LayoutAnimation,
   Pressable,
   StyleSheet,
   Text,
@@ -17,8 +18,14 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { toast } from "sonner-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PagerView from "react-native-pager-view";
+import Reanimated, {
+  Easing,
+  FadeInDown,
+  FadeOut,
+} from "react-native-reanimated";
 import {
   KeyboardAwareScrollView,
   KeyboardStickyView,
@@ -61,7 +68,34 @@ import { tokens } from "../../styles/tokens";
 import { getUcPresetLabel } from "../../lib/naiPresets";
 import { warmPromptTokenizerForModel } from "../../lib/promptTokens/loader";
 
-type SettingsTabKey = "settings" | "prompt" | "character";
+type SettingsTabKey = "settings" | "prompt";
+
+let lastViewedTab: SettingsTabKey = "settings";
+
+const CHARACTER_PROMPT_ENTERING = FadeInDown.duration(180).easing(
+  Easing.out(Easing.cubic),
+);
+const CHARACTER_PROMPT_EXITING = FadeOut.duration(120).easing(
+  Easing.out(Easing.cubic),
+);
+const CHARACTER_PROMPT_LAYOUT = {
+  duration: 200,
+  create: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+  update: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  delete: {
+    type: LayoutAnimation.Types.easeInEaseOut,
+    property: LayoutAnimation.Properties.opacity,
+  },
+} as const;
+
+function animateCharacterPromptLayout() {
+  LayoutAnimation.configureNext(CHARACTER_PROMPT_LAYOUT);
+}
 
 const STEPS_CONFIG = { min: 1, max: 50, step: 1, precision: 0 } as const;
 const CFG_CONFIG = { min: 0, max: 10, step: 0.1, precision: 1 } as const;
@@ -91,13 +125,11 @@ type IconName = keyof typeof Ionicons.glyphMap;
 const TABS: readonly SettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
   { key: "prompt", label: "프롬프트", icon: "document-text-outline" },
-  { key: "character", label: "캐릭터", icon: "person-outline" },
 ];
 
 const TITLES: Record<SettingsTabKey, string> = {
   settings: "설정",
   prompt: "프롬프트",
-  character: "캐릭터",
 };
 
 function SettingsOptionRow({
@@ -333,32 +365,40 @@ const PromptTabContent = memo(function PromptTabContent() {
         onCommitNegativePrompt={setNegativePrompt}
       />
 
-      <Text style={styles.sectionLabel}>프롬프트 설정</Text>
+      <Text style={styles.sectionLabel}>캐릭터 프롬프트</Text>
 
-      <View style={styles.parameterItem}>
+      <CharacterPromptCards />
+
+      <View style={styles.promptSettingsContent}>
+        <Text style={styles.sectionLabel}>프롬프트 설정</Text>
+
+        <View style={styles.parameterItem}>
+          <View style={styles.settingsCard}>
+            <SettingsOptionRow
+              label="Quality Tags"
+              trailing={
+                <Toggle
+                  value={qualityToggle}
+                  label="Quality Tags"
+                  onChange={setQualityToggle}
+                />
+              }
+            />
+          </View>
+          <Text style={styles.optionDescription}>
+            {OPTION_DESCRIPTIONS.qualityTags}
+          </Text>
+        </View>
+
         <View style={styles.settingsCard}>
           <SettingsOptionRow
-            label="Quality Tags"
-            trailing={
-              <Toggle
-                value={qualityToggle}
-                label="Quality Tags"
-                onChange={setQualityToggle}
-              />
-            }
+            label="UC Preset"
+            value={getUcPresetLabel(ucPreset)}
+            onPress={() => open("ucPreset")}
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.qualityTags}
-        </Text>
-      </View>
 
-      <View style={styles.settingsCard}>
-        <SettingsOptionRow
-          label="UC Preset"
-          value={getUcPresetLabel(ucPreset)}
-          onPress={() => open("ucPreset")}
-        />
+        <CharacterPromptSettings />
       </View>
     </View>
   );
@@ -369,6 +409,7 @@ function addCharacterPrompt() {
   const current = state.characterPrompts;
   if (current.length >= MAX_CHARACTER_PROMPTS) return;
 
+  animateCharacterPromptLayout();
   const id = `character-${Date.now()}-${current.length}`;
   const next: CharacterPrompt = {
     id,
@@ -382,9 +423,10 @@ function addCharacterPrompt() {
     ...state.characterPromptExpandedIds,
     id,
   ]);
+  toast.success("캐릭터 프롬프트를 추가했습니다.");
 }
 
-const CharacterTabContent = memo(function CharacterTabContent() {
+const CharacterPromptCards = memo(function CharacterPromptCards() {
   const { open, openCharacterPosition } = useAppSheet();
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
@@ -401,10 +443,6 @@ const CharacterTabContent = memo(function CharacterTabContent() {
   const positionEnabled = useGenerationStore(
     (state) => state.characterPositionEnabled,
   );
-  const setPositionEnabled = useGenerationStore(
-    (state) => state.setCharacterPositionEnabled,
-  );
-
   useEffect(() => {
     const ids = new Set(characterPrompts.map((item) => item.id));
     const next = expandedIds.filter(
@@ -419,6 +457,9 @@ const CharacterTabContent = memo(function CharacterTabContent() {
       setCharacterPrompts(
         current.map((item) => (item.id === id ? { ...item, ...values } : item)),
       );
+      if ("name" in values) {
+        toast.success("캐릭터 프롬프트 이름을 변경했습니다.");
+      }
     },
     [setCharacterPrompts],
   );
@@ -450,11 +491,13 @@ const CharacterTabContent = memo(function CharacterTabContent() {
       };
       const next = [...current];
       next.splice(sourceIndex + 1, 0, copied);
+      animateCharacterPromptLayout();
       setCharacterPrompts(next);
       setExpandedIds([
         ...useGenerationStore.getState().characterPromptExpandedIds,
         copiedId,
       ]);
+      toast.success("캐릭터 프롬프트를 복사했습니다.");
     },
     [setCharacterPrompts, setExpandedIds],
   );
@@ -462,12 +505,14 @@ const CharacterTabContent = memo(function CharacterTabContent() {
   const deleteCharacter = useCallback(
     (id: string) => {
       const current = useGenerationStore.getState().characterPrompts;
+      animateCharacterPromptLayout();
       setCharacterPrompts(current.filter((item) => item.id !== id));
       setExpandedIds(
         useGenerationStore
           .getState()
           .characterPromptExpandedIds.filter((value) => value !== id),
       );
+      toast.success("캐릭터 프롬프트를 삭제했습니다.");
     },
     [setCharacterPrompts, setExpandedIds],
   );
@@ -477,46 +522,88 @@ const CharacterTabContent = memo(function CharacterTabContent() {
   const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
 
   return (
-    <>
-      <View style={styles.characterCards}>
-        {characterPrompts.map((item, index) => (
-          <CharacterCard
-            key={item.id}
-            item={item}
-            index={index}
-            expanded={expandedIds.includes(item.id)}
-            positionEnabled={positionEnabled}
-            canCopy={canAdd}
-            canReorder={characterPrompts.length > 1}
-            onToggleExpand={toggleExpanded}
-            onUpdate={updateCharacter}
-            onCopy={copyCharacter}
-            onDelete={deleteCharacter}
-            onOpenOrder={openCharacterOrder}
-            onOpenPosition={openCharacterPosition}
-          />
-        ))}
-      </View>
-
-      <View style={styles.characterPositionSection}>
-        <Text style={styles.characterSectionLabel}>캐릭터 프롬프트 설정</Text>
-        <View style={styles.parameterItem}>
-          <View style={styles.settingsCard}>
-            <SettingsOptionRow
-              label="Character Positions"
-              trailing={
-                <Toggle
-                  value={positionEnabled}
-                  label="Character Positions"
-                  onChange={setPositionEnabled}
-                />
-              }
+    <View style={styles.characterCards}>
+      {characterPrompts.length === 0 ? (
+        <Reanimated.View
+          key="empty"
+          entering={CHARACTER_PROMPT_ENTERING}
+          exiting={CHARACTER_PROMPT_EXITING}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="캐릭터 프롬프트 추가, 현재 0개"
+            onPress={addCharacterPrompt}
+            style={({ pressed }) => [
+              styles.emptyCharacterPrompts,
+              pressed && styles.emptyCharacterPromptsPressed,
+            ]}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={32}
+              color={tokens.color.textMuted}
             />
-          </View>
-          <Text style={styles.optionDescription}>
-            {OPTION_DESCRIPTIONS.characterPositions}
-          </Text>
+            <Text style={styles.emptyCharacterPromptsLabel}>
+              캐릭터 프롬프트 추가
+            </Text>
+            <Text style={styles.emptyCharacterPromptsCount}>현재 0개</Text>
+          </Pressable>
+        </Reanimated.View>
+      ) : (
+        characterPrompts.map((item, index) => (
+          <Reanimated.View
+            key={item.id}
+            entering={CHARACTER_PROMPT_ENTERING}
+            exiting={CHARACTER_PROMPT_EXITING}
+          >
+            <CharacterCard
+              item={item}
+              index={index}
+              expanded={expandedIds.includes(item.id)}
+              positionEnabled={positionEnabled}
+              canCopy={canAdd}
+              canReorder={characterPrompts.length > 1}
+              onToggleExpand={toggleExpanded}
+              onUpdate={updateCharacter}
+              onCopy={copyCharacter}
+              onDelete={deleteCharacter}
+              onOpenOrder={openCharacterOrder}
+              onOpenPosition={openCharacterPosition}
+            />
+          </Reanimated.View>
+        ))
+      )}
+    </View>
+  );
+});
+
+const CharacterPromptSettings = memo(function CharacterPromptSettings() {
+  const positionEnabled = useGenerationStore(
+    (state) => state.characterPositionEnabled,
+  );
+  const setPositionEnabled = useGenerationStore(
+    (state) => state.setCharacterPositionEnabled,
+  );
+
+  return (
+    <>
+      <Text style={styles.sectionLabel}>캐릭터 프롬프트 설정</Text>
+      <View style={styles.parameterItem}>
+        <View style={styles.settingsCard}>
+          <SettingsOptionRow
+            label="Character Positions"
+            trailing={
+              <Toggle
+                value={positionEnabled}
+                label="Character Positions"
+                onChange={setPositionEnabled}
+              />
+            }
+          />
         </View>
+        <Text style={styles.optionDescription}>
+          {OPTION_DESCRIPTIONS.characterPositions}
+        </Text>
       </View>
     </>
   );
@@ -631,12 +718,13 @@ export function ImageSettingsScreen() {
     (state) => state.characterPrompts.length < MAX_CHARACTER_PROMPTS,
   );
   const model = useGenerationStore((state) => state.model);
-  const [activeTab, setActiveTab] = useState<SettingsTabKey>("settings");
+  const initialTab = useRef(lastViewedTab).current;
+  const initialPage = TABS.findIndex((tab) => tab.key === initialTab);
+  const [activeTab, setActiveTab] = useState<SettingsTabKey>(initialTab);
   const pagerRef = useRef<PagerView>(null);
   const scrollValues = useRef<Record<SettingsTabKey, Animated.Value>>({
     settings: new Animated.Value(0),
     prompt: new Animated.Value(0),
-    character: new Animated.Value(0),
   }).current;
 
   useEffect(() => {
@@ -662,6 +750,7 @@ export function ImageSettingsScreen() {
     if (!nextTab) return;
 
     Keyboard.dismiss();
+    lastViewedTab = nextTab;
     setActiveTab(nextTab);
   }, []);
 
@@ -710,7 +799,7 @@ export function ImageSettingsScreen() {
 
         <PagerView
           ref={pagerRef}
-          initialPage={0}
+          initialPage={initialPage}
           offscreenPageLimit={2}
           scrollEnabled={!isSheetOpen}
           onPageSelected={(event) =>
@@ -720,7 +809,6 @@ export function ImageSettingsScreen() {
         >
           {renderPage("settings", <SettingsTabContent />)}
           {renderPage("prompt", <PromptTabContent />)}
-          {renderPage("character", <CharacterTabContent />)}
         </PagerView>
 
         <View pointerEvents="none" style={styles.edgeFade}>
@@ -735,7 +823,7 @@ export function ImageSettingsScreen() {
           title={TITLES[activeTab]}
           scrollY={scrollValues[activeTab]}
           topInset={insets.top}
-          onAdd={activeTab === "character" ? addCharacterPrompt : undefined}
+          onAdd={activeTab === "prompt" ? addCharacterPrompt : undefined}
           addLabel="캐릭터 추가"
           addDisabled={!canAddCharacter}
           showCompactTitle={false}
@@ -855,19 +943,35 @@ const styles = StyleSheet.create({
   promptContent: {
     gap: 20,
   },
-  characterSectionLabel: {
-    marginBottom: 12,
-    paddingHorizontal: 4,
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.bold,
-    fontSize: tokens.type.xs,
-    letterSpacing: tokens.tracking.wide,
+  promptSettingsContent: {
+    gap: 20,
   },
   characterCards: {
     gap: 12,
   },
-  characterPositionSection: {
-    marginTop: 20,
+  emptyCharacterPrompts: {
+    minHeight: 160,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: tokens.radius.settings,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: tokens.color.borderSubtleStrong,
+    backgroundColor: tokens.color.card,
+  },
+  emptyCharacterPromptsLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.xs,
+  },
+  emptyCharacterPromptsCount: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type["2xs"],
+  },
+  emptyCharacterPromptsPressed: {
+    opacity: 0.68,
   },
   referenceRows: {
     gap: 20,
