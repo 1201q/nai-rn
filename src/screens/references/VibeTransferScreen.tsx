@@ -168,7 +168,7 @@ export function VibeTransferScreen() {
           </Text>
           <Text style={styles.normalizeDescription}>
             이미지 개수와 무관하게 전체 강도 합이 일정하게 유지되도록 값을
-            재조정합니다
+            재조정합니다.
           </Text>
         </Pressable>
         <Toggle

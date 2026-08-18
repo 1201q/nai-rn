@@ -163,8 +163,14 @@ export function ImageToImageScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.toggleCard}>
-          <Text style={styles.toggleLabel}>Image2Image</Text>
+        <View
+          style={[styles.toggleCard, enabled && styles.toggleCardEnabled]}
+        >
+          <Text
+            style={[styles.toggleLabel, enabled && styles.toggleLabelEnabled]}
+          >
+            {enabled ? "사용 중" : "사용 안 함"}
+          </Text>
           <Toggle
             value={enabled}
             label="Image2Image"
@@ -320,11 +326,17 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
+  toggleCardEnabled: {
+    backgroundColor: tokens.color.toast,
+  },
   toggleLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.regular,
+    fontFamily: tokens.font.bold,
     fontSize: 17,
     lineHeight: 22,
+  },
+  toggleLabelEnabled: {
+    color: tokens.color.accent,
   },
   imageSection: {
     marginTop: 24,

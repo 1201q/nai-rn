@@ -95,8 +95,17 @@ export function ReferenceDetailLayout({
             />
           </View>
         ) : (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>{title}</Text>
+          <View
+            style={[styles.summaryCard, enabled && styles.summaryCardEnabled]}
+          >
+            <Text
+              style={[
+                styles.summaryLabel,
+                enabled && styles.summaryLabelEnabled,
+              ]}
+            >
+              {enabled ? "사용 중" : "사용 안 함"}
+            </Text>
             <Toggle value={enabled} label={title} onChange={onToggle} />
           </View>
         )}
@@ -457,11 +466,17 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius["2xl"],
     backgroundColor: tokens.color.card,
   },
+  summaryCardEnabled: {
+    backgroundColor: tokens.color.toast,
+  },
   summaryLabel: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.regular,
+    fontFamily: tokens.font.bold,
     fontSize: 17,
     lineHeight: 22,
+  },
+  summaryLabelEnabled: {
+    color: tokens.color.accent,
   },
   unavailableCard: {
     minHeight: 76,
