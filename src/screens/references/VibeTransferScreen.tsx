@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import Reanimated from "react-native-reanimated";
 import { toast } from "sonner-native";
 
+import {
+  TAP_FEEDBACK_OVERLAY_COLOR,
+  useTapFeedback,
+} from "../../components/common/TapFeedbackPressable";
 import {
   ReferenceDetailLayout,
   ReferenceEmptyPlaceholder,
@@ -56,6 +61,12 @@ export function VibeTransferScreen() {
   );
   const setMessage = useGenerationStore((state) => state.setMessage);
   const [adding, setAdding] = useState(false);
+  const {
+    contentAnimatedStyle: normalizeContentAnimatedStyle,
+    endFeedback: endNormalizeFeedback,
+    overlayStyle: normalizeOverlayStyle,
+    startFeedback: startNormalizeFeedback,
+  } = useTapFeedback();
 
   const enabled = references.some((item) => item.enabled);
   const canAdd = references.length < MAX_VIBE_REFERENCES;
@@ -154,28 +165,45 @@ export function VibeTransferScreen() {
       addDisabled={!canAdd || adding}
     >
       <View style={styles.normalizeCard}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Normalize Reference Strength Values"
-          onPress={() => setNormalize(!normalize)}
-          style={({ pressed }) => [
-            styles.normalizeCopy,
-            pressed && styles.pressed,
+        <Reanimated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.tapOverlay,
+            normalizeOverlayStyle,
+          ]}
+        />
+        <Reanimated.View
+          pointerEvents="box-none"
+          style={[
+            styles.normalizeCardContent,
+            normalizeContentAnimatedStyle,
           ]}
         >
-          <Text style={styles.normalizeTitle}>
-            Normalize Reference Strength Values
-          </Text>
-          <Text style={styles.normalizeDescription}>
-            이미지 개수와 무관하게 전체 강도 합이 일정하게 유지되도록 값을
-            재조정합니다.
-          </Text>
-        </Pressable>
-        <Toggle
-          value={normalize}
-          label="Normalize Reference Strength Values"
-          onChange={setNormalize}
-        />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Normalize Reference Strength Values"
+            onPress={() => setNormalize(!normalize)}
+            onPressIn={startNormalizeFeedback}
+            onPressOut={endNormalizeFeedback}
+            style={styles.normalizeCopy}
+          >
+            <Text style={styles.normalizeTitle}>
+              Normalize Reference Strength Values
+            </Text>
+            <Text style={styles.normalizeDescription}>
+              이미지 개수와 무관하게 전체 강도 합이 일정하게 유지되도록 값을
+              재조정합니다.
+            </Text>
+          </Pressable>
+          <Toggle
+            value={normalize}
+            label="Normalize Reference Strength Values"
+            onChange={setNormalize}
+            onPressIn={startNormalizeFeedback}
+            onPressOut={endNormalizeFeedback}
+          />
+        </Reanimated.View>
       </View>
 
       <Text style={styles.sectionTitle}>
@@ -253,15 +281,21 @@ export function VibeTransferScreen() {
 
 const styles = StyleSheet.create({
   normalizeCard: {
+    overflow: "hidden",
     minHeight: 76,
     marginTop: 12,
     paddingHorizontal: 18,
     paddingVertical: 15,
+    borderRadius: tokens.radius["2xl"],
+    backgroundColor: tokens.color.card,
+  },
+  normalizeCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: tokens.radius["2xl"],
-    backgroundColor: tokens.color.card,
+  },
+  tapOverlay: {
+    backgroundColor: TAP_FEEDBACK_OVERLAY_COLOR,
   },
   normalizeCopy: {
     flex: 1,
@@ -292,8 +326,5 @@ const styles = StyleSheet.create({
   cards: {
     gap: 12,
     marginBottom: 12,
-  },
-  pressed: {
-    opacity: 0.68,
   },
 });

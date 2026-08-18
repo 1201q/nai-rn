@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -28,6 +27,11 @@ import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
+import {
+  TAP_FEEDBACK_OVERLAY_COLOR,
+  TapFeedbackPressable,
+  useTapFeedback,
+} from "../../components/common/TapFeedbackPressable";
 import {
   ParameterSlider,
   Toggle,
@@ -71,6 +75,12 @@ export function ImageToImageScreen() {
   );
   const contentAnimationReady = useRef(false);
   const parametersAnimationReady = useRef(false);
+  const {
+    contentAnimatedStyle: toggleCardContentAnimatedStyle,
+    endFeedback: endToggleCardFeedback,
+    overlayStyle: toggleCardOverlayStyle,
+    startFeedback: startToggleCardFeedback,
+  } = useTapFeedback();
 
   const disabledScrimAnimatedStyle = useAnimatedStyle(() => ({
     opacity: disabledScrimOpacity.value,
@@ -166,16 +176,37 @@ export function ImageToImageScreen() {
         <View
           style={[styles.toggleCard, enabled && styles.toggleCardEnabled]}
         >
-          <Text
-            style={[styles.toggleLabel, enabled && styles.toggleLabelEnabled]}
-          >
-            {enabled ? "사용 중" : "사용 안 함"}
-          </Text>
-          <Toggle
-            value={enabled}
-            label="Image2Image"
-            onChange={handleToggle}
+          <Reanimated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.tapOverlay,
+              toggleCardOverlayStyle,
+            ]}
           />
+          <Reanimated.View
+            pointerEvents="box-none"
+            style={[
+              styles.toggleCardContent,
+              toggleCardContentAnimatedStyle,
+            ]}
+          >
+            <Text
+              style={[
+                styles.toggleLabel,
+                enabled && styles.toggleLabelEnabled,
+              ]}
+            >
+              {enabled ? "사용 중" : "사용 안 함"}
+            </Text>
+            <Toggle
+              value={enabled}
+              label="Image2Image"
+              onChange={handleToggle}
+              onPressIn={startToggleCardFeedback}
+              onPressOut={endToggleCardFeedback}
+            />
+          </Reanimated.View>
         </View>
 
         <Reanimated.View
@@ -185,10 +216,11 @@ export function ImageToImageScreen() {
           <View style={styles.imageSection}>
             {sourceImage ? (
               <View style={styles.previewCard}>
-                <Pressable
+                <TapFeedbackPressable
                   accessibilityRole="button"
                   accessibilityLabel="I2I 이미지 교체"
                   disabled={busy}
+                  overlayPlacement="foreground"
                   onPress={() => void pickImage()}
                   style={StyleSheet.absoluteFill}
                 >
@@ -199,23 +231,21 @@ export function ImageToImageScreen() {
                     transition={120}
                     style={StyleSheet.absoluteFill}
                   />
-                </Pressable>
-                <Pressable
+                </TapFeedbackPressable>
+                <TapFeedbackPressable
                   accessibilityRole="button"
                   accessibilityLabel="I2I 이미지 제거"
                   hitSlop={5}
                   onPress={handleClear}
-                  style={({ pressed }) => [
-                    styles.removeButton,
-                    pressed && styles.pressed,
-                  ]}
+                  style={styles.removeButton}
+                  contentStyle={styles.centeredTapContent}
                 >
                   <Ionicons
                     name="trash-outline"
                     size={16}
                     color={tokens.color.negative}
                   />
-                </Pressable>
+                </TapFeedbackPressable>
                 {busy ? (
                   <View pointerEvents="none" style={styles.busyOverlay}>
                     <ActivityIndicator color={tokens.color.textPrimary} />
@@ -223,15 +253,13 @@ export function ImageToImageScreen() {
                 ) : null}
               </View>
             ) : (
-              <Pressable
+              <TapFeedbackPressable
                 accessibilityRole="button"
                 accessibilityLabel="I2I 이미지 추가"
                 disabled={busy}
                 onPress={() => void pickImage()}
-                style={({ pressed }) => [
-                  styles.uploadCard,
-                  pressed && styles.pressed,
-                ]}
+                style={styles.uploadCard}
+                contentStyle={styles.uploadCardContent}
               >
                 {busy ? (
                   <ActivityIndicator color={tokens.color.textMuted} />
@@ -245,7 +273,7 @@ export function ImageToImageScreen() {
                     <Text style={styles.uploadLabel}>이미지 추가</Text>
                   </>
                 )}
-              </Pressable>
+              </TapFeedbackPressable>
             )}
           </View>
 
@@ -318,13 +346,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[6],
   },
   toggleCard: {
+    overflow: "hidden",
     minHeight: 58,
     paddingHorizontal: 18,
+    justifyContent: "center",
+    borderRadius: tokens.radius["2xl"],
+    backgroundColor: tokens.color.card,
+  },
+  toggleCardContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: tokens.radius["2xl"],
-    backgroundColor: tokens.color.card,
+  },
+  tapOverlay: {
+    backgroundColor: TAP_FEEDBACK_OVERLAY_COLOR,
   },
   toggleCardEnabled: {
     backgroundColor: tokens.color.toast,
@@ -363,6 +398,11 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.borderSubtleStrong,
     backgroundColor: tokens.color.card,
   },
+  uploadCardContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   uploadLabel: {
     color: tokens.color.textMuted,
     fontFamily: tokens.font.medium,
@@ -376,10 +416,15 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     borderRadius: 17,
     backgroundColor: "rgba(23,23,26,0.86)",
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
+  },
+  centeredTapContent: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   busyOverlay: {
     position: "absolute",
@@ -404,8 +449,5 @@ const styles = StyleSheet.create({
   disabledScrim: {
     zIndex: 1,
     backgroundColor: tokens.color.app,
-  },
-  pressed: {
-    opacity: 0.68,
   },
 });

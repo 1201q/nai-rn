@@ -56,10 +56,7 @@ function ModeSelector({
         accessibilityLabel={`Mode, ${modeLabel(value)}`}
         accessibilityHint="Mode 선택 바텀시트 열기"
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.modeSelector,
-          pressed && styles.pressed,
-        ]}
+        style={styles.modeSelector}
       >
         <Text style={styles.modeValue}>{modeLabel(value)}</Text>
         <Ionicons
@@ -320,8 +317,5 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.medium,
     fontSize: tokens.type.sm,
-  },
-  pressed: {
-    opacity: 0.68,
   },
 });

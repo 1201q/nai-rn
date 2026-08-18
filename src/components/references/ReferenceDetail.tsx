@@ -25,6 +25,11 @@ import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../common/DetailScrollHeader";
+import {
+  TAP_FEEDBACK_OVERLAY_COLOR,
+  TapFeedbackPressable,
+  useTapFeedback,
+} from "../common/TapFeedbackPressable";
 import { Toggle } from "../forms/FormControls";
 
 const CARD_BODY_TIMING = {
@@ -60,6 +65,12 @@ export function ReferenceDetailLayout({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const {
+    contentAnimatedStyle: statusContentAnimatedStyle,
+    endFeedback: endStatusFeedback,
+    overlayStyle: statusOverlayStyle,
+    startFeedback: startStatusFeedback,
+  } = useTapFeedback();
 
   return (
     <View style={styles.screen}>
@@ -79,36 +90,56 @@ export function ReferenceDetailLayout({
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        {unavailableReason ? (
-          <View style={styles.unavailableCard}>
-            <View style={styles.unavailableCopy}>
-              <Text style={styles.unavailableTitle}>{title}</Text>
-              <Text style={styles.unavailableDescription}>
-                {unavailableReason}
+        <View
+          style={[
+            unavailableReason ? styles.unavailableCard : styles.summaryCard,
+            !unavailableReason && enabled && styles.summaryCardEnabled,
+          ]}
+        >
+          <Reanimated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              styles.tapOverlay,
+              statusOverlayStyle,
+            ]}
+          />
+          <Reanimated.View
+            pointerEvents="box-none"
+            style={[
+              unavailableReason
+                ? styles.unavailableCardContent
+                : styles.summaryCardContent,
+              statusContentAnimatedStyle,
+            ]}
+          >
+            {unavailableReason ? (
+              <View style={styles.unavailableCopy}>
+                <Text style={styles.unavailableTitle}>{title}</Text>
+                <Text style={styles.unavailableDescription}>
+                  {unavailableReason}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={[
+                  styles.summaryLabel,
+                  enabled && styles.summaryLabelEnabled,
+                ]}
+              >
+                {enabled ? "사용 중" : "사용 안 함"}
               </Text>
-            </View>
+            )}
             <Toggle
               value={enabled}
               label={title}
-              disabled={!enabled}
+              disabled={Boolean(unavailableReason) && !enabled}
               onChange={onToggle}
+              onPressIn={startStatusFeedback}
+              onPressOut={endStatusFeedback}
             />
-          </View>
-        ) : (
-          <View
-            style={[styles.summaryCard, enabled && styles.summaryCardEnabled]}
-          >
-            <Text
-              style={[
-                styles.summaryLabel,
-                enabled && styles.summaryLabelEnabled,
-              ]}
-            >
-              {enabled ? "사용 중" : "사용 안 함"}
-            </Text>
-            <Toggle value={enabled} label={title} onChange={onToggle} />
-          </View>
-        )}
+          </Reanimated.View>
+        </View>
 
         {children}
       </Animated.ScrollView>
@@ -123,22 +154,22 @@ export function ReferenceDetailLayout({
       />
 
       {onAdd ? (
-        <Pressable
+        <TapFeedbackPressable
           accessibilityRole="button"
           accessibilityLabel="이미지 추가"
           accessibilityState={{ disabled: addDisabled }}
           disabled={addDisabled}
           onPress={onAdd}
-          style={({ pressed }) => [
+          style={[
             styles.floatingAddButton,
             { bottom: insets.bottom + tokens.space[8] },
             addDisabled && styles.floatingAddButtonDisabled,
-            pressed && !addDisabled && styles.pressed,
           ]}
+          contentStyle={styles.floatingAddButtonContent}
         >
           <Ionicons name="add" size={20} color={tokens.color.onAccent} />
           <Text style={styles.floatingAddButtonLabel}>이미지 추가</Text>
-        </Pressable>
+        </TapFeedbackPressable>
       ) : null}
     </View>
   );
@@ -189,16 +220,14 @@ export const ReferenceEmptyPlaceholder = memo(
     onPress: () => void;
   }) {
     return (
-      <Pressable
+      <TapFeedbackPressable
         accessibilityRole="button"
         accessibilityLabel={`${label}, 현재 0개`}
         accessibilityState={{ busy, disabled: busy }}
         disabled={busy}
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.emptyPlaceholder,
-          pressed && styles.pressed,
-        ]}
+        style={styles.emptyPlaceholder}
+        contentStyle={styles.emptyPlaceholderContent}
       >
         {busy ? (
           <ActivityIndicator color={tokens.color.textMuted} />
@@ -213,7 +242,7 @@ export const ReferenceEmptyPlaceholder = memo(
             <Text style={styles.emptyPlaceholderCount}>현재 0개</Text>
           </>
         )}
-      </Pressable>
+      </TapFeedbackPressable>
     );
   },
 );
@@ -259,6 +288,12 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
   const cardScrimAnimatedStyle = useAnimatedStyle(() => ({
     opacity: cardScrimOpacity.value,
   }));
+  const {
+    contentAnimatedStyle: headerContentAnimatedStyle,
+    endFeedback: endHeaderFeedback,
+    overlayStyle: headerOverlayStyle,
+    startFeedback: startHeaderFeedback,
+  } = useTapFeedback();
 
   useEffect(() => {
     if (!bodyMeasured || bodyContentHeight <= 0) return;
@@ -296,80 +331,89 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
   return (
     <View style={styles.referenceCard}>
       <View style={styles.cardHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Reference ${index + 1} ${expanded ? "접기" : "펼치기"}`}
-          accessibilityState={{ expanded }}
-          onPress={onToggleExpanded}
-          style={({ pressed }) => [
-            styles.cardHeaderMain,
-            pressed && styles.pressed,
+        <Reanimated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.tapOverlay,
+            headerOverlayStyle,
           ]}
+        />
+        <Reanimated.View
+          pointerEvents="box-none"
+          style={[styles.cardHeaderContent, headerContentAnimatedStyle]}
         >
-          <ExpoImage
-            source={{ uri: thumbnailUri }}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={120}
-            style={styles.thumbnail}
-          />
-          <View style={styles.cardCopy}>
-            <Text style={styles.cardTitle}>Reference {index + 1}</Text>
-            <Text style={styles.cardSubtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          </View>
-        </Pressable>
-        {status ? (
-          <View style={styles.statusBadge}>
-            <Ionicons
-              name={
-                status.tone === "cost"
-                  ? "diamond-outline"
-                  : "checkmark-circle-outline"
-              }
-              size={12}
-              color={
-                status.tone === "cost"
-                  ? tokens.color.accent
-                  : tokens.color.textTertiary
-              }
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Reference ${index + 1} ${expanded ? "접기" : "펼치기"}`}
+            accessibilityState={{ expanded }}
+            onPress={onToggleExpanded}
+            style={styles.cardHeaderMain}
+          >
+            <ExpoImage
+              source={{ uri: thumbnailUri }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={120}
+              style={styles.thumbnail}
             />
-            <Text
-              style={[
-                styles.statusBadgeLabel,
-                status.tone === "cost" && styles.statusBadgeLabelCost,
-              ]}
-            >
-              {status.label}
-            </Text>
+            <View style={styles.cardCopy}>
+              <Text style={styles.cardTitle}>Reference {index + 1}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            </View>
+          </Pressable>
+          {status ? (
+            <View style={styles.statusBadge}>
+              <Ionicons
+                name={
+                  status.tone === "cost"
+                    ? "diamond-outline"
+                    : "checkmark-circle-outline"
+                }
+                size={12}
+                color={
+                  status.tone === "cost"
+                    ? tokens.color.accent
+                    : tokens.color.textTertiary
+                }
+              />
+              <Text
+                style={[
+                  styles.statusBadgeLabel,
+                  status.tone === "cost" && styles.statusBadgeLabelCost,
+                ]}
+              >
+                {status.label}
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.toggleSlot}>
+            <Toggle
+              value={enabled}
+              label={`Reference ${index + 1}`}
+              disabled={enableDisabled && !enabled}
+              onChange={onToggleEnabled}
+              onPressIn={startHeaderFeedback}
+              onPressOut={endHeaderFeedback}
+            />
           </View>
-        ) : null}
-        <View style={styles.toggleSlot}>
-          <Toggle
-            value={enabled}
-            label={`Reference ${index + 1}`}
-            disabled={enableDisabled && !enabled}
-            onChange={onToggleEnabled}
-          />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            expanded ? "참조 이미지 접기" : "참조 이미지 펼치기"
-          }
-          onPress={onToggleExpanded}
-          style={({ pressed }) => [
-            styles.chevronButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={tokens.color.textMuted}
-          />
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              expanded ? "참조 이미지 접기" : "참조 이미지 펼치기"
+            }
+            onPress={onToggleExpanded}
+            style={styles.chevronButton}
+          >
+            <Ionicons
+              name={expanded ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={tokens.color.textMuted}
+            />
+          </Pressable>
+        </Reanimated.View>
       </View>
 
       <Reanimated.View
@@ -394,22 +438,20 @@ export const ReferenceImageCard = memo(function ReferenceImageCard({
               transition={120}
               style={StyleSheet.absoluteFill}
             />
-            <Pressable
+            <TapFeedbackPressable
               accessibilityRole="button"
               accessibilityLabel={`Reference ${index + 1} 삭제`}
               hitSlop={5}
               onPress={onRemove}
-              style={({ pressed }) => [
-                styles.removeButton,
-                pressed && styles.pressed,
-              ]}
+              style={styles.removeButton}
+              contentStyle={styles.centeredTapContent}
             >
               <Ionicons
                 name="trash-outline"
                 size={16}
                 color={tokens.color.negative}
               />
-            </Pressable>
+            </TapFeedbackPressable>
           </View>
           <View style={styles.controls}>{children}</View>
         </View>
@@ -449,6 +491,13 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.accent,
     ...tokens.shadow.floatMd,
   },
+  floatingAddButtonContent: {
+    flex: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.space[4],
+  },
   floatingAddButtonDisabled: {
     opacity: 0.4,
   },
@@ -458,13 +507,17 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.sm,
   },
   summaryCard: {
+    overflow: "hidden",
     minHeight: 58,
     paddingHorizontal: 18,
+    justifyContent: "center",
+    borderRadius: tokens.radius["2xl"],
+    backgroundColor: tokens.color.card,
+  },
+  summaryCardContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: tokens.radius["2xl"],
-    backgroundColor: tokens.color.card,
   },
   summaryCardEnabled: {
     backgroundColor: tokens.color.toast,
@@ -479,14 +532,20 @@ const styles = StyleSheet.create({
     color: tokens.color.accent,
   },
   unavailableCard: {
+    overflow: "hidden",
     minHeight: 76,
     paddingHorizontal: 18,
     paddingVertical: 15,
+    borderRadius: tokens.radius["2xl"],
+    backgroundColor: tokens.color.card,
+  },
+  unavailableCardContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: tokens.radius["2xl"],
-    backgroundColor: tokens.color.card,
+  },
+  tapOverlay: {
+    backgroundColor: TAP_FEEDBACK_OVERLAY_COLOR,
   },
   unavailableCopy: {
     flex: 1,
@@ -516,6 +575,11 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.borderSubtleStrong,
     backgroundColor: tokens.color.card,
   },
+  emptyPlaceholderContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   emptyPlaceholderLabel: {
     color: tokens.color.textMuted,
     fontFamily: tokens.font.medium,
@@ -538,6 +602,9 @@ const styles = StyleSheet.create({
     height: 64,
     paddingLeft: 16,
     paddingRight: 6,
+  },
+  cardHeaderContent: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -631,10 +698,15 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     borderRadius: 17,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtle,
     backgroundColor: "rgba(23,23,26,0.86)",
+  },
+  centeredTapContent: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   controls: {
     marginTop: 22,
@@ -671,8 +743,5 @@ const styles = StyleSheet.create({
   disabledCardScrim: {
     zIndex: 2,
     backgroundColor: tokens.color.app,
-  },
-  pressed: {
-    opacity: 0.68,
   },
 });

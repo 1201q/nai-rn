@@ -1,11 +1,12 @@
 import { Fragment, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Line } from "react-native-svg";
 
 import { IconButton } from "../../components/common/Buttons";
+import { TapFeedbackPressable } from "../../components/common/TapFeedbackPressable";
 import {
   MODELS,
   NOISE_SCHEDULES,
@@ -85,15 +86,16 @@ function SelectionRow({
   onSelect: (value: OptionValue) => void;
 }) {
   return (
-    <Pressable
+    <TapFeedbackPressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={option.label}
       onPress={() => onSelect(option.value)}
-      style={({ pressed }) => [
-        styles.optionRow,
-        pressed && styles.optionRowPressed,
-      ]}
+      style={styles.optionRow}
+      contentStyle={styles.optionRowTapContent}
+      decoration={
+        showDivider ? <View style={styles.optionDivider} /> : undefined
+      }
     >
       <View style={[styles.radio, selected && styles.radioSelected]}>
         {selected ? <View style={styles.radioDot} /> : null}
@@ -111,9 +113,8 @@ function SelectionRow({
             </View>
           ) : null}
         </View>
-        {showDivider ? <View style={styles.optionDivider} /> : null}
       </View>
-    </Pressable>
+    </TapFeedbackPressable>
   );
 }
 
@@ -314,8 +315,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: tokens.space[5],
   },
-  optionRowPressed: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+  optionRowTapContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
   },
   radio: {
     width: 19,
@@ -351,8 +354,8 @@ const styles = StyleSheet.create({
   optionLabel: {
     flexShrink: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 16,
+    fontFamily: tokens.font.regular,
+    fontSize: 17,
     lineHeight: 22,
   },
   optionLabelSelected: {
@@ -375,14 +378,15 @@ const styles = StyleSheet.create({
   },
   optionDivider: {
     position: "absolute",
-    right: 0,
+    right: tokens.space[9],
     bottom: 0,
-    left: tokens.space[2],
+    left: 51,
     height: 1,
     backgroundColor: "rgba(255,255,255,0.12)",
   },
   legacyDividerRow: {
     paddingHorizontal: tokens.space[9],
+    paddingVertical: tokens.space[3],
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[7],

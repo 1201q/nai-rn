@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Line } from "react-native-svg";
 
 import { IconButton } from "../../components/common/Buttons";
+import { TapFeedbackPressable } from "../../components/common/TapFeedbackPressable";
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
   DEFAULT_NAI_RESOLUTION,
@@ -49,7 +50,9 @@ function resolutionKey(width: number, height: number) {
 }
 
 function listSignature(items: readonly CustomResolution[]) {
-  return items.map((item) => `${item.id}:${item.width}x${item.height}`).join("|");
+  return items
+    .map((item) => `${item.id}:${item.width}x${item.height}`)
+    .join("|");
 }
 
 function buildPositions(items: readonly CustomResolution[]): Positions {
@@ -100,15 +103,16 @@ function ResolutionOptionRow({
 }) {
   const label = `${resolution.width} x ${resolution.height}`;
   return (
-    <Pressable
+    <TapFeedbackPressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={label}
       onPress={onSelect}
-      style={({ pressed }) => [
-        styles.optionRow,
-        pressed && styles.rowPressed,
-      ]}
+      style={styles.optionRow}
+      contentStyle={styles.optionRowTapContent}
+      decoration={
+        showDivider ? <View style={styles.rowDivider} /> : undefined
+      }
     >
       <View style={styles.radioSlot}>
         <Radio selected={selected} />
@@ -118,8 +122,7 @@ function ResolutionOptionRow({
           {label}
         </Text>
       </View>
-      {showDivider ? <View style={styles.rowDivider} /> : null}
-    </Pressable>
+    </TapFeedbackPressable>
   );
 }
 
@@ -337,7 +340,8 @@ export function ResolutionScreen() {
         selectedWasCustom &&
         !draftItems.some(
           (item) =>
-            item.width === resolution.width && item.height === resolution.height,
+            item.width === resolution.width &&
+            item.height === resolution.height,
         )
       ) {
         setResolution(DEFAULT_NAI_RESOLUTION);
@@ -509,53 +513,51 @@ export function ResolutionScreen() {
           <SectionDivider />
 
           <View style={customListStyle}>
-            {isEditing ? (
-              draftItems.map((item, index) => (
-                <DraggableResolutionRow
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  count={draftItems.length}
-                  selected={
-                    resolutionKey(item.width, item.height) === selectedValue
-                  }
-                  positions={positions}
-                  activeId={activeId}
-                  activeY={activeY}
-                  onCommitOrder={handleCommitOrder}
-                  onDelete={handleDelete}
-                />
-              ))
-            ) : (
-              customResolutions.map((item, index) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.staticCustomRow,
-                    { top: index * ROW_HEIGHT },
-                  ]}
-                >
-                  <ResolutionOptionRow
-                    resolution={{
-                      label: "Custom Resolution",
-                      width: item.width,
-                      height: item.height,
-                    }}
+            {isEditing
+              ? draftItems.map((item, index) => (
+                  <DraggableResolutionRow
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    count={draftItems.length}
                     selected={
                       resolutionKey(item.width, item.height) === selectedValue
                     }
-                    showDivider={false}
-                    onSelect={() =>
-                      setResolution({
+                    positions={positions}
+                    activeId={activeId}
+                    activeY={activeY}
+                    onCommitOrder={handleCommitOrder}
+                    onDelete={handleDelete}
+                  />
+                ))
+              : customResolutions.map((item, index) => (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.staticCustomRow,
+                      { top: index * ROW_HEIGHT },
+                    ]}
+                  >
+                    <ResolutionOptionRow
+                      resolution={{
                         label: "Custom Resolution",
                         width: item.width,
                         height: item.height,
-                      })
-                    }
-                  />
-                </View>
-              ))
-            )}
+                      }}
+                      selected={
+                        resolutionKey(item.width, item.height) === selectedValue
+                      }
+                      showDivider={false}
+                      onSelect={() =>
+                        setResolution({
+                          label: "Custom Resolution",
+                          width: item.width,
+                          height: item.height,
+                        })
+                      }
+                    />
+                  </View>
+                ))}
             {displayedCustomItems.map((item, index) => (
               <View
                 key={`divider-${item.id}`}
@@ -568,18 +570,16 @@ export function ResolutionScreen() {
             ))}
           </View>
 
-          <Pressable
+          <TapFeedbackPressable
             accessibilityRole="button"
             accessibilityLabel="해상도 추가"
             onPress={() => open("resolutionCustom")}
-            style={({ pressed }) => [
-              styles.addRow,
-              pressed && styles.rowPressed,
-            ]}
+            style={styles.addRow}
+            contentStyle={styles.addRowTapContent}
           >
             <Ionicons name="add" size={21} color={tokens.color.accent} />
             <Text style={styles.addLabel}>해상도 추가</Text>
-          </Pressable>
+          </TapFeedbackPressable>
         </View>
 
         <Text style={styles.description}>
@@ -691,6 +691,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  optionRowTapContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   radioSlot: {
     width: OPTION_TEXT_OFFSET,
     height: ROW_HEIGHT,
@@ -726,8 +730,8 @@ const styles = StyleSheet.create({
   optionLabel: {
     flexShrink: 1,
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 16,
+    fontFamily: tokens.font.regular,
+    fontSize: 17,
     lineHeight: 22,
   },
   selectedLabel: {
@@ -751,6 +755,7 @@ const styles = StyleSheet.create({
   },
   sectionDividerRow: {
     paddingHorizontal: tokens.space[9],
+    paddingVertical: tokens.space[3],
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[7],
@@ -819,6 +824,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: tokens.space[6],
   },
+  addRowTapContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[6],
+  },
   addLabel: {
     color: tokens.color.accent,
     fontFamily: tokens.font.semibold,
@@ -831,9 +841,6 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: tokens.type.base,
     lineHeight: 24,
-  },
-  rowPressed: {
-    backgroundColor: "rgba(255,255,255,0.04)",
   },
   controlPressed: {
     opacity: 0.65,

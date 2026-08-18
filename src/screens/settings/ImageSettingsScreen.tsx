@@ -40,6 +40,7 @@ import { CharacterCard } from "../../components/generation/CharacterCard";
 import { ReferenceRow } from "../../components/generation/ReferenceRow";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
+import { TapFeedbackPressable } from "../../components/common/TapFeedbackPressable";
 import {
   DETAIL_HEADER_TOP_OFFSET,
   DetailHeaderOverlay,
@@ -307,17 +308,15 @@ function SettingsOptionRow({
   }
 
   return (
-    <Pressable
+    <TapFeedbackPressable
       accessibilityRole="button"
       accessibilityLabel={`${label}${value ? `, ${value}` : ""}`}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.settingsRow,
-        pressed && styles.settingsRowPressed,
-      ]}
+      style={styles.settingsRow}
+      contentStyle={styles.settingsRowTapContent}
     >
       {content}
-    </Pressable>
+    </TapFeedbackPressable>
   );
 }
 
@@ -812,7 +811,7 @@ function AdvancedFeaturesContent() {
 
   function toggleVibe(value: boolean) {
     if (value && vibeReferences.length === 0) {
-      router.push("/vibe-transfer");
+      router.navigate("/vibe-transfer");
       return;
     }
     setVibeEnabled(value);
@@ -820,7 +819,7 @@ function AdvancedFeaturesContent() {
 
   function togglePrecise(value: boolean) {
     if (value && preciseReferences.length === 0) {
-      router.push("/precise-reference");
+      router.navigate("/precise-reference");
       return;
     }
     setPreciseEnabled(value);
@@ -838,10 +837,9 @@ function AdvancedFeaturesContent() {
               ? `S ${Number(i2iStrength.toFixed(2))} · N ${Number(i2iNoise.toFixed(2))}`
               : undefined
           }
-          thumbnailUri={sourceImage?.uri}
-          onPress={() => router.push("/image-to-image")}
+          onPress={() => router.navigate("/image-to-image")}
           onToggle={(value) => {
-            if (value && !sourceImage) router.push("/image-to-image");
+            if (value && !sourceImage) router.navigate("/image-to-image");
             else setI2IEnabled(value);
           }}
         />
@@ -856,7 +854,7 @@ function AdvancedFeaturesContent() {
               : undefined
           }
           toggleDisabled={preciseEnabled}
-          onPress={() => router.push("/vibe-transfer")}
+          onPress={() => router.navigate("/vibe-transfer")}
           onToggle={toggleVibe}
         />
         <View style={styles.settingsGroupDivider} />
@@ -868,14 +866,14 @@ function AdvancedFeaturesContent() {
             vibeEnabled ? "Vibe Transfer와 동시에 켤 수 없습니다." : undefined
           }
           toggleDisabled={vibeEnabled}
-          onPress={() => router.push("/precise-reference")}
+          onPress={() => router.navigate("/precise-reference")}
           onToggle={togglePrecise}
         />
       </View>
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
           label="Metadata Extract"
-          onPress={() => router.push("/metadata-extract")}
+          onPress={() => router.navigate("/metadata-extract")}
           accentIcon
         />
         <View style={styles.settingsGroupDivider} />
@@ -1066,6 +1064,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
+  settingsRowTapContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
   settingsRowLabelGroup: {
     flex: 1,
     flexDirection: "row",
@@ -1083,9 +1086,6 @@ const styles = StyleSheet.create({
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
     fontSize: tokens.type.md,
-  },
-  settingsRowPressed: {
-    opacity: 0.65,
   },
   settingsGroupDivider: {
     height: 1,

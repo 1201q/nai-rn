@@ -10,6 +10,10 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { tokens } from "../../styles/tokens";
+import {
+  TAP_FEEDBACK_OVERLAY_COLOR,
+  useTapFeedback,
+} from "../common/TapFeedbackPressable";
 import { Toggle } from "../forms/FormControls";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -50,6 +54,12 @@ export const ReferenceRow = memo(function ReferenceRow({
   const imageScrimAnimatedStyle = useAnimatedStyle(() => ({
     opacity: imageScrimOpacity.value,
   }));
+  const {
+    contentAnimatedStyle,
+    endFeedback,
+    overlayStyle,
+    startFeedback,
+  } = useTapFeedback();
 
   useLayoutEffect(() => {
     imageScrimOpacity.value = withTiming(
@@ -87,53 +97,65 @@ export const ReferenceRow = memo(function ReferenceRow({
         </>
       ) : null}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${label} 상세 설정`}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.rowMain,
-          pressed && styles.pressed,
+      <Reanimated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          styles.tapOverlay,
+          overlayStyle,
         ]}
-      >
-        {icon ? (
-          <Ionicons name={icon} size={21} color={tokens.color.accent} />
-        ) : null}
-        <View style={styles.copy}>
-          <Text style={styles.label}>{label}</Text>
-          {hasSecondary ? (
-            <Text style={styles.state}>{secondaryText}</Text>
-          ) : null}
-        </View>
-      </Pressable>
+      />
 
-      {hasToggle ? (
-        <View style={styles.trailing}>
-          <Toggle
-            value={enabled}
-            label={`${label} ${enabled ? "끄기" : "켜기"}`}
-            disabled={toggleDisabled && !enabled}
-            onChange={onToggle}
-          />
-        </View>
-      ) : (
+      <Reanimated.View
+        pointerEvents="box-none"
+        style={[styles.rowTapContent, contentAnimatedStyle]}
+      >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${label} 열기`}
-          hitSlop={8}
+          accessibilityLabel={`${label} 상세 설정`}
           onPress={onPress}
-          style={({ pressed }) => [
-            styles.chevronButton,
-            pressed && styles.pressed,
-          ]}
+          onPressIn={startFeedback}
+          onPressOut={endFeedback}
+          style={styles.rowMain}
         >
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={tokens.color.textMuted}
-          />
+          {icon ? (
+            <Ionicons name={icon} size={21} color={tokens.color.accent} />
+          ) : null}
+          <View style={styles.copy}>
+            <Text style={styles.label}>{label}</Text>
+            {hasSecondary ? (
+              <Text style={styles.state}>{secondaryText}</Text>
+            ) : null}
+          </View>
         </Pressable>
-      )}
+
+        {hasToggle ? (
+          <View style={styles.trailing}>
+            <Toggle
+              value={enabled}
+              label={`${label} ${enabled ? "끄기" : "켜기"}`}
+              disabled={toggleDisabled && !enabled}
+              onChange={onToggle}
+            />
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} 열기`}
+            hitSlop={8}
+            onPress={onPress}
+            onPressIn={startFeedback}
+            onPressOut={endFeedback}
+            style={styles.chevronButton}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={tokens.color.textMuted}
+            />
+          </Pressable>
+        )}
+      </Reanimated.View>
     </View>
   );
 });
@@ -165,6 +187,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     backgroundColor: tokens.color.app,
+  },
+  tapOverlay: {
+    backgroundColor: TAP_FEEDBACK_OVERLAY_COLOR,
+  },
+  rowTapContent: {
+    flex: 1,
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
   },
   rowMain: {
     flex: 1,
@@ -200,8 +231,5 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     alignItems: "center",
     justifyContent: "center",
-  },
-  pressed: {
-    opacity: 0.65,
   },
 });

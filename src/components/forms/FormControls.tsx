@@ -7,7 +7,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type PressableProps,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Reanimated, {
@@ -18,6 +25,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { Slider } from "./Slider";
+import { TapFeedbackPressable } from "../common/TapFeedbackPressable";
 import {
   PromptHighlightTextInput,
   type PromptHighlightTextInputHandle,
@@ -34,11 +42,15 @@ export const Toggle = memo(function Toggle({
   onChange,
   label,
   disabled = false,
+  onPressIn,
+  onPressOut,
 }: {
   value: boolean;
   onChange: (value: boolean) => void;
   label: string;
   disabled?: boolean;
+  onPressIn?: PressableProps["onPressIn"];
+  onPressOut?: PressableProps["onPressOut"];
 }) {
   const progress = useSharedValue(value ? 1 : 0);
 
@@ -50,6 +62,11 @@ export const Toggle = memo(function Toggle({
     transform: [{ translateX: progress.value * 18 }],
   }));
 
+  const handlePress = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    onChange(!value);
+  }, [onChange, value]);
+
   return (
     <Pressable
       accessibilityRole="switch"
@@ -57,7 +74,9 @@ export const Toggle = memo(function Toggle({
       accessibilityState={{ checked: value, disabled }}
       disabled={disabled}
       hitSlop={8}
-      onPress={() => onChange(!value)}
+      onPress={handlePress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={[
         styles.toggleTrack,
         value && styles.toggleTrackOn,
@@ -149,24 +168,24 @@ export const ParameterSlider = memo(function ParameterSlider({
       </View>
       <View style={settingsCard ? styles.settingsSliderControls : undefined}>
         {settingsCard ? (
-          <Pressable
+          <TapFeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={`${label} decrease`}
             disabled={value <= min}
             hitSlop={8}
             onPress={() => changeByStep(-1)}
-            style={({ pressed }) => [
+            style={[
               styles.sliderStepButton,
               value <= min && styles.sliderStepButtonDisabled,
-              pressed && styles.sliderStepButtonPressed,
             ]}
+            contentStyle={styles.sliderStepButtonContent}
           >
             <Ionicons
               name="remove"
               size={21}
               color={tokens.color.textMuted}
             />
-          </Pressable>
+          </TapFeedbackPressable>
         ) : null}
         <Slider
           value={value}
@@ -191,24 +210,24 @@ export const ParameterSlider = memo(function ParameterSlider({
           ]}
         />
         {settingsCard ? (
-          <Pressable
+          <TapFeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={`${label} increase`}
             disabled={value >= max}
             hitSlop={8}
             onPress={() => changeByStep(1)}
-            style={({ pressed }) => [
+            style={[
               styles.sliderStepButton,
               value >= max && styles.sliderStepButtonDisabled,
-              pressed && styles.sliderStepButtonPressed,
             ]}
+            contentStyle={styles.sliderStepButtonContent}
           >
             <Ionicons
               name="add"
               size={21}
               color={tokens.color.textMuted}
             />
-          </Pressable>
+          </TapFeedbackPressable>
         ) : null}
       </View>
     </View>
@@ -471,16 +490,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sliderStepButton: {
-    width: 22,
+    width: 30,
     height: 30,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+  },
+  sliderStepButtonContent: {
     alignItems: "center",
     justifyContent: "center",
   },
   sliderStepButtonDisabled: {
     opacity: 0.45,
-  },
-  sliderStepButtonPressed: {
-    opacity: 0.6,
   },
   promptCard: {
     height: 420,
