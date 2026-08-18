@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { toast } from "sonner-native";
 
 import { NAI_RESOLUTIONS } from "../../constants/generation";
 import { useGenerationStore } from "../../store/generationStore";
@@ -139,6 +140,7 @@ export const CustomResolutionSheet = memo(
           height,
         },
       ]);
+      toast.success("해상도를 추가했습니다.");
       return true;
     }, [
       customResolutions,

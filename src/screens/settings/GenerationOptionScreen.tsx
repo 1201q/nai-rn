@@ -1,11 +1,14 @@
-import { Fragment, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Fragment, useMemo, useRef } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Line } from "react-native-svg";
 
-import { IconButton } from "../../components/common/Buttons";
+import {
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
+  DetailHeaderOverlay,
+} from "../../components/common/DetailScrollHeader";
 import { TapFeedbackPressable } from "../../components/common/TapFeedbackPressable";
 import {
   MODELS,
@@ -175,6 +178,7 @@ function SelectionCard({
 export function GenerationOptionScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const params = useLocalSearchParams<{ option?: string | string[] }>();
   const route = resolveRoute(params.option);
   const model = useGenerationStore((state) => state.model);
@@ -227,14 +231,19 @@ export function GenerationOptionScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 80,
+            paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
             paddingBottom: insets.bottom + tokens.space[16],
           },
         ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <SelectionCard
@@ -245,23 +254,16 @@ export function GenerationOptionScreen() {
         {description ? (
           <Text style={styles.description}>{description}</Text>
         ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
 
-      <View
-        pointerEvents="box-none"
-        style={[styles.header, { top: insets.top + 8 }]}
-      >
-        <IconButton
-          icon="chevron-back"
-          label="뒤로"
-          size={40}
-          onPress={() => router.back()}
-          style={styles.backButton}
-        />
-        <View pointerEvents="none" style={styles.titleContainer}>
-          <Text style={styles.title}>{PAGE_TITLES[route]}</Text>
-        </View>
-      </View>
+      <DetailHeaderOverlay
+        title={PAGE_TITLES[route]}
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={() => router.back()}
+        showMore={false}
+        hideCompactTitleOnScroll
+      />
     </View>
   );
 }
@@ -274,33 +276,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: tokens.space[6],
-  },
-  header: {
-    position: "absolute",
-    right: tokens.space[8],
-    left: tokens.space[8],
-    zIndex: 2,
-    height: 40,
-    justifyContent: "center",
-  },
-  backButton: {
-    borderWidth: 0,
-    backgroundColor: tokens.color.card,
-  },
-  titleContainer: {
-    position: "absolute",
-    top: 0,
-    right: 48,
-    bottom: 0,
-    left: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 17,
-    letterSpacing: tokens.tracking.tight,
   },
   selectionCard: {
     overflow: "hidden",

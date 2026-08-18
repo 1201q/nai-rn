@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   BackHandler,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,7 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
+import * as Haptics from "expo-haptics";
 import { StatusBar } from "expo-status-bar";
+import { toast } from "sonner-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   type SharedValue,
@@ -23,7 +25,11 @@ import Reanimated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Line } from "react-native-svg";
 
-import { IconButton } from "../../components/common/Buttons";
+import {
+  DETAIL_FIXED_HEADER_CONTENT_OFFSET,
+  DETAIL_HEADER_TOP_OFFSET,
+  DetailHeaderOverlay,
+} from "../../components/common/DetailScrollHeader";
 import { TapFeedbackPressable } from "../../components/common/TapFeedbackPressable";
 import { useAppSheet } from "../../context/AppSheetContext";
 import {
@@ -39,6 +45,10 @@ import { usePredictiveBackHandler } from "../../native/predictiveBack";
 import { tokens } from "../../styles/tokens";
 
 const ROW_HEIGHT = 58;
+
+function triggerSelectionHaptic() {
+  Haptics.selectionAsync().catch(() => {});
+}
 const OPTION_TEXT_OFFSET = 51;
 const NORMAL_RESOLUTIONS =
   NAI_RESOLUTIONS.find((group) => group.group === "Normal")?.options ?? [];
@@ -178,6 +188,7 @@ const DraggableResolutionRow = memo(function DraggableResolutionRow({
           startY.value = (positions.value[item.id] ?? index) * ROW_HEIGHT;
           activeY.value = startY.value;
           activeId.value = item.id;
+          runOnJS(triggerSelectionHaptic)();
         })
         .onUpdate((event) => {
           activeY.value = clamp(
@@ -200,7 +211,9 @@ const DraggableResolutionRow = memo(function DraggableResolutionRow({
           }
         })
         .onFinalize(() => {
+          const wasActive = activeId.value === item.id;
           activeId.value = null;
+          if (wasActive) runOnJS(triggerSelectionHaptic)();
           runOnJS(onCommitOrder)();
         }),
     [
@@ -260,7 +273,10 @@ const DraggableResolutionRow = memo(function DraggableResolutionRow({
           accessibilityRole="button"
           accessibilityLabel={`${item.width} x ${item.height} 삭제`}
           hitSlop={6}
-          onPress={() => onDelete(item.id)}
+          onPress={() => {
+            triggerSelectionHaptic();
+            onDelete(item.id);
+          }}
           style={({ pressed }) => [
             styles.deleteButton,
             pressed && styles.controlPressed,
@@ -282,6 +298,7 @@ export function ResolutionScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { open } = useAppSheet();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const resolution = useGenerationStore((state) => state.resolution);
   const setResolution = useGenerationStore((state) => state.setResolution);
   const customResolutions = useGenerationStore(
@@ -349,6 +366,7 @@ export function ResolutionScreen() {
       setBaselineItems(draftItems);
     }
     setIsEditing(false);
+    toast.success("해상도 변경사항을 저장했습니다.");
   }, [
     customResolutions,
     dirty,
@@ -471,14 +489,19 @@ export function ResolutionScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 80,
+            paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
             paddingBottom: insets.bottom + tokens.space[16],
           },
         ]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.selectionCard}>
@@ -586,22 +609,23 @@ export function ResolutionScreen() {
           해상도가 높을수록 디테일이 좋아지지만 Anlas 소모와 생성 시간이
           늘어납니다.
         </Text>
-      </ScrollView>
+      </Animated.ScrollView>
 
+      <DetailHeaderOverlay
+        title="Resolution"
+        scrollY={scrollY}
+        topInset={insets.top}
+        onBack={requestBack}
+        showMore={false}
+        hideCompactTitleOnScroll
+      />
       <View
         pointerEvents="box-none"
-        style={[styles.header, { top: insets.top + 8 }]}
+        style={[
+          styles.headerActionContainer,
+          { top: insets.top + DETAIL_HEADER_TOP_OFFSET },
+        ]}
       >
-        <IconButton
-          icon="chevron-back"
-          label="뒤로"
-          size={40}
-          onPress={requestBack}
-          style={styles.backButton}
-        />
-        <View pointerEvents="none" style={styles.titleContainer}>
-          <Text style={styles.title}>Resolution</Text>
-        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={isEditing ? "변경사항 저장" : "해상도 편집"}
@@ -634,34 +658,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: tokens.space[6],
   },
-  header: {
+  headerActionContainer: {
     position: "absolute",
     right: tokens.space[8],
-    left: tokens.space[8],
-    zIndex: 2,
+    zIndex: 4,
     height: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    borderWidth: 0,
-    backgroundColor: tokens.color.card,
-  },
-  titleContainer: {
-    position: "absolute",
-    top: 0,
-    right: 72,
-    bottom: 0,
-    left: 72,
-    alignItems: "center",
     justifyContent: "center",
-  },
-  title: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 17,
-    letterSpacing: tokens.tracking.tight,
   },
   headerAction: {
     minWidth: 58,
@@ -671,6 +673,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.color.card,
+    ...tokens.shadow.floatMd,
   },
   headerActionLabel: {
     color: tokens.color.textPrimary,
