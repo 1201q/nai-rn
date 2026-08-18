@@ -33,14 +33,8 @@ import {
   type ParsedNaiMetadata,
 } from "../lib/naiMetadata";
 import { hasImportableMetadata } from "../lib/metadataImport";
-import {
-  GenerationOptionSheet,
-  type GenerationOptionRoute,
-} from "../components/sheets/GenerationOptionSheet";
 import { MetadataDetails } from "../components/metadata/MetadataDetails";
-import { UcPresetSheet } from "../components/sheets/UcPresetSheet";
 import { SeedSheet } from "../components/sheets/SeedSheet";
-import { ResolutionSheet } from "../components/sheets/ResolutionSheet";
 import { CustomResolutionSheet } from "../components/sheets/CustomResolutionSheet";
 import { CharacterPositionSheet } from "../components/sheets/CharacterPositionSheet";
 import { CharacterOrderSheet } from "../components/sheets/CharacterOrderSheet";
@@ -57,14 +51,11 @@ type AppSheetRoute =
   | "metadataView"
   | "metadataImport"
   | "batchCount"
-  | "ucPreset"
   | "seed"
-  | "resolution"
   | "resolutionCustom"
   | "characterOrder"
   | "characterPosition"
-  | "preciseMode"
-  | GenerationOptionRoute;
+  | "preciseMode";
 const IDLE_ROUTE = "__idle__";
 type SheetRoute = AppSheetRoute | typeof IDLE_ROUTE;
 
@@ -112,16 +103,11 @@ const SNAP_POINTS: Record<SheetRoute, string[]> = {
   metadataView: ["92%"],
   metadataImport: ["92%"],
   batchCount: ["44%"],
-  ucPreset: ["44%"],
   seed: ["44%"],
-  resolution: ["68%"],
-  resolutionCustom: ["68%"],
+  resolutionCustom: ["48%"],
   characterOrder: ["68%"],
   characterPosition: ["68%"],
   preciseMode: ["40%"],
-  model: ["60%"],
-  sampler: ["74%"],
-  schedule: ["52%"],
 };
 const ROUTE_FADE_IN = FadeIn.duration(100);
 const FOOTER_HEIGHT = 52;
@@ -130,22 +116,11 @@ function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "Metadata";
   if (route === "metadataImport") return "Import Metadata";
   if (route === "batchCount") return "Batch Count";
-  if (route === "ucPreset") return "UC Preset";
   if (route === "seed") return "Seed";
-  if (route === "resolution") return "Resolution";
-  if (route === "resolutionCustom") return "Custom Resolution";
+  if (route === "resolutionCustom") return "해상도 추가";
   if (route === "characterOrder") return "Character Order";
   if (route === "characterPosition") return "Character Position";
   if (route === "preciseMode") return "Mode";
-  if (route === "model") return "Model";
-  if (route === "sampler") return "Sampler";
-  if (route === "schedule") return "Schedule";
-}
-
-function isGenerationOptionRoute(
-  route: SheetRoute,
-): route is GenerationOptionRoute {
-  return route === "model" || route === "sampler" || route === "schedule";
 }
 
 export function AppSheetProvider({ children }: { children: ReactNode }) {
@@ -322,10 +297,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     },
     [apply],
   );
-
-  const handleOpenCustomResolution = useCallback(() => {
-    push("resolutionCustom");
-  }, [push]);
 
   const handleChange = useCallback(
     (index: number) => {
@@ -505,12 +476,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           >
             <Reanimated.View
               entering={ROUTE_FADE_IN}
-              style={[
-                sheetStyles.headerBase,
-                sheetStyles.header,
-                route === "resolutionCustom" &&
-                  sheetStyles.customResolutionHeader,
-              ]}
+              style={[sheetStyles.headerBase, sheetStyles.header]}
             >
               {canBack && (
                 <BottomSheetTouchableOpacity
@@ -568,17 +534,10 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
               >
                 {route === "batchCount" ? (
                   <BatchCountSheet />
-                ) : route === "ucPreset" ? (
-                  <UcPresetSheet onSelect={close} />
                 ) : route === "seed" ? (
                   <SeedSheet
                     onSaveAndClose={forceClose}
                     registerDraft={registerDraft}
-                  />
-                ) : route === "resolution" ? (
-                  <ResolutionSheet
-                    onSelect={forceClose}
-                    onOpenCustom={handleOpenCustomResolution}
                   />
                 ) : route === "resolutionCustom" ? (
                   <CustomResolutionSheet registerDraft={registerDraft} />
@@ -595,8 +554,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                       onSelect={forceClose}
                     />
                   ) : null
-                ) : isGenerationOptionRoute(route) ? (
-                  <GenerationOptionSheet route={route} onSelect={close} />
                 ) : route === "metadataView" ? (
                   current.params ? (
                     <MetadataDetails
@@ -623,7 +580,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           >
             <View style={sheetStyles.footerButton}>
               <PrimaryButton
-                label={route === "metadataImport" ? "가져오기" : "저장"}
+                label={
+                  route === "metadataImport"
+                    ? "가져오기"
+                    : route === "resolutionCustom"
+                      ? "추가"
+                      : "저장"
+                }
                 disabled={!activeDraft?.canSave}
                 onPress={handleDraftFooterSave}
               />
@@ -669,9 +632,6 @@ const sheetStyles = StyleSheet.create({
     marginBottom: tokens.space[6],
     paddingTop: 6,
     paddingHorizontal: tokens.space[12],
-  },
-  customResolutionHeader: {
-    paddingLeft: tokens.space[9],
   },
   backButton: {
     width: 36,

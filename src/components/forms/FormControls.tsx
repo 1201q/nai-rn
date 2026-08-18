@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -76,6 +77,7 @@ export const Toggle = memo(function Toggle({
 
 export const ParameterSlider = memo(function ParameterSlider({
   label,
+  labelAccessory,
   value,
   min,
   max,
@@ -85,6 +87,7 @@ export const ParameterSlider = memo(function ParameterSlider({
   settingsCard = false,
 }: {
   label: string;
+  labelAccessory?: ReactNode;
   value: number;
   min: number;
   max: number;
@@ -122,14 +125,17 @@ export const ParameterSlider = memo(function ParameterSlider({
       ]}
     >
       <View style={styles.sliderHeader}>
-        <Text
-          style={[
-            styles.sliderLabel,
-            settingsCard && styles.settingsSliderLabel,
-          ]}
-        >
-          {label}
-        </Text>
+        <View style={styles.sliderLabelRow}>
+          <Text
+            style={[
+              styles.sliderLabel,
+              settingsCard && styles.settingsSliderLabel,
+            ]}
+          >
+            {label}
+          </Text>
+          {labelAccessory}
+        </View>
         <AnimatedTextInput
           editable={false}
           pointerEvents="none"
@@ -420,6 +426,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  sliderLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[2],
   },
   sliderLabel: {
     color: tokens.color.textSecondary,

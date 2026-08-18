@@ -10,10 +10,13 @@ import {
   Animated,
   Keyboard,
   LayoutAnimation,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,10 +34,7 @@ import {
   KeyboardStickyView,
 } from "react-native-keyboard-controller";
 
-import {
-  useAppSheet,
-  useAppSheetOpen,
-} from "../../context/AppSheetContext";
+import { useAppSheet, useAppSheetOpen } from "../../context/AppSheetContext";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import { CharacterCard } from "../../components/generation/CharacterCard";
 import { ReferenceRow } from "../../components/generation/ReferenceRow";
@@ -121,6 +121,130 @@ const OPTION_DESCRIPTIONS = {
 } as const;
 
 type IconName = keyof typeof Ionicons.glyphMap;
+type TooltipAnchor = { x: number; y: number; width: number; height: number };
+
+function InfoTooltipButton({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}) {
+  const anchorRef = useRef<View>(null);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [anchor, setAnchor] = useState<TooltipAnchor | null>(null);
+  const [tooltipHeight, setTooltipHeight] = useState(72);
+  const visible = anchor !== null;
+
+  const tooltipWidth = Math.min(320, windowWidth - 32);
+  const showBelow = anchor ? anchor.y - tooltipHeight - 10 < 16 : false;
+  const tooltipLeft = anchor
+    ? Math.max(
+        16,
+        Math.min(
+          windowWidth - tooltipWidth - 16,
+          anchor.x + anchor.width / 2 - tooltipWidth / 2,
+        ),
+      )
+    : 16;
+  const tooltipTop = anchor
+    ? showBelow
+      ? Math.min(
+          windowHeight - tooltipHeight - 16,
+          anchor.y + anchor.height + 10,
+        )
+      : Math.max(16, anchor.y - tooltipHeight - 10)
+    : 16;
+  const arrowLeft = anchor
+    ? Math.max(
+        14,
+        Math.min(
+          tooltipWidth - 22,
+          anchor.x + anchor.width / 2 - tooltipLeft - 5,
+        ),
+      )
+    : 14;
+
+  function toggleTooltip() {
+    if (visible) {
+      setAnchor(null);
+      return;
+    }
+    anchorRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+    });
+  }
+
+  function handleTooltipLayout(event: LayoutChangeEvent) {
+    const nextHeight = event.nativeEvent.layout.height;
+    if (nextHeight !== tooltipHeight) setTooltipHeight(nextHeight);
+  }
+
+  return (
+    <>
+      <Pressable
+        ref={anchorRef}
+        accessibilityRole="button"
+        accessibilityLabel={`${label} 설명`}
+        accessibilityHint="옵션 설명을 표시합니다"
+        hitSlop={8}
+        onPress={toggleTooltip}
+        style={({ pressed }) => [
+          styles.infoButton,
+          pressed && styles.infoButtonPressed,
+        ]}
+      >
+        <Ionicons
+          name="information"
+          size={10}
+          color={tokens.color.textTertiary}
+        />
+      </Pressable>
+
+      <Modal
+        transparent
+        visible={visible}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setAnchor(null)}
+      >
+        <View style={styles.tooltipModalRoot}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="옵션 설명 닫기"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setAnchor(null)}
+          />
+          {anchor ? (
+            <View
+              accessibilityViewIsModal
+              onLayout={handleTooltipLayout}
+              style={[
+                styles.infoTooltip,
+                {
+                  top: tooltipTop,
+                  left: tooltipLeft,
+                  width: tooltipWidth,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.infoTooltipArrow,
+                  showBelow
+                    ? styles.infoTooltipArrowTop
+                    : styles.infoTooltipArrowBottom,
+                  { left: arrowLeft },
+                ]}
+              />
+              <Text style={styles.infoTooltipText}>{description}</Text>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </>
+  );
+}
 
 const TABS: readonly SettingsTab[] = [
   { key: "settings", label: "설정", icon: "settings-outline" },
@@ -135,6 +259,7 @@ const TITLES: Record<SettingsTabKey, string> = {
 function SettingsOptionRow({
   icon,
   label,
+  labelAccessory,
   value,
   onPress,
   trailing,
@@ -142,6 +267,7 @@ function SettingsOptionRow({
 }: {
   icon?: IconName;
   label: string;
+  labelAccessory?: ReactNode;
   value?: string;
   onPress?: () => void;
   trailing?: ReactNode;
@@ -156,7 +282,10 @@ function SettingsOptionRow({
           color={accentIcon ? tokens.color.accent : tokens.color.textTertiary}
         />
       ) : null}
-      <Text style={styles.settingsRowLabel}>{label}</Text>
+      <View style={styles.settingsRowLabelGroup}>
+        <Text style={styles.settingsRowLabel}>{label}</Text>
+        {labelAccessory}
+      </View>
       {value ? (
         <Text style={styles.settingsRowValue} numberOfLines={1}>
           {value}
@@ -194,6 +323,7 @@ function SettingsOptionRow({
 
 function SettingsTabContent() {
   const { open } = useAppSheet();
+  const router = useRouter();
   const model = useGenerationStore((state) => state.model);
   const resolution = useGenerationStore((state) => state.resolution);
   const seed = useGenerationStore((state) => state.seed);
@@ -229,14 +359,19 @@ function SettingsTabContent() {
         <SettingsOptionRow
           label="Model"
           value={modelText}
-          onPress={() => open("model")}
+          onPress={() =>
+            router.navigate({
+              pathname: "/generation-option",
+              params: { option: "model" },
+            })
+          }
           accentIcon
         />
         <View style={styles.settingsGroupDivider} />
         <SettingsOptionRow
           label="Resolution"
           value={`${resolution.width}x${resolution.height}`}
-          onPress={() => open("resolution")}
+          onPress={() => router.navigate("/resolution")}
           accentIcon
         />
       </View>
@@ -249,10 +384,16 @@ function SettingsTabContent() {
         />
       </View>
 
-      <View style={styles.parameterItem}>
-        <View style={styles.parameterCard}>
+      <View style={styles.settingsGroup}>
+        <View style={styles.settingsParameterRow}>
           <ParameterSlider
             label="Steps"
+            labelAccessory={
+              <InfoTooltipButton
+                label="Steps"
+                description={OPTION_DESCRIPTIONS.steps}
+              />
+            }
             value={steps}
             min={STEPS_CONFIG.min}
             max={STEPS_CONFIG.max}
@@ -262,15 +403,16 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.steps}
-        </Text>
-      </View>
-
-      <View style={styles.parameterItem}>
-        <View style={styles.parameterCard}>
+        <View style={styles.settingsGroupDivider} />
+        <View style={styles.settingsParameterRow}>
           <ParameterSlider
             label="CFG Scale"
+            labelAccessory={
+              <InfoTooltipButton
+                label="CFG Scale"
+                description={OPTION_DESCRIPTIONS.cfgScale}
+              />
+            }
             value={promptGuidance}
             min={CFG_CONFIG.min}
             max={CFG_CONFIG.max}
@@ -280,15 +422,16 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.cfgScale}
-        </Text>
-      </View>
-
-      <View style={styles.parameterItem}>
-        <View style={styles.parameterCard}>
+        <View style={styles.settingsGroupDivider} />
+        <View style={styles.settingsParameterRow}>
           <ParameterSlider
             label="CFG Rescale"
+            labelAccessory={
+              <InfoTooltipButton
+                label="CFG Rescale"
+                description={OPTION_DESCRIPTIONS.cfgRescale}
+              />
+            }
             value={promptGuidanceRescale}
             min={CFG_RESCALE_CONFIG.min}
             max={CFG_RESCALE_CONFIG.max}
@@ -298,22 +441,29 @@ function SettingsTabContent() {
             settingsCard
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.cfgRescale}
-        </Text>
       </View>
 
       <View style={styles.settingsGroup}>
         <SettingsOptionRow
           label="Sampler"
           value={samplerText}
-          onPress={() => open("sampler")}
+          onPress={() =>
+            router.navigate({
+              pathname: "/generation-option",
+              params: { option: "sampler" },
+            })
+          }
         />
         <View style={styles.settingsGroupDivider} />
         <SettingsOptionRow
           label="Schedule"
           value={scheduleText}
-          onPress={() => open("schedule")}
+          onPress={() =>
+            router.navigate({
+              pathname: "/generation-option",
+              params: { option: "schedule" },
+            })
+          }
         />
       </View>
 
@@ -321,6 +471,12 @@ function SettingsTabContent() {
         <View style={styles.settingsCard}>
           <SettingsOptionRow
             label="Variety+"
+            labelAccessory={
+              <InfoTooltipButton
+                label="Variety+"
+                description={OPTION_DESCRIPTIONS.varietyPlus}
+              />
+            }
             trailing={
               <Toggle
                 value={varietyPlus}
@@ -330,9 +486,6 @@ function SettingsTabContent() {
             }
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.varietyPlus}
-        </Text>
       </View>
 
       <Text style={styles.sectionLabel}>고급 기능</Text>
@@ -343,7 +496,7 @@ function SettingsTabContent() {
 }
 
 const PromptTabContent = memo(function PromptTabContent() {
-  const { open } = useAppSheet();
+  const router = useRouter();
   const prompt = useGenerationStore((state) => state.prompt);
   const setPrompt = useGenerationStore((state) => state.setPrompt);
   const negativePrompt = useGenerationStore((state) => state.negativePrompt);
@@ -372,29 +525,33 @@ const PromptTabContent = memo(function PromptTabContent() {
       <View style={styles.promptSettingsContent}>
         <Text style={styles.sectionLabel}>프롬프트 설정</Text>
 
-        <View style={styles.parameterItem}>
-          <View style={styles.settingsCard}>
-            <SettingsOptionRow
-              label="Quality Tags"
-              trailing={
-                <Toggle
-                  value={qualityToggle}
-                  label="Quality Tags"
-                  onChange={setQualityToggle}
-                />
-              }
-            />
-          </View>
-          <Text style={styles.optionDescription}>
-            {OPTION_DESCRIPTIONS.qualityTags}
-          </Text>
-        </View>
-
-        <View style={styles.settingsCard}>
+        <View style={styles.settingsGroup}>
+          <SettingsOptionRow
+            label="Quality Tags"
+            labelAccessory={
+              <InfoTooltipButton
+                label="Quality Tags"
+                description={OPTION_DESCRIPTIONS.qualityTags}
+              />
+            }
+            trailing={
+              <Toggle
+                value={qualityToggle}
+                label="Quality Tags"
+                onChange={setQualityToggle}
+              />
+            }
+          />
+          <View style={styles.settingsGroupDivider} />
           <SettingsOptionRow
             label="UC Preset"
             value={getUcPresetLabel(ucPreset)}
-            onPress={() => open("ucPreset")}
+            onPress={() =>
+              router.navigate({
+                pathname: "/generation-option",
+                params: { option: "ucPreset" },
+              })
+            }
           />
         </View>
 
@@ -583,11 +740,7 @@ const CharacterPromptCards = memo(function CharacterPromptCards() {
                 pressed && styles.emptyCharacterPromptsPressed,
               ]}
             >
-              <Ionicons
-                name="add"
-                size={20}
-                color={tokens.color.accent}
-              />
+              <Ionicons name="add" size={20} color={tokens.color.accent} />
               <Text style={styles.addCharacterPromptButtonLabel}>
                 캐릭터 프롬프트 추가
               </Text>
@@ -614,6 +767,12 @@ const CharacterPromptSettings = memo(function CharacterPromptSettings() {
         <View style={styles.settingsCard}>
           <SettingsOptionRow
             label="Character Positions"
+            labelAccessory={
+              <InfoTooltipButton
+                label="Character Positions"
+                description={OPTION_DESCRIPTIONS.characterPositions}
+              />
+            }
             trailing={
               <Toggle
                 value={positionEnabled}
@@ -623,9 +782,6 @@ const CharacterPromptSettings = memo(function CharacterPromptSettings() {
             }
           />
         </View>
-        <Text style={styles.optionDescription}>
-          {OPTION_DESCRIPTIONS.characterPositions}
-        </Text>
       </View>
     </>
   );
@@ -910,8 +1066,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
-  settingsRowLabel: {
+  settingsRowLabelGroup: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[2],
+  },
+  settingsRowLabel: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
     fontSize: 17,
@@ -927,9 +1088,9 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   settingsGroupDivider: {
-    height: StyleSheet.hairlineWidth,
+    height: 1,
     marginHorizontal: 18,
-    backgroundColor: tokens.color.borderSubtle,
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   sectionLabel: {
     marginTop: 4,
@@ -943,18 +1104,64 @@ const styles = StyleSheet.create({
   parameterItem: {
     gap: 10,
   },
-  parameterCard: {
+  settingsParameterRow: {
     paddingHorizontal: 18,
     paddingVertical: 14,
-    borderRadius: tokens.radius.settings,
-    backgroundColor: tokens.color.card,
   },
-  optionDescription: {
-    paddingHorizontal: 6,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 18,
+  infoButton: {
+    width: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+    borderWidth: 0,
+    backgroundColor: tokens.color.raised,
+    transform: [{ translateY: 1 }],
+    marginLeft: 4,
+  },
+  infoButtonPressed: {
+    opacity: 0.6,
+  },
+  tooltipModalRoot: {
+    flex: 1,
+  },
+  infoTooltip: {
+    position: "absolute",
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: "center",
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtleStrong,
+    backgroundColor: tokens.color.raised,
+    ...tokens.shadow.floatSm,
+  },
+  infoTooltipText: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.sm,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  infoTooltipArrow: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
+  infoTooltipArrowBottom: {
+    bottom: -7,
+    borderTopWidth: 7,
+    borderTopColor: tokens.color.raised,
+  },
+  infoTooltipArrowTop: {
+    top: -7,
+    borderBottomWidth: 7,
+    borderBottomColor: tokens.color.raised,
   },
   promptContent: {
     gap: 20,
