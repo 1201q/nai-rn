@@ -232,11 +232,7 @@ function HistorySelectionHeader({
   );
 }
 
-export function HistoryScreen({
-  onPagingEnabledChange,
-}: {
-  onPagingEnabledChange?: (enabled: boolean) => void;
-}) {
+export function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const generationHistory = useGenerationStore((s) => s.generationHistory);
   const historyInitialized = useGenerationStore(
@@ -467,11 +463,6 @@ export function HistoryScreen({
     );
     return () => subscription.remove();
   }, [isPreviewOpen, isSheetOpen]);
-
-  useEffect(() => {
-    onPagingEnabledChange?.(!isSelectionMode && !isPreviewOpen);
-    return () => onPagingEnabledChange?.(true);
-  }, [isPreviewOpen, isSelectionMode, onPagingEnabledChange]);
 
   // 배경 페이드: 선택 모드 동안 유지 (선택 개수 0 이어도 흐림 유지).
   useEffect(() => {

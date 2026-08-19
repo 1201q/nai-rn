@@ -1,3 +1,3 @@
-import { MainPagerScreen } from "../src/screens/main/MainPagerScreen";
+import { GenerationScreen } from "../src/screens/generation/GenerationScreen";
 
-export default MainPagerScreen;
+export default GenerationScreen;
