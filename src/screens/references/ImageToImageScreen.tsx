@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -253,13 +254,12 @@ export function ImageToImageScreen() {
                 ) : null}
               </View>
             ) : (
-              <TapFeedbackPressable
+              <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="I2I 이미지 추가"
                 disabled={busy}
                 onPress={() => void pickImage()}
                 style={styles.uploadCard}
-                contentStyle={styles.uploadCardContent}
               >
                 {busy ? (
                   <ActivityIndicator color={tokens.color.textMuted} />
@@ -273,7 +273,7 @@ export function ImageToImageScreen() {
                     <Text style={styles.uploadLabel}>이미지 추가</Text>
                   </>
                 )}
-              </TapFeedbackPressable>
+              </Pressable>
             )}
           </View>
 
@@ -397,11 +397,6 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: tokens.color.borderSubtleStrong,
     backgroundColor: tokens.color.card,
-  },
-  uploadCardContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
   },
   uploadLabel: {
     color: tokens.color.textMuted,

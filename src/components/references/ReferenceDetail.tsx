@@ -52,6 +52,7 @@ export function ReferenceDetailLayout({
   onToggle,
   onAdd,
   addDisabled = false,
+  addButtonFeedback = true,
   children,
 }: {
   title: string;
@@ -60,6 +61,7 @@ export function ReferenceDetailLayout({
   onToggle: (value: boolean) => void;
   onAdd?: () => void;
   addDisabled?: boolean;
+  addButtonFeedback?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -153,7 +155,7 @@ export function ReferenceDetailLayout({
         hideCompactTitleOnScroll
       />
 
-      {onAdd ? (
+      {onAdd && addButtonFeedback ? (
         <TapFeedbackPressable
           accessibilityRole="button"
           accessibilityLabel="이미지 추가"
@@ -170,6 +172,22 @@ export function ReferenceDetailLayout({
           <Ionicons name="add" size={20} color={tokens.color.onAccent} />
           <Text style={styles.floatingAddButtonLabel}>이미지 추가</Text>
         </TapFeedbackPressable>
+      ) : onAdd ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="이미지 추가"
+          accessibilityState={{ disabled: addDisabled }}
+          disabled={addDisabled}
+          onPress={onAdd}
+          style={[
+            styles.floatingAddButton,
+            { bottom: insets.bottom + tokens.space[8] },
+            addDisabled && styles.floatingAddButtonDisabled,
+          ]}
+        >
+          <Ionicons name="add" size={20} color={tokens.color.onAccent} />
+          <Text style={styles.floatingAddButtonLabel}>이미지 추가</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -220,14 +238,13 @@ export const ReferenceEmptyPlaceholder = memo(
     onPress: () => void;
   }) {
     return (
-      <TapFeedbackPressable
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}, 현재 0개`}
         accessibilityState={{ busy, disabled: busy }}
         disabled={busy}
         onPress={onPress}
         style={styles.emptyPlaceholder}
-        contentStyle={styles.emptyPlaceholderContent}
       >
         {busy ? (
           <ActivityIndicator color={tokens.color.textMuted} />
@@ -242,7 +259,7 @@ export const ReferenceEmptyPlaceholder = memo(
             <Text style={styles.emptyPlaceholderCount}>현재 0개</Text>
           </>
         )}
-      </TapFeedbackPressable>
+      </Pressable>
     );
   },
 );
@@ -574,11 +591,6 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: tokens.color.borderSubtleStrong,
     backgroundColor: tokens.color.card,
-  },
-  emptyPlaceholderContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
   },
   emptyPlaceholderLabel: {
     color: tokens.color.textMuted,

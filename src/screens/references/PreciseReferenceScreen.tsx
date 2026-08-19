@@ -206,6 +206,7 @@ export function PreciseReferenceScreen() {
       onToggle={toggleAll}
       onAdd={() => void pickImage()}
       addDisabled={!canAdd || adding}
+      addButtonFeedback={references.length > 0}
     >
       <Text style={styles.sectionTitle}>
         이미지 ({references.length})

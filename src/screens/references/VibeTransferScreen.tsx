@@ -163,6 +163,7 @@ export function VibeTransferScreen() {
       onToggle={toggleAll}
       onAdd={() => void pickImage()}
       addDisabled={!canAdd || adding}
+      addButtonFeedback={references.length > 0}
     >
       <View style={styles.normalizeCard}>
         <Reanimated.View
