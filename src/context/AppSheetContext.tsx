@@ -11,9 +11,11 @@ import {
 import {
   Alert,
   BackHandler,
+  Dimensions,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type AlertButton,
 } from "react-native";
 import BottomSheet, {
@@ -111,6 +113,8 @@ const SNAP_POINTS: Record<SheetRoute, string[]> = {
 };
 const ROUTE_FADE_IN = FadeIn.duration(100);
 const FOOTER_HEIGHT = 52;
+const SHEET_HANDLE_HEIGHT = 25;
+const KEYBOARD_SHEET_TOP_RATIO = 0.32;
 
 function titleFor(route: SheetRoute) {
   if (route === "metadataView") return "Metadata";
@@ -125,6 +129,7 @@ function titleFor(route: SheetRoute) {
 
 export function AppSheetProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const sheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   // 네비게이션 스택. 마지막 원소가 현재 라우트. 직접 진입(open)은 길이 1 →
@@ -380,7 +385,21 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const current = stack[stack.length - 1];
   const route = current.route;
-  const snapPoints = SNAP_POINTS[route];
+  const baseSnapPoints = SNAP_POINTS[route];
+  const isKeyboardInputRoute =
+    route === "seed" || route === "resolutionCustom";
+  const sheetHeight =
+    windowHeight * (Number.parseFloat(baseSnapPoints[0] ?? "0") / 100);
+  const snapPoints = useMemo(
+    () => (isKeyboardInputRoute ? [sheetHeight] : baseSnapPoints),
+    [baseSnapPoints, isKeyboardInputRoute, sheetHeight],
+  );
+  const keyboardSheetTopInset = isKeyboardInputRoute
+    ? Math.max(
+        insets.top,
+        Math.round(Dimensions.get("screen").height * KEYBOARD_SHEET_TOP_RATIO),
+      )
+    : 0;
   const canBack = stack.length > 1;
   const currentRecordMetadata = useMemo(
     () =>
@@ -415,6 +434,13 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const draftFooterStyle = useMemo(
     () => [sheetStyles.footer, { paddingBottom: footerBottomInset }],
     [footerBottomInset],
+  );
+  const sheetLayoutStyle = useMemo(
+    () => [
+      sheetStyles.layout,
+      { height: Math.max(0, sheetHeight - SHEET_HANDLE_HEIGHT) },
+    ],
+    [sheetHeight],
   );
   const showDraftFooter =
     route === "seed" ||
@@ -462,14 +488,19 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           (route === "metadataView" || route === "metadataImport") &&
             sheetStyles.metadataSheetBackground,
         ]}
+        handleStyle={sheetStyles.sheetHandleContainer}
         handleIndicatorStyle={sheetStyles.sheetHandle}
         enableDynamicSizing={false}
-        keyboardBehavior="interactive"
+        topInset={keyboardSheetTopInset}
+        keyboardBehavior={
+          isKeyboardInputRoute ? "fillParent" : "interactive"
+        }
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         onChange={handleChange}
         onClose={handleCloseComplete}
       >
-        <View style={sheetStyles.layout}>
+        <View style={sheetLayoutStyle}>
           <Reanimated.View
             key={`header-${route}`}
             style={sheetStyles.routeContent}
@@ -604,7 +635,7 @@ const sheetStyles = StyleSheet.create({
     elevation: 100,
   },
   layout: {
-    flex: 1,
+    width: "100%",
   },
   sheetBackground: {
     borderTopLeftRadius: 36,
@@ -618,6 +649,12 @@ const sheetStyles = StyleSheet.create({
     width: 36,
     height: 5,
     backgroundColor: tokens.color.borderSubtleStrong,
+  },
+  sheetHandleContainer: {
+    height: SHEET_HANDLE_HEIGHT,
+    padding: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   routeContent: {
     width: "100%",
