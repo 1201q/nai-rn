@@ -4,13 +4,13 @@ import {
   Alert,
   Animated,
   BackHandler,
+  FlatList,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import Reanimated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import { StatusBar } from "expo-status-bar";
@@ -28,7 +28,11 @@ import {
   resolveGenerationImageUri,
   resolveGenerationThumbnailUri,
 } from "../../lib/generationHistory";
-import { ImagePreviewModal } from "../../components/image-preview/ImagePreviewModal";
+import {
+  ImagePreviewModal,
+  type ImagePreviewModalHandle,
+  type ImagePreviewRect,
+} from "../../components/image-preview/ImagePreviewModal";
 import { useAppSheetOpen } from "../../context/AppSheetContext";
 import { ScreenEdgeFade } from "../../components/common/ScreenEdgeFade";
 import {
@@ -36,11 +40,8 @@ import {
   DetailHeaderOverlay,
   DetailScrollTitle,
 } from "../../components/common/DetailScrollHeader";
-import { useScalePress } from "../../hooks/useScalePress";
 import { usePredictiveBackHandler } from "../../native/predictiveBack";
 import { tokens } from "../../styles/tokens";
-
-const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable);
 
 const TileImage = memo(function TileImage({
   item,
@@ -70,6 +71,7 @@ const HistoryTile = memo(function HistoryTile({
   isSelectionMode,
   isSelected,
   onOpenPreview,
+  onTileRef,
   onEnterSelectionMode,
   onToggleSelection,
 }: {
@@ -79,76 +81,95 @@ const HistoryTile = memo(function HistoryTile({
   gap: number;
   isSelectionMode: boolean;
   isSelected: boolean;
-  onOpenPreview: (index: number) => void;
+  onOpenPreview: (index: number, rect: ImagePreviewRect) => void;
+  onTileRef: (id: string, node: View | null) => void;
   onEnterSelectionMode: (id: string) => void;
   onToggleSelection: (id: string) => void;
 }) {
-  const { onPressIn, onPressOut, scaleStyle } = useScalePress({
-    scaleTo: 0.97,
-  });
+  const tileRef = useRef<View>(null);
+
+  const openPreview = useCallback(() => {
+    tileRef.current?.measureInWindow((x, y, width, height) => {
+      if (width <= 0 || height <= 0) return;
+      onOpenPreview(index, { x, y, width, height });
+    });
+  }, [index, onOpenPreview]);
+
+  const setTileRef = useCallback(
+    (node: View | null) => {
+      tileRef.current = node;
+      onTileRef(item.id, node);
+    },
+    [item.id, onTileRef],
+  );
+
   return (
-    <AnimatedPressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={() => {
-        if (isSelectionMode) {
-          onToggleSelection(item.id);
-          return;
-        }
-        onOpenPreview(index);
+    <View
+      ref={setTileRef}
+      collapsable={false}
+      style={{
+        width: itemSize,
+        height: itemSize,
+        marginRight: index % 3 === 2 ? 0 : gap,
+        marginBottom: gap,
       }}
-      onLongPress={() => onEnterSelectionMode(item.id)}
-      delayLongPress={180}
-      style={[
-        styles.tile,
-        scaleStyle,
-        {
-          width: itemSize,
-          height: itemSize,
-          marginRight: index % 3 === 2 ? 0 : gap,
-          marginBottom: gap,
-        },
-      ]}
     >
-      <TileImage item={item} />
-      {isSelected ? (
-        <View pointerEvents="none" style={styles.selectedDim} />
-      ) : null}
-      {isSelectionMode ? (
-        <>
-          <View
-            style={[
-              styles.selectionCircle,
-              isSelected && styles.selectionCircleSelected,
-            ]}
-          >
-            {isSelected ? (
-              <Svg width={16} height={16} viewBox="0 0 16 16">
-                <Path
-                  d="M3 8.5 6.5 12 13 4.5"
-                  fill="none"
-                  stroke={tokens.color.onAccent}
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            ) : null}
-          </View>
-          <Pressable
-            style={styles.expandButton}
-            onPress={() => onOpenPreview(index)}
-            hitSlop={4}
-          >
-            <Ionicons
-              name="expand-outline"
-              size={15}
-              color={tokens.color.textPrimary}
-            />
-          </Pressable>
-        </>
-      ) : null}
-    </AnimatedPressable>
+      <Pressable
+        onPress={() => {
+          if (isSelectionMode) {
+            onToggleSelection(item.id);
+            return;
+          }
+          openPreview();
+        }}
+        onLongPress={() => onEnterSelectionMode(item.id)}
+        delayLongPress={180}
+        style={({ pressed }) => [
+          StyleSheet.absoluteFill,
+          styles.tile,
+          pressed && styles.pressed,
+        ]}
+      >
+        <TileImage item={item} />
+        {isSelected ? (
+          <View pointerEvents="none" style={styles.selectedDim} />
+        ) : null}
+        {isSelectionMode ? (
+          <>
+            <View
+              style={[
+                styles.selectionCircle,
+                isSelected && styles.selectionCircleSelected,
+              ]}
+            >
+              {isSelected ? (
+                <Svg width={16} height={16} viewBox="0 0 16 16">
+                  <Path
+                    d="M3 8.5 6.5 12 13 4.5"
+                    fill="none"
+                    stroke={tokens.color.onAccent}
+                    strokeWidth={1.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              ) : null}
+            </View>
+            <Pressable
+              style={styles.expandButton}
+              onPress={openPreview}
+              hitSlop={4}
+            >
+              <Ionicons
+                name="expand-outline"
+                size={15}
+                color={tokens.color.textPrimary}
+              />
+            </Pressable>
+          </>
+        ) : null}
+      </Pressable>
+    </View>
   );
 });
 
@@ -247,13 +268,21 @@ export function HistoryScreen() {
   const deleteGenerations = useGenerationStore((s) => s.deleteGenerations);
   const isSheetOpen = useAppSheetOpen();
 
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const gap = 2;
   const itemSize = (width - gap * 2) / 3;
 
   const previewAnimation = useRef(new Animated.Value(0)).current;
+  const previewModalRef = useRef<ImagePreviewModalHandle>(null);
+  const historyListRef = useRef<FlatList<GenerationRecord>>(null);
+  const tileRefs = useRef(new Map<string, View>());
+  const forceFadePreviewCloseRef = useRef(false);
+  const generationHistoryRef = useRef(generationHistory);
+  generationHistoryRef.current = generationHistory;
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewOriginRect, setPreviewOriginRect] =
+    useState<ImagePreviewRect | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [isSavingSelected, setIsSavingSelected] = useState(false);
@@ -273,29 +302,112 @@ export function HistoryScreen() {
   const allSelected =
     generationHistory.length > 0 && selectedCount === generationHistory.length;
 
+  const registerTileRef = useCallback((id: string, node: View | null) => {
+    if (node) {
+      tileRefs.current.set(id, node);
+    } else {
+      tileRefs.current.delete(id);
+    }
+  }, []);
+
   const openPreview = useCallback(
-    (index: number) => {
+    (index: number, rect: ImagePreviewRect) => {
+      forceFadePreviewCloseRef.current = false;
       setPreviewIndex(index);
+      setPreviewOriginRect(rect);
+      previewAnimation.setValue(1);
       setIsPreviewOpen(true);
-      previewAnimation.setValue(0);
-      Animated.timing(previewAnimation, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }).start();
     },
     [previewAnimation],
   );
 
   function closePreview() {
-    Animated.timing(previewAnimation, {
-      toValue: 0,
-      duration: 140,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setIsPreviewOpen(false);
-    });
+    previewModalRef.current?.close();
   }
+
+  const finishPreviewClose = useCallback(() => {
+    previewAnimation.setValue(0);
+    setIsPreviewOpen(false);
+    setPreviewOriginRect(null);
+  }, [previewAnimation]);
+
+  const resolvePreviewTargetRect = useCallback(
+    async (index: number): Promise<ImagePreviewRect | null> => {
+      if (forceFadePreviewCloseRef.current) return null;
+
+      const record = generationHistoryRef.current[index];
+      if (!record) return null;
+
+      const measureTile = (node: View) =>
+        new Promise<ImagePreviewRect | null>((resolve) => {
+          node.measureInWindow((x, y, measuredWidth, measuredHeight) => {
+            const isOutsideViewport =
+              y + measuredHeight <= 0 || y >= height;
+            if (
+              measuredWidth <= 0 ||
+              measuredHeight <= 0 ||
+              isOutsideViewport
+            ) {
+              resolve(null);
+              return;
+            }
+            resolve({ x, y, width: measuredWidth, height: measuredHeight });
+          });
+        });
+
+      const mountedNode = tileRefs.current.get(record.id);
+      if (mountedNode) {
+        const mountedRect = await measureTile(mountedNode);
+        if (mountedRect) return mountedRect;
+      }
+
+      const row = Math.floor(index / 3);
+      const gridTop = insets.top + DETAIL_HEADER_TOP_OFFSET + 98;
+      const rowTop = gridTop + row * (itemSize + gap);
+      const centeredOffset = rowTop - (height - itemSize) / 2;
+      historyListRef.current?.scrollToOffset({
+        offset: Math.max(0, centeredOffset),
+        animated: false,
+      });
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
+      const revealedNode = tileRefs.current.get(record.id);
+      if (!revealedNode) return null;
+      return measureTile(revealedNode);
+    },
+    [gap, height, insets.top, itemSize],
+  );
+
+  const getPreviewAspectRatio = useCallback((index: number) => {
+    const record = generationHistoryRef.current[index];
+    return record ? record.width / record.height : undefined;
+  }, []);
+
+  const getPreviewTransitionUri = useCallback((index: number) => {
+    const record = generationHistoryRef.current[index];
+    return record ? resolveGenerationImageUri(record) : undefined;
+  }, []);
+
+  const previewHeroTransition = useMemo(
+    () =>
+      previewOriginRect
+        ? {
+            initialRect: previewOriginRect,
+            resolveTargetRect: resolvePreviewTargetRect,
+            getAspectRatio: getPreviewAspectRatio,
+            getTransitionUri: getPreviewTransitionUri,
+          }
+        : undefined,
+    [
+      getPreviewAspectRatio,
+      getPreviewTransitionUri,
+      previewOriginRect,
+      resolvePreviewTargetRect,
+    ],
+  );
 
   function exitSelectionMode() {
     setIsSelectionMode(false);
@@ -408,10 +520,12 @@ export function HistoryScreen() {
     if (!record) return;
 
     try {
+      forceFadePreviewCloseRef.current = true;
       await deleteGenerations([record.id]);
       closePreview();
       toast.success("이미지를 삭제했습니다.");
     } catch {
+      forceFadePreviewCloseRef.current = false;
       Alert.alert("삭제 실패", "이미지를 history에서 삭제하지 못했습니다.");
     }
   }
@@ -515,6 +629,7 @@ export function HistoryScreen() {
       <StatusBar style="light" />
 
       <Animated.FlatList
+        ref={historyListRef}
         data={generationHistory}
         keyExtractor={(item) => item.id}
         numColumns={3}
@@ -592,6 +707,7 @@ export function HistoryScreen() {
             isSelectionMode={isSelectionMode}
             isSelected={selectedIds.has(item.id)}
             onOpenPreview={openPreview}
+            onTileRef={registerTileRef}
             onEnterSelectionMode={enterSelectionMode}
             onToggleSelection={toggleSelection}
           />
@@ -694,18 +810,22 @@ export function HistoryScreen() {
         </Animated.View>
       ) : null}
 
-      <ImagePreviewModal
-        visible={isPreviewOpen}
-        closeButtonVariant="header"
-        images={previewImages}
-        initialIndex={previewIndex}
-        animation={previewAnimation}
-        onClose={closePreview}
-        onSaveCurrent={isSelectionMode ? undefined : handleSavePreview}
-        onCopyCurrent={isSelectionMode ? undefined : handleCopyPreview}
-        onDeleteCurrent={isSelectionMode ? undefined : handleDeletePreview}
-        metadataRecords={isSelectionMode ? undefined : generationHistory}
-      />
+      {isPreviewOpen && previewHeroTransition ? (
+        <ImagePreviewModal
+          ref={previewModalRef}
+          visible
+          closeButtonVariant="header"
+          images={previewImages}
+          initialIndex={previewIndex}
+          animation={previewAnimation}
+          onClose={finishPreviewClose}
+          onSaveCurrent={isSelectionMode ? undefined : handleSavePreview}
+          onCopyCurrent={isSelectionMode ? undefined : handleCopyPreview}
+          onDeleteCurrent={isSelectionMode ? undefined : handleDeletePreview}
+          metadataRecords={isSelectionMode ? undefined : generationHistory}
+          heroTransition={previewHeroTransition}
+        />
+      ) : null}
     </View>
   );
 }

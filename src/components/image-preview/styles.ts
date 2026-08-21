@@ -6,6 +6,10 @@ export const styles = StyleSheet.create({
   previewBackdrop: {
     backgroundColor: "#000000",
   },
+  heroImageFrame: {
+    position: "absolute",
+    overflow: "hidden",
+  },
   previewCloseButton: {
     position: "absolute",
     left: tokens.space[10],
