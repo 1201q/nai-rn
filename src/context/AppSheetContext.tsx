@@ -12,6 +12,7 @@ import {
   Alert,
   BackHandler,
   Dimensions,
+  Keyboard,
   StyleSheet,
   Text,
   View,
@@ -69,7 +70,6 @@ type StackEntry = {
   preciseReferenceId?: string;
 };
 type OpenStackEntry = StackEntry & { route: AppSheetRoute };
-type OpenRequest = { id: number; route: AppSheetRoute };
 
 type AppSheetContextValue = {
   open: (route: AppSheetRoute, params?: GenerationRecord) => void;
@@ -136,11 +136,21 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   // 뒤로가기 시 닫힘, 메뉴 경유(push)는 쌓여 뒤로가기 시 pop(이전 복귀).
   const [stack, setStack] = useState<StackEntry[]>([{ route: IDLE_ROUTE }]);
   const stackRef = useRef<StackEntry[]>([{ route: IDLE_ROUTE }]);
-  const [openRequest, setOpenRequest] = useState<OpenRequest | null>(null);
   const [draftController, setDraftController] =
     useState<SheetDraftController | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const openRef = useRef(false);
+  const closingRef = useRef(false);
+  const keyboardHideSubscriptionRef = useRef<ReturnType<
+    typeof Keyboard.addListener
+  > | null>(null);
+  const keyboardCloseTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const closeCompletionTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const draftControllerRef = useRef<SheetDraftController | null>(null);
   const closeAlertOpenRef = useRef(false);
   const hasCloseGuard = Boolean(draftController?.dirty);
@@ -160,7 +170,54 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
-  const forceClose = useCallback(() => sheetRef.current?.close(), []);
+  const clearPendingKeyboardClose = useCallback(() => {
+    keyboardHideSubscriptionRef.current?.remove();
+    keyboardHideSubscriptionRef.current = null;
+    if (keyboardCloseTimeoutRef.current) {
+      clearTimeout(keyboardCloseTimeoutRef.current);
+      keyboardCloseTimeoutRef.current = null;
+    }
+    if (closeCompletionTimeoutRef.current) {
+      clearTimeout(closeCompletionTimeoutRef.current);
+      closeCompletionTimeoutRef.current = null;
+    }
+  }, []);
+
+  const finalizeClose = useCallback(() => {
+    clearPendingKeyboardClose();
+    openRef.current = false;
+    closingRef.current = false;
+    setIsOpen(false);
+    setIsClosing(false);
+    resetTo({ route: IDLE_ROUTE });
+  }, [clearPendingKeyboardClose, resetTo]);
+
+  const closeSheetNow = useCallback(() => {
+    clearPendingKeyboardClose();
+    sheetRef.current?.close();
+    closeCompletionTimeoutRef.current = setTimeout(finalizeClose, 500);
+  }, [clearPendingKeyboardClose, finalizeClose]);
+
+  const forceClose = useCallback(() => {
+    if (closingRef.current) return;
+
+    closingRef.current = true;
+    setIsClosing(true);
+
+    if (!Keyboard.isVisible()) {
+      closeSheetNow();
+      return;
+    }
+
+    keyboardHideSubscriptionRef.current = Keyboard.addListener(
+      "keyboardDidHide",
+      closeSheetNow,
+    );
+    keyboardCloseTimeoutRef.current = setTimeout(closeSheetNow, 300);
+    Keyboard.dismiss();
+  }, [closeSheetNow]);
+
+  useEffect(() => clearPendingKeyboardClose, [clearPendingKeyboardClose]);
 
   const registerDraft = useCallback(
     (controller: SheetDraftController | null) => {
@@ -237,17 +294,18 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const openEntry = useCallback(
     (entry: OpenStackEntry) => {
+      clearPendingKeyboardClose();
+      closingRef.current = false;
+      setIsClosing(false);
+      openRef.current = true;
+      setIsOpen(true);
       resetTo(entry);
-      setOpenRequest((current) => ({
-        id: (current?.id ?? 0) + 1,
-        route: entry.route,
-      }));
       // 같은 라우트 재진입은 remount 가 안 일어나 스크롤이 잔류 → top 리셋.
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       });
     },
-    [resetTo],
+    [clearPendingKeyboardClose, resetTo],
   );
 
   const open = useCallback(
@@ -311,14 +369,32 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
           route: stackRef.current[stackRef.current.length - 1]?.route,
         });
       }
+      const wasOpen = openRef.current;
       const nextOpen = index >= 0;
       if (nextOpen !== openRef.current) {
         openRef.current = nextOpen;
         setIsOpen(nextOpen);
       }
-      if (!nextOpen) resetTo({ route: IDLE_ROUTE });
+      if (!nextOpen && (wasOpen || closingRef.current)) {
+        finalizeClose();
+      }
     },
-    [resetTo],
+    [finalizeClose],
+  );
+
+  const handleAnimate = useCallback(
+    (_fromIndex: number, toIndex: number) => {
+      if (toIndex !== -1 || !openRef.current) return;
+      if (!closingRef.current) {
+        closingRef.current = true;
+        setIsClosing(true);
+      }
+      if (closeCompletionTimeoutRef.current) {
+        clearTimeout(closeCompletionTimeoutRef.current);
+      }
+      closeCompletionTimeoutRef.current = setTimeout(finalizeClose, 500);
+    },
+    [finalizeClose],
   );
 
   const handleCloseComplete = useCallback(() => {
@@ -328,13 +404,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         trackedOpen: openRef.current,
       });
     }
-    // Closing can interrupt the opening animation while the internal index is
-    // still -1. In that case onChange(-1) is skipped, but onClose still fires.
-    if (!openRef.current) return;
-    openRef.current = false;
-    setIsOpen(false);
-    resetTo({ route: IDLE_ROUTE });
-  }, [resetTo]);
+    if (!openRef.current && !closingRef.current) return;
+    finalizeClose();
+  }, [finalizeClose]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -353,13 +425,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         {...props}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
-        pressBehavior={
-          hasCloseGuard ? 0 : backdropCloseDisabled ? "none" : "close"
-        }
-        onPress={hasCloseGuard ? close : undefined}
+        enableTouchThrough={isClosing}
+        pressBehavior="none"
+        onPress={backdropCloseDisabled ? undefined : close}
       />
     ),
-    [backdropCloseDisabled, close, hasCloseGuard],
+    [backdropCloseDisabled, close, isClosing],
   );
 
   const value = useMemo<AppSheetContextValue>(
@@ -416,19 +487,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     pushMetadataImport(currentRecordMetadata);
   }, [currentRecordMetadata, pushMetadataImport]);
 
-  useEffect(() => {
-    if (!openRequest || openRequest.route !== route) return;
-
-    // Open only after the requested route and its snap points are committed.
-    // Mark it open before the animation starts so Android back closes the sheet.
-    if (!openRef.current) {
-      openRef.current = true;
-      setIsOpen(true);
-    }
-    sheetRef.current?.snapToIndex(0);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [openRequest, route]);
-
   const footerBottomInset =
     Math.max(insets.bottom, tokens.space[4]) + tokens.space[4];
   const draftFooterStyle = useMemo(
@@ -469,18 +527,16 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
       <AppSheetOpenContext.Provider value={isOpen}>
         {children}
       </AppSheetOpenContext.Provider>
-      <BottomSheet
+      {route !== IDLE_ROUTE ? (
+        <BottomSheet
         ref={sheetRef}
-        index={-1}
+        index={0}
         snapPoints={snapPoints}
-        enableContentPanningGesture={
-          route !== IDLE_ROUTE && route !== "batchCount"
-        }
-        enableHandlePanningGesture={route !== IDLE_ROUTE}
+        enableContentPanningGesture={route !== "batchCount"}
+        enableHandlePanningGesture
         enablePanDownToClose={!hasCloseGuard}
-        backdropComponent={route === IDLE_ROUTE ? undefined : renderBackdrop}
-        backgroundComponent={route === IDLE_ROUTE ? null : undefined}
-        handleComponent={route === IDLE_ROUTE ? null : undefined}
+        enableBlurKeyboardOnGesture
+        backdropComponent={renderBackdrop}
         style={sheetStyles.sheetContainer}
         containerStyle={sheetStyles.sheetContainer}
         backgroundStyle={[
@@ -497,6 +553,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
         }
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
+        onAnimate={handleAnimate}
         onChange={handleChange}
         onClose={handleCloseComplete}
       >
@@ -624,7 +681,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
             </View>
           </View>
         </View>
-      </BottomSheet>
+        </BottomSheet>
+      ) : null}
     </AppSheetContext.Provider>
   );
 }
