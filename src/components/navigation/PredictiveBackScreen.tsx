@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  AppState,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useFocusEffect, useNavigation } from "expo-router";
 import Animated, {
   cancelAnimation,
@@ -34,37 +39,48 @@ const ENTER_DURATION = 140;
 const EXIT_DURATION = 110;
 const EASING = Easing.out(Easing.bezierFn(0.25, 0.46, 0.45, 0.94));
 const SPRING = { damping: 30, stiffness: 320, mass: 0.75 };
+const PHASE_IDLE = 0;
+const PHASE_TRACKING = 1;
+const PHASE_CANCELLING = 2;
+const PHASE_COMMITTING = 3;
 
 export function PredictiveBackScreen({ children }: { children: ReactNode }) {
   const navigation = useNavigation();
   const { width, height } = useWindowDimensions();
-  const canGoBack = navigation.canGoBack();
-  const canAnimate = PREDICTIVE_BACK_SUPPORTED && canGoBack;
 
   const peek = useSharedValue(0);
-  const exit = useSharedValue(canAnimate ? 1 : 0);
+  const exit = useSharedValue(0);
   const pivot = useSharedValue(0);
   const underlay = useSharedValue(0);
+  const phase = useSharedValue(PHASE_IDLE);
   const isFocused = useRef(navigation.isFocused());
   const isDismissing = useRef(false);
   const token = useRef({}).current;
 
-  useEffect(() => {
-    if (!canAnimate) {
-      exit.value = 0;
-      return;
-    }
-    exit.value = withTiming(0, {
-      duration: ENTER_DURATION,
-      easing: EASING,
-    });
-  }, [canAnimate, exit]);
+  const resetInteractiveState = useCallback(() => {
+    isDismissing.current = false;
+    cancelAnimation(peek);
+    cancelAnimation(exit);
+    peek.value = 0;
+    exit.value = 0;
+    pivot.value = 0;
+    phase.value = PHASE_IDLE;
+  }, [exit, peek, phase, pivot]);
 
   const settle = useCallback(() => {
     isDismissing.current = false;
-    peek.value = withSpring(0, SPRING);
+    cancelAnimation(peek);
+    cancelAnimation(exit);
+    phase.value = PHASE_CANCELLING;
     exit.value = withTiming(0, { duration: EXIT_DURATION, easing: EASING });
-  }, [exit, peek]);
+    peek.value = withSpring(0, SPRING, (finished) => {
+      "worklet";
+      if (finished) {
+        pivot.value = 0;
+        phase.value = PHASE_IDLE;
+      }
+    });
+  }, [exit, peek, phase, pivot]);
 
   const goBack = useCallback(() => {
     if (!navigation.canGoBack()) {
@@ -86,6 +102,7 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
 
       isDismissing.current = true;
       cancelAnimation(exit);
+      phase.value = PHASE_COMMITTING;
       exit.value = withTiming(1, { duration, easing: EASING }, (finished) => {
         "worklet";
         if (finished) {
@@ -93,14 +110,19 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
         }
       });
     },
-    [exit, goBack],
+    [exit, goBack, phase],
   );
 
-  const cancel = useCallback(() => {
-    isDismissing.current = false;
-    cancelAnimation(peek);
-    peek.value = withSpring(0, SPRING);
-  }, [peek]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", () => {
+      if (!navigation.isFocused() && !isFocused.current) return;
+      resetInteractiveState();
+      cancelAnimation(underlay);
+      underlay.value = 0;
+    });
+
+    return () => subscription.remove();
+  }, [navigation, resetInteractiveState, underlay]);
 
   useEffect(
     () =>
@@ -138,6 +160,7 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
   useFocusEffect(
     useCallback(() => {
       isFocused.current = true;
+      resetInteractiveState();
       underlay.value = withTiming(0, {
         duration: ENTER_DURATION,
         easing: EASING,
@@ -165,42 +188,65 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
         onStart: (event) => {
           if (isDismissing.current) return;
           cancelAnimation(peek);
+          cancelAnimation(exit);
+          exit.value = 0;
+          phase.value = PHASE_TRACKING;
           track(event);
         },
         onProgress: (event) => {
-          if (!isDismissing.current) track(event);
+          if (!isDismissing.current && phase.value === PHASE_TRACKING) {
+            track(event);
+          }
         },
-        onCancel: cancel,
+        onCancel: settle,
         onCommit: () =>
           commit(PREDICTIVE_BACK_HAS_PROGRESS ? EXIT_DURATION : ENTER_DURATION),
       });
 
       return () => {
         isFocused.current = false;
+        resetInteractiveState();
         underlay.value = withTiming(1, {
           duration: ENTER_DURATION,
           easing: EASING,
         });
         releasePredictiveBack(token);
       };
-    }, [cancel, commit, height, navigation, peek, pivot, token, underlay]),
+    }, [
+      commit,
+      exit,
+      height,
+      navigation,
+      peek,
+      phase,
+      pivot,
+      resetInteractiveState,
+      settle,
+      token,
+      underlay,
+    ]),
   );
 
   const screenStyle = useAnimatedStyle(() => {
-    const progress = peek.value;
+    // Idle screens stay at identity even if an earlier native event was lost.
+    const interactionActive = phase.value !== PHASE_IDLE;
+    const progress = interactionActive ? peek.value : 0;
+    const exitProgress =
+      phase.value === PHASE_COMMITTING ? exit.value : 0;
+    const underlayProgress = underlay.value;
     return {
       transform: [
         {
           translateX:
             progress * width * MAX_PEEK_X_RATIO +
-            exit.value * width -
-            underlay.value * width * UNDERLAY_SHIFT_X_RATIO,
+            exitProgress * width -
+            underlayProgress * width * UNDERLAY_SHIFT_X_RATIO,
         },
         { translateY: pivot.value * progress * height * MAX_PEEK_Y_RATIO },
         {
           scale:
             (1 - MAX_SCALE_DOWN * progress) *
-            (1 - UNDERLAY_SCALE_DOWN * underlay.value),
+            (1 - UNDERLAY_SCALE_DOWN * underlayProgress),
         },
       ],
       borderRadius: interpolate(
@@ -213,7 +259,10 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
   });
 
   const backdropStyle = useAnimatedStyle(() => {
-    const revealed = Math.max(peek.value, exit.value);
+    const progress = phase.value === PHASE_IDLE ? 0 : peek.value;
+    const exitProgress =
+      phase.value === PHASE_COMMITTING ? exit.value : 0;
+    const revealed = Math.max(progress, exitProgress);
     return {
       opacity: interpolate(revealed, [0, 1], [MAX_DIM, 0], Extrapolation.CLAMP),
     };
