@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -11,16 +11,20 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  IconButton,
-  PrimaryButton,
-} from "../../components/common/Buttons";
+import { IconButton } from "../../components/common/Buttons";
+import { usePredictiveBackHandler } from "../../native/predictiveBack";
 import {
   selectOverallPercent,
   useGenerationStore,
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { GenerationCanvas } from "./GenerationCanvas";
+import {
+  GenerationSheetHost,
+  PromptStrip,
+  type GenerationSheet,
+  type PromptSheetStage,
+} from "./GenerationSheetScaffold";
 
 function GenerateAction() {
   const isLoading = useGenerationStore((s) => s.isLoading);
@@ -51,21 +55,9 @@ function GenerateAction() {
       : "생성";
 
   return (
-    <PrimaryButton
-      label={label}
-      loading={false}
-      icon={
-        <Ionicons
-          name={isLoading ? "stop" : "sparkles"}
-          size={18}
-          color={tokens.color.onAccent}
-        />
-      }
-      background={
-        isLoading ? (
-          <Reanimated.View style={[styles.progressFill, progressStyle]} />
-        ) : undefined
-      }
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={() => {
         if (isLoading) {
           requestQueueCancel();
@@ -73,7 +65,51 @@ function GenerateAction() {
         }
         generateImage();
       }}
-    />
+      style={({ pressed }) => [
+        styles.generateButton,
+        pressed && styles.actionPressed,
+      ]}
+    >
+      {isLoading ? (
+        <Reanimated.View style={[styles.progressFill, progressStyle]} />
+      ) : null}
+      <View style={styles.generateButtonContent}>
+        <Ionicons
+          name={isLoading ? "stop" : "sparkles"}
+          size={16}
+          color={tokens.color.onAccent}
+        />
+        <Text style={styles.generateButtonLabel}>{label}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function ActionIconButton({
+  icon,
+  label,
+  active,
+  onPress,
+}: {
+  icon: "settings-sharp" | "time-outline";
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionIconButton,
+        active && styles.actionIconButtonActive,
+        pressed && styles.actionPressed,
+      ]}
+    >
+      <Ionicons name={icon} size={20} color={tokens.color.textPrimary} />
+    </Pressable>
   );
 }
 
@@ -81,12 +117,43 @@ export function GenerationScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
+  const prompt = useGenerationStore((s) => s.prompt);
+  const [sheet, setSheet] = useState<GenerationSheet | null>(null);
+  const [promptStage, setPromptStage] =
+    useState<PromptSheetStage>("half");
+
+  const closeSheet = useCallback(() => setSheet(null), []);
+  const openPrompt = useCallback((stage: PromptSheetStage) => {
+    setPromptStage(stage);
+    setSheet("prompt");
+  }, []);
+  const handleBack = useCallback(() => {
+    if (sheet === "prompt" && promptStage === "full") {
+      setPromptStage("half");
+      return;
+    }
+    setSheet(null);
+  }, [promptStage, sheet]);
+
+  usePredictiveBackHandler(sheet !== null, { onCommit: handleBack });
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (!sheet) return false;
+        handleBack();
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [handleBack, sheet]);
 
   return (
     <View
       style={[
         styles.screen,
-        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 },
+        { paddingTop: insets.top + 12 },
       ]}
     >
       <StatusBar style="light" />
@@ -126,19 +193,34 @@ export function GenerationScreen() {
       <View style={styles.topActionsSpacer} />
       <GenerationCanvas />
 
-      <View style={styles.bottomActions}>
-        <IconButton
-          icon="settings-outline"
-          label="이미지 세팅"
-          onPress={() => router.navigate("/image-settings")}
-          style={styles.sideActionButton}
+      {sheet === null ? <PromptStrip preview={prompt} onOpen={openPrompt} /> : null}
+
+      <GenerationSheetHost
+        sheet={sheet}
+        promptStage={promptStage}
+        onPromptStageChange={setPromptStage}
+        onClose={closeSheet}
+      />
+
+      <View style={styles.actionBar}>
+        <ActionIconButton
+          icon="settings-sharp"
+          label={sheet === "settings" ? "Settings 닫기" : "Settings 열기"}
+          active={sheet === "settings"}
+          onPress={() =>
+            setSheet((current) =>
+              current === "settings" ? null : "settings",
+            )
+          }
         />
         <GenerateAction />
-        <IconButton
+        <ActionIconButton
           icon="time-outline"
-          label="History"
-          onPress={() => router.navigate("/history")}
-          style={styles.sideActionButton}
+          label={sheet === "history" ? "History 닫기" : "History 열기"}
+          active={sheet === "history"}
+          onPress={() =>
+            setSheet((current) => (current === "history" ? null : "history"))
+          }
         />
       </View>
     </View>
@@ -149,6 +231,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     paddingHorizontal: tokens.space[8],
+    paddingBottom: 128,
     backgroundColor: tokens.color.app,
     gap: tokens.space[5],
   },
@@ -187,16 +270,60 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     backgroundColor: tokens.color.card,
   },
-  bottomActions: {
-    height: 54,
+  actionBar: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 90,
+    elevation: 90,
+    height: 72,
+    paddingTop: 12,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.cardAlt,
+  },
+  actionIconButton: {
+    width: 48,
+    height: 48,
+    borderWidth: 2,
+    borderColor: "transparent",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.raised,
+  },
+  actionIconButtonActive: {
+    borderColor: tokens.color.accent,
+  },
+  generateButton: {
+    flex: 1,
+    height: 48,
+    overflow: "hidden",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.accent,
+  },
+  generateButtonContent: {
+    zIndex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.space[5],
-    marginTop: tokens.space[8],
+    justifyContent: "center",
+    gap: 8,
   },
-  sideActionButton: {
-    borderWidth: 0,
-    backgroundColor: tokens.color.card,
+  generateButtonLabel: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.bold,
+    fontSize: 16,
+    letterSpacing: -0.2,
+  },
+  actionPressed: {
+    opacity: 0.65,
   },
   progressFill: {
     position: "absolute",
