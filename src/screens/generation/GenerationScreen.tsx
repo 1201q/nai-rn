@@ -20,10 +20,10 @@ import {
 import { tokens } from "../../styles/tokens";
 import { GenerationCanvas } from "./GenerationCanvas";
 import {
-  GenerationSheetHost,
-  PromptStrip,
-  type GenerationSheet,
+  PromptSheetHost,
+  UtilitySheetHost,
   type PromptSheetStage,
+  type UtilitySheet,
 } from "./GenerationSheetScaffold";
 
 function GenerateAction() {
@@ -118,36 +118,38 @@ export function GenerationScreen() {
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const prompt = useGenerationStore((s) => s.prompt);
-  const [sheet, setSheet] = useState<GenerationSheet | null>(null);
+  const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
   const [promptStage, setPromptStage] =
-    useState<PromptSheetStage>("half");
+    useState<PromptSheetStage>("collapsed");
 
-  const closeSheet = useCallback(() => setSheet(null), []);
-  const openPrompt = useCallback((stage: PromptSheetStage) => {
-    setPromptStage(stage);
-    setSheet("prompt");
-  }, []);
+  const closeUtilitySheet = useCallback(() => setUtilitySheet(null), []);
+  const hasOpenSheet =
+    utilitySheet !== null || promptStage !== "collapsed";
   const handleBack = useCallback(() => {
-    if (sheet === "prompt" && promptStage === "full") {
+    if (utilitySheet !== null) {
+      setUtilitySheet(null);
+      return;
+    }
+    if (promptStage === "full") {
       setPromptStage("half");
       return;
     }
-    setSheet(null);
-  }, [promptStage, sheet]);
+    setPromptStage("collapsed");
+  }, [promptStage, utilitySheet]);
 
-  usePredictiveBackHandler(sheet !== null, { onCommit: handleBack });
+  usePredictiveBackHandler(hasOpenSheet, { onCommit: handleBack });
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (!sheet) return false;
+        if (!hasOpenSheet) return false;
         handleBack();
         return true;
       },
     );
     return () => subscription.remove();
-  }, [handleBack, sheet]);
+  }, [handleBack, hasOpenSheet]);
 
   return (
     <View
@@ -193,22 +195,26 @@ export function GenerationScreen() {
       <View style={styles.topActionsSpacer} />
       <GenerationCanvas />
 
-      {sheet === null ? <PromptStrip preview={prompt} onOpen={openPrompt} /> : null}
-
-      <GenerationSheetHost
-        sheet={sheet}
+      <PromptSheetHost
+        promptPreview={prompt}
         promptStage={promptStage}
         onPromptStageChange={setPromptStage}
-        onClose={closeSheet}
+      />
+
+      <UtilitySheetHost
+        sheet={utilitySheet}
+        onClose={closeUtilitySheet}
       />
 
       <View style={styles.actionBar}>
         <ActionIconButton
           icon="settings-sharp"
-          label={sheet === "settings" ? "Settings 닫기" : "Settings 열기"}
-          active={sheet === "settings"}
+          label={
+            utilitySheet === "settings" ? "Settings 닫기" : "Settings 열기"
+          }
+          active={utilitySheet === "settings"}
           onPress={() =>
-            setSheet((current) =>
+            setUtilitySheet((current) =>
               current === "settings" ? null : "settings",
             )
           }
@@ -216,10 +222,14 @@ export function GenerationScreen() {
         <GenerateAction />
         <ActionIconButton
           icon="time-outline"
-          label={sheet === "history" ? "History 닫기" : "History 열기"}
-          active={sheet === "history"}
+          label={
+            utilitySheet === "history" ? "History 닫기" : "History 열기"
+          }
+          active={utilitySheet === "history"}
           onPress={() =>
-            setSheet((current) => (current === "history" ? null : "history"))
+            setUtilitySheet((current) =>
+              current === "history" ? null : "history",
+            )
           }
         />
       </View>

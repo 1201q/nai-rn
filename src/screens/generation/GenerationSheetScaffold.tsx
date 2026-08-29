@@ -1,235 +1,179 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetView,
+  type BottomSheetBackdropProps,
+  useBottomSheetTimingConfigs,
+} from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import Reanimated, {
+  Easing,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
+} from "react-native-reanimated";
 
 import { tokens } from "../../styles/tokens";
 
-export type GenerationSheet = "settings" | "history" | "prompt";
-export type PromptSheetStage = "half" | "full";
+export type UtilitySheet = "settings" | "history";
+export type PromptSheetStage = "collapsed" | "half" | "full";
 
 type PromptTab = "prompt" | "reference" | "chunks";
 
-const SHEET_EASING = [0.32, 0.72, 0, 1] as const;
+const PROMPT_COLLAPSED_HEIGHT = 128;
+const PROMPT_HALF_TOP = 400;
+const PROMPT_FULL_TOP = 70;
+
 const PROMPT_TABS: Array<{ key: PromptTab; label: string }> = [
   { key: "prompt", label: "Prompt" },
   { key: "reference", label: "Reference Images" },
   { key: "chunks", label: "Chunks" },
 ];
 
-function SheetHandle() {
+function PressableSurface({
+  accessibilityLabel,
+  onPress,
+  style,
+  children,
+}: {
+  accessibilityLabel: string;
+  onPress: () => void;
+  style: object;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={styles.handleArea}>
-      <View style={styles.handle} />
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [style, pressed && styles.pressed]}
+    >
+      {children}
+    </Pressable>
   );
 }
 
-function Scrim({ onPress }: { onPress: () => void }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [opacity]);
-
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="시트 닫기"
-        onPress={onPress}
-        style={styles.scrim}
-      />
-    </Animated.View>
-  );
-}
-
-function EmptyMainSheet({
-  title,
+function UtilitySheetContent({
+  sheet,
   onClose,
 }: {
-  title: "Settings" | "History";
+  sheet: UtilitySheet;
   onClose: () => void;
 }) {
-  const translateY = useRef(new Animated.Value(96)).current;
-
-  useEffect(() => {
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: 300,
-      easing: Easing.bezier(...SHEET_EASING),
-      useNativeDriver: true,
-    }).start();
-  }, [translateY]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderGrant: () => translateY.stopAnimation(),
-        onPanResponderMove: (_, gesture) => {
-          translateY.setValue(Math.max(0, gesture.dy));
-        },
-        onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy > 80) {
-            onClose();
-            return;
-          }
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: 220,
-            easing: Easing.bezier(...SHEET_EASING),
-            useNativeDriver: true,
-          }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.timing(translateY, {
-            toValue: 0,
-            duration: 220,
-            easing: Easing.bezier(...SHEET_EASING),
-            useNativeDriver: true,
-          }).start();
-        },
-      }),
-    [onClose, translateY],
-  );
-
-  const opacity = translateY.interpolate({
-    inputRange: [0, 96],
-    outputRange: [1, 0.3],
-    extrapolate: "clamp",
-  });
+  const title = sheet === "settings" ? "Settings" : "History";
 
   return (
-    <Animated.View
-      style={[
-        styles.mainSheet,
-        { opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <View {...panResponder.panHandlers}>
-        <SheetHandle />
-      </View>
-      <View style={styles.mainSheetHeader}>
-        <Text style={styles.mainSheetTitle}>{title}</Text>
-        <Pressable
-          accessibilityRole="button"
+    <BottomSheetView style={styles.sheetBody}>
+      <View style={styles.utilityHeader}>
+        <Text style={styles.utilityTitle}>{title}</Text>
+        <PressableSurface
           accessibilityLabel={`${title} 닫기`}
-          hitSlop={4}
           onPress={onClose}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.pressed,
-          ]}
+          style={styles.closeButton}
         >
           <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
-        </Pressable>
+        </PressableSurface>
       </View>
       <View style={styles.divider} />
       <View style={styles.emptyBody} />
-    </Animated.View>
+    </BottomSheetView>
   );
 }
 
-function EmptyPromptSheet({
+function PromptHeader({
+  preview,
   stage,
-  onStageChange,
-  onClose,
+  animatedIndex,
+  tab,
+  onTabChange,
+  onExpand,
+  onCollapse,
 }: {
+  preview: string;
   stage: PromptSheetStage;
-  onStageChange: (stage: PromptSheetStage) => void;
-  onClose: () => void;
+  animatedIndex: SharedValue<number>;
+  tab: PromptTab;
+  onTabChange: (tab: PromptTab) => void;
+  onExpand: () => void;
+  onCollapse: () => void;
 }) {
-  const { height: windowHeight } = useWindowDimensions();
-  const [tab, setTab] = useState<PromptTab>("prompt");
-  const top = useRef(new Animated.Value(windowHeight)).current;
-  const dragStartTop = useRef(windowHeight);
-  const targetTop = stage === "full" ? 70 : 400;
-
-  useEffect(() => {
-    Animated.timing(top, {
-      toValue: targetTop,
-      duration: 300,
-      easing: Easing.bezier(...SHEET_EASING),
-      useNativeDriver: false,
-    }).start();
-  }, [targetTop, top, windowHeight]);
-
-  const settleAtStage = useCallback(
-    (nextStage: PromptSheetStage) => {
-      const nextTop = nextStage === "full" ? 70 : 400;
-      if (nextStage !== stage) {
-        onStageChange(nextStage);
-        return;
-      }
-      Animated.timing(top, {
-        toValue: nextTop,
-        duration: 220,
-        easing: Easing.bezier(...SHEET_EASING),
-        useNativeDriver: false,
-      }).start();
-    },
-    [onStageChange, stage, top],
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderGrant: () => {
-          top.stopAnimation((value) => {
-            dragStartTop.current = value;
-          });
-        },
-        onPanResponderMove: (_, gesture) => {
-          const nextTop = Math.min(
-            windowHeight - 60,
-            Math.max(30, dragStartTop.current + gesture.dy),
-          );
-          top.setValue(nextTop);
-        },
-        onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy < -60) {
-            settleAtStage("full");
-            return;
-          }
-          if (gesture.dy > 60) {
-            if (stage === "full") {
-              settleAtStage("half");
-            } else {
-              onClose();
-            }
-            return;
-          }
-          settleAtStage(stage);
-        },
-        onPanResponderTerminate: () => settleAtStage(stage),
-      }),
-    [onClose, settleAtStage, stage, top, windowHeight],
-  );
+  const previewStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      animatedIndex.value,
+      [0, 0.55, 1],
+      [1, 0.2, 0],
+      Extrapolation.CLAMP,
+    ),
+    transform: [
+      {
+        translateY: interpolate(
+          animatedIndex.value,
+          [0, 1],
+          [0, -5],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
+  }));
+  const tabsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      animatedIndex.value,
+      [0, 0.45, 1],
+      [0, 0.8, 1],
+      Extrapolation.CLAMP,
+    ),
+    transform: [
+      {
+        translateY: interpolate(
+          animatedIndex.value,
+          [0, 1],
+          [5, 0],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
+  }));
+  const collapsed = stage === "collapsed";
 
   return (
-    <Animated.View style={[styles.promptSheet, { top }]}>
-      <View {...panResponder.panHandlers}>
-        <SheetHandle />
-      </View>
-      <View style={styles.promptHeader}>
+    <View style={styles.promptHeader}>
+      <Reanimated.View
+        pointerEvents={collapsed ? "auto" : "none"}
+        style={[styles.promptHeaderLayer, styles.previewLayer, previewStyle]}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Prompt 펼치기"
+          onPress={onExpand}
+          style={({ pressed }) => [
+            styles.promptPreviewButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text numberOfLines={1} style={styles.promptPreviewText}>
+            {preview.trim() || "Prompt를 입력하세요"}
+          </Text>
+          <Ionicons
+            name="chevron-up"
+            size={17}
+            color={tokens.color.textSecondary}
+          />
+        </Pressable>
+      </Reanimated.View>
+
+      <Reanimated.View
+        pointerEvents={collapsed ? "none" : "auto"}
+        style={[styles.promptHeaderLayer, styles.tabsLayer, tabsStyle]}
+      >
         <View style={styles.promptTabs}>
           {PROMPT_TABS.map((item) => {
             const active = item.key === tab;
@@ -238,7 +182,7 @@ function EmptyPromptSheet({
                 key={item.key}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                onPress={() => setTab(item.key)}
+                onPress={() => onTabChange(item.key)}
                 style={({ pressed }) => [
                   styles.promptTab,
                   pressed && styles.pressed,
@@ -263,150 +207,190 @@ function EmptyPromptSheet({
             );
           })}
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Prompt 닫기"
-          hitSlop={4}
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.promptCloseButton,
-            pressed && styles.pressed,
-          ]}
+        <PressableSurface
+          accessibilityLabel="Prompt 접기"
+          onPress={onCollapse}
+          style={styles.promptCloseButton}
         >
           <Ionicons
             name="chevron-down"
             size={19}
             color={tokens.color.textPrimary}
           />
-        </Pressable>
-      </View>
-      <View style={styles.emptyBody} />
-    </Animated.View>
+        </PressableSurface>
+      </Reanimated.View>
+    </View>
   );
 }
 
-export function GenerationSheetHost({
-  sheet,
+export function PromptSheetHost({
+  promptPreview,
   promptStage,
   onPromptStageChange,
-  onClose,
 }: {
-  sheet: GenerationSheet | null;
+  promptPreview: string;
   promptStage: PromptSheetStage;
   onPromptStageChange: (stage: PromptSheetStage) => void;
-  onClose: () => void;
 }) {
-  if (!sheet) return null;
+  const sheetRef = useRef<BottomSheet>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
+  const animatedIndex = useSharedValue(0);
+  const animationConfigs = useBottomSheetTimingConfigs({
+    duration: 300,
+    easing: Easing.bezier(0.32, 0.72, 0, 1),
+  });
+  const snapPoints = useMemo(
+    () => [
+      PROMPT_COLLAPSED_HEIGHT,
+      Math.max(PROMPT_COLLAPSED_HEIGHT, windowHeight - PROMPT_HALF_TOP),
+      Math.max(PROMPT_COLLAPSED_HEIGHT, windowHeight - PROMPT_FULL_TOP),
+    ],
+    [windowHeight],
+  );
+  const stageIndex =
+    promptStage === "collapsed" ? 0 : promptStage === "half" ? 1 : 2;
+
+  useEffect(() => {
+    sheetRef.current?.snapToIndex(stageIndex);
+  }, [stageIndex]);
+
+  const handleSheetChange = useCallback(
+    (index: number) => {
+      if (index === 0) onPromptStageChange("collapsed");
+      if (index === 1) onPromptStageChange("half");
+      if (index === 2) onPromptStageChange("full");
+    },
+    [onPromptStageChange],
+  );
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={1}
+        disappearsOnIndex={0}
+        opacity={0.62}
+        pressBehavior={0}
+      />
+    ),
+    [],
+  );
+  const expandPrompt = useCallback(() => {
+    sheetRef.current?.snapToIndex(1);
+  }, []);
+  const collapsePrompt = useCallback(() => {
+    sheetRef.current?.snapToIndex(0);
+  }, []);
 
   return (
-    <View pointerEvents="box-none" style={styles.sheetHost}>
-      <Scrim onPress={onClose} />
-      {sheet === "prompt" ? (
-        <EmptyPromptSheet
+    <BottomSheet
+      ref={sheetRef}
+      index={stageIndex}
+      snapPoints={snapPoints}
+      animatedIndex={animatedIndex}
+      animationConfigs={animationConfigs}
+      animateOnMount={false}
+      enableDynamicSizing={false}
+      enableContentPanningGesture
+      enableHandlePanningGesture
+      enableOverDrag={false}
+      enablePanDownToClose={false}
+      backdropComponent={renderBackdrop}
+      handleStyle={styles.handleArea}
+      handleIndicatorStyle={styles.handleIndicator}
+      containerStyle={styles.promptSheetContainer}
+      backgroundStyle={styles.sheetBackground}
+      onChange={handleSheetChange}
+    >
+      <BottomSheetView style={styles.sheetBody}>
+        <PromptHeader
+          preview={promptPreview}
           stage={promptStage}
-          onStageChange={onPromptStageChange}
-          onClose={onClose}
+          animatedIndex={animatedIndex}
+          tab={promptTab}
+          onTabChange={setPromptTab}
+          onExpand={expandPrompt}
+          onCollapse={collapsePrompt}
         />
-      ) : (
-        <EmptyMainSheet
-          key={sheet}
-          title={sheet === "settings" ? "Settings" : "History"}
-          onClose={onClose}
-        />
-      )}
-    </View>
+        <View style={styles.emptyBody} />
+      </BottomSheetView>
+    </BottomSheet>
   );
 }
 
-export function PromptStrip({
-  preview,
-  onOpen,
+export function UtilitySheetHost({
+  sheet,
+  onClose,
 }: {
-  preview: string;
-  onOpen: (stage: PromptSheetStage) => void;
+  sheet: UtilitySheet | null;
+  onClose: () => void;
 }) {
-  const dragging = useRef(false);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          gesture.dy < -8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderGrant: () => {
-          dragging.current = true;
-        },
-        onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy <= -220) {
-            onOpen("full");
-          } else if (gesture.dy <= -40) {
-            onOpen("half");
-          }
-          setTimeout(() => {
-            dragging.current = false;
-          }, 0);
-        },
-        onPanResponderTerminate: () => {
-          dragging.current = false;
-        },
-      }),
-    [onOpen],
+  const sheetRef = useRef<BottomSheet>(null);
+  const { height: windowHeight } = useWindowDimensions();
+  const snapPoints = useMemo(
+    () => [Math.max(1, windowHeight - 56)],
+    [windowHeight],
   );
+  const animationConfigs = useBottomSheetTimingConfigs({
+    duration: 300,
+    easing: Easing.bezier(0.32, 0.72, 0, 1),
+  });
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        opacity={0.62}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  );
+  const closeAnimated = useCallback(() => {
+    sheetRef.current?.close();
+  }, []);
+
+  if (sheet === null) return null;
 
   return (
-    <View {...panResponder.panHandlers} style={styles.promptStrip}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Prompt 열기"
-        onPress={() => {
-          if (!dragging.current) onOpen("half");
-        }}
-        style={({ pressed }) => [
-          styles.promptStripPressable,
-          pressed && styles.pressed,
-        ]}
-      >
-        <SheetHandle />
-        <View style={styles.promptStripContent}>
-          <Text numberOfLines={1} style={styles.promptPreview}>
-            {preview.trim() || "Prompt를 입력하세요"}
-          </Text>
-          <Ionicons
-            name="chevron-up"
-            size={17}
-            color={tokens.color.textSecondary}
-          />
-        </View>
-      </Pressable>
-    </View>
+    <BottomSheet
+      key={sheet}
+      ref={sheetRef}
+      index={0}
+      snapPoints={snapPoints}
+      animationConfigs={animationConfigs}
+      animateOnMount
+      enableDynamicSizing={false}
+      enableContentPanningGesture
+      enableHandlePanningGesture
+      enableOverDrag={false}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      handleStyle={styles.handleArea}
+      handleIndicatorStyle={styles.handleIndicator}
+      containerStyle={styles.utilitySheetContainer}
+      backgroundStyle={styles.sheetBackground}
+      onClose={onClose}
+    >
+      <UtilitySheetContent sheet={sheet} onClose={closeAnimated} />
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetHost: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 70,
-    elevation: 70,
+  promptSheetContainer: {
+    zIndex: 80,
+    elevation: 80,
   },
-  scrim: {
-    flex: 1,
-    backgroundColor: "rgba(10,10,12,0.62)",
+  utilitySheetContainer: {
+    zIndex: 85,
+    elevation: 85,
   },
-  mainSheet: {
-    position: "absolute",
-    top: 56,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    overflow: "hidden",
+  sheetBackground: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     backgroundColor: tokens.color.cardAlt,
-    zIndex: 80,
-    elevation: 80,
     shadowColor: "#000000",
     shadowOpacity: 0.55,
     shadowRadius: 44,
@@ -415,15 +399,21 @@ const styles = StyleSheet.create({
   handleArea: {
     height: 17,
     paddingTop: 9,
-    alignItems: "center",
+    paddingBottom: 3,
   },
-  handle: {
+  handleIndicator: {
     width: 38,
     height: 5,
     borderRadius: 3,
     backgroundColor: tokens.color.borderSubtleStrong,
   },
-  mainSheetHeader: {
+  sheetBody: {
+    flex: 1,
+  },
+  emptyBody: {
+    flex: 1,
+  },
+  utilityHeader: {
     height: 52,
     paddingLeft: 20,
     paddingRight: 12,
@@ -431,7 +421,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  mainSheetTitle: {
+  utilityTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.bold,
     fontSize: 23,
@@ -449,32 +439,41 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: tokens.color.borderSubtle,
   },
-  emptyBody: {
-    flex: 1,
+  promptHeader: {
+    height: 39,
+    position: "relative",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.color.borderSubtle,
   },
-  promptSheet: {
+  promptHeaderLayer: {
     position: "absolute",
+    top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    overflow: "hidden",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: tokens.color.cardAlt,
-    zIndex: 80,
-    elevation: 80,
-    shadowColor: "#000000",
-    shadowOpacity: 0.55,
-    shadowRadius: 44,
-    shadowOffset: { width: 0, height: -18 },
   },
-  promptHeader: {
-    height: 47,
+  previewLayer: {
+    zIndex: 2,
+  },
+  tabsLayer: {
+    zIndex: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "stretch",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.color.borderSubtle,
+  },
+  promptPreviewButton: {
+    height: 39,
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  promptPreviewText: {
+    flex: 1,
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.regular,
+    fontSize: 15,
+    lineHeight: 20,
   },
   promptTabs: {
     flex: 1,
@@ -508,46 +507,12 @@ const styles = StyleSheet.create({
   promptCloseButton: {
     width: 34,
     height: 34,
-    marginTop: 6,
+    marginTop: 2,
     marginLeft: 4,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
-  },
-  promptStrip: {
-    position: "absolute",
-    right: 0,
-    bottom: 72,
-    left: 0,
-    height: 56,
-    overflow: "hidden",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: tokens.color.cardAlt,
-    zIndex: 60,
-    elevation: 60,
-    shadowColor: "#000000",
-    shadowOpacity: 0.55,
-    shadowRadius: 44,
-    shadowOffset: { width: 0, height: -18 },
-  },
-  promptStripPressable: {
-    flex: 1,
-    paddingBottom: 14,
-  },
-  promptStripContent: {
-    flex: 1,
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  promptPreview: {
-    flex: 1,
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.regular,
-    fontSize: 15,
   },
   pressed: {
     opacity: 0.65,
