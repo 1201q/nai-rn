@@ -4,15 +4,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import Reanimated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconButton } from "../../components/common/Buttons";
-import { usePredictiveBackHandler } from "../../native/predictiveBack";
+import {
+  usePredictiveBackHandler,
+  type PredictiveBackEvent,
+} from "../../native/predictiveBack";
 import {
   selectOverallPercent,
   useGenerationStore,
@@ -25,6 +30,13 @@ import {
   type PromptSheetStage,
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
+
+const SHEET_BACK_COMMIT_DURATION = 300;
+const SHEET_BACK_CANCEL_SPRING = {
+  damping: 30,
+  stiffness: 320,
+  mass: 0.75,
+};
 
 function GenerateAction() {
   const isLoading = useGenerationStore((s) => s.isLoading);
@@ -121,6 +133,8 @@ export function GenerationScreen() {
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
   const [promptStage, setPromptStage] =
     useState<PromptSheetStage>("collapsed");
+  const promptBackProgress = useSharedValue(0);
+  const utilityBackProgress = useSharedValue(0);
 
   const closeUtilitySheet = useCallback(() => setUtilitySheet(null), []);
   const hasOpenSheet =
@@ -137,7 +151,43 @@ export function GenerationScreen() {
     setPromptStage("collapsed");
   }, [promptStage, utilitySheet]);
 
-  usePredictiveBackHandler(hasOpenSheet, { onCommit: handleBack });
+  const trackPredictiveBack = useCallback(
+    (event: PredictiveBackEvent) => {
+      if (utilitySheet !== null) {
+        cancelAnimation(utilityBackProgress);
+        utilityBackProgress.value = event.progress;
+        promptBackProgress.value = 0;
+        return;
+      }
+
+      cancelAnimation(promptBackProgress);
+      promptBackProgress.value = event.progress;
+      utilityBackProgress.value = 0;
+    },
+    [promptBackProgress, utilityBackProgress, utilitySheet],
+  );
+  const cancelPredictiveBack = useCallback(() => {
+    promptBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
+    utilityBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
+  }, [promptBackProgress, utilityBackProgress]);
+  const commitPredictiveBack = useCallback(() => {
+    handleBack();
+    promptBackProgress.value = withTiming(0, {
+      duration: SHEET_BACK_COMMIT_DURATION,
+      easing: Easing.bezier(0.32, 0.72, 0, 1),
+    });
+    utilityBackProgress.value = withTiming(0, {
+      duration: SHEET_BACK_COMMIT_DURATION,
+      easing: Easing.bezier(0.32, 0.72, 0, 1),
+    });
+  }, [handleBack, promptBackProgress, utilityBackProgress]);
+
+  usePredictiveBackHandler(hasOpenSheet, {
+    onStart: trackPredictiveBack,
+    onProgress: trackPredictiveBack,
+    onCancel: cancelPredictiveBack,
+    onCommit: commitPredictiveBack,
+  });
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -198,11 +248,13 @@ export function GenerationScreen() {
       <PromptSheetHost
         promptPreview={prompt}
         promptStage={promptStage}
+        predictiveBackProgress={promptBackProgress}
         onPromptStageChange={setPromptStage}
       />
 
       <UtilitySheetHost
         sheet={utilitySheet}
+        predictiveBackProgress={utilityBackProgress}
         onClose={closeUtilitySheet}
       />
 
