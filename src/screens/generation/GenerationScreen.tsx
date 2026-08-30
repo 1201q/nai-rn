@@ -12,8 +12,11 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { IconButton } from "../../components/common/Buttons";
+import { SuggestionBar } from "../../components/generation/SuggestionBar";
+import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import {
   usePredictiveBackHandler,
   type PredictiveBackEvent,
@@ -126,6 +129,14 @@ function ActionIconButton({
 }
 
 export function GenerationScreen() {
+  return (
+    <SuggestionBarProvider>
+      <GenerationScreenContent />
+    </SuggestionBarProvider>
+  );
+}
+
+function GenerationScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
@@ -285,6 +296,13 @@ export function GenerationScreen() {
           }
         />
       </View>
+
+      <KeyboardStickyView
+        style={styles.suggestionSticky}
+        offset={{ closed: 0, opened: 0 }}
+      >
+        <SuggestionBar />
+      </KeyboardStickyView>
     </View>
   );
 }
@@ -393,5 +411,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: tokens.color.accentActive,
+  },
+  suggestionSticky: {
+    zIndex: 110,
+    elevation: 110,
   },
 });

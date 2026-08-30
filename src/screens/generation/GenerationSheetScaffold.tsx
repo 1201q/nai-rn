@@ -10,7 +10,6 @@ import BottomSheet, {
   BottomSheetView,
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
-import { Portal } from "@gorhom/portal";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
@@ -30,6 +29,9 @@ import {
   usePredictiveBackHandler,
   type PredictiveBackEvent,
 } from "../../native/predictiveBack";
+import { SheetSelect } from "../../components/forms/SheetSelect";
+import { PromptSheetContent } from "../../components/generation/PromptSheetContent";
+import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
 export type UtilitySheet = "settings" | "history";
@@ -173,177 +175,6 @@ function PressableSurface({
   );
 }
 
-function SheetSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const triggerRef = useRef<View>(null);
-  const { height: windowHeight } = useWindowDimensions();
-  const predictiveBackProgress = useSharedValue(0);
-
-  const closeSelect = useCallback(() => {
-    setOpen(false);
-  }, []);
-
-  const toggleSelect = useCallback(() => {
-    if (open) {
-      closeSelect();
-      return;
-    }
-
-    triggerRef.current?.measureInWindow((x, y, width, height) => {
-      cancelAnimation(predictiveBackProgress);
-      predictiveBackProgress.value = 0;
-      setAnchor({ x, y, width, height });
-      setOpen(true);
-    });
-  }, [closeSelect, open, predictiveBackProgress]);
-
-  const selectOption = useCallback(
-    (option: string) => {
-      onChange(option);
-      closeSelect();
-    },
-    [closeSelect, onChange],
-  );
-  const trackPredictiveBack = useCallback(
-    (event: PredictiveBackEvent) => {
-      cancelAnimation(predictiveBackProgress);
-      predictiveBackProgress.value = event.progress;
-    },
-    [predictiveBackProgress],
-  );
-  const cancelPredictiveBack = useCallback(() => {
-    predictiveBackProgress.value = withSpring(
-      0,
-      PREDICTIVE_BACK_CANCEL_SPRING,
-    );
-  }, [predictiveBackProgress]);
-  const predictiveOptionsStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: interpolate(
-          predictiveBackProgress.value,
-          [0, PREDICTIVE_BACK_SCALE_STOP],
-          [1, PREDICTIVE_BACK_MIN_SCALE],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-  }));
-
-  usePredictiveBackHandler(open, {
-    onStart: trackPredictiveBack,
-    onProgress: trackPredictiveBack,
-    onCancel: cancelPredictiveBack,
-    onCommit: closeSelect,
-  });
-
-  const optionsHeight = options.length * 44 + 2;
-  const optionsTop = anchor
-    ? Math.max(
-        12,
-        Math.min(anchor.y + anchor.height + 8, windowHeight - optionsHeight - 12),
-      )
-    : 0;
-
-  return (
-    <View style={styles.selectField}>
-      <Text style={styles.selectLabel}>{label}</Text>
-      <Pressable
-        ref={triggerRef}
-        accessibilityRole="button"
-        accessibilityLabel={`${label} 선택`}
-        accessibilityState={{ expanded: open }}
-        onPress={toggleSelect}
-        style={({ pressed }) => [
-          styles.selectTrigger,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text style={styles.selectValue}>{value}</Text>
-        <Ionicons
-          name={open ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={tokens.color.textSecondary}
-        />
-      </Pressable>
-
-      {open && anchor ? (
-        <Portal>
-          <View style={styles.selectPortal}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${label} 선택 닫기`}
-              onPress={closeSelect}
-              style={StyleSheet.absoluteFill}
-            />
-            <Reanimated.View
-              style={[
-                styles.selectFloatingOptions,
-                {
-                  top: optionsTop,
-                  left: anchor.x,
-                  width: anchor.width,
-                },
-                predictiveOptionsStyle,
-              ]}
-            >
-              {options.map((option) => {
-                const selected = option === value;
-
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    accessibilityLabel={option}
-                    accessibilityState={{ selected }}
-                    onPress={() => selectOption(option)}
-                    style={({ pressed }) => [
-                      styles.selectOption,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.selectOptionText,
-                        selected && styles.selectOptionTextSelected,
-                      ]}
-                    >
-                      {option}
-                    </Text>
-                    {selected ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={tokens.color.accent}
-                      />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </Reanimated.View>
-          </View>
-        </Portal>
-      ) : null}
-    </View>
-  );
-}
-
 function UtilitySheetContent({
   sheet,
   onClose,
@@ -386,6 +217,7 @@ function PromptHeader({
   stage,
   animatedIndex,
   tab,
+  counts,
   onTabChange,
   onExpand,
   onCollapse,
@@ -394,6 +226,7 @@ function PromptHeader({
   stage: PromptSheetStage;
   animatedIndex: SharedValue<number>;
   tab: PromptTab;
+  counts: Record<PromptTab, number>;
   onTabChange: (tab: PromptTab) => void;
   onExpand: () => void;
   onCollapse: () => void;
@@ -480,15 +313,24 @@ function PromptHeader({
                   pressed && styles.pressed,
                 ]}
               >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.promptTabLabel,
-                    active && styles.promptTabLabelActive,
-                  ]}
-                >
-                  {item.label}
-                </Text>
+                <View style={styles.promptTabContent}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.promptTabLabel,
+                      active && styles.promptTabLabelActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.key !== "chunks" && counts[item.key] > 0 ? (
+                    <View style={styles.promptTabBadge}>
+                      <Text style={styles.promptTabBadgeText}>
+                        {counts[item.key]}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
                 <View
                   style={[
                     styles.promptTabIndicator,
@@ -529,6 +371,12 @@ export function PromptSheetHost({
   const sheetRef = useRef<BottomSheet>(null);
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
+  const referenceCount = useGenerationStore(
+    (state) =>
+      (state.i2iSourceImage ? 1 : 0) +
+      state.vibeReferences.length +
+      state.preciseReferences.length,
+  );
   const animatedIndex = useSharedValue(0);
   const promptPageIndex = useSharedValue(0);
   const promptPageTranslateX = useSharedValue(0);
@@ -685,6 +533,10 @@ export function PromptSheetHost({
           enableHandlePanningGesture
           enableOverDrag={false}
           enablePanDownToClose={false}
+          enableBlurKeyboardOnGesture
+          keyboardBehavior="interactive"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
           activeOffsetY={[-10, 10]}
           failOffsetX={[-18, 18]}
           waitFor={promptPageGesture}
@@ -700,6 +552,11 @@ export function PromptSheetHost({
               stage={promptStage}
               animatedIndex={animatedIndex}
               tab={promptTab}
+              counts={{
+                prompt: 0,
+                reference: referenceCount,
+                chunks: 0,
+              }}
               onTabChange={changePromptTab}
               onExpand={expandPrompt}
               onCollapse={collapsePrompt}
@@ -717,7 +574,18 @@ export function PromptSheetHost({
                     <View
                       key={item.key}
                       style={[styles.promptPage, { width: windowWidth }]}
-                    />
+                    >
+                      {item.key === "prompt" ? (
+                        <PromptSheetContent
+                          active={
+                            promptTab === "prompt" &&
+                            promptStage !== "collapsed"
+                          }
+                        />
+                      ) : (
+                        <View style={styles.emptyPromptPage} />
+                      )}
+                    </View>
                   ))}
                 </Reanimated.View>
               </View>
@@ -866,63 +734,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 116,
   },
-  selectField: {
-    gap: 10,
-  },
-  selectLabel: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 15,
-  },
-  selectTrigger: {
-    height: 46,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: tokens.color.raised,
-  },
-  selectValue: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 15,
-  },
-  selectPortal: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 100,
-    elevation: 100,
-  },
-  selectFloatingOptions: {
-    position: "absolute",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: tokens.color.borderSubtleStrong,
-    borderRadius: 14,
-    backgroundColor: tokens.color.sunken,
-    transformOrigin: "center center",
-    ...tokens.shadow.floatMd,
-  },
-  selectOption: {
-    height: 44,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  selectOptionText: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
-  },
-  selectOptionTextSelected: {
-    color: tokens.color.accent,
-    fontFamily: tokens.font.semibold,
-  },
   promptPagerViewport: {
     flex: 1,
     overflow: "hidden",
@@ -961,7 +772,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.borderSubtle,
   },
   promptHeader: {
-    height: 39,
+    height: 46,
     position: "relative",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,
@@ -983,7 +794,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
   },
   promptPreviewButton: {
-    height: 39,
+    height: 46,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -1003,27 +814,46 @@ const styles = StyleSheet.create({
   },
   promptTab: {
     minWidth: 0,
-    paddingHorizontal: 9,
+    paddingHorizontal: 12,
     justifyContent: "center",
+  },
+  promptTabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   promptTabLabel: {
     color: tokens.color.textMuted,
     fontFamily: tokens.font.semibold,
-    fontSize: 13,
+    fontSize: 15,
   },
   promptTabLabelActive: {
     color: tokens.color.textPrimary,
   },
   promptTabIndicator: {
     position: "absolute",
-    right: 9,
+    right: 12,
     bottom: 0,
-    left: 9,
+    left: 12,
     height: 2,
     backgroundColor: "transparent",
   },
   promptTabIndicatorActive: {
     backgroundColor: tokens.color.accent,
+  },
+  promptTabBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.raised,
+  },
+  promptTabBadgeText: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.bold,
+    fontSize: 11,
   },
   promptCloseButton: {
     width: 34,
@@ -1034,6 +864,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
+  },
+  emptyPromptPage: {
+    flex: 1,
   },
   pressed: {
     opacity: 0.65,
