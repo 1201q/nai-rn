@@ -534,7 +534,7 @@ export function PromptSheetHost({
           enableOverDrag={false}
           enablePanDownToClose={false}
           enableBlurKeyboardOnGesture
-          keyboardBehavior="interactive"
+          keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
           activeOffsetY={[-10, 10]}

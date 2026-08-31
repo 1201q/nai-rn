@@ -1,6 +1,9 @@
 jest.mock("@expensify/react-native-live-markdown", () => ({
   MarkdownTextInput: () => null,
 }));
+jest.mock("@gorhom/bottom-sheet", () => ({
+  useBottomSheetInternal: () => null,
+}));
 
 import { promptMarkdownParser } from "../PromptHighlightTextInput";
 

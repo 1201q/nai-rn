@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -440,6 +441,7 @@ export const CharacterPromptEditorCard = memo(
             >
               <PromptHighlightTextInput
                 ref={promptInputRef}
+                bottomSheetAware
                 accessibilityLabel={`${displayName} ${
                   mode === "base" ? "prompt" : "undesired content"
                 }`}
@@ -486,7 +488,10 @@ export const CharacterPromptEditorCard = memo(
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${displayName} 편집`}
-            onPress={() => onBeginEditing(item.id)}
+            onPress={() => {
+              Keyboard.dismiss();
+              onBeginEditing(item.id);
+            }}
             style={({ pressed }) => pressed && styles.pressed}
           >
             <Text style={styles.preview} numberOfLines={1}>

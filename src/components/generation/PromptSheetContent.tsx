@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -8,7 +9,6 @@ import {
   type TextLayoutEventData,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import {
@@ -24,7 +24,9 @@ import {
   type PromptHighlightTextInputHandle,
 } from "../forms/PromptHighlightTextInput";
 import { PromptTokenCounter } from "../forms/PromptTokenCounter";
+import { BottomSheetKeyboardAwareScrollView } from "./BottomSheetKeyboardAwareScrollView";
 import { CharacterPromptSection } from "./CharacterPromptSection";
+import { SUGGESTION_BAR_HEIGHT } from "./SuggestionBar";
 
 type PromptChannel = "base" | "negative";
 type OpenSelect = "quality" | "uc" | null;
@@ -33,6 +35,9 @@ const MERGED_MIN_HEIGHT = 96;
 const BASE_SPLIT_MIN_HEIGHT = 76;
 const NEGATIVE_SPLIT_MIN_HEIGHT = 60;
 const PROMPT_LINE_HEIGHT = 23;
+const PROMPT_KEYBOARD_GAP = 12;
+const PROMPT_KEYBOARD_SCROLL_MODE =
+  Platform.OS === "android" ? "layout" : "insets";
 const QUALITY_OPTIONS = ["Quality Tags: Standard", "Quality Tags: None"];
 const UC_OPTIONS = UC_PRESET_OPTIONS.map(
   (option) => `UC Preset: ${option.label}`,
@@ -71,6 +76,7 @@ function PromptDraftInput({
   return (
     <PromptHighlightTextInput
       ref={inputRef}
+      bottomSheetAware
       accessibilityLabel={
         channel === "base" ? "Base prompt" : "Negative prompt"
       }
@@ -456,9 +462,12 @@ export const PromptSheetContent = memo(function PromptSheetContent({
   }, [active]);
 
   return (
-    <BottomSheetScrollView
+    <BottomSheetKeyboardAwareScrollView
       style={styles.scrollView}
       contentContainerStyle={styles.scrollContent}
+      bottomOffset={SUGGESTION_BAR_HEIGHT + PROMPT_KEYBOARD_GAP}
+      extraKeyboardSpace={SUGGESTION_BAR_HEIGHT}
+      mode={PROMPT_KEYBOARD_SCROLL_MODE}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -471,7 +480,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
         editingCharacterId={editingCharacterId}
         onEditingCharacterChange={setEditingCharacterId}
       />
-    </BottomSheetScrollView>
+    </BottomSheetKeyboardAwareScrollView>
   );
 });
 

@@ -413,6 +413,10 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.accentActive,
   },
   suggestionSticky: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 110,
     elevation: 110,
   },

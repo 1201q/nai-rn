@@ -16,6 +16,8 @@ const TAG_TYPE_COLORS: Record<TagType, string> = {
   copyright: tokens.color.badge4,
 };
 
+export const SUGGESTION_BAR_HEIGHT = 57;
+
 const SuggestionChip = memo(function SuggestionChip({
   item,
   onPress,
@@ -71,7 +73,7 @@ export function SuggestionBar() {
 
 const styles = StyleSheet.create({
   container: {
-    height: 57,
+    height: SUGGESTION_BAR_HEIGHT,
     paddingVertical: tokens.space[5],
     borderTopWidth: 1,
     borderTopColor: tokens.color.borderSubtle,

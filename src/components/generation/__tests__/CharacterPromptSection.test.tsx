@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Keyboard, StyleSheet } from "react-native";
 
 import type { CharacterPrompt } from "../../../store/generationStore";
 import { useGenerationStore } from "../../../store/generationStore";
@@ -233,6 +233,9 @@ describe("CharacterPromptSection", () => {
   });
 
   it("keeps pinned editors open and collapses only temporary editors on focus change", async () => {
+    const dismissKeyboard = jest
+      .spyOn(Keyboard, "dismiss")
+      .mockImplementation(() => undefined);
     const { getByLabelText, getByText, queryByLabelText } = await render(
       <CharacterPromptSectionHarness />,
     );
@@ -255,12 +258,14 @@ describe("CharacterPromptSection", () => {
     );
 
     await fireEvent.press(getByLabelText("Character 1 편집"));
+    expect(dismissKeyboard).toHaveBeenCalledTimes(1);
     expect(getByLabelText("Character 1 prompt")).toBeTruthy();
     expect(getByLabelText("Character 2 prompt")).toBeTruthy();
 
     await fireEvent(getByLabelText("Character 2 prompt"), "focus");
     expect(queryByLabelText("Character 1 prompt")).toBeNull();
     expect(getByLabelText("Character 2 prompt")).toBeTruthy();
+    dismissKeyboard.mockRestore();
   });
 
   it("keeps the larger editor height when switching prompt channels", async () => {

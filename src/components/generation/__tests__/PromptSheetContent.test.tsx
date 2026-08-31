@@ -35,13 +35,14 @@ jest.mock("../../../store/generationStore", () => {
   return { useGenerationStore };
 });
 
-jest.mock("@gorhom/bottom-sheet", () => {
+jest.mock("../BottomSheetKeyboardAwareScrollView", () => {
   const React = require("react") as typeof import("react");
   const { ScrollView } = require("react-native") as typeof import("react-native");
 
   return {
-    BottomSheetScrollView: (props: import("react-native").ScrollViewProps) =>
-      React.createElement(ScrollView, props),
+    BottomSheetKeyboardAwareScrollView: (
+      props: import("react-native").ScrollViewProps,
+    ) => React.createElement(ScrollView, props),
   };
 });
 

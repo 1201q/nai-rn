@@ -4,7 +4,21 @@ import {
   type MarkdownStyle,
   type MarkdownTextInputProps,
 } from "@expensify/react-native-live-markdown";
-import { forwardRef, type ComponentRef } from "react";
+import { useBottomSheetInternal } from "@gorhom/bottom-sheet";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type ComponentRef,
+} from "react";
+import {
+  findNodeHandle,
+  TextInput,
+  type BlurEvent,
+  type FocusEvent,
+} from "react-native";
 
 import { parsePromptHighlights } from "../../lib/promptHighlight";
 import { tokens } from "../../styles/tokens";
@@ -112,17 +126,102 @@ export type PromptHighlightTextInputHandle = ComponentRef<
 type PromptHighlightTextInputProps = Omit<
   MarkdownTextInputProps,
   "markdownStyle" | "parser"
->;
+> & {
+  bottomSheetAware?: boolean;
+};
 
 export const PromptHighlightTextInput = forwardRef<
   PromptHighlightTextInputHandle,
   PromptHighlightTextInputProps
->(function PromptHighlightTextInput(props, ref) {
+>(function PromptHighlightTextInput(
+  { bottomSheetAware = false, onBlur, onFocus, ...props },
+  providedRef,
+) {
+  const inputRef = useRef<PromptHighlightTextInputHandle>(null);
+  const bottomSheet = useBottomSheetInternal(true);
+  const animatedKeyboardState = bottomSheet?.animatedKeyboardState;
+  const textInputNodesRef = bottomSheet?.textInputNodesRef;
+
+  const handleFocus = useCallback(
+    (event: FocusEvent) => {
+      if (bottomSheetAware && animatedKeyboardState) {
+        animatedKeyboardState.set((state) => ({
+          ...state,
+          target: event.nativeEvent.target,
+        }));
+      }
+      onFocus?.(event);
+    },
+    [animatedKeyboardState, bottomSheetAware, onFocus],
+  );
+  const handleBlur = useCallback(
+    (event: BlurEvent) => {
+      if (
+        bottomSheetAware &&
+        animatedKeyboardState &&
+        textInputNodesRef
+      ) {
+        const keyboardState = animatedKeyboardState.get();
+        const focusedInput = findNodeHandle(
+          TextInput.State.currentlyFocusedInput() as unknown as Parameters<
+            typeof findNodeHandle
+          >[0],
+        );
+        const shouldRemoveTarget =
+          keyboardState.target === event.nativeEvent.target;
+        const shouldIgnoreBlur =
+          focusedInput !== null && textInputNodesRef.current.has(focusedInput);
+
+        if (shouldRemoveTarget && !shouldIgnoreBlur) {
+          animatedKeyboardState.set((state) => ({
+            ...state,
+            target: undefined,
+          }));
+        }
+      }
+      onBlur?.(event);
+    },
+    [animatedKeyboardState, bottomSheetAware, onBlur, textInputNodesRef],
+  );
+
+  useEffect(() => {
+    if (
+      !bottomSheetAware ||
+      !animatedKeyboardState ||
+      !textInputNodesRef
+    ) {
+      return;
+    }
+
+    const inputNode = findNodeHandle(inputRef.current);
+    if (inputNode === null) return;
+
+    textInputNodesRef.current.add(inputNode);
+    return () => {
+      const keyboardState = animatedKeyboardState.get();
+      if (keyboardState.target === inputNode) {
+        animatedKeyboardState.set((state) => ({
+          ...state,
+          target: undefined,
+        }));
+      }
+      textInputNodesRef.current.delete(inputNode);
+    };
+  }, [animatedKeyboardState, bottomSheetAware, textInputNodesRef]);
+
+  useImperativeHandle(
+    providedRef,
+    () => inputRef.current as PromptHighlightTextInputHandle,
+    [],
+  );
+
   return (
     <MarkdownTextInput
       {...props}
-      ref={ref}
+      ref={inputRef}
       markdownStyle={promptMarkdownStyle}
+      onBlur={handleBlur}
+      onFocus={handleFocus}
       parser={promptMarkdownParser}
       textBreakStrategy="simple"
     />
