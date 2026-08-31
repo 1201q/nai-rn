@@ -23,6 +23,8 @@ import {
   PromptHighlightTextInput,
   type PromptHighlightTextInputHandle,
 } from "../forms/PromptHighlightTextInput";
+import { PromptTokenCounter } from "../forms/PromptTokenCounter";
+import { CharacterPromptSection } from "./CharacterPromptSection";
 
 type PromptChannel = "base" | "negative";
 type OpenSelect = "quality" | "uc" | null;
@@ -41,12 +43,14 @@ function PromptDraftInput({
   channel,
   value,
   height,
+  onFocus,
   onChange,
   onCommit,
 }: {
   channel: PromptChannel;
   value: string;
   height: number;
+  onFocus?: () => void;
   onChange: (value: string) => void;
   onCommit: () => void;
 }) {
@@ -77,7 +81,10 @@ function PromptDraftInput({
       autoCorrect={false}
       placeholder={channel === "base" ? "1girl, ..." : "lowres, ..."}
       placeholderTextColor={tokens.color.textMuted}
-      onFocus={autocomplete.activateSuggestions}
+      onFocus={() => {
+        onFocus?.();
+        autocomplete.activateSuggestions();
+      }}
       onBlur={() => {
         onCommit();
         autocomplete.deactivateSuggestions();
@@ -96,8 +103,10 @@ function PromptDraftInput({
 
 export const PromptComposerCard = memo(function PromptComposerCard({
   active,
+  onEditorFocus,
 }: {
   active: boolean;
+  onEditorFocus?: () => void;
 }) {
   const prompt = useGenerationStore((state) => state.prompt);
   const setPrompt = useGenerationStore((state) => state.setPrompt);
@@ -260,20 +269,17 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               channel="base"
               value={promptText}
               height={Math.max(BASE_SPLIT_MIN_HEIGHT, promptHeight)}
+              onFocus={onEditorFocus}
               onChange={updatePrompt}
               onCommit={commitPrompt}
             />
             <View style={styles.promptFooter}>{renderQualitySelect()}</View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min(100, (promptText.length / 240) * 100)}%`,
-                  },
-                ]}
-              />
-            </View>
+            <PromptTokenCounter
+              target={{ scope: "base", channel: "positive" }}
+              draftText={promptText}
+              variant="bar"
+              style={styles.promptTokenCounter}
+            />
           </View>
           <View pointerEvents="none" style={styles.splitDivider}>
             {DIVIDER_DASHES.map((dash) => (
@@ -309,20 +315,17 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               channel="negative"
               value={negativeText}
               height={Math.max(NEGATIVE_SPLIT_MIN_HEIGHT, negativeHeight)}
+              onFocus={onEditorFocus}
               onChange={updateNegative}
               onCommit={commitNegative}
             />
             <View style={styles.promptFooter}>{renderUcSelect()}</View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min(100, (negativeText.length / 240) * 100)}%`,
-                  },
-                ]}
-              />
-            </View>
+            <PromptTokenCounter
+              target={{ scope: "base", channel: "negative" }}
+              draftText={negativeText}
+              variant="bar"
+              style={styles.promptTokenCounter}
+            />
           </View>
         </>
       ) : (
@@ -402,6 +405,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               channel="base"
               value={promptText}
               height={mergedHeight}
+              onFocus={onEditorFocus}
               onChange={updatePrompt}
               onCommit={commitPrompt}
             />
@@ -410,6 +414,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               channel="negative"
               value={negativeText}
               height={mergedHeight}
+              onFocus={onEditorFocus}
               onChange={updateNegative}
               onCommit={commitNegative}
             />
@@ -418,21 +423,15 @@ export const PromptComposerCard = memo(function PromptComposerCard({
           <View style={styles.promptFooter}>
             {mode === "base" ? renderQualitySelect() : renderUcSelect()}
           </View>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${Math.min(
-                    100,
-                    ((mode === "base" ? promptText : negativeText).length /
-                      240) *
-                      100,
-                  )}%`,
-                },
-              ]}
-            />
-          </View>
+          <PromptTokenCounter
+            target={{
+              scope: "base",
+              channel: mode === "base" ? "positive" : "negative",
+            }}
+            draftText={mode === "base" ? promptText : negativeText}
+            variant="bar"
+            style={styles.promptTokenCounter}
+          />
         </View>
       )}
     </View>
@@ -444,6 +443,18 @@ export const PromptSheetContent = memo(function PromptSheetContent({
 }: {
   active: boolean;
 }) {
+  const [editingCharacterId, setEditingCharacterId] = useState<string | null>(
+    null,
+  );
+  const clearEditingCharacter = useCallback(
+    () => setEditingCharacterId(null),
+    [],
+  );
+
+  useEffect(() => {
+    if (!active) setEditingCharacterId(null);
+  }, [active]);
+
   return (
     <BottomSheetScrollView
       style={styles.scrollView}
@@ -451,7 +462,15 @@ export const PromptSheetContent = memo(function PromptSheetContent({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <PromptComposerCard active={active} />
+      <PromptComposerCard
+        active={active}
+        onEditorFocus={clearEditingCharacter}
+      />
+      <CharacterPromptSection
+        active={active}
+        editingCharacterId={editingCharacterId}
+        onEditingCharacterChange={setEditingCharacterId}
+      />
     </BottomSheetScrollView>
   );
 });
@@ -463,7 +482,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 14,
     paddingHorizontal: 14,
-    paddingBottom: 156,
+    paddingBottom: 200,
     gap: 14,
   },
   promptCard: {
@@ -578,17 +597,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
   },
-  progressTrack: {
+  promptTokenCounter: {
+    flex: 0,
     height: 4,
     marginTop: 10,
-    overflow: "hidden",
-    borderRadius: 2,
-    backgroundColor: tokens.color.sunken,
-  },
-  progressFill: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: tokens.color.textTertiary,
   },
   measureLayer: {
     position: "absolute",

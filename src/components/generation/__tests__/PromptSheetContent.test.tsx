@@ -4,6 +4,12 @@ import { StyleSheet } from "react-native";
 import { useGenerationStore } from "../../../store/generationStore";
 import { PromptComposerCard } from "../PromptSheetContent";
 
+jest.mock("../../../context/AppSheetContext", () => ({
+  useAppSheet: () => ({
+    openCharacterPosition: jest.fn(),
+  }),
+}));
+
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
   const useGenerationStore = create<{
@@ -50,6 +56,27 @@ jest.mock("../../forms/PromptHighlightTextInput", () => {
     ) {
       return React.createElement(TextInput, { ...props, ref });
     }),
+  };
+});
+
+jest.mock("../../forms/PromptTokenCounter", () => {
+  const React = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+
+  return {
+    PromptTokenCounter: ({
+      target,
+      draftText,
+      variant,
+    }: {
+      target: { channel: "positive" | "negative" };
+      draftText: string;
+      variant?: "ring" | "bar";
+    }) =>
+      React.createElement(View, {
+        accessibilityLabel: `base-token-${target.channel}`,
+        accessibilityHint: `${variant}:${draftText}`,
+      }),
   };
 });
 
@@ -146,5 +173,32 @@ describe("PromptComposerCard", () => {
     await fireEvent.press(getByLabelText("Undesired Content"));
     await fireEvent.press(getByLabelText("UC Preset select"));
     expect(useGenerationStore.getState().ucPreset).toBe(1);
+  });
+
+  it("binds the usage bar to actual prompt token targets", async () => {
+    const { getByLabelText } = await render(<PromptComposerCard active />);
+
+    expect(
+      getByLabelText("base-token-positive").props.accessibilityHint,
+    ).toBe("bar:base");
+
+    await fireEvent.press(getByLabelText("Undesired Content"));
+    expect(
+      getByLabelText("base-token-negative").props.accessibilityHint,
+    ).toBe("bar:negative");
+
+    await fireEvent.press(getByLabelText("Split prompt로 전환"));
+    expect(getByLabelText("base-token-positive")).toBeTruthy();
+    expect(getByLabelText("base-token-negative")).toBeTruthy();
+  });
+
+  it("reports main prompt focus so temporary character editors can close", async () => {
+    const onEditorFocus = jest.fn();
+    const { getByLabelText } = await render(
+      <PromptComposerCard active onEditorFocus={onEditorFocus} />,
+    );
+
+    await fireEvent(getByLabelText("Base prompt"), "focus");
+    expect(onEditorFocus).toHaveBeenCalledTimes(1);
   });
 });

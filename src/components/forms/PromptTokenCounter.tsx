@@ -35,10 +35,12 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
   target,
   draftText,
   style,
+  variant = "ring",
 }: {
   target: PromptTokenTarget;
   draftText: string;
   style?: StyleProp<ViewStyle>;
+  variant?: "ring" | "bar";
 }) {
   const anchorRef = useRef<View>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -122,59 +124,83 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
         hitSlop={8}
         onPress={toggleTooltip}
         style={({ pressed }) => [
-          styles.counter,
+          variant === "bar" ? styles.barCounter : styles.counter,
           style,
           pressed && styles.counterPressed,
         ]}
       >
-        <View style={styles.ringContainer}>
-          <Svg
-            accessible={false}
-            width={RING_SIZE}
-            height={RING_SIZE}
-            viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-          >
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              fill="none"
-              stroke={tokens.color.borderSubtleStrong}
-              strokeWidth={RING_STROKE_WIDTH}
-            />
+        {variant === "bar" ? (
+          <View style={styles.barTrack}>
             {totalProgress > 0 ? (
-              <Circle
-                cx={RING_SIZE / 2}
-                cy={RING_SIZE / 2}
-                r={RING_RADIUS}
-                fill="none"
-                stroke={tokens.color.textMuted}
-                strokeWidth={RING_STROKE_WIDTH}
-                strokeLinecap="round"
-                strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-                strokeDashoffset={RING_CIRCUMFERENCE * (1 - totalProgress)}
-                transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+              <View
+                style={[
+                  styles.barTotalFill,
+                  { width: `${totalProgress * 100}%` },
+                ]}
               />
             ) : null}
             {fieldProgress > 0 ? (
+              <View
+                style={[
+                  styles.barFieldFill,
+                  {
+                    width: `${fieldProgress * 100}%`,
+                    backgroundColor: counterColor,
+                  },
+                ]}
+              />
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.ringContainer}>
+            <Svg
+              accessible={false}
+              width={RING_SIZE}
+              height={RING_SIZE}
+              viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+            >
               <Circle
                 cx={RING_SIZE / 2}
                 cy={RING_SIZE / 2}
                 r={RING_RADIUS}
                 fill="none"
-                stroke={counterColor}
+                stroke={tokens.color.borderSubtleStrong}
                 strokeWidth={RING_STROKE_WIDTH}
-                strokeLinecap="round"
-                strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-                strokeDashoffset={RING_CIRCUMFERENCE * (1 - fieldProgress)}
-                transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
               />
+              {totalProgress > 0 ? (
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke={tokens.color.textMuted}
+                  strokeWidth={RING_STROKE_WIDTH}
+                  strokeLinecap="round"
+                  strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - totalProgress)}
+                  transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+                />
+              ) : null}
+              {fieldProgress > 0 ? (
+                <Circle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke={counterColor}
+                  strokeWidth={RING_STROKE_WIDTH}
+                  strokeLinecap="round"
+                  strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - fieldProgress)}
+                  transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+                />
+              ) : null}
+            </Svg>
+            {metrics.status === "error" || metrics.status === "unavailable" ? (
+              <Text style={styles.ringUnavailable}>-</Text>
             ) : null}
-          </Svg>
-          {metrics.status === "error" || metrics.status === "unavailable" ? (
-            <Text style={styles.ringUnavailable}>-</Text>
-          ) : null}
-        </View>
+          </View>
+        )}
       </Pressable>
 
       <Modal
@@ -229,6 +255,33 @@ const styles = StyleSheet.create({
   },
   counterPressed: {
     opacity: 0.6,
+  },
+  barCounter: {
+    minWidth: 0,
+    height: 24,
+    flex: 1,
+    justifyContent: "center",
+  },
+  barTrack: {
+    height: 4,
+    overflow: "hidden",
+    borderRadius: 2,
+    backgroundColor: tokens.color.sunken,
+  },
+  barTotalFill: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 2,
+    backgroundColor: tokens.color.textMuted,
+  },
+  barFieldFill: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 2,
   },
   ringContainer: {
     width: RING_SIZE,
