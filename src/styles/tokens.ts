@@ -29,6 +29,7 @@ export const tokens = {
     borderSubtle: "rgba(255,255,255,0.08)",
     borderSubtleStrong: "rgba(255,255,255,0.15)",
     borderNegative: "rgba(239,110,110,0.45)",
+    promptBorder: "#2B2A30",
 
     // 캐릭터/레퍼런스 회전 아이덴티티 색
     badge1: "#FFC93C",

@@ -52,17 +52,18 @@ function IconAction({
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionButton,
-        disabled && styles.actionButtonDisabled,
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons
-        name={icon}
-        size={16}
-        color={
-          destructive ? tokens.color.negative : tokens.color.textTertiary
-        }
-      />
+      <View style={disabled ? styles.actionIconDisabled : undefined}>
+        <Ionicons
+          name={icon}
+          size={16}
+          color={
+            destructive ? tokens.color.negative : tokens.color.textTertiary
+          }
+        />
+      </View>
     </Pressable>
   );
 }
@@ -91,7 +92,7 @@ export const CharacterPromptEditorCard = memo(
     positionEnabled: boolean;
     canMoveDown: boolean;
     onToggleExpanded: (id: string) => void;
-    onBeginEditing: (id: string) => void;
+    onBeginEditing: (id: string | null) => void;
     onUpdate: (
       id: string,
       values: Partial<Omit<CharacterPrompt, "id">>,
@@ -239,7 +240,7 @@ export const CharacterPromptEditorCard = memo(
     const editorHeight = Math.max(promptHeight, negativeHeight);
 
     return (
-      <View style={[styles.card, !item.enabled && styles.cardDisabled]}>
+      <View testID={`character-${item.id}-card`} style={styles.card}>
         <View style={styles.header}>
           <Pressable
             accessibilityRole="button"
@@ -284,7 +285,7 @@ export const CharacterPromptEditorCard = memo(
             returnKeyType="done"
             selectTextOnFocus
             onFocus={() => {
-              onBeginEditing(item.id);
+              onBeginEditing(null);
               nameFocusedRef.current = true;
             }}
             onBlur={() => {
@@ -367,6 +368,10 @@ export const CharacterPromptEditorCard = memo(
           </Pressable>
         </View>
 
+        <View
+          testID={`character-${item.id}-content`}
+          style={!item.enabled ? styles.cardDisabled : undefined}
+        >
         {expanded ? (
           <View style={styles.editorBody}>
             <View pointerEvents="none" style={styles.measureLayer}>
@@ -389,7 +394,7 @@ export const CharacterPromptEditorCard = memo(
             <View style={styles.modeTabs}>
               <Pressable
                 accessibilityRole="radio"
-                accessibilityLabel={`${displayName} Base Prompt`}
+                accessibilityLabel={`${displayName} Prompt`}
                 accessibilityState={{ selected: mode === "base" }}
                 onPress={() => selectMode("base")}
                 style={({ pressed }) => [
@@ -404,7 +409,7 @@ export const CharacterPromptEditorCard = memo(
                     mode === "base" && styles.modeLabelActive,
                   ]}
                 >
-                  Base Prompt
+                  Prompt
                 </Text>
               </Pressable>
               <Pressable
@@ -429,37 +434,41 @@ export const CharacterPromptEditorCard = memo(
               </Pressable>
             </View>
 
-            <PromptHighlightTextInput
-              ref={promptInputRef}
-              accessibilityLabel={`${displayName} ${
-                mode === "base" ? "prompt" : "undesired content"
-              }`}
-              multiline
-              scrollEnabled={false}
-              textAlignVertical="top"
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder={mode === "base" ? "1girl, ..." : "lowres, ..."}
-              placeholderTextColor={tokens.color.textMuted}
-              value={activeText}
-              onFocus={() => {
-                onBeginEditing(item.id);
-                promptFocusedRef.current = true;
-                autocomplete.activateSuggestions();
-              }}
-              onBlur={() => {
-                promptFocusedRef.current = false;
-                commitChannel(mode);
-                autocomplete.deactivateSuggestions();
-              }}
-              onChangeText={autocomplete.handleChangeText}
-              onSelectionChange={autocomplete.handleSelectionChange}
-              style={[
-                styles.promptInput,
-                mode === "negative" && styles.negativePromptInput,
-                { height: editorHeight },
-              ]}
-            />
+            <View
+              testID={`character-${item.id}-input-frame`}
+              style={[styles.promptInputFrame, { height: editorHeight }]}
+            >
+              <PromptHighlightTextInput
+                ref={promptInputRef}
+                accessibilityLabel={`${displayName} ${
+                  mode === "base" ? "prompt" : "undesired content"
+                }`}
+                multiline
+                scrollEnabled={false}
+                textAlignVertical="top"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={mode === "base" ? "1girl, ..." : "lowres, ..."}
+                placeholderTextColor={tokens.color.textMuted}
+                value={activeText}
+                onFocus={() => {
+                  onBeginEditing(item.id);
+                  promptFocusedRef.current = true;
+                  autocomplete.activateSuggestions();
+                }}
+                onBlur={() => {
+                  promptFocusedRef.current = false;
+                  commitChannel(mode);
+                  autocomplete.deactivateSuggestions();
+                }}
+                onChangeText={autocomplete.handleChangeText}
+                onSelectionChange={autocomplete.handleSelectionChange}
+                style={[
+                  styles.promptInput,
+                  mode === "negative" && styles.negativePromptInput,
+                ]}
+              />
+            </View>
 
             <View style={styles.editorFooter}>
               <PromptTokenCounter
@@ -485,6 +494,7 @@ export const CharacterPromptEditorCard = memo(
             </Text>
           </Pressable>
         )}
+        </View>
       </View>
     );
   },
@@ -494,7 +504,7 @@ const styles = StyleSheet.create({
   card: {
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: tokens.color.promptBorder,
     borderRadius: 16,
     backgroundColor: "#100F13",
   },
@@ -549,7 +559,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderLeftWidth: 1,
-    borderLeftColor: tokens.color.borderSubtle,
+    borderLeftColor: tokens.color.promptBorder,
   },
   headerButtonActive: {
     backgroundColor: tokens.color.toast,
@@ -575,7 +585,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   modeTabActive: {
-    backgroundColor: tokens.color.raised,
+    backgroundColor: tokens.color.card,
   },
   modeLabel: {
     color: tokens.color.textMuted,
@@ -588,9 +598,13 @@ const styles = StyleSheet.create({
   negativeModeLabelActive: {
     color: tokens.color.negative,
   },
-  promptInput: {
+  promptInputFrame: {
     minHeight: EDITOR_MIN_HEIGHT,
     marginTop: 10,
+  },
+  promptInput: {
+    height: "100%",
+    width: "100%",
     padding: 0,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
@@ -625,9 +639,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderLeftWidth: 1,
-    borderLeftColor: tokens.color.borderSubtle,
+    borderLeftColor: tokens.color.promptBorder,
   },
-  actionButtonDisabled: {
+  actionIconDisabled: {
     opacity: 0.3,
   },
   preview: {

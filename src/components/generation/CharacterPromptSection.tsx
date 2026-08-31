@@ -261,6 +261,8 @@ const styles = StyleSheet.create({
   sectionCard: {
     padding: 16,
     gap: 14,
+    borderWidth: 1,
+    borderColor: tokens.color.promptBorder,
     borderRadius: 20,
     backgroundColor: tokens.color.card,
   },
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: 17,
     letterSpacing: -0.2,
   },

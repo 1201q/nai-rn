@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: tokens.color.promptBorder,
     borderRadius: 20,
     backgroundColor: "#100F13",
   },

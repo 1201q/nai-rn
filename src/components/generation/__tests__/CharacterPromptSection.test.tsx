@@ -112,7 +112,7 @@ describe("CharacterPromptSection", () => {
     );
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
-    expect(getByLabelText("Character 1 Base Prompt")).toBeTruthy();
+    expect(getByLabelText("Character 1 Prompt")).toBeTruthy();
     const nameInput = getByLabelText("Character 1 이름");
 
     await fireEvent.changeText(nameInput, "Alice");
@@ -160,6 +160,76 @@ describe("CharacterPromptSection", () => {
       useGenerationStore.getState().characterPositionEnabled,
     ).toBe(true);
     expect(mockOpenCharacterPosition).toHaveBeenCalledWith(character.id);
+  });
+
+  it("opens a collapsed editor only from its prompt content", async () => {
+    const { getByLabelText, queryByLabelText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
+    await fireEvent.press(getByLabelText("Character 1 접기"));
+
+    await fireEvent(getByLabelText("Character 1 이름"), "focus");
+    expect(queryByLabelText("Character 1 prompt")).toBeNull();
+
+    await fireEvent.press(getByLabelText("Character 1 편집"));
+    expect(getByLabelText("Character 1 prompt")).toBeTruthy();
+  });
+
+  it("keeps the card border unchanged when the character is disabled", async () => {
+    const { getByLabelText, getByTestId } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
+    const character = useGenerationStore.getState().characterPrompts[0];
+    await fireEvent.press(getByLabelText("Character 1 활성화"));
+
+    expect(
+      StyleSheet.flatten(getByTestId(`character-${character.id}-card`).props.style),
+    ).toMatchObject({
+      borderColor: "#2B2A30",
+      borderWidth: 1,
+    });
+    expect(
+      StyleSheet.flatten(
+        getByTestId(`character-${character.id}-content`).props.style,
+      ).opacity,
+    ).toBe(0.55);
+
+    const dividerLabels = [
+      "Character 1 위로 이동",
+      "Character 1 아래로 이동",
+      "Character 1 활성화",
+      "Character 1 삭제",
+      "Character 1 접기",
+    ];
+    for (const label of dividerLabels) {
+      expect(
+        StyleSheet.flatten(getByLabelText(label).props.style).borderLeftColor,
+      ).toBe("#2B2A30");
+    }
+  });
+
+  it("keeps edge move-button dividers opaque", async () => {
+    const { getByLabelText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 2 / 6"));
+
+    const disabledMoveLabels = [
+      "Character 1 위로 이동",
+      "Character 3 아래로 이동",
+    ];
+    for (const label of disabledMoveLabels) {
+      const style = StyleSheet.flatten(getByLabelText(label).props.style);
+      expect(style.borderLeftColor).toBe("#2B2A30");
+      expect(style.opacity).toBeUndefined();
+    }
   });
 
   it("keeps pinned editors open and collapses only temporary editors on focus change", async () => {
@@ -222,10 +292,15 @@ describe("CharacterPromptSection", () => {
     );
 
     const baseInput = getByLabelText("Character 1 prompt");
-    expect(StyleSheet.flatten(baseInput.props.style).height).toBe(127);
+    expect(StyleSheet.flatten(baseInput.props.style).height).toBe("100%");
+    expect(
+      StyleSheet.flatten(
+        getByTestId("character-character-height-input-frame").props.style,
+      ).height,
+    ).toBe(127);
 
     await fireEvent.press(getByLabelText("Character 1 Undesired Content"));
     const negativeInput = getByLabelText("Character 1 undesired content");
-    expect(StyleSheet.flatten(negativeInput.props.style).height).toBe(127);
+    expect(StyleSheet.flatten(negativeInput.props.style).height).toBe("100%");
   });
 });
