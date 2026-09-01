@@ -63,6 +63,7 @@ export const NAI_RESOLUTIONS = [
     options: [
       { label: "Portrait 1088×1920", width: 1088, height: 1920 },
       { label: "Landscape 1920×1088", width: 1920, height: 1088 },
+      { label: "Square 1440×1440", width: 1440, height: 1440 },
     ],
   },
 ] as const;

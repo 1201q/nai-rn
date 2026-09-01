@@ -32,6 +32,9 @@ const PREDICTIVE_BACK_CANCEL_SPRING = {
   stiffness: 320,
   mass: 0.75,
 };
+const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
+
+export const SHEET_SELECT_PORTAL_HOST = "sheet-select-overlay";
 
 export function SheetSelect({
   label,
@@ -169,13 +172,15 @@ export function SheetSelect({
       </Pressable>
 
       {open && anchor ? (
-        <Portal>
+        <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
           <View style={styles.portal}>
             <Pressable
+              {...NATIVE_RESPONDER_BLOCKER}
               accessibilityRole="button"
               accessibilityLabel={`${accessibilityLabel ?? value} 선택 닫기`}
+              cancelable={false}
               onPress={closeSelect}
-              style={StyleSheet.absoluteFill}
+              style={styles.portalBackdrop}
             />
             <Reanimated.View
               style={[
@@ -206,7 +211,11 @@ export function SheetSelect({
                     <Text
                       style={[
                         styles.optionText,
-                        selected && styles.optionTextSelected,
+                        variant === "field" && styles.optionTextField,
+                        selected &&
+                          (variant === "field"
+                            ? styles.optionTextSelectedField
+                            : styles.optionTextSelected),
                       ]}
                     >
                       {option}
@@ -238,7 +247,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: 15,
   },
   trigger: {
@@ -261,7 +270,7 @@ const styles = StyleSheet.create({
   },
   value: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: 15,
   },
   compactValue: {
@@ -279,6 +288,14 @@ const styles = StyleSheet.create({
     zIndex: 100,
     elevation: 100,
   },
+  portalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "transparent",
+  },
   options: {
     position: "absolute",
     overflow: "hidden",
@@ -286,6 +303,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.borderSubtleStrong,
     borderRadius: 14,
     backgroundColor: tokens.color.sunken,
+    zIndex: 1,
     transformOrigin: "center center",
     ...tokens.shadow.floatMd,
   },
@@ -303,9 +321,16 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: 15,
   },
+  optionTextField: {
+    fontFamily: tokens.font.regular,
+  },
   optionTextSelected: {
     color: tokens.color.accent,
     fontFamily: tokens.font.semibold,
+  },
+  optionTextSelectedField: {
+    color: tokens.color.accent,
+    fontFamily: tokens.font.medium,
   },
   pressed: {
     opacity: 0.65,

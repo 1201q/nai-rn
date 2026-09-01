@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { PortalHost } from "@gorhom/portal";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import Reanimated, {
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { IconButton } from "../../components/common/Buttons";
+import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import {
@@ -303,6 +305,10 @@ function GenerationScreenContent() {
       >
         <SuggestionBar />
       </KeyboardStickyView>
+
+      <View pointerEvents="box-none" style={styles.selectPortalLayer}>
+        <PortalHost name={SHEET_SELECT_PORTAL_HOST} />
+      </View>
     </View>
   );
 }
@@ -324,6 +330,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  selectPortalLayer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 120,
+    elevation: 120,
   },
   topActionsSpacer: {
     height: 40,

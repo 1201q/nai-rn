@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -7,6 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import BottomSheet, {
+  BottomSheetTextInput,
   BottomSheetView,
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
@@ -29,8 +38,18 @@ import {
   usePredictiveBackHandler,
   type PredictiveBackEvent,
 } from "../../native/predictiveBack";
+import { Slider } from "../../components/forms/Slider";
 import { SheetSelect } from "../../components/forms/SheetSelect";
+import { Toggle } from "../../components/forms/FormControls";
+import { BottomSheetKeyboardAwareScrollView } from "../../components/generation/BottomSheetKeyboardAwareScrollView";
 import { PromptSheetContent } from "../../components/generation/PromptSheetContent";
+import {
+  MODELS,
+  NAI_RESOLUTIONS,
+  NOISE_SCHEDULES,
+  SAMPLERS,
+  type NaiResolution,
+} from "../../constants/generation";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
@@ -45,6 +64,12 @@ const PROMPT_FULL_TOP = 70;
 const PROMPT_PAGE_SWIPE_THRESHOLD = 0.18;
 const PROMPT_PAGE_VELOCITY_THRESHOLD = 650;
 const PROMPT_PAGE_ANIMATION_DURATION = 260;
+const SETTINGS_ACTION_BAR_HEIGHT = 96;
+const SETTINGS_KEYBOARD_GAP = 12;
+const SETTINGS_KEYBOARD_SCROLL_MODE =
+  Platform.OS === "android" ? "layout" : "insets";
+const RESOLUTION_STEP = 64;
+const MAX_SEED = 4_294_967_295;
 const PREDICTIVE_BACK_SCALE_STOP = 0.6;
 const PREDICTIVE_BACK_MIN_SCALE = 0.94;
 const PREDICTIVE_BACK_CANCEL_SPRING = {
@@ -63,13 +88,93 @@ const PROMPT_TABS: Array<{ key: PromptTab; label: string }> = [
   { key: "chunks", label: "Chunks" },
 ];
 
-const MODEL_OPTIONS = [
-  "V4.5 Full",
-  "V4.5 Curated",
-  "V4 Curated",
-  "Anime V3",
-  "Furry V3",
+const MODEL_OPTIONS = MODELS.map((option) => option.label);
+const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
+const SAMPLER_OPTIONS = SAMPLERS.map((option) => option.label);
+const SCHEDULE_OPTIONS = NOISE_SCHEDULES.map((option) => option.label);
+
+type SettingsSelectKey = "model" | "resolution" | "sampler" | "schedule";
+type SettingsHelpKey = "steps" | "promptGuidance" | "rescale" | "variety";
+type ResolutionOrientation = "portrait" | "landscape" | "square";
+
+const SETTINGS_HELP: Record<SettingsHelpKey, string> = {
+  steps:
+    "이미지를 정제하는 반복 횟수입니다. 낮으면 빠르게 구도를 시험할 수 있고, 높으면 시간과 비용이 늘지만 항상 더 좋아지지는 않습니다.",
+  promptGuidance:
+    "프롬프트를 따르는 강도입니다. 낮으면 더 자유롭고 부드러우며, 높으면 지시와 세부 표현이 강해집니다.",
+  rescale:
+    "높은 Prompt Guidance에서 색이 지나치게 진하거나 경계가 거칠어질 때 완화합니다.",
+  variety:
+    "초기 구도 단계의 프롬프트 제약을 줄여 포즈와 배경의 다양성을 높입니다.",
+};
+
+const ORIENTATION_OPTIONS: ReadonlyArray<{
+  value: ResolutionOrientation;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = [
+  { value: "landscape", icon: "tablet-landscape-outline" },
+  { value: "portrait", icon: "tablet-portrait-outline" },
+  { value: "square", icon: "square-outline" },
 ];
+
+function resolutionOrientation(
+  resolution: Pick<NaiResolution, "width" | "height">,
+): ResolutionOrientation {
+  if (resolution.width === resolution.height) return "square";
+  return resolution.width > resolution.height ? "landscape" : "portrait";
+}
+
+function resolutionPreset(resolution: NaiResolution) {
+  const group = NAI_RESOLUTIONS.find((candidate) =>
+    candidate.options.some(
+      (option) =>
+        option.width === resolution.width && option.height === resolution.height,
+    ),
+  );
+  return group?.group ?? "Custom";
+}
+
+function presetResolution(
+  preset: string,
+  orientation: ResolutionOrientation,
+): NaiResolution | undefined {
+  const group = NAI_RESOLUTIONS.find((candidate) => candidate.group === preset);
+  return group?.options.find(
+    (option) => resolutionOrientation(option) === orientation,
+  );
+}
+
+function resolutionFromDimensions(width: number, height: number): NaiResolution {
+  for (const group of NAI_RESOLUTIONS) {
+    const preset = group.options.find(
+      (option) => option.width === width && option.height === height,
+    );
+    if (preset) return preset;
+  }
+
+  return {
+    label: `Custom ${width}x${height}`,
+    width,
+    height,
+  };
+}
+
+function snapResolutionDimension(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return RESOLUTION_STEP;
+  return Math.max(
+    RESOLUTION_STEP,
+    Math.round(parsed / RESOLUTION_STEP) * RESOLUTION_STEP,
+  );
+}
+
+function randomSeed() {
+  return Math.floor(Math.random() * 4_294_967_296);
+}
+
+function formatSliderValue(value: number, precision: number) {
+  return Number(value.toFixed(precision)).toString();
+}
 
 function PredictiveBackSheetLayer({
   progress,
@@ -175,7 +280,612 @@ function PressableSurface({
   );
 }
 
-function UtilitySheetContent({
+function SettingsHelpButton({
+  helpKey,
+  open,
+  alignRight = false,
+  onToggle,
+}: {
+  helpKey: SettingsHelpKey;
+  open: boolean;
+  alignRight?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={styles.settingsHelpAnchor}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${helpKey} 설명`}
+        accessibilityState={{ expanded: open }}
+        hitSlop={6}
+        onPress={onToggle}
+        style={({ pressed }) => [
+          styles.settingsHelpButton,
+          open && styles.settingsHelpButtonOpen,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name="information"
+          size={12}
+          color={open ? tokens.color.onAccent : tokens.color.textMuted}
+        />
+      </Pressable>
+      {open ? (
+        <View
+          style={[
+            styles.settingsHelpTooltip,
+            alignRight && styles.settingsHelpTooltipRight,
+          ]}
+        >
+          <Text style={styles.settingsHelpTooltipText}>
+            {SETTINGS_HELP[helpKey]}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SettingsSlider({
+  label,
+  helpKey,
+  helpOpen,
+  value,
+  min,
+  max,
+  step,
+  precision,
+  onHelpToggle,
+  onChange,
+  trailing,
+  overlayOpen = false,
+}: {
+  label: string;
+  helpKey: SettingsHelpKey;
+  helpOpen: boolean;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  precision: number;
+  onHelpToggle: () => void;
+  onChange: (value: number) => void;
+  trailing?: React.ReactNode;
+  overlayOpen?: boolean;
+}) {
+  const inputFocusedRef = useRef(false);
+  const [draftValue, setDraftValue] = useState(() =>
+    formatSliderValue(value, precision),
+  );
+
+  useEffect(() => {
+    if (!inputFocusedRef.current) {
+      setDraftValue(formatSliderValue(value, precision));
+    }
+  }, [precision, value]);
+
+  function commitDraft() {
+    const parsed = Number(draftValue.trim().replace(",", "."));
+    if (!Number.isFinite(parsed)) {
+      setDraftValue(formatSliderValue(value, precision));
+      return;
+    }
+
+    const clamped = Math.min(max, Math.max(min, parsed));
+    const stepped = min + Math.round((clamped - min) / step) * step;
+    const next = Number(
+      Math.min(max, Math.max(min, stepped)).toFixed(precision),
+    );
+    setDraftValue(formatSliderValue(next, precision));
+    onChange(next);
+  }
+
+  function handleSliderComplete(next: number) {
+    setDraftValue(formatSliderValue(next, precision));
+    onChange(next);
+  }
+
+  return (
+    <View
+      style={[
+        styles.settingsSliderField,
+        (helpOpen || overlayOpen) && styles.settingsSliderFieldOverlayOpen,
+      ]}
+    >
+      <View style={styles.settingsSliderHeader}>
+        <View style={styles.settingsFieldLabelRow}>
+          <Text style={styles.settingsFieldLabel}>{label}</Text>
+          <SettingsHelpButton
+            helpKey={helpKey}
+            open={helpOpen}
+            onToggle={onHelpToggle}
+          />
+        </View>
+        {trailing}
+      </View>
+      <View style={styles.settingsSliderControls}>
+        <View style={styles.settingsSliderValueBox}>
+          <BottomSheetTextInput
+            accessibilityLabel={`${label} 값`}
+            value={draftValue}
+            onChangeText={setDraftValue}
+            onFocus={() => {
+              inputFocusedRef.current = true;
+            }}
+            onBlur={() => {
+              inputFocusedRef.current = false;
+              commitDraft();
+            }}
+            onSubmitEditing={commitDraft}
+            keyboardType={precision === 0 ? "number-pad" : "decimal-pad"}
+            returnKeyType="done"
+            submitBehavior="blurAndSubmit"
+            selectTextOnFocus
+            style={styles.settingsSliderValue}
+          />
+        </View>
+        <Slider
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          precision={precision}
+          trackHeight={6}
+          thumbSize={24}
+          pill
+          jumpOnTap
+          onValueChange={(next) =>
+            setDraftValue(formatSliderValue(next, precision))
+          }
+          trackBg={tokens.color.sunken}
+          thumbBorderWidth={0}
+          onSlidingComplete={handleSliderComplete}
+          style={styles.settingsSliderTrack}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ResolutionDimensionInputs({
+  resolution,
+  onChange,
+}: {
+  resolution: NaiResolution;
+  onChange: (resolution: NaiResolution) => void;
+}) {
+  const focusedInputRef = useRef<"width" | "height" | null>(null);
+  const [widthText, setWidthText] = useState(String(resolution.width));
+  const [heightText, setHeightText] = useState(String(resolution.height));
+
+  useEffect(() => {
+    if (focusedInputRef.current !== null) return;
+    setWidthText(String(resolution.width));
+    setHeightText(String(resolution.height));
+  }, [resolution.height, resolution.width]);
+
+  function commitDimensions(nextWidthText: string, nextHeightText: string) {
+    const width = snapResolutionDimension(nextWidthText);
+    const height = snapResolutionDimension(nextHeightText);
+    setWidthText(String(width));
+    setHeightText(String(height));
+    onChange(resolutionFromDimensions(width, height));
+  }
+
+  function swapDimensions() {
+    const width = snapResolutionDimension(heightText);
+    const height = snapResolutionDimension(widthText);
+    setWidthText(String(width));
+    setHeightText(String(height));
+    onChange(resolutionFromDimensions(width, height));
+  }
+
+  return (
+    <View style={styles.resolutionValue}>
+      <BottomSheetTextInput
+        accessibilityLabel="Resolution width"
+        value={widthText}
+        onChangeText={(value) => setWidthText(value.replace(/\D/g, ""))}
+        onFocus={() => {
+          focusedInputRef.current = "width";
+        }}
+        onBlur={() => {
+          focusedInputRef.current = null;
+          commitDimensions(widthText, heightText);
+        }}
+        onSubmitEditing={() => commitDimensions(widthText, heightText)}
+        keyboardType="number-pad"
+        returnKeyType="done"
+        submitBehavior="blurAndSubmit"
+        selectTextOnFocus
+        style={styles.resolutionDimensionInput}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Width와 Height 바꾸기"
+        onPress={swapDimensions}
+        style={({ pressed }) => [
+          styles.resolutionSwapButton,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name="close"
+          size={14}
+          color={tokens.color.textMuted}
+        />
+      </Pressable>
+      <BottomSheetTextInput
+        accessibilityLabel="Resolution height"
+        value={heightText}
+        onChangeText={(value) => setHeightText(value.replace(/\D/g, ""))}
+        onFocus={() => {
+          focusedInputRef.current = "height";
+        }}
+        onBlur={() => {
+          focusedInputRef.current = null;
+          commitDimensions(widthText, heightText);
+        }}
+        onSubmitEditing={() => commitDimensions(widthText, heightText)}
+        keyboardType="number-pad"
+        returnKeyType="done"
+        submitBehavior="blurAndSubmit"
+        selectTextOnFocus
+        style={styles.resolutionDimensionInput}
+      />
+    </View>
+  );
+}
+
+function SettingsSheetContent() {
+  const model = useGenerationStore((state) => state.model);
+  const setModel = useGenerationStore((state) => state.setModel);
+  const resolution = useGenerationStore((state) => state.resolution);
+  const setResolution = useGenerationStore((state) => state.setResolution);
+  const steps = useGenerationStore((state) => state.steps);
+  const setSteps = useGenerationStore((state) => state.setSteps);
+  const promptGuidance = useGenerationStore((state) => state.promptGuidance);
+  const setPromptGuidance = useGenerationStore(
+    (state) => state.setPromptGuidance,
+  );
+  const promptGuidanceRescale = useGenerationStore(
+    (state) => state.promptGuidanceRescale,
+  );
+  const setPromptGuidanceRescale = useGenerationStore(
+    (state) => state.setPromptGuidanceRescale,
+  );
+  const seed = useGenerationStore((state) => state.seed);
+  const setSeed = useGenerationStore((state) => state.setSeed);
+  const seedLocked = useGenerationStore((state) => state.seedLocked);
+  const setSeedLocked = useGenerationStore((state) => state.setSeedLocked);
+  const sampler = useGenerationStore((state) => state.sampler);
+  const setSampler = useGenerationStore((state) => state.setSampler);
+  const schedule = useGenerationStore((state) => state.noiseSchedule);
+  const setSchedule = useGenerationStore((state) => state.setNoiseSchedule);
+  const varietyPlus = useGenerationStore((state) => state.varietyPlus);
+  const setVarietyPlus = useGenerationStore((state) => state.setVarietyPlus);
+  const [openSelect, setOpenSelect] = useState<SettingsSelectKey | null>(null);
+  const [helpKey, setHelpKey] = useState<SettingsHelpKey | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(true);
+  const seedInputFocusedRef = useRef(false);
+  const [seedDraft, setSeedDraft] = useState(seedLocked ? String(seed) : "");
+
+  useEffect(() => {
+    if (!seedInputFocusedRef.current) {
+      setSeedDraft(seedLocked ? String(seed) : "");
+    }
+  }, [seed, seedLocked]);
+
+  const modelLabel =
+    MODELS.find((option) => option.value === model)?.label ?? model;
+  const samplerLabel =
+    SAMPLERS.find((option) => option.value === sampler)?.label ?? sampler;
+  const scheduleLabel =
+    NOISE_SCHEDULES.find((option) => option.value === schedule)?.label ??
+    schedule;
+  const currentPreset = resolutionPreset(resolution);
+  const currentOrientation = resolutionOrientation(resolution);
+
+  function toggleHelp(next: SettingsHelpKey) {
+    setOpenSelect(null);
+    setHelpKey((current) => (current === next ? null : next));
+  }
+
+  function setSelectOpen(key: SettingsSelectKey, open: boolean) {
+    if (open) setHelpKey(null);
+    setOpenSelect(open ? key : null);
+  }
+
+  function changeModel(label: string) {
+    const option = MODELS.find((candidate) => candidate.label === label);
+    if (option) setModel(option.value);
+  }
+
+  function changeResolutionPreset(preset: string) {
+    const next = presetResolution(preset, currentOrientation);
+    if (next) setResolution(next);
+  }
+
+  function changeOrientation(orientation: ResolutionOrientation) {
+    const preset = currentPreset === "Custom" ? "Normal" : currentPreset;
+    const next = presetResolution(preset, orientation);
+    if (next) setResolution(next);
+  }
+
+  function changeSampler(label: string) {
+    const option = SAMPLERS.find((candidate) => candidate.label === label);
+    if (option) setSampler(option.value);
+  }
+
+  function changeSchedule(label: string) {
+    const option = NOISE_SCHEDULES.find((candidate) => candidate.label === label);
+    if (option) setSchedule(option.value);
+  }
+
+  function applySeedText(value: string) {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    setSeedDraft(digits);
+
+    if (digits === "") {
+      setSeed(0);
+      setSeedLocked(false);
+      return;
+    }
+
+    const parsed = Number(digits);
+    if (Number.isSafeInteger(parsed) && parsed <= MAX_SEED) {
+      setSeed(parsed);
+      setSeedLocked(true);
+    }
+  }
+
+  function commitSeedDraft() {
+    if (seedDraft === "") {
+      setSeed(0);
+      setSeedLocked(false);
+      return;
+    }
+
+    const parsed = Number(seedDraft);
+    const next = Number.isSafeInteger(parsed)
+      ? Math.min(MAX_SEED, Math.max(0, parsed))
+      : 0;
+    setSeedDraft(String(next));
+    setSeed(next);
+    setSeedLocked(true);
+  }
+
+  function handleSeedAction() {
+    if (seedDraft !== "") {
+      setSeedDraft("");
+      setSeed(0);
+      setSeedLocked(false);
+      return;
+    }
+
+    const next = randomSeed();
+    setSeedDraft(String(next));
+    setSeed(next);
+    setSeedLocked(true);
+  }
+
+  return (
+    <BottomSheetKeyboardAwareScrollView
+      style={styles.settingsScroll}
+      contentContainerStyle={styles.settingsScrollContent}
+      bottomOffset={SETTINGS_ACTION_BAR_HEIGHT + SETTINGS_KEYBOARD_GAP}
+      extraKeyboardSpace={SETTINGS_ACTION_BAR_HEIGHT}
+      mode={SETTINGS_KEYBOARD_SCROLL_MODE}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      scrollEnabled={openSelect === null}
+    >
+      <SheetSelect
+        label="Model"
+        value={modelLabel}
+        options={MODEL_OPTIONS}
+        onChange={changeModel}
+        open={openSelect === "model"}
+        onOpenChange={(open) => setSelectOpen("model", open)}
+      />
+
+      <View style={styles.settingsSection}>
+        <Text style={styles.settingsEyebrow}>IMAGE SETTINGS</Text>
+        <View style={styles.resolutionField}>
+          <View style={styles.resolutionHeader}>
+            <Text style={styles.settingsFieldLabel}>Resolution</Text>
+            <ResolutionDimensionInputs
+              resolution={resolution}
+              onChange={setResolution}
+            />
+          </View>
+          <View style={styles.resolutionControls}>
+            <SheetSelect
+              accessibilityLabel="Resolution preset"
+              value={currentPreset}
+              options={RESOLUTION_PRESET_OPTIONS}
+              onChange={changeResolutionPreset}
+              open={openSelect === "resolution"}
+              onOpenChange={(open) => setSelectOpen("resolution", open)}
+              style={styles.resolutionPresetSelect}
+            />
+            <View style={styles.orientationControl}>
+              {ORIENTATION_OPTIONS.map((option) => {
+                const selected = option.value === currentOrientation;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.value} resolution`}
+                    accessibilityState={{ selected }}
+                    onPress={() => changeOrientation(option.value)}
+                    style={({ pressed }) => [
+                      styles.orientationButton,
+                      selected && styles.orientationButtonSelected,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name={option.icon}
+                      size={19}
+                      color={
+                        selected
+                          ? tokens.color.textPrimary
+                          : tokens.color.textTertiary
+                      }
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.settingsSectionWide}>
+        <Text style={styles.settingsEyebrow}>AI SETTINGS</Text>
+        <SettingsSlider
+          label="Steps"
+          helpKey="steps"
+          helpOpen={helpKey === "steps"}
+          value={steps}
+          min={1}
+          max={50}
+          step={1}
+          precision={0}
+          onHelpToggle={() => toggleHelp("steps")}
+          onChange={setSteps}
+        />
+        <SettingsSlider
+          label="Prompt Guidance"
+          helpKey="promptGuidance"
+          helpOpen={helpKey === "promptGuidance"}
+          value={promptGuidance}
+          min={0}
+          max={10}
+          step={0.1}
+          precision={1}
+          onHelpToggle={() => toggleHelp("promptGuidance")}
+          onChange={setPromptGuidance}
+          overlayOpen={helpKey === "variety"}
+          trailing={
+            <View style={styles.varietyControl}>
+              <Text style={styles.varietyLabel}>Variety+</Text>
+              <SettingsHelpButton
+                helpKey="variety"
+                open={helpKey === "variety"}
+                alignRight
+                onToggle={() => toggleHelp("variety")}
+              />
+              <Toggle
+                value={varietyPlus}
+                label="Variety+"
+                onChange={setVarietyPlus}
+              />
+            </View>
+          }
+        />
+        <View style={styles.aiColumns}>
+          <View style={styles.seedColumn}>
+            <Text style={styles.settingsFieldLabel}>Seed</Text>
+            <View style={styles.seedField}>
+              <BottomSheetTextInput
+                accessibilityLabel="Seed 값"
+                value={seedDraft}
+                onChangeText={applySeedText}
+                onFocus={() => {
+                  seedInputFocusedRef.current = true;
+                }}
+                onBlur={() => {
+                  seedInputFocusedRef.current = false;
+                  commitSeedDraft();
+                }}
+                onSubmitEditing={commitSeedDraft}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                maxLength={10}
+                placeholder="Enter a seed"
+                placeholderTextColor={tokens.color.textMuted}
+                selectTextOnFocus
+                style={styles.seedValueText}
+              />
+              <PressableSurface
+                accessibilityLabel={
+                  seedDraft === "" ? "무작위 Seed 만들기" : "Seed 지우기"
+                }
+                onPress={handleSeedAction}
+                style={styles.seedRandomButton}
+              >
+                <Ionicons
+                  name={seedDraft === "" ? "dice-outline" : "close"}
+                  size={18}
+                  color={tokens.color.textSecondary}
+                />
+              </PressableSurface>
+            </View>
+          </View>
+          <SheetSelect
+            label="Sampler"
+            value={samplerLabel}
+            options={SAMPLER_OPTIONS}
+            onChange={changeSampler}
+            open={openSelect === "sampler"}
+            onOpenChange={(open) => setSelectOpen("sampler", open)}
+            style={styles.aiColumn}
+          />
+        </View>
+      </View>
+
+      <View style={styles.settingsSectionWide}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Advanced Settings"
+          accessibilityState={{ expanded: advancedOpen }}
+          onPress={() => setAdvancedOpen((open) => !open)}
+          style={({ pressed }) => [
+            styles.advancedHeader,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.settingsEyebrow}>ADVANCED SETTINGS</Text>
+          <Ionicons
+            name={advancedOpen ? "chevron-up" : "chevron-down"}
+            size={15}
+            color={tokens.color.textTertiary}
+          />
+        </Pressable>
+        {advancedOpen ? (
+          <View style={styles.advancedContent}>
+            <SettingsSlider
+              label="Prompt Guidance Rescale"
+              helpKey="rescale"
+              helpOpen={helpKey === "rescale"}
+              value={promptGuidanceRescale}
+              min={0}
+              max={1}
+              step={0.02}
+              precision={2}
+              onHelpToggle={() => toggleHelp("rescale")}
+              onChange={setPromptGuidanceRescale}
+            />
+            <SheetSelect
+              label="Schedule"
+              value={scheduleLabel}
+              options={SCHEDULE_OPTIONS}
+              onChange={changeSchedule}
+              open={openSelect === "schedule"}
+              onOpenChange={(open) => setSelectOpen("schedule", open)}
+            />
+          </View>
+        ) : null}
+      </View>
+    </BottomSheetKeyboardAwareScrollView>
+  );
+}
+
+const UtilitySheetContent = memo(function UtilitySheetContent({
   sheet,
   onClose,
 }: {
@@ -183,7 +893,6 @@ function UtilitySheetContent({
   onClose: () => void;
 }) {
   const title = sheet === "settings" ? "Settings" : "History";
-  const [model, setModel] = useState(MODEL_OPTIONS[0]);
 
   return (
     <BottomSheetView style={styles.sheetBody}>
@@ -198,19 +907,14 @@ function UtilitySheetContent({
         </PressableSurface>
       </View>
       <View style={styles.divider} />
-      <View style={styles.utilityBody}>
-        {sheet === "settings" ? (
-          <SheetSelect
-            label="Model"
-            value={model}
-            options={MODEL_OPTIONS}
-            onChange={setModel}
-          />
-        ) : null}
-      </View>
+      {sheet === "settings" ? (
+        <SettingsSheetContent />
+      ) : (
+        <View style={styles.utilityBody} />
+      )}
     </BottomSheetView>
   );
-}
+});
 
 function PromptHeader({
   preview,
@@ -630,7 +1334,9 @@ export function UtilitySheetHost({
       return;
     }
 
-    if (sheet !== renderedSheet) setRenderedSheet(sheet);
+    if (sheet !== renderedSheet) {
+      setRenderedSheet(sheet);
+    }
   }, [renderedSheet, sheet]);
 
   if (renderedSheet === null) return null;
@@ -663,13 +1369,20 @@ export function UtilitySheetHost({
           enableHandlePanningGesture
           enableOverDrag={false}
           enablePanDownToClose
+          enableBlurKeyboardOnGesture
+          keyboardBehavior="extend"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
           handleStyle={styles.handleArea}
           handleIndicatorStyle={styles.handleIndicator}
           containerStyle={styles.utilitySheetContainer}
           backgroundStyle={styles.sheetBackground}
           onClose={handleSheetClosed}
         >
-          <UtilitySheetContent sheet={renderedSheet} onClose={onClose} />
+          <UtilitySheetContent
+            sheet={renderedSheet}
+            onClose={onClose}
+          />
         </BottomSheet>
       </PredictiveBackSheetLayer>
     </>
@@ -734,6 +1447,244 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 116,
   },
+  settingsScroll: {
+    flex: 1,
+  },
+  settingsScrollContent: {
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 200,
+    gap: 24,
+  },
+  settingsSection: {
+    gap: 14,
+  },
+  settingsSectionWide: {
+    gap: 18,
+  },
+  settingsEyebrow: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: 12,
+    letterSpacing: 0.8,
+  },
+  settingsFieldLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
+  },
+  settingsFieldLabelRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  settingsHelpAnchor: {
+    position: "relative",
+    zIndex: 30,
+  },
+  settingsHelpButton: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.color.raised,
+  },
+  settingsHelpButtonOpen: {
+    backgroundColor: tokens.color.accent,
+  },
+  settingsHelpTooltip: {
+    position: "absolute",
+    top: 26,
+    left: -12,
+    width: 280,
+    zIndex: 30,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    borderRadius: 16,
+    backgroundColor: tokens.color.toast,
+    ...tokens.shadow.floatMd,
+  },
+  settingsHelpTooltipRight: {
+    right: -54,
+    left: undefined,
+  },
+  settingsHelpTooltipText: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.regular,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  resolutionField: {
+    gap: 9,
+  },
+  resolutionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  resolutionValue: {
+    height: 34,
+    marginLeft: "auto",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderRadius: 10,
+    backgroundColor: tokens.color.raised,
+  },
+  resolutionDimensionInput: {
+    width: 36,
+    height: 34,
+    padding: 0,
+    textAlign: "center",
+    textAlignVertical: "center",
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: 14,
+    fontVariant: ["tabular-nums"],
+  },
+  resolutionSwapButton: {
+    width: 20,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resolutionControls: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 8,
+  },
+  resolutionPresetSelect: {
+    width: 132,
+    flexShrink: 0,
+  },
+  orientationControl: {
+    flex: 1,
+    padding: 4,
+    flexDirection: "row",
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: tokens.color.sunken,
+  },
+  orientationButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+  },
+  orientationButtonSelected: {
+    backgroundColor: tokens.color.toast,
+  },
+  settingsSliderField: {
+    gap: 10,
+  },
+  settingsSliderFieldOverlayOpen: {
+    zIndex: 30,
+  },
+  settingsSliderHeader: {
+    minHeight: 19,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    zIndex: 3,
+  },
+  settingsSliderControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  settingsSliderValueBox: {
+    width: 64,
+    height: 38,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    borderRadius: 12,
+    backgroundColor: tokens.color.sunken,
+  },
+  settingsSliderValue: {
+    width: "100%",
+    height: "100%",
+    padding: 0,
+    textAlign: "center",
+    textAlignVertical: "center",
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: 16,
+    fontVariant: ["tabular-nums"],
+  },
+  settingsSliderTrack: {
+    flex: 1,
+  },
+  varietyControl: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  varietyLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
+  },
+  aiColumns: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  aiColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  seedColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 10,
+  },
+  seedField: {
+    height: 46,
+    paddingLeft: 12,
+    paddingRight: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 14,
+    backgroundColor: tokens.color.raised,
+  },
+  seedValueText: {
+    flex: 1,
+    minWidth: 0,
+    height: 46,
+    padding: 0,
+    textAlignVertical: "center",
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: 15,
+    fontVariant: ["tabular-nums"],
+  },
+  seedRandomButton: {
+    width: 36,
+    height: 36,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: tokens.color.sunken,
+  },
+  advancedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  advancedContent: {
+    gap: 18,
+  },
   promptPagerViewport: {
     flex: 1,
     overflow: "hidden",
@@ -755,7 +1706,7 @@ const styles = StyleSheet.create({
   },
   utilityTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
+    fontFamily: tokens.font.semibold,
     fontSize: 23,
     letterSpacing: -0.3,
   },

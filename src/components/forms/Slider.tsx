@@ -36,6 +36,7 @@ export function Slider({
   step,
   precision,
   onSlidingComplete,
+  onValueChange,
   display,
   trackHeight = 6,
   thumbSize = 22,
@@ -45,6 +46,7 @@ export function Slider({
   thumbColor = tokens.color.accent,
   thumbBorderColor = tokens.color.card,
   thumbBorderWidth,
+  jumpOnTap = false,
   style,
 }: {
   value: number;
@@ -53,6 +55,7 @@ export function Slider({
   step: number;
   precision: number;
   onSlidingComplete: (v: number) => void;
+  onValueChange?: (v: number) => void;
   // 드래그 중 표시값을 UI 스레드에서 직접 구동(재렌더 없음). 없으면 커밋 시에만 갱신.
   display?: SharedValue<number>;
   trackHeight?: number;
@@ -63,6 +66,7 @@ export function Slider({
   thumbColor?: string;
   thumbBorderColor?: string;
   thumbBorderWidth?: number;
+  jumpOnTap?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const [width, setWidth] = useState(0);
@@ -140,6 +144,7 @@ export function Slider({
     if (snapped !== lastSnap.value) {
       lastSnap.value = snapped;
       if (display) display.value = snapped;
+      if (onValueChange) runOnJS(onValueChange)(snapped);
       runOnJS(hapticTick)();
     }
   };
@@ -166,6 +171,14 @@ export function Slider({
 
   const tap = Gesture.Tap().onEnd((event, success) => {
     if (!success) return;
+    if (jumpOnTap) {
+      const x = Math.min(width - half, Math.max(half, event.x));
+      handle(x);
+      const snapped = snap(valAtX(x));
+      posX.value = xAtVal(snapped);
+      runOnJS(onSlidingComplete)(snapped);
+      return;
+    }
     const tappedThumb =
       event.x >= posX.value - half && event.x <= posX.value + half;
     if (!tappedThumb) runOnJS(showDragHint)();
