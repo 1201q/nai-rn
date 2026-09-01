@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -43,6 +44,10 @@ import { SheetSelect } from "../../components/forms/SheetSelect";
 import { Toggle } from "../../components/forms/FormControls";
 import { BottomSheetKeyboardAwareScrollView } from "../../components/generation/BottomSheetKeyboardAwareScrollView";
 import { PromptSheetContent } from "../../components/generation/PromptSheetContent";
+import {
+  useGenerationInputCommit,
+  useGenerationInputCommitRegistration,
+} from "../../context/GenerationInputCommitContext";
 import {
   MODELS,
   NAI_RESOLUTIONS,
@@ -362,17 +367,22 @@ function SettingsSlider({
   const [draftValue, setDraftValue] = useState(() =>
     formatSliderValue(value, precision),
   );
+  const draftValueRef = useRef(draftValue);
 
   useEffect(() => {
     if (!inputFocusedRef.current) {
-      setDraftValue(formatSliderValue(value, precision));
+      const next = formatSliderValue(value, precision);
+      draftValueRef.current = next;
+      setDraftValue(next);
     }
   }, [precision, value]);
 
-  function commitDraft() {
-    const parsed = Number(draftValue.trim().replace(",", "."));
+  const commitDraft = useCallback(() => {
+    const parsed = Number(draftValueRef.current.trim().replace(",", "."));
     if (!Number.isFinite(parsed)) {
-      setDraftValue(formatSliderValue(value, precision));
+      const fallback = formatSliderValue(value, precision);
+      draftValueRef.current = fallback;
+      setDraftValue(fallback);
       return;
     }
 
@@ -381,12 +391,17 @@ function SettingsSlider({
     const next = Number(
       Math.min(max, Math.max(min, stepped)).toFixed(precision),
     );
-    setDraftValue(formatSliderValue(next, precision));
+    const formatted = formatSliderValue(next, precision);
+    draftValueRef.current = formatted;
+    setDraftValue(formatted);
     onChange(next);
-  }
+  }, [max, min, onChange, precision, step, value]);
+  const inputCommit = useGenerationInputCommitRegistration(commitDraft);
 
   function handleSliderComplete(next: number) {
-    setDraftValue(formatSliderValue(next, precision));
+    const formatted = formatSliderValue(next, precision);
+    draftValueRef.current = formatted;
+    setDraftValue(formatted);
     onChange(next);
   }
 
@@ -413,13 +428,17 @@ function SettingsSlider({
           <BottomSheetTextInput
             accessibilityLabel={`${label} 값`}
             value={draftValue}
-            onChangeText={setDraftValue}
+            onChangeText={(next) => {
+              draftValueRef.current = next;
+              setDraftValue(next);
+            }}
             onFocus={() => {
               inputFocusedRef.current = true;
+              inputCommit.activate();
             }}
             onBlur={() => {
               inputFocusedRef.current = false;
-              commitDraft();
+              inputCommit.commitAndDeactivate();
             }}
             onSubmitEditing={commitDraft}
             keyboardType={precision === 0 ? "number-pad" : "decimal-pad"}
@@ -439,9 +458,11 @@ function SettingsSlider({
           thumbSize={24}
           pill
           jumpOnTap
-          onValueChange={(next) =>
-            setDraftValue(formatSliderValue(next, precision))
-          }
+          onValueChange={(next) => {
+            const formatted = formatSliderValue(next, precision);
+            draftValueRef.current = formatted;
+            setDraftValue(formatted);
+          }}
           trackBg={tokens.color.sunken}
           thumbBorderWidth={0}
           onSlidingComplete={handleSliderComplete}
@@ -462,26 +483,42 @@ function ResolutionDimensionInputs({
   const focusedInputRef = useRef<"width" | "height" | null>(null);
   const [widthText, setWidthText] = useState(String(resolution.width));
   const [heightText, setHeightText] = useState(String(resolution.height));
+  const widthTextRef = useRef(widthText);
+  const heightTextRef = useRef(heightText);
 
   useEffect(() => {
     if (focusedInputRef.current !== null) return;
-    setWidthText(String(resolution.width));
-    setHeightText(String(resolution.height));
+    const nextWidth = String(resolution.width);
+    const nextHeight = String(resolution.height);
+    widthTextRef.current = nextWidth;
+    heightTextRef.current = nextHeight;
+    setWidthText(nextWidth);
+    setHeightText(nextHeight);
   }, [resolution.height, resolution.width]);
 
-  function commitDimensions(nextWidthText: string, nextHeightText: string) {
-    const width = snapResolutionDimension(nextWidthText);
-    const height = snapResolutionDimension(nextHeightText);
-    setWidthText(String(width));
-    setHeightText(String(height));
+  const commitDimensions = useCallback(() => {
+    const width = snapResolutionDimension(widthTextRef.current);
+    const height = snapResolutionDimension(heightTextRef.current);
+    const nextWidth = String(width);
+    const nextHeight = String(height);
+    widthTextRef.current = nextWidth;
+    heightTextRef.current = nextHeight;
+    setWidthText(nextWidth);
+    setHeightText(nextHeight);
     onChange(resolutionFromDimensions(width, height));
-  }
+  }, [onChange]);
+  const widthCommit = useGenerationInputCommitRegistration(commitDimensions);
+  const heightCommit = useGenerationInputCommitRegistration(commitDimensions);
 
   function swapDimensions() {
-    const width = snapResolutionDimension(heightText);
-    const height = snapResolutionDimension(widthText);
-    setWidthText(String(width));
-    setHeightText(String(height));
+    const width = snapResolutionDimension(heightTextRef.current);
+    const height = snapResolutionDimension(widthTextRef.current);
+    const nextWidth = String(width);
+    const nextHeight = String(height);
+    widthTextRef.current = nextWidth;
+    heightTextRef.current = nextHeight;
+    setWidthText(nextWidth);
+    setHeightText(nextHeight);
     onChange(resolutionFromDimensions(width, height));
   }
 
@@ -490,15 +527,20 @@ function ResolutionDimensionInputs({
       <BottomSheetTextInput
         accessibilityLabel="Resolution width"
         value={widthText}
-        onChangeText={(value) => setWidthText(value.replace(/\D/g, ""))}
+        onChangeText={(value) => {
+          const next = value.replace(/\D/g, "");
+          widthTextRef.current = next;
+          setWidthText(next);
+        }}
         onFocus={() => {
           focusedInputRef.current = "width";
+          widthCommit.activate();
         }}
         onBlur={() => {
           focusedInputRef.current = null;
-          commitDimensions(widthText, heightText);
+          widthCommit.commitAndDeactivate();
         }}
-        onSubmitEditing={() => commitDimensions(widthText, heightText)}
+        onSubmitEditing={commitDimensions}
         keyboardType="number-pad"
         returnKeyType="done"
         submitBehavior="blurAndSubmit"
@@ -523,15 +565,20 @@ function ResolutionDimensionInputs({
       <BottomSheetTextInput
         accessibilityLabel="Resolution height"
         value={heightText}
-        onChangeText={(value) => setHeightText(value.replace(/\D/g, ""))}
+        onChangeText={(value) => {
+          const next = value.replace(/\D/g, "");
+          heightTextRef.current = next;
+          setHeightText(next);
+        }}
         onFocus={() => {
           focusedInputRef.current = "height";
+          heightCommit.activate();
         }}
         onBlur={() => {
           focusedInputRef.current = null;
-          commitDimensions(widthText, heightText);
+          heightCommit.commitAndDeactivate();
         }}
-        onSubmitEditing={() => commitDimensions(widthText, heightText)}
+        onSubmitEditing={commitDimensions}
         keyboardType="number-pad"
         returnKeyType="done"
         submitBehavior="blurAndSubmit"
@@ -583,10 +630,13 @@ function SettingsSheetContent() {
   const [advancedOpen, setAdvancedOpen] = useState(true);
   const seedInputFocusedRef = useRef(false);
   const [seedDraft, setSeedDraft] = useState(seedLocked ? String(seed) : "");
+  const seedDraftRef = useRef(seedDraft);
 
   useEffect(() => {
     if (!seedInputFocusedRef.current) {
-      setSeedDraft(seedLocked ? String(seed) : "");
+      const next = seedLocked ? String(seed) : "";
+      seedDraftRef.current = next;
+      setSeedDraft(next);
     }
   }, [seed, seedLocked]);
 
@@ -638,6 +688,7 @@ function SettingsSheetContent() {
 
   function applySeedText(value: string) {
     const digits = value.replace(/\D/g, "").slice(0, 10);
+    seedDraftRef.current = digits;
     setSeedDraft(digits);
 
     if (digits === "") {
@@ -653,24 +704,28 @@ function SettingsSheetContent() {
     }
   }
 
-  function commitSeedDraft() {
-    if (seedDraft === "") {
+  const commitSeedDraft = useCallback(() => {
+    if (seedDraftRef.current === "") {
       setSeed(0);
       setSeedLocked(false);
       return;
     }
 
-    const parsed = Number(seedDraft);
+    const parsed = Number(seedDraftRef.current);
     const next = Number.isSafeInteger(parsed)
       ? Math.min(MAX_SEED, Math.max(0, parsed))
       : 0;
-    setSeedDraft(String(next));
+    const nextText = String(next);
+    seedDraftRef.current = nextText;
+    setSeedDraft(nextText);
     setSeed(next);
     setSeedLocked(true);
-  }
+  }, [setSeed, setSeedLocked]);
+  const seedCommit = useGenerationInputCommitRegistration(commitSeedDraft);
 
   function handleSeedAction() {
     if (seedDraft !== "") {
+      seedDraftRef.current = "";
       setSeedDraft("");
       setSeed(0);
       setSeedLocked(false);
@@ -678,7 +733,9 @@ function SettingsSheetContent() {
     }
 
     if (currentImageSeed == null || !canUseCurrentImageSeed) return;
-    setSeedDraft(String(currentImageSeed));
+    const next = String(currentImageSeed);
+    seedDraftRef.current = next;
+    setSeedDraft(next);
     setSeed(currentImageSeed);
     setSeedLocked(true);
   }
@@ -809,10 +866,11 @@ function SettingsSheetContent() {
                 onChangeText={applySeedText}
                 onFocus={() => {
                   seedInputFocusedRef.current = true;
+                  seedCommit.activate();
                 }}
                 onBlur={() => {
                   seedInputFocusedRef.current = false;
-                  commitSeedDraft();
+                  seedCommit.commitAndDeactivate();
                 }}
                 onSubmitEditing={commitSeedDraft}
                 keyboardType="number-pad"
@@ -1089,6 +1147,7 @@ export function PromptSheetHost({
   onPromptStageChange: (stage: PromptSheetStage) => void;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
+  const { commitPendingInput } = useGenerationInputCommit();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
   const referenceCount = useGenerationStore(
@@ -1132,17 +1191,27 @@ export function PromptSheetHost({
     sheetRef.current?.snapToIndex(1);
   }, []);
   const collapsePrompt = useCallback(() => {
+    commitPendingInput();
+    Keyboard.dismiss();
     sheetRef.current?.snapToIndex(0);
-  }, []);
-  const selectPromptPage = useCallback((index: number) => {
-    const nextTab = PROMPT_TABS[index]?.key;
-    if (nextTab) setPromptTab(nextTab);
-  }, []);
+  }, [commitPendingInput]);
+  const selectPromptPage = useCallback(
+    (index: number) => {
+      const nextTab = PROMPT_TABS[index]?.key;
+      if (!nextTab) return;
+      commitPendingInput();
+      Keyboard.dismiss();
+      setPromptTab(nextTab);
+    },
+    [commitPendingInput],
+  );
   const changePromptTab = useCallback(
     (tab: PromptTab) => {
       const nextIndex = PROMPT_TABS.findIndex((item) => item.key === tab);
       if (nextIndex < 0) return;
 
+      commitPendingInput();
+      Keyboard.dismiss();
       setPromptTab(tab);
       promptPageIndex.value = nextIndex;
       promptPageTranslateX.value = withTiming(-nextIndex * windowWidth, {
@@ -1150,7 +1219,7 @@ export function PromptSheetHost({
         easing: Easing.bezier(0.32, 0.72, 0, 1),
       });
     },
-    [promptPageIndex, promptPageTranslateX, windowWidth],
+    [commitPendingInput, promptPageIndex, promptPageTranslateX, windowWidth],
   );
   const promptPageGesture = useMemo(
     () =>

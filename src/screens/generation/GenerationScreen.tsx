@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  BackHandler,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
 import { StatusBar } from "expo-status-bar";
@@ -19,6 +26,10 @@ import { IconButton } from "../../components/common/Buttons";
 import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
+import {
+  GenerationInputCommitProvider,
+  useGenerationInputCommit,
+} from "../../context/GenerationInputCommitContext";
 import {
   usePredictiveBackHandler,
   type PredictiveBackEvent,
@@ -43,7 +54,7 @@ const SHEET_BACK_CANCEL_SPRING = {
   mass: 0.75,
 };
 
-function GenerateAction() {
+function GenerateAction({ onBeforeGenerate }: { onBeforeGenerate: () => void }) {
   const isLoading = useGenerationStore((s) => s.isLoading);
   const batchCount = useGenerationStore((s) => s.batchCount);
   const queueTotal = useGenerationStore((s) => s.queueTotal);
@@ -80,6 +91,7 @@ function GenerateAction() {
           requestQueueCancel();
           return;
         }
+        onBeforeGenerate();
         generateImage();
       }}
       style={({ pressed }) => [
@@ -132,9 +144,11 @@ function ActionIconButton({
 
 export function GenerationScreen() {
   return (
-    <SuggestionBarProvider>
-      <GenerationScreenContent />
-    </SuggestionBarProvider>
+    <GenerationInputCommitProvider>
+      <SuggestionBarProvider>
+        <GenerationScreenContent />
+      </SuggestionBarProvider>
+    </GenerationInputCommitProvider>
   );
 }
 
@@ -148,12 +162,43 @@ function GenerationScreenContent() {
     useState<PromptSheetStage>("collapsed");
   const promptBackProgress = useSharedValue(0);
   const utilityBackProgress = useSharedValue(0);
+  const { commitPendingInput } = useGenerationInputCommit();
 
-  const closeUtilitySheet = useCallback(() => setUtilitySheet(null), []);
+  const finishInputEditing = useCallback(() => {
+    commitPendingInput();
+    Keyboard.dismiss();
+  }, [commitPendingInput]);
+
+  const closeUtilitySheet = useCallback(() => {
+    finishInputEditing();
+    setUtilitySheet(null);
+  }, [finishInputEditing]);
+  const handlePromptStageChange = useCallback(
+    (stage: PromptSheetStage) => {
+      if (stage === "collapsed") finishInputEditing();
+      setPromptStage(stage);
+    },
+    [finishInputEditing],
+  );
+  const toggleUtilitySheet = useCallback(
+    (nextSheet: UtilitySheet) => {
+      finishInputEditing();
+      setUtilitySheet((current) =>
+        current === nextSheet ? null : nextSheet,
+      );
+    },
+    [finishInputEditing],
+  );
+  const prepareGeneration = useCallback(() => {
+    finishInputEditing();
+    setUtilitySheet(null);
+    setPromptStage("collapsed");
+  }, [finishInputEditing]);
   const hasOpenSheet =
     utilitySheet !== null || promptStage !== "collapsed";
   const handleBack = useCallback(() => {
     if (utilitySheet !== null) {
+      finishInputEditing();
       setUtilitySheet(null);
       return;
     }
@@ -161,8 +206,9 @@ function GenerationScreenContent() {
       setPromptStage("half");
       return;
     }
+    finishInputEditing();
     setPromptStage("collapsed");
-  }, [promptStage, utilitySheet]);
+  }, [finishInputEditing, promptStage, utilitySheet]);
 
   const trackPredictiveBack = useCallback(
     (event: PredictiveBackEvent) => {
@@ -262,7 +308,7 @@ function GenerationScreenContent() {
         promptPreview={prompt}
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}
-        onPromptStageChange={setPromptStage}
+        onPromptStageChange={handlePromptStageChange}
       />
 
       <UtilitySheetHost
@@ -278,24 +324,16 @@ function GenerationScreenContent() {
             utilitySheet === "settings" ? "Settings 닫기" : "Settings 열기"
           }
           active={utilitySheet === "settings"}
-          onPress={() =>
-            setUtilitySheet((current) =>
-              current === "settings" ? null : "settings",
-            )
-          }
+          onPress={() => toggleUtilitySheet("settings")}
         />
-        <GenerateAction />
+        <GenerateAction onBeforeGenerate={prepareGeneration} />
         <ActionIconButton
           icon="time-outline"
           label={
             utilitySheet === "history" ? "History 닫기" : "History 열기"
           }
           active={utilitySheet === "history"}
-          onPress={() =>
-            setUtilitySheet((current) =>
-              current === "history" ? null : "history",
-            )
-          }
+          onPress={() => toggleUtilitySheet("history")}
         />
       </View>
 

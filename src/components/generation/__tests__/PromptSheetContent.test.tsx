@@ -1,8 +1,22 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
+import {
+  GenerationInputCommitProvider,
+  useGenerationInputCommit,
+} from "../../../context/GenerationInputCommitContext";
 import { useGenerationStore } from "../../../store/generationStore";
 import { PromptComposerCard } from "../PromptSheetContent";
+
+function CommitPendingInputButton() {
+  const { commitPendingInput } = useGenerationInputCommit();
+  return (
+    <Pressable
+      accessibilityLabel="Commit pending input"
+      onPress={commitPendingInput}
+    />
+  );
+}
 
 jest.mock("../../../context/AppSheetContext", () => ({
   useAppSheet: () => ({
@@ -201,5 +215,22 @@ describe("PromptComposerCard", () => {
 
     await fireEvent(getByLabelText("Base prompt"), "focus");
     expect(onEditorFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it("commits the latest focused prompt before an external action", async () => {
+    const { getByLabelText } = await render(
+      <GenerationInputCommitProvider>
+        <PromptComposerCard active />
+        <CommitPendingInputButton />
+      </GenerationInputCommitProvider>,
+    );
+    const input = getByLabelText("Base prompt");
+
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "latest prompt");
+    expect(useGenerationStore.getState().prompt).toBe("base");
+
+    await fireEvent.press(getByLabelText("Commit pending input"));
+    expect(useGenerationStore.getState().prompt).toBe("latest prompt");
   });
 });

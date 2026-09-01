@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import {
   getUcPresetLabel,
@@ -65,6 +66,7 @@ function PromptDraftInput({
     onChangeText: onChange,
     inputRef,
   });
+  const inputCommit = useGenerationInputCommitRegistration(onCommit);
 
   useEffect(
     () => () => {
@@ -88,11 +90,12 @@ function PromptDraftInput({
       placeholder={channel === "base" ? "1girl, ..." : "lowres, ..."}
       placeholderTextColor={tokens.color.textMuted}
       onFocus={() => {
+        inputCommit.activate();
         onFocus?.();
         autocomplete.activateSuggestions();
       }}
       onBlur={() => {
-        onCommit();
+        inputCommit.commitAndDeactivate();
         autocomplete.deactivateSuggestions();
       }}
       onChangeText={autocomplete.handleChangeText}
@@ -153,9 +156,6 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     negativeRef.current = negativePrompt;
     setNegativeText(negativePrompt);
   }, [negativePrompt]);
-  useEffect(() => {
-    if (!active) setOpenSelect(null);
-  }, [active]);
   useEffect(
     () => () => {
       if (promptRef.current !== committedPromptRef.current) {
@@ -186,6 +186,12 @@ export const PromptComposerCard = memo(function PromptComposerCard({
       setNegativePromptRef.current(negativeRef.current);
     }
   }, []);
+  useEffect(() => {
+    if (active) return;
+    setOpenSelect(null);
+    commitPrompt();
+    commitNegative();
+  }, [active, commitNegative, commitPrompt]);
   const selectMode = useCallback(
     (nextMode: PromptChannel) => {
       if (nextMode === mode) return;
@@ -301,6 +307,8 @@ export const PromptComposerCard = memo(function PromptComposerCard({
                 accessibilityRole="button"
                 accessibilityLabel="Merged prompt로 전환"
                 onPress={() => {
+                  commitPrompt();
+                  commitNegative();
                   setOpenSelect(null);
                   setSplit(false);
                   setMode("negative");
@@ -388,6 +396,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
                   accessibilityRole="button"
                   accessibilityLabel="Split prompt로 전환"
                   onPress={() => {
+                    commitNegative();
                     setOpenSelect(null);
                     setSplit(true);
                   }}

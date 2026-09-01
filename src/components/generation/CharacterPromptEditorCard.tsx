@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -170,6 +171,13 @@ export const CharacterPromptEditorCard = memo(
         });
       }
     }, []);
+    const commitActiveChannel = useCallback(
+      () => commitChannel(mode),
+      [commitChannel, mode],
+    );
+    const nameCommit = useGenerationInputCommitRegistration(commitName);
+    const promptCommit =
+      useGenerationInputCommitRegistration(commitActiveChannel);
 
     useEffect(() => {
       if (!nameFocusedRef.current) {
@@ -288,10 +296,11 @@ export const CharacterPromptEditorCard = memo(
             onFocus={() => {
               onBeginEditing(null);
               nameFocusedRef.current = true;
+              nameCommit.activate();
             }}
             onBlur={() => {
               nameFocusedRef.current = false;
-              commitName();
+              nameCommit.commitAndDeactivate();
             }}
             onChangeText={(value) => {
               nameRef.current = value;
@@ -456,11 +465,12 @@ export const CharacterPromptEditorCard = memo(
                 onFocus={() => {
                   onBeginEditing(item.id);
                   promptFocusedRef.current = true;
+                  promptCommit.activate();
                   autocomplete.activateSuggestions();
                 }}
                 onBlur={() => {
                   promptFocusedRef.current = false;
-                  commitChannel(mode);
+                  promptCommit.commitAndDeactivate();
                   autocomplete.deactivateSuggestions();
                 }}
                 onChangeText={autocomplete.handleChangeText}
