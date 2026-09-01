@@ -1,9 +1,8 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  BackHandler,
   Easing,
   Pressable,
   StyleSheet,
@@ -15,24 +14,31 @@ import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Reanimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+  withTiming,
+} from "react-native-reanimated";
 import { toast } from "sonner-native";
 
-import {
-  useAppSheet,
-  useAppSheetOpen,
-} from "../../context/AppSheetContext";
+import { useAppSheet } from "../../context/AppSheetContext";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import {
   getI2IEffectiveResolution,
   useGenerationStore,
 } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
-import { ImagePreviewModal } from "../../components/image-preview/ImagePreviewModal";
-import { usePredictiveBackHandler } from "../../native/predictiveBack";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
-const TOOLBAR_EXPANDED_WIDTH = 260;
+const TOOLBAR_EXPANDED_WIDTH = 218;
 const MAIN_IMAGE_BLUR_RADIUS = 28;
+const MAIN_IMAGE_MIN_SCALE = 0.5;
+const MAIN_IMAGE_MAX_SCALE = 4;
+const MAIN_IMAGE_DECELERATION = 0.992;
+const MAIN_IMAGE_RESET_DURATION = 180;
 const STRIPES = Array.from({ length: 52 }, (_, index) => index);
 
 type Size = {
@@ -71,6 +77,151 @@ const StripePlaceholder = memo(function StripePlaceholder() {
   );
 });
 
+const FreeTransformImage = memo(function FreeTransformImage({
+  uri,
+  size,
+  viewportSize,
+  blurRadius,
+  enabled,
+  onLoad,
+}: {
+  uri: string;
+  size: Size;
+  viewportSize: Size;
+  blurRadius: number;
+  enabled: boolean;
+  onLoad: (event: ImageLoadEventData) => void;
+}) {
+  const scale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const panStartX = useSharedValue(0);
+  const panStartY = useSharedValue(0);
+  const pinchStartScale = useSharedValue(1);
+
+  useEffect(() => {
+    cancelAnimation(scale);
+    cancelAnimation(translateX);
+    cancelAnimation(translateY);
+    scale.value = 1;
+    translateX.value = 0;
+    translateY.value = 0;
+  }, [
+    scale,
+    size.height,
+    size.width,
+    translateX,
+    translateY,
+    uri,
+    viewportSize.height,
+    viewportSize.width,
+  ]);
+
+  const panGesture = Gesture.Pan()
+    .enabled(enabled)
+    .maxPointers(1)
+    .minDistance(1)
+    .onBegin(() => {
+      cancelAnimation(translateX);
+      cancelAnimation(translateY);
+      panStartX.value = translateX.value;
+      panStartY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      translateX.value = panStartX.value + event.translationX;
+      translateY.value = panStartY.value + event.translationY;
+    })
+    .onEnd((event) => {
+      translateX.value = withDecay({
+        velocity: event.velocityX,
+        deceleration: MAIN_IMAGE_DECELERATION,
+      });
+      translateY.value = withDecay({
+        velocity: event.velocityY,
+        deceleration: MAIN_IMAGE_DECELERATION,
+      });
+    });
+
+  const pinchGesture = Gesture.Pinch()
+    .enabled(enabled)
+    .onBegin(() => {
+      cancelAnimation(scale);
+      cancelAnimation(translateX);
+      cancelAnimation(translateY);
+      pinchStartScale.value = scale.value;
+    })
+    .onUpdate((event) => {
+      scale.value = Math.min(
+        MAIN_IMAGE_MAX_SCALE,
+        Math.max(MAIN_IMAGE_MIN_SCALE, pinchStartScale.value * event.scale),
+      );
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .enabled(enabled)
+    .numberOfTaps(2)
+    .maxDuration(250)
+    .onEnd((_event, success) => {
+      if (!success) return;
+
+      const hasTransform =
+        Math.abs(scale.value - 1) > 0.01 ||
+        Math.abs(translateX.value) > 1 ||
+        Math.abs(translateY.value) > 1;
+      if (hasTransform) {
+        scale.value = withTiming(1, { duration: MAIN_IMAGE_RESET_DURATION });
+        translateX.value = withTiming(0, {
+          duration: MAIN_IMAGE_RESET_DURATION,
+        });
+        translateY.value = withTiming(0, {
+          duration: MAIN_IMAGE_RESET_DURATION,
+        });
+        return;
+      }
+
+      const nextScale = 2;
+      scale.value = withTiming(nextScale, {
+        duration: MAIN_IMAGE_RESET_DURATION,
+      });
+    });
+
+  const gesture = Gesture.Race(
+    Gesture.Simultaneous(panGesture, pinchGesture),
+    doubleTapGesture,
+  );
+  const imageStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel="생성 이미지"
+        accessibilityState={{ disabled: !enabled }}
+        style={styles.zoomViewport}
+      >
+        <Reanimated.View style={[styles.generatedImage, size, imageStyle]}>
+          <ExpoImage
+            source={{ uri }}
+            blurRadius={blurRadius}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={0}
+            style={StyleSheet.absoluteFill}
+            onLoad={onLoad}
+          />
+        </Reanimated.View>
+      </View>
+    </GestureDetector>
+  );
+});
+
 export function GenerationCanvas() {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
@@ -83,9 +234,7 @@ export function GenerationCanvas() {
     (s) => s.setMainImageBlurred,
   );
   const { open } = useAppSheet();
-  const isSheetOpen = useAppSheetOpen();
   const [expanded, setExpanded] = useState(true);
-  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [canvasSize, setCanvasSize] = useState<Size>({ width: 0, height: 0 });
@@ -94,16 +243,11 @@ export function GenerationCanvas() {
     aspectRatio: number;
   } | null>(null);
   const [toolbarAnimation] = useState(() => new Animated.Value(1));
-  const previewAnimation = useRef(new Animated.Value(0)).current;
 
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
     : null;
   const displayedImageUri = streamingPreviewUri ?? currentImageUri;
-  const imageSource = useMemo(
-    () => (displayedImageUri ? { uri: displayedImageUri } : undefined),
-    [displayedImageUri],
-  );
   const streamingResolution =
     i2iEnabled && i2iSourceImage
       ? getI2IEffectiveResolution(i2iSourceImage)
@@ -122,7 +266,7 @@ export function GenerationCanvas() {
     [canvasSize, imageAspectRatio],
   );
   const canUseImageActions = Boolean(currentImageUri) && !isLoading;
-  const canOpenImagePreview =
+  const canTransformImage =
     Boolean(currentImageUri) && !isLoading && !streamingPreviewUri;
 
   function handleImageLoad(event: ImageLoadEventData) {
@@ -146,45 +290,6 @@ export function GenerationCanvas() {
       useNativeDriver: false,
     }).start();
   }
-
-  function openImagePreview() {
-    if (!canOpenImagePreview) return;
-    setIsImagePreviewOpen(true);
-    previewAnimation.setValue(0);
-    Animated.timing(previewAnimation, {
-      toValue: 1,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  }
-
-  function closeImagePreview() {
-    Animated.timing(previewAnimation, {
-      toValue: 0,
-      duration: 140,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setIsImagePreviewOpen(false);
-    });
-  }
-
-  usePredictiveBackHandler(isImagePreviewOpen && !isSheetOpen, {
-    onCommit: closeImagePreview,
-  });
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (isImagePreviewOpen && !isSheetOpen) {
-          closeImagePreview();
-          return true;
-        }
-        return false;
-      },
-    );
-    return () => subscription.remove();
-  }, [isImagePreviewOpen, isSheetOpen]);
 
   async function saveImage() {
     if (!currentImageUri || isSaving) return;
@@ -248,24 +353,14 @@ export function GenerationCanvas() {
           </View>
         ) : null}
         {displayedImageUri ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="생성 이미지 미리보기"
-            accessibilityState={{ disabled: !canOpenImagePreview }}
-            disabled={!canOpenImagePreview}
-            onPress={openImagePreview}
-            style={[styles.generatedImage, imageSize]}
-          >
-            <ExpoImage
-              source={imageSource}
-              blurRadius={mainImageBlurred ? MAIN_IMAGE_BLUR_RADIUS : 0}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={0}
-              style={StyleSheet.absoluteFill}
-              onLoad={handleImageLoad}
-            />
-          </Pressable>
+          <FreeTransformImage
+            uri={displayedImageUri}
+            size={imageSize}
+            viewportSize={canvasSize}
+            blurRadius={mainImageBlurred ? MAIN_IMAGE_BLUR_RADIUS : 0}
+            enabled={canTransformImage}
+            onLoad={handleImageLoad}
+          />
         ) : null}
         {isLoading && !streamingPreviewUri ? (
           <ActivityIndicator
@@ -305,11 +400,6 @@ export function GenerationCanvas() {
               onPress={copyImage}
             />
             <ToolbarAction
-              icon="dice-outline"
-              label="시드"
-              onPress={() => {}}
-            />
-            <ToolbarAction
               icon="information-circle-outline"
               label="메타데이터 정보"
               disabled={!canUseImageActions}
@@ -339,18 +429,6 @@ export function GenerationCanvas() {
           </Pressable>
         </Animated.View>
       </View>
-
-      <ImagePreviewModal
-        visible={isImagePreviewOpen}
-        closeButtonVariant="header"
-        images={currentImageUri ? [currentImageUri] : []}
-        initialIndex={0}
-        animation={previewAnimation}
-        onClose={closeImagePreview}
-        onSaveCurrent={saveImage}
-        onCopyCurrent={copyImage}
-        metadataRecords={currentGeneration ? [currentGeneration] : undefined}
-      />
     </View>
   );
 }
@@ -410,6 +488,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
   },
+  zoomViewport: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   placeholder: {
     position: "absolute",
     top: 0,
@@ -448,6 +535,7 @@ const styles = StyleSheet.create({
   },
   toolbarRow: {
     height: 42,
+    marginBottom: tokens.space[4],
     alignItems: "flex-end",
   },
   toolbar: {
