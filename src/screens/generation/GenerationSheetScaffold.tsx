@@ -168,10 +168,6 @@ function snapResolutionDimension(value: string) {
   );
 }
 
-function randomSeed() {
-  return Math.floor(Math.random() * 4_294_967_296);
-}
-
 function formatSliderValue(value: number, precision: number) {
   return Number(value.toFixed(precision)).toString();
 }
@@ -259,11 +255,13 @@ function FixedSheetBackdrop({
 
 function PressableSurface({
   accessibilityLabel,
+  disabled = false,
   onPress,
   style,
   children,
 }: {
   accessibilityLabel: string;
+  disabled?: boolean;
   onPress: () => void;
   style: object;
   children: React.ReactNode;
@@ -272,8 +270,14 @@ function PressableSurface({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [style, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        style,
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
     >
       {children}
     </Pressable>
@@ -559,6 +563,15 @@ function SettingsSheetContent() {
   const setSeed = useGenerationStore((state) => state.setSeed);
   const seedLocked = useGenerationStore((state) => state.seedLocked);
   const setSeedLocked = useGenerationStore((state) => state.setSeedLocked);
+  const currentImageSeed = useGenerationStore(
+    (state) => state.currentGeneration?.seed ?? null,
+  );
+  const canUseCurrentImageSeed = useGenerationStore(
+    (state) =>
+      state.currentGeneration?.seed != null &&
+      !state.isLoading &&
+      state.streamingPreviewUri == null,
+  );
   const sampler = useGenerationStore((state) => state.sampler);
   const setSampler = useGenerationStore((state) => state.setSampler);
   const schedule = useGenerationStore((state) => state.noiseSchedule);
@@ -664,9 +677,9 @@ function SettingsSheetContent() {
       return;
     }
 
-    const next = randomSeed();
-    setSeedDraft(String(next));
-    setSeed(next);
+    if (currentImageSeed == null || !canUseCurrentImageSeed) return;
+    setSeedDraft(String(currentImageSeed));
+    setSeed(currentImageSeed);
     setSeedLocked(true);
   }
 
@@ -813,10 +826,13 @@ function SettingsSheetContent() {
               />
               <PressableSurface
                 accessibilityLabel={
-                  seedDraft === "" ? "무작위 Seed 만들기" : "Seed 지우기"
+                  seedDraft === ""
+                    ? "현재 이미지 Seed 가져오기"
+                    : "Seed 지우기"
                 }
+                disabled={seedDraft === "" && !canUseCurrentImageSeed}
                 onPress={handleSeedAction}
-                style={styles.seedRandomButton}
+                style={styles.seedActionButton}
               >
                 <Ionicons
                   name={seedDraft === "" ? "dice-outline" : "close"}
@@ -1668,7 +1684,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontVariant: ["tabular-nums"],
   },
-  seedRandomButton: {
+  seedActionButton: {
     width: 36,
     height: 36,
     flexShrink: 0,
@@ -1821,5 +1837,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.65,
+  },
+  disabled: {
+    opacity: 0.35,
   },
 });

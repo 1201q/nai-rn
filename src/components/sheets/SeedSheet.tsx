@@ -14,10 +14,6 @@ import {
 const MAX_SEED = 4_294_967_295;
 const SEED_ACCESSIBILITY_HINT = `0에서 ${MAX_SEED.toLocaleString()} 사이의 숫자`;
 
-function randomSeed() {
-  return Math.floor(Math.random() * (MAX_SEED + 1));
-}
-
 export const SeedSheet = memo(function SeedSheet({
   onSaveAndClose,
   registerDraft,
@@ -29,6 +25,15 @@ export const SeedSheet = memo(function SeedSheet({
   const setSeed = useGenerationStore((state) => state.setSeed);
   const seedLocked = useGenerationStore((state) => state.seedLocked);
   const setSeedLocked = useGenerationStore((state) => state.setSeedLocked);
+  const currentImageSeed = useGenerationStore(
+    (state) => state.currentGeneration?.seed ?? null,
+  );
+  const canUseCurrentImageSeed = useGenerationStore(
+    (state) =>
+      state.currentGeneration?.seed != null &&
+      !state.isLoading &&
+      state.streamingPreviewUri == null,
+  );
   const initialText = seedLocked || seed !== 0 ? String(seed) : "";
   const [draftText, setDraftText] = useState(initialText);
   const [draftLocked, setDraftLocked] = useState(seedLocked);
@@ -83,19 +88,21 @@ export const SeedSheet = memo(function SeedSheet({
     setDraftLocked(digits.length > 0);
   }, []);
 
-  const handleRandomize = useCallback(() => {
-    setDraftText(String(randomSeed()));
+  const handleUseCurrentImageSeed = useCallback(() => {
+    if (currentImageSeed == null || !canUseCurrentImageSeed) return;
+    setDraftText(String(currentImageSeed));
     setDraftLocked(true);
-  }, []);
+  }, [canUseCurrentImageSeed, currentImageSeed]);
 
   const handleLockChange = useCallback(
     (locked: boolean) => {
       if (locked && draftText === "") {
-        setDraftText(String(randomSeed()));
+        if (currentImageSeed == null || !canUseCurrentImageSeed) return;
+        setDraftText(String(currentImageSeed));
       }
       setDraftLocked(locked);
     },
-    [draftText],
+    [canUseCurrentImageSeed, currentImageSeed, draftText],
   );
 
   return (
@@ -117,12 +124,15 @@ export const SeedSheet = memo(function SeedSheet({
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="무작위 Seed 만들기"
+          accessibilityLabel="현재 이미지 Seed 가져오기"
+          accessibilityState={{ disabled: !canUseCurrentImageSeed }}
+          disabled={!canUseCurrentImageSeed}
           hitSlop={4}
-          onPress={handleRandomize}
+          onPress={handleUseCurrentImageSeed}
           style={({ pressed }) => [
-            styles.randomButton,
-            pressed && styles.randomButtonPressed,
+            styles.seedActionButton,
+            !canUseCurrentImageSeed && styles.seedActionButtonDisabled,
+            pressed && styles.seedActionButtonPressed,
           ]}
         >
           <Ionicons
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: 18,
   },
-  randomButton: {
+  seedActionButton: {
     width: 44,
     height: 44,
     borderRadius: tokens.radius.md,
@@ -188,8 +198,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
   },
-  randomButtonPressed: {
+  seedActionButtonPressed: {
     opacity: 0.68,
+  },
+  seedActionButtonDisabled: {
+    opacity: 0.35,
   },
   lockRow: {
     minHeight: 56,
