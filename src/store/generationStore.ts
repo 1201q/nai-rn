@@ -488,7 +488,10 @@ type QueueParams = {
 // 큐 파라미터/실행 플래그는 store state 밖 모듈 스코프에 보관
 // (foreground service 태스크가 트리거와 별개로 읽어야 하므로).
 let pendingQueue: QueueParams | null = null;
+// 전처리부터 runQueueTask가 소유권을 얻기 전까지 새 요청을 차단한다.
+let queueStarting = false;
 let queueRunning = false;
+let activeQueuePreparationAbortController: AbortController | null = null;
 let activeQueueAbortController: AbortController | null = null;
 const vibeSettingsVersions = createMutationVersionTracker();
 const preciseSettingsVersions = createMutationVersionTracker();
@@ -1204,12 +1207,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   queueCancelRequested: false,
   requestQueueCancel: () => {
     set({ queueCancelRequested: true });
+    activeQueuePreparationAbortController?.abort();
     activeQueueAbortController?.abort();
   },
 
   generateImage: async (onSuccess, overrides) => {
     const s = get();
-    if (s.isLoading || queueRunning) return;
+    if (s.isLoading || queueStarting || queueRunning) return;
     if (!s.storedToken) {
       set({ message: "저장된 NovelAI 토큰이 없습니다." });
       return;
@@ -1225,6 +1229,60 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       set({ message: "프롬프트를 입력해주세요." });
       return;
     }
+
+    // 첫 await 전에 준비 상태를 획득해 I2I/Reference 전처리도 단일 요청으로 보장한다.
+    queueStarting = true;
+    const preparationAbortController = new AbortController();
+    activeQueuePreparationAbortController = preparationAbortController;
+    const preparationCancelled = () =>
+      preparationAbortController.signal.aborted ||
+      activeQueuePreparationAbortController !== preparationAbortController ||
+      get().queueCancelRequested;
+    const finishPreparation = () => {
+      if (
+        activeQueuePreparationAbortController !== preparationAbortController
+      ) {
+        return;
+      }
+      activeQueuePreparationAbortController = null;
+      queueStarting = false;
+      set({
+        isLoading: false,
+        queueTotal: 0,
+        queueIndex: 0,
+        queueSteps: 0,
+        queueCancelRequested: false,
+        streamingPreviewUri: null,
+        streamingStep: null,
+        streamingGenerationId: null,
+      });
+    };
+    const stopIfPreparationCancelled = () => {
+      if (!preparationCancelled()) return false;
+      finishPreparation();
+      return true;
+    };
+    const handoffPreparation = () => {
+      if (
+        activeQueuePreparationAbortController !== preparationAbortController
+      ) {
+        return;
+      }
+      activeQueuePreparationAbortController = null;
+      // foreground service handoff 중에도 잠금을 유지하고 runQueueTask에서 해제한다.
+    };
+
+    set({
+      isLoading: true,
+      message: null,
+      queueTotal: 0,
+      queueIndex: 0,
+      queueSteps: 0,
+      queueCancelRequested: false,
+      streamingPreviewUri: null,
+      streamingStep: null,
+      streamingGenerationId: null,
+    });
 
     // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
     const total = Math.min(100, Math.max(1, s.batchCount));
@@ -1242,9 +1300,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           [{ resize: { width, height } }],
           { format: ImageManipulator.SaveFormat.PNG },
         );
+        if (stopIfPreparationCancelled()) return;
         i2iImageBase64 = await new File(resized.uri).base64();
+        if (stopIfPreparationCancelled()) return;
       } catch {
-        set({ message: "I2I 이미지를 읽지 못했습니다." });
+        if (!preparationCancelled()) {
+          set({ message: "I2I 이미지를 읽지 못했습니다." });
+        }
+        finishPreparation();
         return;
       }
     }
@@ -1267,6 +1330,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       set({
         message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
+      finishPreparation();
       return;
     }
 
@@ -1275,6 +1339,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         set({
           message: "Vibe Transfer는 V4 이상 모델에서 사용할 수 있습니다.",
         });
+        finishPreparation();
         return;
       }
 
@@ -1291,19 +1356,23 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const updatedReferences: VibeReference[] = [];
 
         for (const vibe of activeVibes) {
+          if (stopIfPreparationCancelled()) return;
           const canUseCachedEncoding = canUseCachedVibeEncoding(vibe);
 
           if (canUseCachedEncoding) {
             encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
+            if (stopIfPreparationCancelled()) return;
             continue;
           }
 
           const imageBase64 = await readVibeReferenceImageBase64(vibe);
+          if (stopIfPreparationCancelled()) return;
           const encodedBase64 = await encodeNovelAiVibe(
             s.storedToken,
             imageBase64,
             vibe.informationExtracted,
           );
+          if (stopIfPreparationCancelled()) return;
           encodedImages.push(encodedBase64);
 
           const updatedReference = await saveEncodedVibeReference(
@@ -1311,6 +1380,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             encodedBase64,
             vibe.informationExtracted,
           );
+          if (stopIfPreparationCancelled()) return;
           if (updatedReference) {
             updatedReferences.push(updatedReference);
           }
@@ -1346,13 +1416,15 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         );
         vibeStrengths = activeVibes.map((item) => item.strength);
       } catch (error: unknown) {
-        set({
-          isLoading: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Vibe 이미지를 인코딩하지 못했습니다.",
-        });
+        if (!preparationCancelled()) {
+          set({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Vibe 이미지를 인코딩하지 못했습니다.",
+          });
+        }
+        finishPreparation();
         return;
       }
     }
@@ -1362,6 +1434,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         set({
           message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
         });
+        finishPreparation();
         return;
       }
 
@@ -1369,6 +1442,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         preciseReferenceImages = await Promise.all(
           activePreciseReferences.map(readPreciseReferenceProcessedBase64),
         );
+        if (stopIfPreparationCancelled()) return;
         preciseReferenceStrengths = activePreciseReferences.map(
           (item) => item.strength,
         );
@@ -1379,15 +1453,20 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           (item) => item.referenceType,
         );
       } catch (error: unknown) {
-        set({
-          message:
-            error instanceof Error
-              ? error.message
-              : "Precise Reference 이미지를 읽지 못했습니다.",
-        });
+        if (!preparationCancelled()) {
+          set({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Precise Reference 이미지를 읽지 못했습니다.",
+          });
+        }
+        finishPreparation();
         return;
       }
     }
+
+    if (stopIfPreparationCancelled()) return;
 
     pendingQueue = {
       token: s.storedToken,
@@ -1441,11 +1520,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       queueTotal: total,
       queueIndex: 0,
       queueSteps: s.steps,
-      queueCancelRequested: false,
       streamingPreviewUri: null,
       streamingStep: null,
       streamingGenerationId: null,
     });
+    handoffPreparation();
 
     // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
     // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
@@ -1459,6 +1538,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     if (queueRunning) return;
     const params = pendingQueue;
     if (!params) return;
+    queueStarting = false;
     queueRunning = true;
     const abortController = new AbortController();
     activeQueueAbortController = abortController;
@@ -1594,6 +1674,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       }
     } finally {
       pendingQueue = null;
+      queueStarting = false;
       queueRunning = false;
       if (activeQueueAbortController === abortController) {
         activeQueueAbortController = null;
@@ -1639,7 +1720,7 @@ export function useGenerationBootstrap() {
   // 부팅 시 잔존 foreground service 정리 (reload/크래시로 JS 컨텍스트가
   // 큐 도중 죽으면 네이티브 FS 알림이 고아로 남아 취소도 안 됨).
   useEffect(() => {
-    if (!queueRunning) {
+    if (!queueStarting && !queueRunning) {
       useGenerationStore.setState({
         isLoading: false,
         queueTotal: 0,
