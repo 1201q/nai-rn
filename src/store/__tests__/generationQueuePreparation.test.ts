@@ -9,7 +9,10 @@ import { saveGenerationImageBase64 } from "../../lib/generationHistory";
 import {
   encodeNovelAiVibe,
   generateNovelAiImageStream,
+  getNovelAiAnlasBalance,
+  NovelAiRequestError,
 } from "../../lib/novelai";
+import { saveNovelAiToken } from "../../lib/secureToken";
 import { readPreciseReferenceProcessedBase64 } from "../../lib/preciseReferences";
 import {
   canUseCachedVibeEncoding,
@@ -68,11 +71,16 @@ jest.mock("../../../modules/generation-wake-lock", () => ({
   waitForGenerationInterval: jest.fn(),
 }));
 
-jest.mock("../../lib/novelai", () => ({
-  encodeNovelAiVibe: jest.fn(),
-  generateNovelAiImageStream: jest.fn(),
-  getNovelAiAnlasBalance: jest.fn(),
-}));
+jest.mock("../../lib/novelai", () => {
+  const actual = jest.requireActual("../../lib/novelai");
+
+  return {
+    ...actual,
+    encodeNovelAiVibe: jest.fn(),
+    generateNovelAiImageStream: jest.fn(),
+    getNovelAiAnlasBalance: jest.fn(),
+  };
+});
 
 jest.mock("../../lib/secureToken", () => ({
   getNovelAiToken: jest.fn(),
@@ -134,6 +142,8 @@ const mockEncodeNovelAiVibe = jest.mocked(encodeNovelAiVibe);
 const mockGenerateNovelAiImageStream = jest.mocked(
   generateNovelAiImageStream,
 );
+const mockGetNovelAiAnlasBalance = jest.mocked(getNovelAiAnlasBalance);
+const mockSaveNovelAiToken = jest.mocked(saveNovelAiToken);
 const mockAcquireGenerationWakeLock = jest.mocked(
   acquireGenerationWakeLock,
 );
@@ -175,6 +185,88 @@ async function cleanPendingQueue() {
   useGenerationStore.getState().requestQueueCancel();
   await useGenerationStore.getState().runQueueTask();
 }
+
+describe("ANLAS balance refresh", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setReadyState();
+    mockSaveNovelAiToken.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("clears the previous balance when replacing the token", async () => {
+    useGenerationStore.setState({
+      anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+    });
+
+    await useGenerationStore.getState().saveToken("new-token");
+
+    expect(mockSaveNovelAiToken).toHaveBeenCalledWith("new-token");
+    expect(useGenerationStore.getState()).toMatchObject({
+      storedToken: "new-token",
+      anlasBalance: null,
+    });
+  });
+
+  test("returns the verified balance after a successful refresh", async () => {
+    const balance = { fixed: 20, purchased: 7, total: 27 };
+    mockGetNovelAiAnlasBalance.mockResolvedValue(balance);
+
+    const result = await useGenerationStore.getState().refreshAnlas();
+
+    expect(result).toEqual({ status: "success", balance });
+    expect(useGenerationStore.getState().anlasBalance).toEqual(balance);
+  });
+
+  test.each([401, 403])(
+    "reports HTTP %s as an invalid token and clears the balance",
+    async (status) => {
+      useGenerationStore.setState({
+        anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+      });
+      mockGetNovelAiAnlasBalance.mockRejectedValue(
+        new NovelAiRequestError(status, "invalid token"),
+      );
+
+      const result = await useGenerationStore.getState().refreshAnlas();
+
+      expect(result).toEqual({ status: "invalid-token" });
+      expect(useGenerationStore.getState().anlasBalance).toBeNull();
+    },
+  );
+
+  test("reports a network failure without restoring a replaced token balance", async () => {
+    useGenerationStore.setState({
+      anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+    });
+    await useGenerationStore.getState().saveToken("new-token");
+    mockGetNovelAiAnlasBalance.mockRejectedValue(new Error("Network failed"));
+
+    const result = await useGenerationStore.getState().refreshAnlas();
+
+    expect(result).toEqual({ status: "unavailable" });
+    expect(useGenerationStore.getState().anlasBalance).toBeNull();
+  });
+
+  test("ignores a balance response from an older token", async () => {
+    const refresh =
+      createDeferred<Awaited<ReturnType<typeof getNovelAiAnlasBalance>>>();
+    mockGetNovelAiAnlasBalance.mockReturnValue(refresh.promise);
+
+    const pendingRefresh = useGenerationStore.getState().refreshAnlas();
+    await useGenerationStore.getState().saveToken("new-token");
+    refresh.resolve({ fixed: 10, purchased: 5, total: 15 });
+
+    await expect(pendingRefresh).resolves.toEqual({
+      status: "skipped",
+      reason: "stale-request",
+    });
+    expect(useGenerationStore.getState().anlasBalance).toBeNull();
+  });
+});
 
 describe("generation queue preparation", () => {
   beforeEach(() => {

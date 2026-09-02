@@ -55,8 +55,24 @@ export function AppSettingsScreen() {
     setFeedback(null);
     try {
       await saveToken(token);
-      await refreshAnlas();
-      setFeedback({ tone: "success", message: "API 토큰을 저장했습니다." });
+      const result = await refreshAnlas();
+
+      if (result.status === "success") {
+        setFeedback({
+          tone: "success",
+          message: "API 토큰을 저장하고 확인했습니다.",
+        });
+      } else if (result.status === "invalid-token") {
+        setFeedback({
+          tone: "error",
+          message: "토큰은 저장했지만 유효하지 않습니다.",
+        });
+      } else {
+        setFeedback({
+          tone: "error",
+          message: "토큰은 저장했지만 현재 유효성을 확인하지 못했습니다.",
+        });
+      }
     } catch (error: unknown) {
       setFeedback({
         tone: "error",

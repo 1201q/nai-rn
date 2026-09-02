@@ -330,6 +330,12 @@ export type GenerationStartResult =
       reason: GenerationStartRejectionReason;
     };
 
+export type AnlasRefreshResult =
+  | { status: "success"; balance: NovelAiAnlasBalance }
+  | { status: "invalid-token" }
+  | { status: "unavailable" }
+  | { status: "skipped"; reason: "missing-token" | "stale-request" };
+
 const GENERATION_STARTED: GenerationStartResult = { status: "started" };
 
 function rejectGenerationStart(
@@ -440,7 +446,7 @@ type GenerationState = {
 
   // Anlas 잔액
   anlasBalance: NovelAiAnlasBalance | null;
-  refreshAnlas: () => Promise<void>;
+  refreshAnlas: () => Promise<AnlasRefreshResult>;
 
   // 생성 결과
   currentGeneration: GenerationRecord | null;
@@ -1133,18 +1139,41 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   storedToken: null,
   saveToken: async (token) => {
     await saveNovelAiToken(token);
-    set({ storedToken: token });
+    set({ storedToken: token, anlasBalance: null });
   },
 
   anlasBalance: null,
   refreshAnlas: async () => {
     const token = get().storedToken;
-    if (!token) return;
+    if (!token) {
+      set({ anlasBalance: null });
+      return { status: "skipped", reason: "missing-token" };
+    }
+
     try {
       const balance = await getNovelAiAnlasBalance(token);
+
+      if (get().storedToken !== token) {
+        return { status: "skipped", reason: "stale-request" };
+      }
+
       set({ anlasBalance: balance });
-    } catch {
-      // 칩은 기존 값 유지, 조용히 실패
+      return { status: "success", balance };
+    } catch (error: unknown) {
+      if (get().storedToken !== token) {
+        return { status: "skipped", reason: "stale-request" };
+      }
+
+      if (
+        error instanceof Error &&
+        "status" in error &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        set({ anlasBalance: null });
+        return { status: "invalid-token" };
+      }
+
+      return { status: "unavailable" };
     }
   },
 

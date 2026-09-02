@@ -9,9 +9,20 @@ const NOVELAI_VIBE_ENCODE_API_URL =
 const NOVELAI_SUBSCRIPTION_API_URL =
   "https://image.novelai.net/user/subscription";
 
+export class NovelAiRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "NovelAiRequestError";
+  }
+}
+
 function createNovelAiRequestError(status: number, fallbackMessage: string) {
-  return new Error(
-    status === 401
+  return new NovelAiRequestError(
+    status,
+    status === 401 || status === 403
       ? "NovelAI 토큰이 유효하지 않습니다. 설정에서 토큰을 확인해 주세요."
       : fallbackMessage,
   );
