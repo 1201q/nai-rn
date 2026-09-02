@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BackHandler,
   Keyboard,
@@ -54,7 +54,13 @@ const SHEET_BACK_CANCEL_SPRING = {
   mass: 0.75,
 };
 
-function GenerateAction({ onBeforeGenerate }: { onBeforeGenerate: () => void }) {
+function GenerateAction({
+  onBeforeGenerate,
+  onGenerationStarted,
+}: {
+  onBeforeGenerate: () => void;
+  onGenerationStarted: () => void;
+}) {
   const isLoading = useGenerationStore((s) => s.isLoading);
   const batchCount = useGenerationStore((s) => s.batchCount);
   const queueTotal = useGenerationStore((s) => s.queueTotal);
@@ -63,6 +69,14 @@ function GenerateAction({ onBeforeGenerate }: { onBeforeGenerate: () => void }) 
   const generateImage = useGenerationStore((s) => s.generateImage);
   const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
   const progress = useSharedValue(0);
+  const mountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     progress.value = isLoading
@@ -92,7 +106,11 @@ function GenerateAction({ onBeforeGenerate }: { onBeforeGenerate: () => void }) 
           return;
         }
         onBeforeGenerate();
-        generateImage();
+        void generateImage().then((result) => {
+          if (mountedRef.current && result.status === "started") {
+            onGenerationStarted();
+          }
+        });
       }}
       style={({ pressed }) => [
         styles.generateButton,
@@ -189,11 +207,10 @@ function GenerationScreenContent() {
     },
     [finishInputEditing],
   );
-  const prepareGeneration = useCallback(() => {
-    finishInputEditing();
+  const handleGenerationStarted = useCallback(() => {
     setUtilitySheet(null);
     setPromptStage("collapsed");
-  }, [finishInputEditing]);
+  }, []);
   const hasOpenSheet =
     utilitySheet !== null || promptStage !== "collapsed";
   const handleBack = useCallback(() => {
@@ -326,7 +343,10 @@ function GenerationScreenContent() {
           active={utilitySheet === "settings"}
           onPress={() => toggleUtilitySheet("settings")}
         />
-        <GenerateAction onBeforeGenerate={prepareGeneration} />
+        <GenerateAction
+          onBeforeGenerate={finishInputEditing}
+          onGenerationStarted={handleGenerationStarted}
+        />
         <ActionIconButton
           icon="time-outline"
           label={

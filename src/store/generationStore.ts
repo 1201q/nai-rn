@@ -316,6 +316,28 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
   });
 }
 
+export type GenerationStartRejectionReason =
+  | "busy"
+  | "validation"
+  | "preparation"
+  | "cancelled";
+
+// started는 전처리 완료와 큐 handoff를 뜻하며 이미지 생성 완료를 뜻하지 않는다.
+export type GenerationStartResult =
+  | { status: "started" }
+  | {
+      status: "rejected";
+      reason: GenerationStartRejectionReason;
+    };
+
+const GENERATION_STARTED: GenerationStartResult = { status: "started" };
+
+function rejectGenerationStart(
+  reason: GenerationStartRejectionReason,
+): GenerationStartResult {
+  return { status: "rejected", reason };
+}
+
 type GenerationState = {
   // 프롬프트
   prompt: string;
@@ -446,7 +468,7 @@ type GenerationState = {
   generateImage: (
     onSuccess?: () => void,
     overrides?: { prompt?: string; negativePrompt?: string },
-  ) => Promise<void>;
+  ) => Promise<GenerationStartResult>;
   // foreground service 태스크에서 호출하는 실제 큐 루프 (백그라운드 실행 보장).
   runQueueTask: () => Promise<void>;
 };
@@ -1213,10 +1235,12 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   generateImage: async (onSuccess, overrides) => {
     const s = get();
-    if (s.isLoading || queueStarting || queueRunning) return;
+    if (s.isLoading || queueStarting || queueRunning) {
+      return rejectGenerationStart("busy");
+    }
     if (!s.storedToken) {
       set({ message: "저장된 NovelAI 토큰이 없습니다." });
-      return;
+      return rejectGenerationStart("validation");
     }
 
     // 디바운스 동기화 전에 전송될 수 있으므로, 호출 측이 최신 텍스트를 직접 넘길 수 있게 함.
@@ -1227,7 +1251,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     if (!effPrompt) {
       set({ message: "프롬프트를 입력해주세요." });
-      return;
+      return rejectGenerationStart("validation");
     }
 
     // 첫 await 전에 준비 상태를 획득해 I2I/Reference 전처리도 단일 요청으로 보장한다.
@@ -1300,15 +1324,22 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           [{ resize: { width, height } }],
           { format: ImageManipulator.SaveFormat.PNG },
         );
-        if (stopIfPreparationCancelled()) return;
+        if (stopIfPreparationCancelled()) {
+          return rejectGenerationStart("cancelled");
+        }
         i2iImageBase64 = await new File(resized.uri).base64();
-        if (stopIfPreparationCancelled()) return;
+        if (stopIfPreparationCancelled()) {
+          return rejectGenerationStart("cancelled");
+        }
       } catch {
-        if (!preparationCancelled()) {
+        const wasCancelled = preparationCancelled();
+        if (!wasCancelled) {
           set({ message: "I2I 이미지를 읽지 못했습니다." });
         }
         finishPreparation();
-        return;
+        return rejectGenerationStart(
+          wasCancelled ? "cancelled" : "preparation",
+        );
       }
     }
 
@@ -1331,7 +1362,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
       });
       finishPreparation();
-      return;
+      return rejectGenerationStart("validation");
     }
 
     if (activeVibes.length > 0) {
@@ -1340,7 +1371,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           message: "Vibe Transfer는 V4 이상 모델에서 사용할 수 있습니다.",
         });
         finishPreparation();
-        return;
+        return rejectGenerationStart("validation");
       }
 
       set({
@@ -1356,23 +1387,31 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const updatedReferences: VibeReference[] = [];
 
         for (const vibe of activeVibes) {
-          if (stopIfPreparationCancelled()) return;
+          if (stopIfPreparationCancelled()) {
+            return rejectGenerationStart("cancelled");
+          }
           const canUseCachedEncoding = canUseCachedVibeEncoding(vibe);
 
           if (canUseCachedEncoding) {
             encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
-            if (stopIfPreparationCancelled()) return;
+            if (stopIfPreparationCancelled()) {
+              return rejectGenerationStart("cancelled");
+            }
             continue;
           }
 
           const imageBase64 = await readVibeReferenceImageBase64(vibe);
-          if (stopIfPreparationCancelled()) return;
+          if (stopIfPreparationCancelled()) {
+            return rejectGenerationStart("cancelled");
+          }
           const encodedBase64 = await encodeNovelAiVibe(
             s.storedToken,
             imageBase64,
             vibe.informationExtracted,
           );
-          if (stopIfPreparationCancelled()) return;
+          if (stopIfPreparationCancelled()) {
+            return rejectGenerationStart("cancelled");
+          }
           encodedImages.push(encodedBase64);
 
           const updatedReference = await saveEncodedVibeReference(
@@ -1380,7 +1419,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             encodedBase64,
             vibe.informationExtracted,
           );
-          if (stopIfPreparationCancelled()) return;
+          if (stopIfPreparationCancelled()) {
+            return rejectGenerationStart("cancelled");
+          }
           if (updatedReference) {
             updatedReferences.push(updatedReference);
           }
@@ -1416,7 +1457,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         );
         vibeStrengths = activeVibes.map((item) => item.strength);
       } catch (error: unknown) {
-        if (!preparationCancelled()) {
+        const wasCancelled = preparationCancelled();
+        if (!wasCancelled) {
           set({
             message:
               error instanceof Error
@@ -1425,7 +1467,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           });
         }
         finishPreparation();
-        return;
+        return rejectGenerationStart(
+          wasCancelled ? "cancelled" : "preparation",
+        );
       }
     }
 
@@ -1435,14 +1479,16 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
         });
         finishPreparation();
-        return;
+        return rejectGenerationStart("validation");
       }
 
       try {
         preciseReferenceImages = await Promise.all(
           activePreciseReferences.map(readPreciseReferenceProcessedBase64),
         );
-        if (stopIfPreparationCancelled()) return;
+        if (stopIfPreparationCancelled()) {
+          return rejectGenerationStart("cancelled");
+        }
         preciseReferenceStrengths = activePreciseReferences.map(
           (item) => item.strength,
         );
@@ -1453,7 +1499,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           (item) => item.referenceType,
         );
       } catch (error: unknown) {
-        if (!preparationCancelled()) {
+        const wasCancelled = preparationCancelled();
+        if (!wasCancelled) {
           set({
             message:
               error instanceof Error
@@ -1462,11 +1509,15 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           });
         }
         finishPreparation();
-        return;
+        return rejectGenerationStart(
+          wasCancelled ? "cancelled" : "preparation",
+        );
       }
     }
 
-    if (stopIfPreparationCancelled()) return;
+    if (stopIfPreparationCancelled()) {
+      return rejectGenerationStart("cancelled");
+    }
 
     pendingQueue = {
       token: s.storedToken,
@@ -1529,9 +1580,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
     // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
     // 또는 비-Android면 직접 구동(포그라운드 한정).
-    const started = await startGenerationService(total, s.steps);
-    if (started) return;
-    await get().runQueueTask();
+    const serviceStarted = await startGenerationService(total, s.steps);
+    if (!serviceStarted) {
+      void get().runQueueTask();
+    }
+    return GENERATION_STARTED;
   },
 
   runQueueTask: async () => {

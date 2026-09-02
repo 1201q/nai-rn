@@ -1,4 +1,5 @@
 import * as ImageManipulator from "expo-image-manipulator";
+import { waitFor } from "@testing-library/react-native";
 
 import {
   startGenerationService,
@@ -214,9 +215,14 @@ describe("generation queue preparation", () => {
       width: 1024,
       height: 1024,
     });
-    await Promise.all([firstRequest, secondRequest]);
+    const [firstResult, secondResult] = await Promise.all([
+      firstRequest,
+      secondRequest,
+    ]);
 
     expect(loadingDuringPreparation).toBe(true);
+    expect(firstResult).toEqual({ status: "started" });
+    expect(secondResult).toEqual({ status: "rejected", reason: "busy" });
     expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
   });
@@ -269,16 +275,21 @@ describe("generation queue preparation", () => {
       },
     });
 
-    await useGenerationStore.getState().generateImage();
+    const failedResult = await useGenerationStore.getState().generateImage();
 
+    expect(failedResult).toEqual({
+      status: "rejected",
+      reason: "preparation",
+    });
     expect(useGenerationStore.getState().isLoading).toBe(false);
     expect(useGenerationStore.getState().message).toBe(
       "I2I 이미지를 읽지 못했습니다.",
     );
 
     useGenerationStore.setState({ i2iEnabled: false });
-    await useGenerationStore.getState().generateImage();
+    const retryResult = await useGenerationStore.getState().generateImage();
 
+    expect(retryResult).toEqual({ status: "started" });
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
   });
 
@@ -306,8 +317,9 @@ describe("generation queue preparation", () => {
     await Promise.resolve();
     useGenerationStore.getState().requestQueueCancel();
     vibeEncoding.resolve("encoded-vibe");
-    await request;
+    const result = await request;
 
+    expect(result).toEqual({ status: "rejected", reason: "cancelled" });
     expect(mockEncodeNovelAiVibe).toHaveBeenCalledTimes(1);
     expect(mockSaveEncodedVibeReference).not.toHaveBeenCalled();
     expect(mockStartGenerationService).not.toHaveBeenCalled();
@@ -354,8 +366,9 @@ describe("generation queue execution", () => {
   });
 
   test("hands the queue to the foreground service before execution", async () => {
-    await useGenerationStore.getState().generateImage();
+    const result = await useGenerationStore.getState().generateImage();
 
+    expect(result).toEqual({ status: "started" });
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
     expect(mockGenerateNovelAiImageStream).not.toHaveBeenCalled();
     expect(useGenerationStore.getState().isLoading).toBe(true);
@@ -363,6 +376,27 @@ describe("generation queue execution", () => {
     await useGenerationStore.getState().runQueueTask();
 
     expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+  });
+
+  test("rejects invalid requests without starting a queue", async () => {
+    useGenerationStore.setState({ storedToken: null });
+    const missingTokenResult =
+      await useGenerationStore.getState().generateImage();
+
+    useGenerationStore.setState({ storedToken: "token", prompt: "   " });
+    const emptyPromptResult =
+      await useGenerationStore.getState().generateImage();
+
+    expect(missingTokenResult).toEqual({
+      status: "rejected",
+      reason: "validation",
+    });
+    expect(emptyPromptResult).toEqual({
+      status: "rejected",
+      reason: "validation",
+    });
+    expect(mockStartGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().isLoading).toBe(false);
   });
 
   test("cleans queue state and resources after successful execution", async () => {
@@ -436,10 +470,13 @@ describe("generation queue execution", () => {
   test("runs the queue directly when foreground service is unavailable", async () => {
     mockStartGenerationService.mockResolvedValue(false);
 
-    await useGenerationStore.getState().generateImage();
+    const result = await useGenerationStore.getState().generateImage();
 
-    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
-    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
-    expect(useGenerationStore.getState().isLoading).toBe(false);
+    expect(result).toEqual({ status: "started" });
+    await waitFor(() => {
+      expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+      expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+      expect(useGenerationStore.getState().isLoading).toBe(false);
+    });
   });
 });
