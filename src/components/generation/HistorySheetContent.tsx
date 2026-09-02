@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -153,11 +153,13 @@ export function useHistorySheetController({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const deletePhaseRef = useRef<"idle" | "confirming" | "deleting">("idle");
 
   const selectedCount = selectedIds.size;
   const allSelected =
     generationHistory.length > 0 && selectedCount === generationHistory.length;
-  const busy = saving || deleting;
+  const busy = saving || deleting || deleteConfirmationOpen;
   const selectedRecords = useMemo(
     () => generationHistory.filter((item) => selectedIds.has(item.id)),
     [generationHistory, selectedIds],
@@ -234,23 +236,65 @@ export function useHistorySheetController({
     }
   }, [busy, selectedCount, selectedRecords]);
 
-  const deleteSelected = useCallback(async () => {
-    if (selectedCount === 0 || busy) return;
-
-    const ids = [...selectedIds];
-    try {
-      setDeleting(true);
-      await deleteGenerations(ids);
-      exitSelectionMode();
-      toast.success(`${ids.length}개의 이미지를 삭제했습니다.`);
-    } catch {
-      Alert.alert(
-        "삭제 실패",
-        "선택한 이미지를 history에서 삭제하지 못했습니다.",
-      );
-    } finally {
-      setDeleting(false);
+  const deleteSelected = useCallback(() => {
+    if (
+      selectedCount === 0 ||
+      busy ||
+      deletePhaseRef.current !== "idle"
+    ) {
+      return;
     }
+
+    deletePhaseRef.current = "confirming";
+    setDeleteConfirmationOpen(true);
+    const ids = [...selectedIds];
+
+    const dismissConfirmation = () => {
+      if (deletePhaseRef.current !== "confirming") return;
+      deletePhaseRef.current = "idle";
+      setDeleteConfirmationOpen(false);
+    };
+
+    Alert.alert(
+      "이미지 삭제",
+      `${ids.length}개의 이미지를 영구 삭제합니다.\n삭제한 이미지는 복구할 수 없습니다.`,
+      [
+        {
+          text: "취소",
+          style: "cancel",
+          onPress: dismissConfirmation,
+        },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => {
+            deletePhaseRef.current = "deleting";
+            setDeleteConfirmationOpen(false);
+            setDeleting(true);
+
+            void deleteGenerations(ids)
+              .then(() => {
+                exitSelectionMode();
+                toast.success(`${ids.length}개의 이미지를 삭제했습니다.`);
+              })
+              .catch(() => {
+                Alert.alert(
+                  "삭제 실패",
+                  "선택한 이미지를 history에서 삭제하지 못했습니다.",
+                );
+              })
+              .finally(() => {
+                deletePhaseRef.current = "idle";
+                setDeleting(false);
+              });
+          },
+        },
+      ],
+      {
+        cancelable: true,
+        onDismiss: dismissConfirmation,
+      },
+    );
   }, [busy, deleteGenerations, exitSelectionMode, selectedCount, selectedIds]);
 
   return useMemo(
