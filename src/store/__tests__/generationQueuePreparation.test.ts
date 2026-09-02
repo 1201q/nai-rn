@@ -1,7 +1,14 @@
 import * as ImageManipulator from "expo-image-manipulator";
 
-import { startGenerationService } from "../../lib/foregroundService";
-import { encodeNovelAiVibe } from "../../lib/novelai";
+import {
+  startGenerationService,
+  stopGenerationService,
+} from "../../lib/foregroundService";
+import { saveGenerationImageBase64 } from "../../lib/generationHistory";
+import {
+  encodeNovelAiVibe,
+  generateNovelAiImageStream,
+} from "../../lib/novelai";
 import { readPreciseReferenceProcessedBase64 } from "../../lib/preciseReferences";
 import {
   canUseCachedVibeEncoding,
@@ -9,6 +16,11 @@ import {
   saveEncodedVibeReference,
 } from "../../lib/vibeReferences";
 import { useGenerationStore } from "../generationStore";
+import {
+  acquireGenerationWakeLock,
+  releaseGenerationWakeLock,
+  waitForGenerationInterval,
+} from "../../../modules/generation-wake-lock";
 
 jest.mock("expo-image-manipulator", () => ({
   manipulateAsync: jest.fn(),
@@ -113,7 +125,23 @@ function createDeferred<T>(): Deferred<T> {
 const initialState = useGenerationStore.getInitialState();
 const mockManipulateAsync = jest.mocked(ImageManipulator.manipulateAsync);
 const mockStartGenerationService = jest.mocked(startGenerationService);
+const mockStopGenerationService = jest.mocked(stopGenerationService);
+const mockSaveGenerationImageBase64 = jest.mocked(
+  saveGenerationImageBase64,
+);
 const mockEncodeNovelAiVibe = jest.mocked(encodeNovelAiVibe);
+const mockGenerateNovelAiImageStream = jest.mocked(
+  generateNovelAiImageStream,
+);
+const mockAcquireGenerationWakeLock = jest.mocked(
+  acquireGenerationWakeLock,
+);
+const mockReleaseGenerationWakeLock = jest.mocked(
+  releaseGenerationWakeLock,
+);
+const mockWaitForGenerationInterval = jest.mocked(
+  waitForGenerationInterval,
+);
 const mockCanUseCachedVibeEncoding = jest.mocked(canUseCachedVibeEncoding);
 const mockReadVibeReferenceImageBase64 = jest.mocked(
   readVibeReferenceImageBase64,
@@ -285,5 +313,133 @@ describe("generation queue preparation", () => {
     expect(mockStartGenerationService).not.toHaveBeenCalled();
     expect(useGenerationStore.getState().isLoading).toBe(false);
     expect(useGenerationStore.getState().queueCancelRequested).toBe(false);
+  });
+});
+
+describe("generation queue execution", () => {
+  const generation = {
+    id: "generation-1",
+    imagePath: "generation.png",
+    thumbnailPath: null,
+    prompt: "prompt",
+    negativePrompt: "",
+    model: "nai-diffusion-4-5-full",
+    sampler: "k_euler_ancestral",
+    noiseSchedule: "karras" as const,
+    width: 1024,
+    height: 1024,
+    steps: 28,
+    scale: 5,
+    cfgRescale: 0,
+    seed: 123,
+    createdAt: 1,
+    metadataJson: "{}",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setReadyState();
+    mockStartGenerationService.mockResolvedValue(true);
+    mockGenerateNovelAiImageStream.mockResolvedValue({
+      imageBase64: "generated-image",
+      seed: 123,
+    });
+    mockSaveGenerationImageBase64.mockResolvedValue(generation);
+    mockWaitForGenerationInterval.mockResolvedValue(undefined);
+  });
+
+  afterEach(async () => {
+    await cleanPendingQueue();
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("hands the queue to the foreground service before execution", async () => {
+    await useGenerationStore.getState().generateImage();
+
+    expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
+    expect(mockGenerateNovelAiImageStream).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().isLoading).toBe(true);
+
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+  });
+
+  test("cleans queue state and resources after successful execution", async () => {
+    const onSuccess = jest.fn();
+
+    await useGenerationStore.getState().generateImage(onSuccess);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().currentGeneration).toEqual(generation);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(mockAcquireGenerationWakeLock).toHaveBeenCalledTimes(1);
+    expect(mockReleaseGenerationWakeLock).toHaveBeenCalledTimes(1);
+    expect(mockStopGenerationService).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState()).toMatchObject({
+      isLoading: false,
+      queueTotal: 0,
+      queueIndex: 0,
+      queueSteps: 0,
+      queueCancelRequested: false,
+      streamingPreviewUri: null,
+      streamingStep: null,
+      streamingGenerationId: null,
+    });
+  });
+
+  test("releases queue resources after an error and allows retry", async () => {
+    const onSuccess = jest.fn();
+    mockGenerateNovelAiImageStream.mockRejectedValueOnce(
+      new Error("generation failed"),
+    );
+
+    await useGenerationStore.getState().generateImage(onSuccess);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(useGenerationStore.getState().message).toBe("generation failed");
+    expect(useGenerationStore.getState().isLoading).toBe(false);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mockReleaseGenerationWakeLock).toHaveBeenCalledTimes(1);
+    expect(mockStopGenerationService).toHaveBeenCalledTimes(1);
+
+    await useGenerationStore.getState().generateImage(onSuccess);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  test("stops a batch after cancellation without calling onSuccess", async () => {
+    const onSuccess = jest.fn();
+    useGenerationStore.setState({ batchCount: 2 });
+    mockWaitForGenerationInterval.mockImplementationOnce(async () => {
+      useGenerationStore.getState().requestQueueCancel();
+    });
+
+    await useGenerationStore.getState().generateImage(onSuccess);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mockReleaseGenerationWakeLock).toHaveBeenCalledTimes(1);
+    expect(mockStopGenerationService).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState()).toMatchObject({
+      isLoading: false,
+      queueTotal: 0,
+      queueCancelRequested: false,
+    });
+  });
+
+  test("runs the queue directly when foreground service is unavailable", async () => {
+    mockStartGenerationService.mockResolvedValue(false);
+
+    await useGenerationStore.getState().generateImage();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().isLoading).toBe(false);
   });
 });
