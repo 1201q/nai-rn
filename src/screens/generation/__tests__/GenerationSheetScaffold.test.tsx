@@ -320,6 +320,30 @@ describe("generation sheet accessibility visibility", () => {
     });
   });
 
+  test("reports a fast opening target before settling and waits for collapse to finish", async () => {
+    const onStageChange = jest.fn();
+    await render(
+      <PromptSheetHost
+        promptPreview="prompt"
+        promptStage="collapsed"
+        predictiveBackProgress={backProgress}
+        onPromptStageChange={onStageChange}
+      />,
+    );
+    const sheet = mockSheetProps.mock.calls.at(-1)![0];
+
+    await act(() => { sheet.onAnimate?.(0, 2, 716, 70); });
+    expect(onStageChange).toHaveBeenLastCalledWith("full");
+    await act(() => { sheet.onAnimate?.(2, 1, 70, 400); });
+    expect(onStageChange).toHaveBeenLastCalledWith("half");
+
+    onStageChange.mockClear();
+    await act(() => { sheet.onAnimate?.(1, 0, 400, 716); });
+    expect(onStageChange).not.toHaveBeenCalled();
+    await act(() => { sheet.onChange?.(0, 716, 0); });
+    expect(onStageChange).toHaveBeenLastCalledWith("collapsed");
+  });
+
   test("exposes only the preview when Prompt is collapsed", async () => {
     const screen = await render(renderPromptStage("collapsed"));
 

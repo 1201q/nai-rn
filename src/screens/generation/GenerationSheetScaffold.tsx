@@ -1238,6 +1238,13 @@ export function PromptSheetHost({
     },
     [onPromptStageChange],
   );
+  const handleSheetAnimate = useCallback(
+    (_fromIndex: number, toIndex: number) => {
+      // Keep back handling in sync before the opening animation finishes.
+      if (toIndex > 0) handleSheetChange(toIndex);
+    },
+    [handleSheetChange],
+  );
   const expandPrompt = useCallback(() => {
     sheetRef.current?.snapToIndex(1);
   }, []);
@@ -1384,6 +1391,7 @@ export function PromptSheetHost({
           handleIndicatorStyle={styles.handleIndicator}
           containerStyle={styles.promptSheetContainer}
           backgroundStyle={styles.sheetBackground}
+          onAnimate={handleSheetAnimate}
           onChange={handleSheetChange}
         >
           <BottomSheetView style={styles.sheetBody}>
