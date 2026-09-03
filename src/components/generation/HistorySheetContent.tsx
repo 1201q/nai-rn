@@ -37,6 +37,7 @@ const GRID_GAP = 8;
 const HEADER_HEIGHT = 52;
 const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
 const HISTORY_SCROLL_BOTTOM_GAP = 28;
+const HISTORY_SAVE_CONCURRENCY = 3;
 
 const HistorySheetTile = memo(function HistorySheetTile({
   item,
@@ -156,6 +157,7 @@ export function useHistorySheetController({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const savingRef = useRef(false);
   const deletePhaseRef = useRef<"idle" | "confirming" | "deleting">("idle");
 
   const selectedCount = selectedIds.size;
@@ -210,8 +212,16 @@ export function useHistorySheetController({
   }, [allSelected, generationHistory]);
 
   const saveSelected = useCallback(async () => {
-    if (selectedCount === 0 || busy) return;
+    if (
+      selectedRecords.length === 0 ||
+      busy ||
+      savingRef.current ||
+      deletePhaseRef.current !== "idle"
+    ) {
+      return;
+    }
 
+    savingRef.current = true;
     try {
       setSaving(true);
       const permission = await MediaLibrary.requestPermissionsAsync(true, [
@@ -222,26 +232,51 @@ export function useHistorySheetController({
         return;
       }
 
+      let nextIndex = 0;
+      let savedCount = 0;
+      let failedCount = 0;
+      const saveNext = async () => {
+        while (nextIndex < selectedRecords.length) {
+          const record = selectedRecords[nextIndex++];
+          try {
+            await MediaLibrary.Asset.create(resolveGenerationImageUri(record));
+            savedCount += 1;
+          } catch {
+            failedCount += 1;
+          }
+        }
+      };
+
       await Promise.all(
-        selectedRecords.map((record) =>
-          MediaLibrary.Asset.create(resolveGenerationImageUri(record)),
+        Array.from(
+          { length: Math.min(HISTORY_SAVE_CONCURRENCY, selectedRecords.length) },
+          saveNext,
         ),
       );
-      toast.success(`${selectedRecords.length}개의 이미지를 저장했습니다.`);
+      if (failedCount > 0) {
+        Alert.alert(
+          savedCount > 0 ? "일부 이미지 저장 실패" : "저장 실패",
+          `저장 성공: ${savedCount}개\n저장 실패: ${failedCount}개`,
+        );
+      } else {
+        toast.success(`${savedCount}개의 이미지를 저장했습니다.`);
+      }
     } catch {
       Alert.alert(
         "저장 실패",
         "선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.",
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
-  }, [busy, selectedCount, selectedRecords]);
+  }, [busy, selectedRecords]);
 
   const deleteSelected = useCallback(() => {
     if (
       selectedCount === 0 ||
       busy ||
+      savingRef.current ||
       deletePhaseRef.current !== "idle"
     ) {
       return;

@@ -3,6 +3,7 @@ import { Alert, StyleSheet } from "react-native";
 import { BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SharedValue } from "react-native-reanimated";
+import * as MediaLibrary from "expo-media-library";
 import { toast } from "sonner-native";
 
 import type { GenerationRecord } from "../../../lib/generationHistory";
@@ -60,6 +61,11 @@ jest.mock("expo-media-library", () => ({
   requestPermissionsAsync: jest.fn(),
 }));
 
+jest.mock("../../../lib/generationHistory", () => ({
+  resolveGenerationImageUri: (record: GenerationRecord) => record.imagePath,
+  resolveGenerationThumbnailUri: () => null,
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
 }));
@@ -102,17 +108,195 @@ function getAlertButton(callIndex: number, buttonIndex: number) {
   return buttons[buttonIndex];
 }
 
-async function renderSelectedHistoryController() {
+async function renderSelectedHistoryController(records = [generation]) {
   const onClose = jest.fn();
-  useGenerationStore.setState({ generationHistory: [generation] });
+  useGenerationStore.setState({ generationHistory: records });
   const hook = await renderHook(() => useHistorySheetController({ onClose }));
 
   await act(async () => {
-    hook.result.current.enterSelectionMode(generation.id);
+    hook.result.current.enterSelectionMode(records[0].id);
+    hook.result.current.toggleSelectAll();
   });
 
   return hook;
 }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
+  });
+  return { promise, resolve, reject };
+}
+
+type SavedAsset = Awaited<ReturnType<typeof MediaLibrary.Asset.create>>;
+type SavePermission = Awaited<ReturnType<typeof MediaLibrary.requestPermissionsAsync>>;
+const savedAsset = {} as SavedAsset;
+const grantedPermission = { granted: true } as SavePermission;
+const mockCreateAsset = jest.mocked(MediaLibrary.Asset.create);
+const mockRequestPermission = jest.mocked(MediaLibrary.requestPermissionsAsync);
+
+function historyRecords(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    ...generation,
+    id: `generation-${index}`,
+    imagePath: `file:///history/generation-${index}.png`,
+  }));
+}
+
+describe("History bulk saving", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateAsset.mockReset().mockResolvedValue(savedAsset);
+    mockRequestPermission.mockReset().mockResolvedValue(grantedPermission);
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("does not request permission without selected records", async () => {
+    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    expect(mockCreateAsset).not.toHaveBeenCalled();
+  });
+
+  test.each([1, 2, 3])("saves %i selected images and keeps the selection", async (count) => {
+    const records = historyRecords(count);
+    const hook = await renderSelectedHistoryController(records);
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+
+    expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(
+      records.map((record) => record.imagePath),
+    );
+    expect(mockToastSuccess).toHaveBeenCalledWith(`${count}개의 이미지를 저장했습니다.`);
+    expect(mockAlert).not.toHaveBeenCalled();
+    expect(hook.result.current.selectedCount).toBe(count);
+    expect(hook.result.current.busy).toBe(false);
+  });
+
+  test("limits saves to three and waits for every result after a failure", async () => {
+    const records = historyRecords(7);
+    const pending = records.map(() => deferred<SavedAsset>());
+    let active = 0;
+    let peakActive = 0;
+    let next = 0;
+    mockCreateAsset.mockImplementation(() => {
+      active += 1;
+      peakActive = Math.max(peakActive, active);
+      return pending[next++].promise.finally(() => { active -= 1; });
+    });
+    const hook = await renderSelectedHistoryController(records);
+    let saving!: Promise<void>;
+    await act(async () => {
+      saving = hook.result.current.saveSelected();
+    });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(3);
+    expect(hook.result.current.busy).toBe(true);
+
+    await act(async () => { pending[1].resolve(savedAsset); });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(4);
+    await act(async () => { pending[0].reject(new Error("save failed")); });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(5);
+    expect(hook.result.current.busy).toBe(true);
+    expect(mockAlert).not.toHaveBeenCalled();
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      pending.slice(2).forEach((item) => item.resolve(savedAsset));
+      await saving;
+    });
+    expect(peakActive).toBe(3);
+    expect(active).toBe(0);
+    expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(
+      records.map((record) => record.imagePath),
+    );
+    expect(mockAlert).toHaveBeenCalledWith(
+      "일부 이미지 저장 실패", "저장 성공: 6개\n저장 실패: 1개",
+    );
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+    expect(hook.result.current.busy).toBe(false);
+    expect(hook.result.current.selectedCount).toBe(7);
+  });
+
+  test("blocks repeated saves and deletion before the first rerender", async () => {
+    const permission = deferred<SavePermission>();
+    mockRequestPermission.mockReturnValue(permission.promise);
+    const hook = await renderSelectedHistoryController();
+    let saving!: Promise<void>;
+    let repeatedSave!: Promise<void>;
+    await act(async () => {
+      saving = hook.result.current.saveSelected();
+      repeatedSave = hook.result.current.saveSelected();
+      hook.result.current.deleteSelected();
+    });
+    expect(mockRequestPermission).toHaveBeenCalledTimes(1);
+    expect(mockAlert).not.toHaveBeenCalled();
+    expect(mockCreateAsset).not.toHaveBeenCalled();
+
+    await act(async () => {
+      permission.resolve(grantedPermission);
+      await Promise.all([saving, repeatedSave]);
+    });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.busy).toBe(false);
+  });
+
+  test("does not start saving while delete confirmation is opening", async () => {
+    const hook = await renderSelectedHistoryController();
+    await act(async () => {
+      hook.result.current.deleteSelected();
+      await hook.result.current.saveSelected();
+    });
+    expect(mockRequestPermission).not.toHaveBeenCalled();
+    await act(async () => { getAlertButton(0, 0).onPress?.(); });
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["denied", "error"])("releases the save lock after permission is %s", async (result) => {
+    if (result === "denied") {
+      mockRequestPermission.mockResolvedValueOnce({ ...grantedPermission, granted: false });
+    } else {
+      mockRequestPermission.mockRejectedValueOnce(new Error("permission failed"));
+    }
+    const hook = await renderSelectedHistoryController();
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockCreateAsset).not.toHaveBeenCalled();
+    expect(mockAlert).toHaveBeenCalledTimes(1);
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+    expect(hook.result.current.busy).toBe(false);
+
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(1);
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["rejection", "throw"])("counts every failure after an asset %s and permits retry", async (failure) => {
+    if (failure === "rejection") {
+      mockCreateAsset.mockRejectedValue(new Error("save failed"));
+    } else {
+      mockCreateAsset.mockImplementation(() => { throw new Error("save failed"); });
+    }
+    const hook = await renderSelectedHistoryController(historyRecords(4));
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockCreateAsset).toHaveBeenCalledTimes(4);
+    expect(mockAlert).toHaveBeenCalledWith("저장 실패", "저장 성공: 0개\n저장 실패: 4개");
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+    expect(hook.result.current.busy).toBe(false);
+
+    mockCreateAsset.mockResolvedValue(savedAsset);
+    await act(async () => { await hook.result.current.saveSelected(); });
+    expect(mockToastSuccess).toHaveBeenCalledWith("4개의 이미지를 저장했습니다.");
+  });
+});
 
 describe("History deletion confirmation", () => {
   beforeEach(() => {

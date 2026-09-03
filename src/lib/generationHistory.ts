@@ -17,6 +17,7 @@ const IMAGE_ROOT_DIR = "nai-images";
 const ORIGINALS_DIR = "originals";
 const THUMBNAILS_DIR = "thumbnails";
 const THUMBNAIL_SIZE = 512;
+const DELETE_QUERY_BATCH_SIZE = 300;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -201,39 +202,47 @@ export async function listGenerationPage(
 }
 
 export async function deleteGenerations(ids: string[]) {
-  await initGenerationHistoryStorage();
   const uniqueIds = [...new Set(ids)];
   if (uniqueIds.length === 0) return;
+  await initGenerationHistoryStorage();
 
-  const db = await getDatabase();
-  const placeholders = uniqueIds.map(() => "?").join(", ");
-  const rows = await db.getAllAsync<GenerationRow>(
-    `SELECT * FROM generations WHERE id IN (${placeholders})`,
-    uniqueIds,
-  );
-
-  await db.runAsync(
-    `DELETE FROM generations WHERE id IN (${placeholders})`,
-    uniqueIds,
-  );
-
-  rows.map(rowToRecord).forEach((record) => {
-    try {
-      const originalFile = fileFromStoredPath(record.imagePath);
-      if (originalFile.exists) originalFile.delete();
-    } catch {
-      // DB deletion succeeded, so missing file cleanup can be ignored.
-    }
-
-    if (!record.thumbnailPath) return;
-
-    try {
-      const thumbnailFile = fileFromStoredPath(record.thumbnailPath);
-      if (thumbnailFile.exists) thumbnailFile.delete();
-    } catch {
-      // DB deletion succeeded, so missing thumbnail cleanup can be ignored.
-    }
+  // Isolate this transaction from saves and reads on the shared connection.
+  const db = await SQLite.openDatabaseAsync(DATABASE_NAME, {
+    useNewConnection: true,
   });
+  const rows: Pick<GenerationRow, "image_path" | "thumbnail_path">[] = [];
+  try {
+    await db.withTransactionAsync(async () => {
+      for (
+        let offset = 0;
+        offset < uniqueIds.length;
+        offset += DELETE_QUERY_BATCH_SIZE
+      ) {
+        const batchIds = uniqueIds.slice(
+          offset,
+          offset + DELETE_QUERY_BATCH_SIZE,
+        );
+        const placeholders = batchIds.map(() => "?").join(", ");
+        const batchRows = await db.getAllAsync<(typeof rows)[number]>(
+          `SELECT image_path, thumbnail_path FROM generations WHERE id IN (${placeholders})`,
+          batchIds,
+        );
+        rows.push(...batchRows);
+        await db.runAsync(
+          `DELETE FROM generations WHERE id IN (${placeholders})`,
+          batchIds,
+        );
+      }
+    });
+  } finally {
+    await db.closeAsync();
+  }
+
+  // File deletion cannot be rolled back; start it only after the DB commits.
+  for (const row of rows) {
+    deleteStoredFile(row.image_path);
+    deleteStoredFile(row.thumbnail_path);
+  }
 }
 
 type SaveGenerationRecordInput = Omit<SaveGenerationInput, "imageBytes"> & {
