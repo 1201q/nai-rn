@@ -1,8 +1,15 @@
-import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
+import { Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import type { BottomSheetProps } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SharedValue } from "react-native-reanimated";
+import type { ComponentProps } from "react";
+import type { Slider } from "../../../components/forms/Slider";
+import {
+  GenerationInputCommitProvider,
+  useGenerationInputCommit,
+} from "../../../context/GenerationInputCommitContext";
+import { useGenerationStore } from "../../../store/generationStore";
 
 import {
   PromptSheetHost,
@@ -12,6 +19,7 @@ import {
 
 const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
 const mockPromptMounted = jest.fn();
+const mockSliderProps = jest.fn<void, [ComponentProps<typeof Slider>]>();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -35,12 +43,9 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 }));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("../../../native/predictiveBack", () => ({ usePredictiveBackHandler: () => {} }));
-jest.mock("../../../context/GenerationInputCommitContext", () => ({
-  useGenerationInputCommit: () => ({ commitPendingInput: jest.fn() }),
-  useGenerationInputCommitRegistration: () => ({}),
-}));
-jest.mock("../../../store/generationStore", () => ({
-  useGenerationStore: (selector: (state: object) => unknown) => selector({
+jest.mock("../../../store/generationStore", () => {
+  const { create } = require("zustand") as typeof import("zustand");
+  return { useGenerationStore: create(() => ({
     vibeReferences: [],
     preciseReferences: [],
     model: "nai-diffusion-4-5-full",
@@ -50,9 +55,17 @@ jest.mock("../../../store/generationStore", () => ({
     promptGuidanceRescale: 0,
     seed: 0,
     seedLocked: false,
-  }),
+    setSteps: jest.fn(),
+    setPromptGuidance: jest.fn(),
+    setPromptGuidanceRescale: jest.fn(),
+  })) };
+});
+jest.mock("../../../components/forms/Slider", () => ({
+  Slider: (props: ComponentProps<typeof Slider>) => {
+    mockSliderProps(props);
+    return null;
+  },
 }));
-jest.mock("../../../components/forms/Slider", () => ({ Slider: () => null }));
 jest.mock("../../../components/forms/SheetSelect", () => ({ SheetSelect: () => null }));
 jest.mock("../../../components/forms/FormControls", () => ({ Toggle: () => null }));
 jest.mock("../../../components/generation/PromptSheetContent", () => {
@@ -104,18 +117,189 @@ jest.mock("react-native-reanimated", () => {
   const { View } = require("react-native") as typeof import("react-native");
   return {
     __esModule: true,
-    default: { View },
+    default: { View, createAnimatedComponent: (Component: React.ElementType) => Component },
     Easing: { bezier: () => jest.fn() },
     Extrapolation: { CLAMP: "clamp" },
     interpolate: () => 0,
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
     useAnimatedStyle: (factory: () => object) => factory(),
+    useAnimatedProps: (factory: () => object) => ({ read: factory }),
     cancelAnimation: jest.fn(),
     withTiming: <T,>(value: T) => value,
   };
 });
 
 const backProgress = { value: 0 } as SharedValue<number>;
+const initialState = useGenerationStore.getInitialState();
+
+function CommitPendingButton() {
+  const { commitPendingInput } = useGenerationInputCommit();
+  return <Pressable accessibilityLabel="Commit pending input" onPress={commitPendingInput} />;
+}
+
+function renderSettings() {
+  return <GenerationInputCommitProvider>
+    <UtilitySheetHost sheet="settings" predictiveBackProgress={backProgress} onClose={jest.fn()} />
+    <CommitPendingButton />
+  </GenerationInputCommitProvider>;
+}
+
+function sliderProps(label = "Steps") {
+  return mockSliderProps.mock.calls.filter(([props]) => props.accessibilityLabel === label).at(-1)![0];
+}
+
+describe("Settings slider input and UI-thread display", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGenerationStore.setState(initialState, true);
+    jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  });
+
+  test("updates animated text without per-step React renders or store commits", async () => {
+    const screen = await render(renderSettings());
+    const slider = sliderProps();
+    expect(slider.onValueChange).toBeUndefined();
+    expect(slider.display).toBeDefined();
+    const textProps = screen.getByLabelText("Steps 값").props.animatedProps;
+    const renderCount = mockSliderProps.mock.calls.length;
+    await act(() => {
+      slider.onSlidingStart?.();
+      for (let next = 29; next <= 40; next++) slider.display!.value = next;
+    });
+    expect(textProps.read()).toEqual({ text: "40", defaultValue: "40" });
+    expect(mockSliderProps).toHaveBeenCalledTimes(renderCount);
+    expect(initialState.setSteps).not.toHaveBeenCalled();
+
+    await act(() => { slider.onSlidingComplete(40); });
+    expect(initialState.setSteps).toHaveBeenCalledTimes(1);
+    expect(initialState.setSteps).toHaveBeenCalledWith(40);
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("40");
+  });
+
+  test("commits the current drag display before finalization when generation is requested", async () => {
+    const screen = await render(renderSettings());
+    await act(() => {
+      sliderProps().onSlidingStart?.();
+      sliderProps().display!.value = 37;
+    });
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(37);
+  });
+
+  test("commits the latest typed draft without waiting for blur", async () => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "41");
+    expect(screen.getByLabelText("Steps 값").props.animatedProps.read()).toEqual({});
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(41);
+  });
+
+  test.each([
+    ["Steps", "999", 50, "setSteps"],
+    ["Steps", "-5", 1, "setSteps"],
+    ["Prompt Guidance", "5,37", 5.4, "setPromptGuidance"],
+    ["Prompt Guidance Rescale", "0.137", 0.14, "setPromptGuidanceRescale"],
+  ] as const)("normalizes %s input %s to %s", async (label, draft, expected, action) => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText(`${label} 값`);
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, draft);
+    await fireEvent(input, "blur");
+    expect(initialState[action]).toHaveBeenLastCalledWith(expected);
+    expect(screen.getByLabelText(`${label} 값`).props.animatedProps.read().text).toBe(String(expected));
+  });
+
+  test("restores an invalid draft even when the numeric display did not change", async () => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "bad");
+    await fireEvent(input, "blur");
+    expect(initialState.setSteps).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("28");
+    expect(screen.getByLabelText("Steps 값").props.animatedProps.read().text).toBe("28");
+  });
+
+  test("keeps keyboard blur from replacing a drag value or losing its pending commit", async () => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "12");
+    await act(() => {
+      sliderProps().onSlidingStart?.();
+      sliderProps().display!.value = 36;
+    });
+    await fireEvent(input, "blur");
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(36);
+    await act(() => { sliderProps().display!.value = 39; });
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(39);
+    await act(() => { sliderProps().onSlidingComplete(39); });
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("39");
+  });
+
+  test("does not overwrite a focused draft on external value changes", async () => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "43");
+    await act(() => { useGenerationStore.setState({ steps: 20 }); });
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("43");
+    expect(screen.getByLabelText("Steps 값").props.animatedProps.read()).toEqual({});
+    await fireEvent(input, "blur");
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(43);
+  });
+
+  test("synchronizes an external value when idle", async () => {
+    const screen = await render(renderSettings());
+    await act(() => { useGenerationStore.setState({ steps: 20 }); });
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("20");
+    expect(sliderProps().display!.value).toBe(20);
+  });
+
+  test("starts typing from the last drag value and commits the new draft", async () => {
+    const screen = await render(renderSettings());
+    await act(() => {
+      sliderProps().onSlidingStart?.();
+      sliderProps().display!.value = 35;
+      sliderProps().onSlidingComplete(35);
+    });
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("35");
+    await fireEvent.changeText(input, "46");
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(46);
+  });
+
+  test("commits another focused field before a new slider takes pending-input ownership", async () => {
+    const screen = await render(renderSettings());
+    const input = screen.getByLabelText("Steps 값");
+    await fireEvent(input, "focus");
+    await fireEvent.changeText(input, "42");
+    await act(() => {
+      const guidance = sliderProps("Prompt Guidance");
+      guidance.onSlidingStart?.();
+      guidance.display!.value = 6.7;
+    });
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).toHaveBeenLastCalledWith(42);
+    expect(initialState.setPromptGuidance).toHaveBeenLastCalledWith(6.7);
+  });
+
+  test("releases pending drag input on unmount", async () => {
+    const screen = await render(renderSettings());
+    await act(() => {
+      sliderProps().onSlidingStart?.();
+      sliderProps().display!.value = 37;
+    });
+    await screen.rerender(<GenerationInputCommitProvider><CommitPendingButton /></GenerationInputCommitProvider>);
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(initialState.setSteps).not.toHaveBeenCalled();
+  });
+});
 
 function renderPromptStage(stage: PromptSheetStage) {
   return (

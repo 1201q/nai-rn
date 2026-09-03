@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   AppState,
   View,
+  type AccessibilityActionEvent,
   type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
@@ -20,6 +21,7 @@ import { toast } from "sonner-native";
 import { tokens } from "../../styles/tokens";
 
 const SPRING = { damping: 15, stiffness: 220, mass: 0.5 };
+const HAPTIC_INTERVAL_MS = 50;
 
 function hapticTick() {
   Haptics.selectionAsync().catch(() => {});
@@ -30,12 +32,14 @@ function showDragHint() {
 }
 
 export function Slider({
+  accessibilityLabel,
   value,
   min,
   max,
   step,
   precision,
   onSlidingComplete,
+  onSlidingStart,
   onValueChange,
   display,
   trackHeight = 6,
@@ -49,12 +53,14 @@ export function Slider({
   jumpOnTap = false,
   style,
 }: {
+  accessibilityLabel: string;
   value: number;
   min: number;
   max: number;
   step: number;
   precision: number;
   onSlidingComplete: (v: number) => void;
+  onSlidingStart?: () => void;
   onValueChange?: (v: number) => void;
   // 드래그 중 표시값을 UI 스레드에서 직접 구동(재렌더 없음). 없으면 커밋 시에만 갱신.
   display?: SharedValue<number>;
@@ -82,28 +88,25 @@ export function Slider({
   const posX = useSharedValue(0);
   const pressed = useSharedValue(0);
   const lastSnap = useSharedValue(value);
+  const lastHapticAt = useSharedValue(-Infinity);
 
   const frac = Math.min(1, Math.max(0, (value - min) / (max - min)));
 
   const syncPosition = useCallback(
     (measuredWidth: number, force = false) => {
-      if (
-        !Number.isFinite(measuredWidth) ||
-        measuredWidth <= 0 ||
-        (!force && active.value)
-      ) {
-        return;
-      }
+      if (!force && active.value) return;
 
       if (force) {
         active.value = false;
         pressed.value = 0;
       }
 
-      const measuredUsable = Math.max(1, measuredWidth - thumbW);
-      posX.value = half + frac * measuredUsable;
       lastSnap.value = value;
       if (display) display.value = value;
+      if (!Number.isFinite(measuredWidth) || measuredWidth <= 0) return;
+
+      const measuredUsable = Math.max(1, measuredWidth - thumbW);
+      posX.value = half + frac * measuredUsable;
     },
     [active, display, frac, half, lastSnap, posX, pressed, thumbW, value],
   );
@@ -145,7 +148,11 @@ export function Slider({
       lastSnap.value = snapped;
       if (display) display.value = snapped;
       if (onValueChange) runOnJS(onValueChange)(snapped);
-      runOnJS(hapticTick)();
+      const now = Date.now();
+      if (now - lastHapticAt.value >= HAPTIC_INTERVAL_MS) {
+        lastHapticAt.value = now;
+        runOnJS(hapticTick)();
+      }
     }
   };
 
@@ -154,6 +161,8 @@ export function Slider({
     .failOffsetY([-12, 12])
     .onStart((e) => {
       active.value = true;
+      lastHapticAt.value = -Infinity;
+      if (onSlidingStart) runOnJS(onSlidingStart)();
       pressed.value = withSpring(1, SPRING);
       handle(Math.min(width - half, Math.max(half, e.x)));
     })
@@ -172,6 +181,8 @@ export function Slider({
   const tap = Gesture.Tap().onEnd((event, success) => {
     if (!success) return;
     if (jumpOnTap) {
+      lastHapticAt.value = -Infinity;
+      if (onSlidingStart) runOnJS(onSlidingStart)();
       const x = Math.min(width - half, Math.max(half, event.x));
       handle(x);
       const snapped = snap(valAtX(x));
@@ -205,9 +216,33 @@ export function Slider({
     [syncPosition],
   );
 
+  const adjustValue = (event: AccessibilityActionEvent) => {
+    const action = event.nativeEvent.actionName;
+    if (action !== "increment" && action !== "decrement") return;
+    const next = snap(lastSnap.value + (action === "increment" ? step : -step));
+    if (next === lastSnap.value) return;
+
+    lastSnap.value = next;
+    posX.value = xAtVal(next);
+    if (display) display.value = next;
+    hapticTick();
+    onSlidingStart?.();
+    onValueChange?.(next);
+    onSlidingComplete(next);
+  };
+
   return (
     <GestureDetector gesture={gesture}>
       <View
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityValue={{ min, max, now: value, text: String(value) }}
+        accessibilityActions={[
+          { name: "increment", label: "값 증가" },
+          { name: "decrement", label: "값 감소" },
+        ]}
+        onAccessibilityAction={adjustValue}
         onLayout={onLayout}
         style={[
           { height: Math.max(thumbSize, 30), justifyContent: "center" },

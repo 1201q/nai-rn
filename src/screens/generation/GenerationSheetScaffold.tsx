@@ -31,6 +31,7 @@ import Reanimated, {
   Extrapolation,
   interpolate,
   runOnJS,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -95,6 +96,8 @@ const PROMPT_BACKDROP_Z_INDEX = 70;
 const PROMPT_SHEET_Z_INDEX = 80;
 const UTILITY_BACKDROP_Z_INDEX = 82;
 const UTILITY_SHEET_Z_INDEX = 85;
+const AnimatedBottomSheetTextInput =
+  Reanimated.createAnimatedComponent(BottomSheetTextInput);
 
 const PROMPT_TABS: Array<{ key: PromptTab; label: string }> = [
   { key: "prompt", label: "Prompt" },
@@ -380,21 +383,34 @@ function SettingsSlider({
     formatSliderValue(value, precision),
   );
   const draftValueRef = useRef(draftValue);
+  const slidingRef = useRef(false);
+  const { commitPendingInput } = useGenerationInputCommit();
+  const display = useSharedValue(value);
+  const editing = useSharedValue(false);
+  const animatedInputProps = useAnimatedProps(() => {
+    if (editing.value) return {};
+    const text = String(Number(display.value.toFixed(precision)));
+    return { text, defaultValue: text } as object;
+  });
 
   useEffect(() => {
-    if (!inputFocusedRef.current) {
+    if (!inputFocusedRef.current && !slidingRef.current) {
       const next = formatSliderValue(value, precision);
       draftValueRef.current = next;
       setDraftValue(next);
+      display.value = value;
     }
-  }, [precision, value]);
+  }, [display, precision, value]);
 
   const commitDraft = useCallback(() => {
-    const parsed = Number(draftValueRef.current.trim().replace(",", "."));
+    const parsed = slidingRef.current
+      ? display.value
+      : Number(draftValueRef.current.trim().replace(",", "."));
     if (!Number.isFinite(parsed)) {
       const fallback = formatSliderValue(value, precision);
       draftValueRef.current = fallback;
       setDraftValue(fallback);
+      display.value = value;
       return;
     }
 
@@ -406,15 +422,16 @@ function SettingsSlider({
     const formatted = formatSliderValue(next, precision);
     draftValueRef.current = formatted;
     setDraftValue(formatted);
+    display.value = next;
     onChange(next);
-  }, [max, min, onChange, precision, step, value]);
+  }, [display, max, min, onChange, precision, step, value]);
   const inputCommit = useGenerationInputCommitRegistration(commitDraft);
 
   function handleSliderComplete(next: number) {
     const formatted = formatSliderValue(next, precision);
+    slidingRef.current = false;
     draftValueRef.current = formatted;
-    setDraftValue(formatted);
-    onChange(next);
+    inputCommit.commitAndDeactivate();
   }
 
   return (
@@ -437,20 +454,28 @@ function SettingsSlider({
       </View>
       <View style={styles.settingsSliderControls}>
         <View style={styles.settingsSliderValueBox}>
-          <BottomSheetTextInput
+          <AnimatedBottomSheetTextInput
             accessibilityLabel={`${label} 값`}
             value={draftValue}
+            animatedProps={animatedInputProps}
             onChangeText={(next) => {
+              editing.value = true;
               draftValueRef.current = next;
               setDraftValue(next);
             }}
             onFocus={() => {
               inputFocusedRef.current = true;
+              editing.value = true;
+              const next = formatSliderValue(display.value, precision);
+              draftValueRef.current = next;
+              setDraftValue(next);
               inputCommit.activate();
             }}
             onBlur={() => {
               inputFocusedRef.current = false;
+              editing.value = false;
               inputCommit.commitAndDeactivate();
+              if (slidingRef.current) inputCommit.activate();
             }}
             onSubmitEditing={commitDraft}
             keyboardType={precision === 0 ? "number-pad" : "decimal-pad"}
@@ -461,19 +486,22 @@ function SettingsSlider({
           />
         </View>
         <Slider
+          accessibilityLabel={label}
           value={value}
           min={min}
           max={max}
           step={step}
           precision={precision}
+          display={display}
           trackHeight={6}
           thumbSize={24}
           pill
           jumpOnTap
-          onValueChange={(next) => {
-            const formatted = formatSliderValue(next, precision);
-            draftValueRef.current = formatted;
-            setDraftValue(formatted);
+          onSlidingStart={() => {
+            slidingRef.current = true;
+            editing.value = false;
+            commitPendingInput();
+            inputCommit.activate();
           }}
           trackBg={tokens.color.sunken}
           thumbBorderWidth={0}

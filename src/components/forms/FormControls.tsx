@@ -188,6 +188,7 @@ export const ParameterSlider = memo(function ParameterSlider({
           </TapFeedbackPressable>
         ) : null}
         <Slider
+          accessibilityLabel={label}
           value={value}
           min={min}
           max={max}
