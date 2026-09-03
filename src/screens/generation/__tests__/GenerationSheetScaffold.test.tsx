@@ -1,12 +1,17 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, useWindowDimensions } from "react-native";
 import type { BottomSheetProps } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SharedValue } from "react-native-reanimated";
 
-import { PromptSheetHost, UtilitySheetHost } from "../GenerationSheetScaffold";
+import {
+  PromptSheetHost,
+  UtilitySheetHost,
+  type PromptSheetStage,
+} from "../GenerationSheetScaffold";
 
 const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
+const mockPromptMounted = jest.fn();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -50,9 +55,21 @@ jest.mock("../../../store/generationStore", () => ({
 jest.mock("../../../components/forms/Slider", () => ({ Slider: () => null }));
 jest.mock("../../../components/forms/SheetSelect", () => ({ SheetSelect: () => null }));
 jest.mock("../../../components/forms/FormControls", () => ({ Toggle: () => null }));
-jest.mock("../../../components/generation/PromptSheetContent", () => ({
-  PromptSheetContent: () => null,
-}));
+jest.mock("../../../components/generation/PromptSheetContent", () => {
+  const React = require("react") as typeof import("react");
+  const { TextInput } = require("react-native") as typeof import("react-native");
+  return {
+    PromptSheetContent: function MockPromptContent() {
+      React.useEffect(() => {
+        mockPromptMounted();
+      }, []);
+      return React.createElement(TextInput, {
+        accessibilityLabel: "테스트 Prompt 입력",
+        defaultValue: "draft",
+      });
+    },
+  };
+});
 jest.mock("../../../components/generation/HistorySheetContent", () => ({
   useHistorySheetController: () => ({ exitSelectionMode: jest.fn() }),
   HistorySheetContent: () => null,
@@ -99,6 +116,95 @@ jest.mock("react-native-reanimated", () => {
 });
 
 const backProgress = { value: 0 } as SharedValue<number>;
+
+function renderPromptStage(stage: PromptSheetStage) {
+  return (
+    <PromptSheetHost
+      promptPreview="prompt"
+      promptStage={stage}
+      predictiveBackProgress={backProgress}
+      onPromptStageChange={jest.fn()}
+    />
+  );
+}
+
+describe("generation sheet accessibility visibility", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(useSafeAreaInsets).mockReturnValue({
+      top: 0, bottom: 0, left: 0, right: 0,
+    });
+  });
+
+  test("exposes only the preview when Prompt is collapsed", async () => {
+    const screen = await render(renderPromptStage("collapsed"));
+
+    expect(screen.getByRole("button", { name: "Prompt 펼치기" })).toBeTruthy();
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryAllByLabelText("Prompt 접기")).toHaveLength(0);
+    expect(screen.queryByLabelText("테스트 Prompt 입력")).toBeNull();
+    expect(screen.getByLabelText("테스트 Prompt 입력", {
+      includeHiddenElements: true,
+    })).toBeTruthy();
+
+    for (const tab of ["prompt", "reference", "chunks"]) {
+      expect(screen.getByTestId(`prompt-page-${tab}`, {
+        includeHiddenElements: true,
+      }).props).toMatchObject({
+        accessibilityElementsHidden: true,
+        importantForAccessibility: "no-hide-descendants",
+      });
+    }
+  });
+
+  test.each(["half", "full"] as const)(
+    "restores the active page and close controls at the %s stage",
+    async (stage) => {
+      const screen = await render(renderPromptStage("collapsed"));
+      await screen.rerender(renderPromptStage(stage));
+
+      expect(screen.queryByLabelText("Prompt 펼치기")).toBeNull();
+      expect(screen.getAllByRole("tab")).toHaveLength(3);
+      expect(screen.getAllByRole("button", { name: "Prompt 접기" })).toHaveLength(2);
+      expect(screen.getByLabelText("테스트 Prompt 입력")).toBeTruthy();
+      expect(screen.getByTestId("prompt-page-prompt").props).toMatchObject({
+        accessibilityElementsHidden: false,
+        importantForAccessibility: "auto",
+      });
+
+      await screen.rerender(renderPromptStage("collapsed"));
+      expect(screen.queryByLabelText("테스트 Prompt 입력")).toBeNull();
+      expect(screen.queryAllByLabelText("Prompt 접기")).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "Prompt 펼치기" })).toBeTruthy();
+    },
+  );
+
+  test("exposes only the selected page without unmounting the prompt draft", async () => {
+    const screen = await render(renderPromptStage("full"));
+
+    for (const [name, key] of [["Reference Images", "reference"], ["Chunks", "chunks"]]) {
+      await fireEvent.press(screen.getByRole("tab", { name }));
+      expect(screen.queryByLabelText("테스트 Prompt 입력")).toBeNull();
+      expect(screen.getByLabelText("테스트 Prompt 입력", {
+        includeHiddenElements: true,
+      }).props.defaultValue).toBe("draft");
+
+      for (const tab of ["prompt", "reference", "chunks"]) {
+        const active = tab === key;
+        expect(screen.getByTestId(`prompt-page-${tab}`, {
+          includeHiddenElements: true,
+        }).props).toMatchObject({
+          accessibilityElementsHidden: !active,
+          importantForAccessibility: active ? "auto" : "no-hide-descendants",
+        });
+      }
+    }
+
+    await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
+    expect(screen.getByLabelText("테스트 Prompt 입력")).toBeTruthy();
+    expect(mockPromptMounted).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("generation sheet safe area", () => {
   beforeEach(() => {

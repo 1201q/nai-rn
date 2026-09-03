@@ -375,6 +375,8 @@ export function GenerationCanvas() {
         <Animated.View style={[styles.toolbar, { width: toolbarWidth }]}>
           <Animated.View
             pointerEvents={expanded ? "auto" : "none"}
+            accessibilityElementsHidden={!expanded}
+            importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
             style={[styles.toolbarActions, { opacity: actionOpacity }]}
           >
             <ToolbarAction

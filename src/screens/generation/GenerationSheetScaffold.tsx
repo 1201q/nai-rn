@@ -251,6 +251,8 @@ function FixedSheetBackdrop({
   return (
     <Reanimated.View
       pointerEvents={visible ? "auto" : "none"}
+      accessibilityElementsHidden={!visible}
+      importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
       style={[
         styles.fixedSheetBackdrop,
         { zIndex, elevation: zIndex },
@@ -258,6 +260,7 @@ function FixedSheetBackdrop({
       ]}
     >
       <Pressable
+        accessible={visible}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
@@ -1066,6 +1069,8 @@ function PromptHeader({
     <View style={styles.promptHeader}>
       <Reanimated.View
         pointerEvents={collapsed ? "auto" : "none"}
+        accessibilityElementsHidden={!collapsed}
+        importantForAccessibility={collapsed ? "auto" : "no-hide-descendants"}
         style={[styles.promptHeaderLayer, styles.previewLayer, previewStyle]}
       >
         <Pressable
@@ -1090,6 +1095,8 @@ function PromptHeader({
 
       <Reanimated.View
         pointerEvents={collapsed ? "none" : "auto"}
+        accessibilityElementsHidden={collapsed}
+        importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}
         style={[styles.promptHeaderLayer, styles.tabsLayer, tabsStyle]}
       >
         <View style={styles.promptTabs}>
@@ -1375,23 +1382,27 @@ export function PromptSheetHost({
                     promptPageTrackStyle,
                   ]}
                 >
-                  {PROMPT_TABS.map((item) => (
-                    <View
-                      key={item.key}
-                      style={[styles.promptPage, { width: windowWidth }]}
-                    >
-                      {item.key === "prompt" ? (
-                        <PromptSheetContent
-                          active={
-                            promptTab === "prompt" &&
-                            promptStage !== "collapsed"
-                          }
-                        />
-                      ) : (
-                        <View style={styles.emptyPromptPage} />
-                      )}
-                    </View>
-                  ))}
+                  {PROMPT_TABS.map((item) => {
+                    const active =
+                      promptTab === item.key && promptStage !== "collapsed";
+                    return (
+                      <View
+                        key={item.key}
+                        testID={`prompt-page-${item.key}`}
+                        accessibilityElementsHidden={!active}
+                        importantForAccessibility={
+                          active ? "auto" : "no-hide-descendants"
+                        }
+                        style={[styles.promptPage, { width: windowWidth }]}
+                      >
+                        {item.key === "prompt" ? (
+                          <PromptSheetContent active={active} />
+                        ) : (
+                          <View style={styles.emptyPromptPage} />
+                        )}
+                      </View>
+                    );
+                  })}
                 </Reanimated.View>
               </View>
             </GestureDetector>
