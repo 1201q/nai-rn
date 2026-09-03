@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +22,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import {
+  PREDICTIVE_BACK_SUPPORTED,
   usePredictiveBackHandler,
   type PredictiveBackEvent,
 } from "../../native/predictiveBack";
@@ -33,6 +36,8 @@ const PREDICTIVE_BACK_CANCEL_SPRING = {
   mass: 0.75,
 };
 const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
+const OPTIONS_MARGIN = 12;
+const OPTIONS_MIN_WIDTH = 148;
 
 export const SHEET_SELECT_PORTAL_HOST = "sheet-select-overlay";
 
@@ -65,7 +70,7 @@ export function SheetSelect({
     height: number;
   } | null>(null);
   const triggerRef = useRef<View>(null);
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const predictiveBackProgress = useSharedValue(0);
   const open = controlledOpen ?? internalOpen;
 
@@ -130,11 +135,37 @@ export function SheetSelect({
     onCommit: closeSelect,
   });
 
+  useEffect(() => {
+    if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeSelect();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [closeSelect, open]);
+
+  const optionsWidth = Math.min(
+    Math.max(anchor?.width ?? 0, OPTIONS_MIN_WIDTH),
+    Math.max(0, windowWidth - OPTIONS_MARGIN * 2),
+  );
+  const preferredLeft = anchor
+    ? anchor.x + optionsWidth <= windowWidth - OPTIONS_MARGIN
+      ? anchor.x
+      : anchor.x + anchor.width - optionsWidth
+    : OPTIONS_MARGIN;
+  const optionsLeft = Math.max(
+    OPTIONS_MARGIN,
+    Math.min(preferredLeft, windowWidth - optionsWidth - OPTIONS_MARGIN),
+  );
   const optionsHeight = options.length * 44 + 2;
   const optionsTop = anchor
     ? Math.max(
-        12,
-        Math.min(anchor.y + anchor.height + 8, windowHeight - optionsHeight - 12),
+        OPTIONS_MARGIN,
+        Math.min(
+          anchor.y + anchor.height + 8,
+          windowHeight - optionsHeight - OPTIONS_MARGIN,
+        ),
       )
     : 0;
 
@@ -187,8 +218,8 @@ export function SheetSelect({
                 styles.options,
                 {
                   top: optionsTop,
-                  left: anchor.x,
-                  width: Math.max(anchor.width, 148),
+                  left: optionsLeft,
+                  width: optionsWidth,
                 },
                 predictiveOptionsStyle,
               ]}

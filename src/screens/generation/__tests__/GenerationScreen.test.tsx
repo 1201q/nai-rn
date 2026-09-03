@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { BackHandler, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -42,7 +43,26 @@ jest.mock("@expo/vector-icons", () => ({
 
 jest.mock("@gorhom/portal", () => ({
   PortalHost: () => null,
+  Portal: ({ children }: { children: React.ReactNode }) => children,
 }));
+
+jest.mock("react-native/Libraries/Components/Pressable/Pressable", () => {
+  const React = require("react") as typeof import("react");
+  const { default: Pressable } = jest.requireActual(
+    "react-native/Libraries/Components/Pressable/Pressable",
+  );
+  return {
+    __esModule: true,
+    default: React.forwardRef(function MeasuredPressable(props, ref) {
+      React.useImperativeHandle(ref, () => ({
+        measureInWindow: (
+          callback: (x: number, y: number, width: number, height: number) => void,
+        ) => callback(24, 100, 200, 46),
+      }));
+      return React.createElement(Pressable, props);
+    }),
+  };
+});
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ navigate: jest.fn() }),
@@ -62,6 +82,8 @@ jest.mock("react-native-reanimated", () => {
   return {
     __esModule: true,
     default: { View },
+    Extrapolation: { CLAMP: "clamp" },
+    interpolate: () => 1,
     cancelAnimation: jest.fn(),
     Easing: {
       linear: jest.fn(),
@@ -103,10 +125,6 @@ jest.mock("../../../components/common/Buttons", () => {
   };
 });
 
-jest.mock("../../../components/forms/SheetSelect", () => ({
-  SHEET_SELECT_PORTAL_HOST: "sheet-select",
-}));
-
 jest.mock("../../../components/generation/SuggestionBar", () => ({
   SuggestionBar: () => null,
 }));
@@ -117,6 +135,7 @@ jest.mock("../../../context/SuggestionBarContext", () => ({
 }));
 
 jest.mock("../../../native/predictiveBack", () => ({
+  PREDICTIVE_BACK_SUPPORTED: false,
   usePredictiveBackHandler: () => {},
 }));
 
@@ -128,6 +147,8 @@ jest.mock("../GenerationSheetScaffold", () => {
   const React = require("react") as typeof import("react");
   const { Pressable, Text, View } =
     require("react-native") as typeof import("react-native");
+  const { SheetSelect } = require("../../../components/forms/SheetSelect") as
+    typeof import("../../../components/forms/SheetSelect");
 
   return {
     PromptSheetHost: ({
@@ -150,12 +171,32 @@ jest.mock("../GenerationSheetScaffold", () => {
           onPress: () => onPromptStageChange("full"),
         }),
       ),
-    UtilitySheetHost: ({ sheet }: { sheet: "settings" | "history" | null }) =>
-      React.createElement(
-        Text,
-        { testID: "utility-sheet" },
-        sheet ?? "closed",
-      ),
+    UtilitySheetHost: function MockUtilitySheet({
+      sheet,
+    }: {
+      sheet: "settings" | "history" | null;
+    }) {
+      const [open, setOpen] = React.useState(false);
+      return React.createElement(
+        View,
+        null,
+        React.createElement(
+          Text,
+          { testID: "utility-sheet" },
+          sheet ?? "closed",
+        ),
+        sheet === "settings"
+          ? React.createElement(SheetSelect, {
+              label: "Model",
+              value: "Model A",
+              options: ["Model A", "Model B"],
+              onChange: jest.fn(),
+              open,
+              onOpenChange: (next: boolean) => setOpen(next),
+            })
+          : null,
+      );
+    },
   };
 });
 
@@ -184,6 +225,65 @@ describe("GenerationScreen generation acceptance", () => {
     jest.clearAllMocks();
     mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
     useGenerationStore.setState(initialState, true);
+  });
+
+  test("hardware back closes Select, Settings, then Prompt without closing two layers", async () => {
+    const originalPlatform = Platform.OS;
+    Platform.OS = "android";
+    const listeners: Array<() => boolean | null | undefined> = [];
+    const subscriptionSpy = jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockImplementation((_event, handler) => {
+        const listener = handler as () => boolean | null | undefined;
+        listeners.push(listener);
+        return {
+          remove: () => {
+            const index = listeners.indexOf(listener);
+            if (index !== -1) listeners.splice(index, 1);
+          },
+        };
+      });
+    const pressBack = async () => {
+      let consumed = false;
+      await act(() => {
+        for (const listener of [...listeners].reverse()) {
+          if (listener()) {
+            consumed = true;
+            break;
+          }
+        }
+      });
+      return consumed;
+    };
+
+    try {
+      const screen = await render(<GenerationScreen />);
+      await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+      await fireEvent.press(screen.getByLabelText("Settings 열기"));
+      await fireEvent.press(screen.getByLabelText("Model 선택"));
+      await act(() => {
+        useGenerationStore.setState({ prompt: "updated prompt" });
+      });
+
+      expect(await pressBack()).toBe(true);
+      expect(screen.queryByLabelText("Model B")).toBeNull();
+      expect(screen.getByTestId("utility-sheet").props.children).toBe("settings");
+      expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
+
+      expect(await pressBack()).toBe(true);
+      expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
+      expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
+      expect(await pressBack()).toBe(true);
+      expect(screen.getByTestId("prompt-stage").props.children).toBe("half");
+      expect(await pressBack()).toBe(true);
+      expect(screen.getByTestId("prompt-stage").props.children).toBe("collapsed");
+      expect(await pressBack()).toBe(false);
+      await screen.unmount();
+      expect(listeners).toHaveLength(0);
+    } finally {
+      subscriptionSpy.mockRestore();
+      Platform.OS = originalPlatform;
+    }
   });
 
   test.each([0, 24, 34])("reserves %i bottom inset for the action bar and canvas", async (bottom) => {
