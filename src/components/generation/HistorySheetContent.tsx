@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,7 @@ import {
 } from "../../hooks/useGenerationChromeMetrics";
 import {
   type GenerationRecord,
+  iterateGenerationImageBatches,
   resolveGenerationImageUri,
   resolveGenerationThumbnailUri,
 } from "../../lib/generationHistory";
@@ -46,6 +47,7 @@ const HistorySheetTile = memo(function HistorySheetTile({
   selectionMode,
   selected,
   isCurrent,
+  disabled,
   onPress,
   onLongPress,
 }: {
@@ -55,6 +57,7 @@ const HistorySheetTile = memo(function HistorySheetTile({
   selectionMode: boolean;
   selected: boolean;
   isCurrent: boolean;
+  disabled: boolean;
   onPress: (item: GenerationRecord) => void;
   onLongPress: (id: string) => void;
 }) {
@@ -77,7 +80,11 @@ const HistorySheetTile = memo(function HistorySheetTile({
             : "메인 이미지로 표시"
         }
         accessibilityHint={isCurrent ? "현재 메인에 표시 중인 이미지" : undefined}
-        accessibilityState={{ selected: selectionMode ? selected : undefined }}
+        accessibilityState={{
+          selected: selectionMode ? selected : undefined,
+          disabled,
+        }}
+        disabled={disabled}
         delayLongPress={180}
         onPress={() => onPress(item)}
         onLongPress={() => onLongPress(item.id)}
@@ -140,6 +147,13 @@ export function useHistorySheetController({
   const historyInitialized = useGenerationStore(
     (state) => state.generationHistoryInitialized,
   );
+  const historyIds = useGenerationStore((state) => state.generationHistoryIds);
+  const historyHasMore = useGenerationStore(
+    (state) => state.generationHistoryHasMore,
+  );
+  const loadHistoryIds = useGenerationStore(
+    (state) => state.loadGenerationHistoryIds,
+  );
   const historyLoadingMore = useGenerationStore(
     (state) => state.generationHistoryLoadingMore,
   );
@@ -153,44 +167,85 @@ export function useHistorySheetController({
     (state) => state.currentGeneration?.id ?? null,
   );
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectionIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectingAll, setSelectingAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const savingRef = useRef(false);
+  const selectingAllRef = useRef(false);
+  const selectionRequestRef = useRef(0);
   const deletePhaseRef = useRef<"idle" | "confirming" | "deleting">("idle");
 
+  useEffect(() => () => {
+    selectionRequestRef.current += 1;
+  }, []);
+
+  const availableIdList = useMemo(
+    () => historyIds ?? generationHistory.map((item) => item.id),
+    [historyIds, generationHistory],
+  );
+  const availableIds = useMemo(() => new Set(availableIdList), [availableIdList]);
+  const selectedIds = useMemo(() => {
+    const validIds = [...selectionIds].filter((id) => availableIds.has(id));
+    return validIds.length === selectionIds.size
+      ? selectionIds
+      : new Set(validIds);
+  }, [availableIds, selectionIds]);
   const selectedCount = selectedIds.size;
   const allSelected =
-    generationHistory.length > 0 && selectedCount === generationHistory.length;
-  const busy = saving || deleting || deleteConfirmationOpen;
-  const selectedRecords = useMemo(
-    () => generationHistory.filter((item) => selectedIds.has(item.id)),
-    [generationHistory, selectedIds],
-  );
+    (historyIds !== null || !historyHasMore) &&
+    selectedCount > 0 &&
+    selectedCount === availableIds.size;
+  const busy = selectingAll || saving || deleting || deleteConfirmationOpen;
 
   const exitSelectionMode = useCallback(() => {
+    selectionRequestRef.current += 1;
+    selectingAllRef.current = false;
+    setSelectingAll(false);
     setSelectionMode(false);
     setSelectedIds(new Set());
   }, []);
 
   const enterSelectionMode = useCallback((id: string) => {
+    if (
+      selectingAllRef.current ||
+      savingRef.current ||
+      deletePhaseRef.current !== "idle"
+    ) {
+      return;
+    }
+    selectionRequestRef.current += 1;
     Haptics.selectionAsync().catch(() => {});
     setSelectionMode(true);
     setSelectedIds(new Set([id]));
   }, []);
 
   const toggleSelection = useCallback((id: string) => {
+    if (
+      selectingAllRef.current ||
+      savingRef.current ||
+      deletePhaseRef.current !== "idle"
+    ) {
+      return;
+    }
     setSelectedIds((current) => {
-      const next = new Set(current);
+      const next = new Set([...current].filter((value) => availableIds.has(value)));
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [availableIds]);
 
   const handleTilePress = useCallback(
     (item: GenerationRecord) => {
+      if (
+        selectingAllRef.current ||
+        savingRef.current ||
+        deletePhaseRef.current !== "idle"
+      ) {
+        return;
+      }
       if (selectionMode) {
         toggleSelection(item.id);
         return;
@@ -202,19 +257,48 @@ export function useHistorySheetController({
     [onClose, selectionMode, toggleSelection],
   );
 
-  const toggleSelectAll = useCallback(() => {
+  const toggleSelectAll = useCallback(async () => {
+    if (
+      busy ||
+      selectingAllRef.current ||
+      savingRef.current ||
+      deletePhaseRef.current !== "idle"
+    ) {
+      return;
+    }
     Haptics.selectionAsync().catch(() => {});
-    setSelectedIds(
-      allSelected
-        ? new Set()
-        : new Set(generationHistory.map((item) => item.id)),
-    );
-  }, [allSelected, generationHistory]);
+    if (allSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    const request = ++selectionRequestRef.current;
+    selectingAllRef.current = true;
+    setSelectingAll(true);
+    try {
+      const ids = await loadHistoryIds();
+      if (selectionRequestRef.current === request) {
+        setSelectedIds(new Set(ids));
+      }
+    } catch {
+      if (selectionRequestRef.current === request) {
+        Alert.alert(
+          "전체 선택 실패",
+          "History 목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+        );
+      }
+    } finally {
+      if (selectionRequestRef.current === request) {
+        selectingAllRef.current = false;
+        setSelectingAll(false);
+      }
+    }
+  }, [allSelected, busy, loadHistoryIds]);
 
   const saveSelected = useCallback(async () => {
     if (
-      selectedRecords.length === 0 ||
+      selectedCount === 0 ||
       busy ||
+      selectingAllRef.current ||
       savingRef.current ||
       deletePhaseRef.current !== "idle"
     ) {
@@ -222,6 +306,8 @@ export function useHistorySheetController({
     }
 
     savingRef.current = true;
+    const ids = [...selectedIds];
+    let savedCount = 0;
     try {
       setSaving(true);
       const permission = await MediaLibrary.requestPermissionsAsync(true, [
@@ -232,27 +318,33 @@ export function useHistorySheetController({
         return;
       }
 
-      let nextIndex = 0;
-      let savedCount = 0;
       let failedCount = 0;
-      const saveNext = async () => {
-        while (nextIndex < selectedRecords.length) {
-          const record = selectedRecords[nextIndex++];
-          try {
-            await MediaLibrary.Asset.create(resolveGenerationImageUri(record));
-            savedCount += 1;
-          } catch {
-            failedCount += 1;
+      for await (const batch of iterateGenerationImageBatches(ids)) {
+        let nextIndex = 0;
+        const saveNext = async () => {
+          while (nextIndex < batch.length) {
+            const { imagePath } = batch[nextIndex++];
+            try {
+              if (imagePath === null) {
+                failedCount += 1;
+                continue;
+              }
+              await MediaLibrary.Asset.create(
+                resolveGenerationImageUri({ imagePath }),
+              );
+              savedCount += 1;
+            } catch {
+              failedCount += 1;
+            }
           }
-        }
-      };
-
-      await Promise.all(
-        Array.from(
-          { length: Math.min(HISTORY_SAVE_CONCURRENCY, selectedRecords.length) },
-          saveNext,
-        ),
-      );
+        };
+        await Promise.all(
+          Array.from(
+            { length: Math.min(HISTORY_SAVE_CONCURRENCY, batch.length) },
+            saveNext,
+          ),
+        );
+      }
       if (failedCount > 0) {
         Alert.alert(
           savedCount > 0 ? "일부 이미지 저장 실패" : "저장 실패",
@@ -263,19 +355,22 @@ export function useHistorySheetController({
       }
     } catch {
       Alert.alert(
-        "저장 실패",
-        "선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.",
+        savedCount > 0 ? "일부 이미지 저장 실패" : "저장 실패",
+        savedCount > 0
+          ? `저장 성공: ${savedCount}개\n저장 실패: ${ids.length - savedCount}개`
+          : "선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.",
       );
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [busy, selectedRecords]);
+  }, [busy, selectedCount, selectedIds]);
 
   const deleteSelected = useCallback(() => {
     if (
       selectedCount === 0 ||
       busy ||
+      selectingAllRef.current ||
       savingRef.current ||
       deletePhaseRef.current !== "idle"
     ) {
@@ -346,6 +441,7 @@ export function useHistorySheetController({
       selectedCount,
       allSelected,
       busy,
+      selectingAll,
       saving,
       deleting,
       closeSheet: onClose,
@@ -359,6 +455,7 @@ export function useHistorySheetController({
     [
       allSelected,
       busy,
+      selectingAll,
       deleteSelected,
       deleting,
       enterSelectionMode,
@@ -393,6 +490,8 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
     selectionMode,
     selectedCount,
     allSelected,
+    busy,
+    selectingAll,
     closeSheet,
     exitSelectionMode,
     toggleSelectAll,
@@ -402,13 +501,18 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
     <View style={styles.header}>
       {selectionMode ? (
         <View style={styles.selectionHeaderContent}>
-          <Text style={styles.selectionCount}>{selectedCount}개 선택</Text>
+          <Text style={styles.selectionCount}>
+            {selectingAll ? "선택 중..." : `${selectedCount}개 선택`}
+          </Text>
           <BottomSheetTouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={allSelected ? "전체 선택 해제" : "전체 선택"}
+            accessibilityHint="화면에 불러오지 않은 항목도 포함합니다. 이후 생성된 이미지는 자동 선택되지 않습니다."
+            accessibilityState={{ disabled: busy, busy: selectingAll }}
+            disabled={busy}
             activeOpacity={0.65}
-            onPress={toggleSelectAll}
-            style={styles.headerTextButton}
+            onPress={() => void toggleSelectAll()}
+            style={[styles.headerTextButton, busy && styles.disabled]}
           >
             <Text style={styles.selectAllText}>
               {allSelected ? "전체 해제" : "전체 선택"}
@@ -474,6 +578,7 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     loadMoreHistory,
     selectionMode,
     selectedIds,
+    busy,
     enterSelectionMode,
     handleTilePress,
   } = controller;
@@ -539,6 +644,7 @@ export const HistorySheetContent = memo(function HistorySheetContent({
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
             isCurrent={item.id === currentGenerationId}
+            disabled={busy}
             onPress={handleTilePress}
             onLongPress={enterSelectionMode}
           />

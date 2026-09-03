@@ -5,7 +5,13 @@ import {
   startGenerationService,
   stopGenerationService,
 } from "../../lib/foregroundService";
-import { saveGenerationImageBase64 } from "../../lib/generationHistory";
+import {
+  deleteGenerations as deleteStoredGenerations,
+  listGenerationIds,
+  listGenerationPage,
+  saveGenerationImageBase64,
+  type GenerationRecord,
+} from "../../lib/generationHistory";
 import {
   encodeNovelAiVibe,
   generateNovelAiImageStream,
@@ -55,6 +61,7 @@ jest.mock("../../lib/storage", () => ({
 jest.mock("../../lib/generationHistory", () => ({
   deleteGenerations: jest.fn(),
   listGenerationPage: jest.fn(),
+  listGenerationIds: jest.fn(),
   saveGenerationImageBase64: jest.fn(),
 }));
 
@@ -515,6 +522,14 @@ describe("generation queue execution", () => {
     });
   });
 
+  test("adds a generated ID to an initialized catalog and advances its revision", async () => {
+    useGenerationStore.setState({ generationHistoryIds: ["older"] });
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([generation.id, "older"]);
+    expect(useGenerationStore.getState().generationHistoryRevision).toBe(1);
+  });
+
   test("releases queue resources after an error and allows retry", async () => {
     const onSuccess = jest.fn();
     mockGenerateNovelAiImageStream.mockRejectedValueOnce(
@@ -570,5 +585,81 @@ describe("generation queue execution", () => {
       expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
       expect(useGenerationStore.getState().isLoading).toBe(false);
     });
+  });
+});
+
+describe("History ID catalog and pagination mutations", () => {
+  const mockListIds = jest.mocked(listGenerationIds);
+  const mockListPage = jest.mocked(listGenerationPage);
+  const mockDelete = jest.mocked(deleteStoredGenerations);
+
+  beforeEach(() => {
+    useGenerationStore.setState(initialState, true);
+    mockListIds.mockReset();
+    mockListPage.mockReset();
+    mockDelete.mockReset().mockResolvedValue(undefined);
+  });
+
+  test("loads all IDs without replacing or fetching the grid's records", async () => {
+    mockListIds.mockResolvedValue(["new", "old"]);
+    expect(await useGenerationStore.getState().loadGenerationHistoryIds()).toEqual(["new", "old"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["new", "old"]);
+    expect(useGenerationStore.getState().generationHistory).toEqual([]);
+    expect(mockListPage).not.toHaveBeenCalled();
+  });
+
+  test("revalidates an overtaken query, pruning deletions without selecting new arrivals", async () => {
+    const pending = createDeferred<string[]>();
+    mockListIds.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(["new", "keep"]);
+    const selecting = useGenerationStore.getState().loadGenerationHistoryIds();
+    useGenerationStore.setState({ generationHistoryRevision: 1 });
+    pending.resolve(["keep", "deleted"]);
+    expect(await selecting).toEqual(["keep"]);
+    expect(mockListIds).toHaveBeenCalledTimes(2);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["new", "keep"]);
+  });
+
+  test("preserves the catalog on lookup failure and permits a retry", async () => {
+    useGenerationStore.setState({ generationHistoryIds: ["keep"] });
+    mockListIds.mockRejectedValueOnce(new Error("query failed")).mockResolvedValueOnce([]);
+    await expect(useGenerationStore.getState().loadGenerationHistoryIds()).rejects.toThrow("query failed");
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep"]);
+    await expect(useGenerationStore.getState().loadGenerationHistoryIds()).resolves.toEqual([]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([]);
+  });
+
+  test("updates the catalog only after a successful deletion, including unloaded IDs", async () => {
+    useGenerationStore.setState({ generationHistoryIds: ["keep", "unloaded"] });
+    mockDelete.mockRejectedValueOnce(new Error("delete failed"));
+    await expect(useGenerationStore.getState().deleteGenerations(["unloaded"])).rejects.toThrow("delete failed");
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep", "unloaded"]);
+    expect(useGenerationStore.getState().generationHistoryRevision).toBe(0);
+    await useGenerationStore.getState().deleteGenerations(["unloaded"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep"]);
+    expect(useGenerationStore.getState().generationHistoryRevision).toBe(1);
+  });
+
+  test("does not resurrect deleted rows from an in-flight page response", async () => {
+    const removed = { id: "removed" } as GenerationRecord;
+    const kept = { id: "kept" } as GenerationRecord;
+    const pending = createDeferred<Awaited<ReturnType<typeof listGenerationPage>>>();
+    mockListPage.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({
+      records: [kept], nextCursor: null, hasMore: false,
+    });
+    useGenerationStore.setState({
+      generationHistoryIds: [removed.id, kept.id],
+      generationHistoryInitialized: true,
+      generationHistoryHasMore: true,
+      generationHistoryCursor: { createdAt: 10, id: "cursor" },
+    });
+    const loading = useGenerationStore.getState().loadMoreGenerationHistory();
+    await useGenerationStore.getState().deleteGenerations([removed.id]);
+    pending.resolve({ records: [removed, kept], nextCursor: null, hasMore: false });
+    await loading;
+    expect(mockListPage).toHaveBeenCalledTimes(2);
+    expect(useGenerationStore.getState().generationHistory).toEqual([kept]);
+    expect(useGenerationStore.getState().currentGeneration).toEqual(kept);
+    expect(useGenerationStore.getState().generationHistoryHasMore).toBe(false);
+    expect(useGenerationStore.getState().generationHistoryLoadingMore).toBe(false);
   });
 });

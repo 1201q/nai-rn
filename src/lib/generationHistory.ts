@@ -18,6 +18,7 @@ const ORIGINALS_DIR = "originals";
 const THUMBNAILS_DIR = "thumbnails";
 const THUMBNAIL_SIZE = 512;
 const DELETE_QUERY_BATCH_SIZE = 300;
+const IMAGE_QUERY_BATCH_SIZE = 300;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -199,6 +200,36 @@ export async function listGenerationPage(
     query.params,
   );
   return createGenerationHistoryPage(rows.map(rowToRecord));
+}
+
+export async function listGenerationIds(): Promise<string[]> {
+  await initGenerationHistoryStorage();
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<Pick<GenerationRow, "id">>(
+    "SELECT id FROM generations ORDER BY created_at DESC, id DESC",
+  );
+  return rows.map((row) => row.id);
+}
+
+export async function* iterateGenerationImageBatches(ids: string[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return;
+  await initGenerationHistoryStorage();
+  const db = await getDatabase();
+  for (
+    let offset = 0;
+    offset < uniqueIds.length;
+    offset += IMAGE_QUERY_BATCH_SIZE
+  ) {
+    const batchIds = uniqueIds.slice(offset, offset + IMAGE_QUERY_BATCH_SIZE);
+    const placeholders = batchIds.map(() => "?").join(", ");
+    const rows = await db.getAllAsync<Pick<GenerationRow, "id" | "image_path">>(
+      `SELECT id, image_path FROM generations WHERE id IN (${placeholders})`,
+      batchIds,
+    );
+    const paths = new Map(rows.map((row) => [row.id, row.image_path]));
+    yield batchIds.map((id) => ({ id, imagePath: paths.get(id) ?? null }));
+  }
 }
 
 export async function deleteGenerations(ids: string[]) {
@@ -412,7 +443,9 @@ export async function saveGenerationImageBase64({
   }
 }
 
-export function resolveGenerationImageUri(record: GenerationRecord) {
+export function resolveGenerationImageUri(
+  record: Pick<GenerationRecord, "imagePath">,
+) {
   return fileFromStoredPath(record.imagePath).uri;
 }
 

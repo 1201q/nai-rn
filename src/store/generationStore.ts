@@ -7,6 +7,7 @@ import { create } from "zustand";
 import {
   deleteGenerations as deleteStoredGenerations,
   type GenerationRecord,
+  listGenerationIds,
   listGenerationPage,
   saveGenerationImageBase64,
 } from "../lib/generationHistory";
@@ -451,6 +452,9 @@ type GenerationState = {
   // 생성 결과
   currentGeneration: GenerationRecord | null;
   generationHistory: GenerationRecord[];
+  generationHistoryIds: string[] | null;
+  generationHistoryRevision: number;
+  loadGenerationHistoryIds: () => Promise<string[]>;
   generationHistoryCursor: GenerationHistoryCursor | null;
   generationHistoryHasMore: boolean;
   generationHistoryInitialized: boolean;
@@ -1179,6 +1183,22 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
   currentGeneration: null,
   generationHistory: [],
+  generationHistoryIds: null,
+  generationHistoryRevision: 0,
+  loadGenerationHistoryIds: async () => {
+    // Keep the first query's selection snapshot, even if validation needs a retry.
+    let snapshot: string[] | null = null;
+    let revision: number;
+    let ids: string[];
+    do {
+      revision = get().generationHistoryRevision;
+      ids = await listGenerationIds();
+      snapshot ??= ids;
+    } while (revision !== get().generationHistoryRevision);
+    set({ generationHistoryIds: ids });
+    const existingIds = new Set(ids);
+    return snapshot.filter((id) => existingIds.has(id));
+  },
   generationHistoryCursor: null,
   generationHistoryHasMore: false,
   generationHistoryInitialized: false,
@@ -1197,6 +1217,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     set({ generationHistoryLoadingMore: true });
     try {
       const page = await listGenerationPage(state.generationHistoryCursor);
+      if (state.generationHistoryRevision !== get().generationHistoryRevision) {
+        set({ generationHistoryLoadingMore: false });
+        await get().loadMoreGenerationHistory();
+        return;
+      }
       set((current) => {
         const generationHistory = mergeGenerationHistoryRecords(
           current.generationHistory,
@@ -1233,7 +1258,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           ? (generationHistory[0] ?? null)
           : state.currentGeneration;
 
-      return { generationHistory, currentGeneration };
+      return {
+        generationHistory,
+        currentGeneration,
+        generationHistoryIds: state.generationHistoryIds?.filter(
+          (id) => !deletedIds.has(id),
+        ) ?? null,
+        generationHistoryRevision: state.generationHistoryRevision + 1,
+      };
     });
 
     const state = get();
@@ -1729,6 +1761,13 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         set((state) => ({
           currentGeneration: generation,
           generationHistory: [generation, ...state.generationHistory],
+          generationHistoryIds: state.generationHistoryIds
+            ? [
+                generation.id,
+                ...state.generationHistoryIds.filter((id) => id !== generation.id),
+              ]
+            : null,
+          generationHistoryRevision: state.generationHistoryRevision + 1,
           streamingPreviewUri: null,
           streamingStep: null,
           streamingGenerationId: null,
