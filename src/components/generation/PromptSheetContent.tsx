@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import {
   getUcPresetLabel,
   UC_PRESET_OPTIONS,
@@ -458,6 +459,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
 }: {
   active: boolean;
 }) {
+  const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(
     null,
   );
@@ -473,7 +475,10 @@ export const PromptSheetContent = memo(function PromptSheetContent({
   return (
     <BottomSheetKeyboardAwareScrollView
       style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: sheetContentPaddingBottom },
+      ]}
       bottomOffset={SUGGESTION_BAR_HEIGHT + PROMPT_KEYBOARD_GAP}
       extraKeyboardSpace={SUGGESTION_BAR_HEIGHT}
       mode={PROMPT_KEYBOARD_SCROLL_MODE}
@@ -500,7 +505,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 14,
     paddingHorizontal: 14,
-    paddingBottom: 200,
     gap: 14,
   },
   promptCard: {

@@ -19,7 +19,6 @@ import Reanimated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { IconButton } from "../../components/common/Buttons";
@@ -30,6 +29,7 @@ import {
   GenerationInputCommitProvider,
   useGenerationInputCommit,
 } from "../../context/GenerationInputCommitContext";
+import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import {
   usePredictiveBackHandler,
   type PredictiveBackEvent,
@@ -171,7 +171,8 @@ export function GenerationScreen() {
 }
 
 function GenerationScreenContent() {
-  const insets = useSafeAreaInsets();
+  const { topInset, bottomInset, actionBarHeight, promptCollapsedHeight } =
+    useGenerationChromeMetrics();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const prompt = useGenerationStore((s) => s.prompt);
@@ -279,16 +280,17 @@ function GenerationScreenContent() {
 
   return (
     <View
+      testID="generation-screen"
       style={[
         styles.screen,
-        { paddingTop: insets.top + 12 },
+        { paddingTop: topInset + 12, paddingBottom: promptCollapsedHeight },
       ]}
     >
       <StatusBar style="light" />
 
       <View
         pointerEvents="box-none"
-        style={[styles.topActions, { top: insets.top + 8 }]}
+        style={[styles.topActions, { top: topInset + 8 }]}
       >
         <Pressable
           accessibilityRole="button"
@@ -334,7 +336,13 @@ function GenerationScreenContent() {
         onClose={closeUtilitySheet}
       />
 
-      <View style={styles.actionBar}>
+      <View
+        testID="generation-action-bar"
+        style={[
+          styles.actionBar,
+          { height: actionBarHeight, paddingBottom: bottomInset },
+        ]}
+      >
         <ActionIconButton
           icon="settings-sharp"
           label={
@@ -375,7 +383,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     paddingHorizontal: tokens.space[8],
-    paddingBottom: 128,
     backgroundColor: tokens.color.app,
     gap: tokens.space[5],
   },
@@ -430,7 +437,6 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 90,
     elevation: 90,
-    height: 72,
     paddingTop: 12,
     paddingHorizontal: 8,
     flexDirection: "row",

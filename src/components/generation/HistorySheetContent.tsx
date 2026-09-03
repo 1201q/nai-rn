@@ -18,9 +18,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as MediaLibrary from "expo-media-library";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
+import {
+  GENERATION_ACTION_BAR_CONTENT_HEIGHT,
+  useGenerationChromeMetrics,
+} from "../../hooks/useGenerationChromeMetrics";
 import {
   type GenerationRecord,
   resolveGenerationImageUri,
@@ -32,9 +35,8 @@ import { tokens } from "../../styles/tokens";
 const GRID_PADDING = 12;
 const GRID_GAP = 8;
 const HEADER_HEIGHT = 52;
-const GENERATION_ACTION_BAR_HEIGHT = 72;
-const HISTORY_FOOTER_BOTTOM_INSET = GENERATION_ACTION_BAR_HEIGHT - 1;
-const HISTORY_SHEET_BOTTOM_PADDING = 156;
+const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
+const HISTORY_SCROLL_BOTTOM_GAP = 28;
 
 const HistorySheetTile = memo(function HistorySheetTile({
   item,
@@ -427,7 +429,7 @@ export const HistorySheetContent = memo(function HistorySheetContent({
 }: {
   controller: HistorySheetController;
 }) {
-  const insets = useSafeAreaInsets();
+  const { actionBarHeight } = useGenerationChromeMetrics();
   const { width } = useWindowDimensions();
   const {
     generationHistory,
@@ -459,7 +461,12 @@ export const HistorySheetContent = memo(function HistorySheetContent({
         onEndReachedThreshold={0.4}
         contentContainerStyle={[
           styles.gridContent,
-          { paddingBottom: HISTORY_SHEET_BOTTOM_PADDING + insets.bottom },
+          {
+            paddingBottom:
+              actionBarHeight +
+              HISTORY_SELECTION_ACTIONS_HEIGHT +
+              HISTORY_SCROLL_BOTTOM_GAP,
+          },
           generationHistory.length === 0 && styles.emptyGrid,
         ]}
         ListEmptyComponent={
@@ -511,6 +518,7 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
 }: BottomSheetFooterProps & {
   controller: HistorySheetController;
 }) {
+  const { actionBarHeight } = useGenerationChromeMetrics();
   const {
     selectionMode,
     selectedCount,
@@ -524,7 +532,7 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
   return (
     <BottomSheetFooter
       animatedFooterPosition={animatedFooterPosition}
-      bottomInset={HISTORY_FOOTER_BOTTOM_INSET}
+      bottomInset={actionBarHeight - 1}
     >
       {selectionMode ? (
         <View style={styles.selectionActions}>
@@ -666,7 +674,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingHorizontal: 32,
-    paddingBottom: GENERATION_ACTION_BAR_HEIGHT,
+    paddingBottom: GENERATION_ACTION_BAR_CONTENT_HEIGHT,
   },
   emptyTitle: {
     color: tokens.color.textPrimary,
@@ -736,7 +744,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.accent,
   },
   selectionActions: {
-    height: 56,
+    height: HISTORY_SELECTION_ACTIONS_HEIGHT,
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",

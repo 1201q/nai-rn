@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   type GenerationStartResult,
@@ -52,7 +53,7 @@ jest.mock("expo-status-bar", () => ({
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
 }));
 
 jest.mock("react-native-reanimated", () => {
@@ -172,6 +173,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 const initialState = useGenerationStore.getInitialState();
+const mockInsets = jest.mocked(useSafeAreaInsets);
 const mockGenerateImage = initialState.generateImage as jest.Mock<
   Promise<GenerationStartResult>,
   []
@@ -180,7 +182,34 @@ const mockGenerateImage = initialState.generateImage as jest.Mock<
 describe("GenerationScreen generation acceptance", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
     useGenerationStore.setState(initialState, true);
+  });
+
+  test.each([0, 24, 34])("reserves %i bottom inset for the action bar and canvas", async (bottom) => {
+    mockInsets.mockReturnValue({ top: 59, right: 0, bottom, left: 0 });
+    const screen = await render(<GenerationScreen />);
+
+    expect(screen.getByTestId("generation-action-bar")).toHaveStyle({
+      height: 72 + bottom,
+      paddingBottom: bottom,
+    });
+    expect(screen.getByTestId("generation-screen")).toHaveStyle({
+      paddingTop: 71,
+      paddingBottom: 128 + bottom,
+    });
+  });
+
+  test("updates the action bar after the bottom inset changes", async () => {
+    const screen = await render(<GenerationScreen />);
+    mockInsets.mockReturnValue({ top: 59, right: 0, bottom: 34, left: 0 });
+    await screen.rerender(<GenerationScreen />);
+
+    expect(screen.getByTestId("generation-action-bar")).toHaveStyle({
+      height: 106,
+      paddingBottom: 34,
+    });
+    expect(screen.getByTestId("generation-screen")).toHaveStyle({ paddingBottom: 162 });
   });
 
   test("keeps Prompt open when generation validation is rejected", async () => {

@@ -65,6 +65,7 @@ import {
   SAMPLERS,
   type NaiResolution,
 } from "../../constants/generation";
+import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
@@ -73,9 +74,7 @@ export type PromptSheetStage = "collapsed" | "half" | "full";
 
 type PromptTab = "prompt" | "reference" | "chunks";
 
-const PROMPT_COLLAPSED_HEIGHT = 128;
 const PROMPT_HALF_TOP = 400;
-const PROMPT_FULL_TOP = 70;
 const PROMPT_PAGE_SWIPE_THRESHOLD = 0.18;
 const PROMPT_PAGE_VELOCITY_THRESHOLD = 650;
 const PROMPT_PAGE_ANIMATION_DURATION = 260;
@@ -600,6 +599,7 @@ function ResolutionDimensionInputs({
 }
 
 function SettingsSheetContent() {
+  const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const model = useGenerationStore((state) => state.model);
   const setModel = useGenerationStore((state) => state.setModel);
   const resolution = useGenerationStore((state) => state.resolution);
@@ -753,7 +753,10 @@ function SettingsSheetContent() {
   return (
     <BottomSheetKeyboardAwareScrollView
       style={styles.settingsScroll}
-      contentContainerStyle={styles.settingsScrollContent}
+      contentContainerStyle={[
+        styles.settingsScrollContent,
+        { paddingBottom: sheetContentPaddingBottom },
+      ]}
       bottomOffset={SETTINGS_ACTION_BAR_HEIGHT + SETTINGS_KEYBOARD_GAP}
       extraKeyboardSpace={SETTINGS_ACTION_BAR_HEIGHT}
       mode={SETTINGS_KEYBOARD_SCROLL_MODE}
@@ -1161,6 +1164,7 @@ export function PromptSheetHost({
   const sheetRef = useRef<BottomSheet>(null);
   const { commitPendingInput } = useGenerationInputCommit();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { promptCollapsedHeight, promptFullTop } = useGenerationChromeMetrics();
   const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
   const referenceCount = useGenerationStore(
     (state) =>
@@ -1178,11 +1182,11 @@ export function PromptSheetHost({
   });
   const snapPoints = useMemo(
     () => [
-      PROMPT_COLLAPSED_HEIGHT,
-      Math.max(PROMPT_COLLAPSED_HEIGHT, windowHeight - PROMPT_HALF_TOP),
-      Math.max(PROMPT_COLLAPSED_HEIGHT, windowHeight - PROMPT_FULL_TOP),
+      promptCollapsedHeight,
+      Math.max(promptCollapsedHeight, windowHeight - PROMPT_HALF_TOP),
+      Math.max(promptCollapsedHeight, windowHeight - promptFullTop),
     ],
-    [windowHeight],
+    [promptCollapsedHeight, promptFullTop, windowHeight],
   );
   const stageIndex =
     promptStage === "collapsed" ? 0 : promptStage === "half" ? 1 : 2;
@@ -1413,9 +1417,10 @@ export function UtilitySheetHost({
     useState<UtilitySheet | null>(sheet);
   const historyController = useHistorySheetController({ onClose });
   const { height: windowHeight } = useWindowDimensions();
+  const { utilitySheetTop } = useGenerationChromeMetrics();
   const snapPoints = useMemo(
-    () => [Math.max(1, windowHeight - 56)],
-    [windowHeight],
+    () => [Math.max(1, windowHeight - utilitySheetTop)],
+    [utilitySheetTop, windowHeight],
   );
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
@@ -1606,7 +1611,6 @@ const styles = StyleSheet.create({
   settingsScrollContent: {
     paddingTop: 18,
     paddingHorizontal: 16,
-    paddingBottom: 200,
     gap: 24,
   },
   settingsSection: {

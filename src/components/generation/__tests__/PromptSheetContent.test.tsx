@@ -1,12 +1,21 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { Pressable, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   GenerationInputCommitProvider,
   useGenerationInputCommit,
 } from "../../../context/GenerationInputCommitContext";
 import { useGenerationStore } from "../../../store/generationStore";
-import { PromptComposerCard } from "../PromptSheetContent";
+import { PromptComposerCard, PromptSheetContent } from "../PromptSheetContent";
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
+}));
+
+jest.mock("../CharacterPromptSection", () => ({
+  CharacterPromptSection: () => null,
+}));
 
 function CommitPendingInputButton() {
   const { commitPendingInput } = useGenerationInputCommit();
@@ -56,7 +65,7 @@ jest.mock("../BottomSheetKeyboardAwareScrollView", () => {
   return {
     BottomSheetKeyboardAwareScrollView: (
       props: import("react-native").ScrollViewProps,
-    ) => React.createElement(ScrollView, props),
+    ) => React.createElement(ScrollView, { ...props, testID: "prompt-scroll" }),
   };
 });
 
@@ -143,6 +152,18 @@ describe("PromptComposerCard", () => {
     state.setNegativePrompt("negative");
     state.setQualityToggle(true);
     state.setUcPreset(0);
+  });
+
+  test.each([0, 24, 34])("reserves %i bottom inset in the Prompt scroll content", async (bottom) => {
+    jest.mocked(useSafeAreaInsets).mockReturnValue({
+      top: 0, right: 0, bottom, left: 0,
+    });
+    const screen = await render(<PromptSheetContent active />);
+
+    const { contentContainerStyle } = screen.getByTestId("prompt-scroll").props;
+    expect(StyleSheet.flatten(contentContainerStyle)).toMatchObject({
+      paddingBottom: 200 + bottom,
+    });
   });
 
   it("starts merged and keeps the editor at the largest prompt height", async () => {

@@ -1,10 +1,17 @@
-import { act, renderHook, waitFor } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { act, render, renderHook, waitFor } from "@testing-library/react-native";
+import { Alert, StyleSheet } from "react-native";
+import { BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { SharedValue } from "react-native-reanimated";
 import { toast } from "sonner-native";
 
 import type { GenerationRecord } from "../../../lib/generationHistory";
 import { useGenerationStore } from "../../../store/generationStore";
-import { useHistorySheetController } from "../HistorySheetContent";
+import {
+  HistorySheetContent,
+  HistorySheetFooter,
+  useHistorySheetController,
+} from "../HistorySheetContent";
 
 type MockHistoryState = {
   generationHistory: GenerationRecord[];
@@ -35,8 +42,8 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("@gorhom/bottom-sheet", () => ({
-  BottomSheetFlatList: () => null,
-  BottomSheetFooter: () => null,
+  BottomSheetFlatList: jest.fn(() => null),
+  BottomSheetFooter: jest.fn(() => null),
   TouchableOpacity: () => null,
 }));
 
@@ -54,7 +61,7 @@ jest.mock("expo-media-library", () => ({
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
 }));
 
 jest.mock("sonner-native", () => ({
@@ -85,6 +92,7 @@ const mockDeleteGenerations =
   initialState.deleteGenerations as MockHistoryState["deleteGenerations"];
 const mockAlert = jest.spyOn(Alert, "alert");
 const mockToastSuccess = jest.mocked(toast.success);
+const mockInsets = jest.mocked(useSafeAreaInsets);
 
 function getAlertButton(callIndex: number, buttonIndex: number) {
   const buttons = mockAlert.mock.calls[callIndex]?.[2];
@@ -109,7 +117,29 @@ async function renderSelectedHistoryController() {
 describe("History deletion confirmation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
     useGenerationStore.setState(initialState, true);
+  });
+
+  test.each([0, 24, 34])("keeps the History footer and list above %i bottom inset", async (bottom) => {
+    mockInsets.mockReturnValue({ top: 0, right: 0, bottom, left: 0 });
+    const hook = await renderSelectedHistoryController();
+    await render(
+      <>
+        <HistorySheetContent controller={hook.result.current} />
+        <HistorySheetFooter
+          controller={hook.result.current}
+          animatedFooterPosition={{ value: 0 } as SharedValue<number>}
+        />
+      </>,
+    );
+
+    const footerProps = jest.mocked(BottomSheetFooter).mock.calls[0][0];
+    const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
+    expect(footerProps.bottomInset).toBe(71 + bottom);
+    expect(StyleSheet.flatten(listProps.contentContainerStyle)).toMatchObject({
+      paddingBottom: 156 + bottom,
+    });
   });
 
   test("keeps the selection and does not delete when cancelled", async () => {
