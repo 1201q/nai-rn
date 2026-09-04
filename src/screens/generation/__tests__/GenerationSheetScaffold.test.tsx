@@ -9,6 +9,7 @@ import {
   GenerationInputCommitProvider,
   useGenerationInputCommit,
 } from "../../../context/GenerationInputCommitContext";
+import type { GenerationRecord } from "../../../lib/generationHistory";
 import { useGenerationStore } from "../../../store/generationStore";
 
 import {
@@ -31,6 +32,7 @@ jest.mock("@gorhom/bottom-sheet", () => {
       return React.createElement(View, null, props.children as React.ReactNode);
     }),
     BottomSheetView: View,
+    BottomSheetScrollView: View,
     BottomSheetTextInput: TextInput,
     useBottomSheetTimingConfigs: () => ({}),
   };
@@ -42,6 +44,7 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   default: jest.fn(() => ({ width: 390, height: 844, scale: 1, fontScale: 1 })),
 }));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("sonner-native", () => ({ toast: { success: jest.fn() } }));
 jest.mock("../../../native/predictiveBack", () => ({ usePredictiveBackHandler: () => {} }));
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
@@ -131,6 +134,24 @@ jest.mock("react-native-reanimated", () => {
 
 const backProgress = { value: 0 } as SharedValue<number>;
 const initialState = useGenerationStore.getInitialState();
+const metadataGeneration: GenerationRecord = {
+  id: "metadata-generation",
+  imagePath: "originals/metadata-generation.png",
+  thumbnailPath: null,
+  prompt: "prompt",
+  negativePrompt: "negative",
+  model: "nai-diffusion-4-5-full",
+  sampler: "k_euler_ancestral",
+  noiseSchedule: "karras",
+  width: 832,
+  height: 1216,
+  steps: 28,
+  scale: 5,
+  cfgRescale: 0,
+  seed: 123,
+  createdAt: 1,
+  metadataJson: "{}",
+};
 
 function CommitPendingButton() {
   const { commitPendingInput } = useGenerationInputCommit();
@@ -478,5 +499,25 @@ describe("generation sheet safe area", () => {
     await prompt.rerender(renderPrompt());
 
     expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([149, 149, 320]);
+  });
+
+  test("lets the Metadata pager win horizontal gestures over the sheet", async () => {
+    jest.mocked(useSafeAreaInsets).mockReturnValue({
+      top: 0, bottom: 0, left: 0, right: 0,
+    });
+    await render(
+      <UtilitySheetHost
+        sheet="metadata"
+        generation={metadataGeneration}
+        predictiveBackProgress={backProgress}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(mockSheetProps.mock.calls.at(-1)?.[0]).toMatchObject({
+      activeOffsetY: [-10, 10],
+      failOffsetX: [-18, 18],
+    });
+    expect(mockSheetProps.mock.calls.at(-1)?.[0].waitFor).toBeDefined();
   });
 });

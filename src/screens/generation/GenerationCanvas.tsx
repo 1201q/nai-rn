@@ -24,7 +24,6 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { toast } from "sonner-native";
 
-import { useAppSheet } from "../../context/AppSheetContext";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import {
   getI2IEffectiveResolution,
@@ -222,7 +221,11 @@ const FreeTransformImage = memo(function FreeTransformImage({
   );
 });
 
-export function GenerationCanvas() {
+export function GenerationCanvas({
+  onOpenMetadata,
+}: {
+  onOpenMetadata: () => void;
+}) {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
   const isLoading = useGenerationStore((s) => s.isLoading);
@@ -233,7 +236,6 @@ export function GenerationCanvas() {
   const setMainImageBlurred = useGenerationStore(
     (s) => s.setMainImageBlurred,
   );
-  const { open } = useAppSheet();
   const [expanded, setExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -405,9 +407,7 @@ export function GenerationCanvas() {
               icon="information-circle-outline"
               label="메타데이터 정보"
               disabled={!canUseImageActions}
-              onPress={() =>
-                currentGeneration && open("metadataView", currentGeneration)
-              }
+              onPress={onOpenMetadata}
             />
           </Animated.View>
           <Pressable

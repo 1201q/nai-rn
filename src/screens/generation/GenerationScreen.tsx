@@ -176,6 +176,7 @@ function GenerationScreenContent() {
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   const prompt = useGenerationStore((s) => s.prompt);
+  const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
   const [promptStage, setPromptStage] =
     useState<PromptSheetStage>("collapsed");
@@ -208,6 +209,9 @@ function GenerationScreenContent() {
     },
     [finishInputEditing],
   );
+  const openMetadataSheet = useCallback(() => {
+    toggleUtilitySheet("metadata");
+  }, [toggleUtilitySheet]);
   const handleGenerationStarted = useCallback(() => {
     setUtilitySheet(null);
     setPromptStage("collapsed");
@@ -321,7 +325,7 @@ function GenerationScreenContent() {
       </View>
 
       <View style={styles.topActionsSpacer} />
-      <GenerationCanvas />
+      <GenerationCanvas onOpenMetadata={openMetadataSheet} />
 
       <PromptSheetHost
         promptPreview={prompt}
@@ -334,6 +338,7 @@ function GenerationScreenContent() {
         sheet={utilitySheet}
         predictiveBackProgress={utilityBackProgress}
         onClose={closeUtilitySheet}
+        generation={currentGeneration}
       />
 
       <View

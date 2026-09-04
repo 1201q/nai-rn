@@ -11,6 +11,7 @@ import { GenerationScreen } from "../GenerationScreen";
 type MockGenerationState = {
   anlasBalance: null;
   prompt: string;
+  currentGeneration: null;
   isLoading: boolean;
   batchCount: number;
   queueTotal: number;
@@ -27,6 +28,7 @@ jest.mock("../../../store/generationStore", () => {
     useGenerationStore: create<MockGenerationState>(() => ({
       anlasBalance: null,
       prompt: "prompt",
+      currentGeneration: null,
       isLoading: false,
       batchCount: 1,
       queueTotal: 0,
@@ -140,7 +142,18 @@ jest.mock("../../../native/predictiveBack", () => ({
 }));
 
 jest.mock("../GenerationCanvas", () => ({
-  GenerationCanvas: () => null,
+  GenerationCanvas: ({
+    onOpenMetadata,
+  }: {
+    onOpenMetadata: () => void;
+  }) => {
+    const React = require("react") as typeof import("react");
+    const { Pressable } = require("react-native") as typeof import("react-native");
+    return React.createElement(Pressable, {
+      accessibilityLabel: "Metadata 테스트 열기",
+      onPress: onOpenMetadata,
+    });
+  },
 }));
 
 jest.mock("../GenerationSheetScaffold", () => {
@@ -174,7 +187,7 @@ jest.mock("../GenerationSheetScaffold", () => {
     UtilitySheetHost: function MockUtilitySheet({
       sheet,
     }: {
-      sheet: "settings" | "history" | null;
+      sheet: "settings" | "history" | "metadata" | null;
     }) {
       const [open, setOpen] = React.useState(false);
       return React.createElement(
@@ -346,6 +359,16 @@ describe("GenerationScreen generation acceptance", () => {
       );
     });
     await screen.unmount();
+  });
+
+  test("opens Metadata in the shared utility sheet slot", async () => {
+    const screen = await render(<GenerationScreen />);
+
+    await fireEvent.press(screen.getByLabelText("Metadata 테스트 열기"));
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("metadata");
+
+    await fireEvent.press(screen.getByLabelText("Settings 열기"));
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("settings");
   });
 
   test("closes open sheets only after generation is accepted", async () => {

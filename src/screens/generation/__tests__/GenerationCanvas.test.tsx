@@ -20,9 +20,6 @@ jest.mock("react-native-reanimated", () => ({
   __esModule: true,
   default: {},
 }));
-jest.mock("../../../context/AppSheetContext", () => ({
-  useAppSheet: () => ({ open: jest.fn() }),
-}));
 jest.mock("../../../lib/generationHistory", () => ({
   resolveGenerationImageUri: jest.fn(),
 }));
@@ -47,7 +44,7 @@ describe("generation canvas toolbar accessibility", () => {
   afterEach(() => jest.restoreAllMocks());
 
   test("hides collapsed actions but keeps the expand button accessible", async () => {
-    const screen = await render(<GenerationCanvas />);
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     const labels = [
       "이미지 블러 적용", "이미지 다운로드", "이미지 복사", "메타데이터 정보",
     ];

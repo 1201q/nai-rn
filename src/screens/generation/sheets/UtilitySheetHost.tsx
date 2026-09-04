@@ -21,6 +21,7 @@ import {
   type HistorySheetController,
   useHistorySheetController,
 } from "../../../components/generation/HistorySheetContent";
+import type { GenerationRecord } from "../../../lib/generationHistory";
 import { useGenerationChromeMetrics } from "../../../hooks/useGenerationChromeMetrics";
 import { usePredictiveBackHandler } from "../../../native/predictiveBack";
 import { tokens } from "../../../styles/tokens";
@@ -29,9 +30,14 @@ import {
   PredictiveBackSheetLayer,
   PressableSurface,
 } from "./SheetLayers";
+import {
+  MetadataSheetPager,
+  type MetadataSheetPagerController,
+  useMetadataSheetPagerController,
+} from "./metadata/MetadataSheetPager";
 import { SettingsSheetContent } from "./settings/SettingsSheetContent";
 
-export type UtilitySheet = "settings" | "history";
+export type UtilitySheet = "settings" | "history" | "metadata";
 
 const UTILITY_BACKDROP_Z_INDEX = 82;
 const UTILITY_SHEET_Z_INDEX = 85;
@@ -40,13 +46,29 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   sheet,
   onClose,
   historyController,
+  generation,
+  metadataPagerController,
 }: {
   sheet: UtilitySheet;
   onClose: () => void;
   historyController: HistorySheetController;
+  generation: GenerationRecord | null;
+  metadataPagerController: MetadataSheetPagerController;
 }) {
   if (sheet === "history") {
     return <HistorySheetContent controller={historyController} />;
+  }
+
+  if (sheet === "metadata") {
+    return generation ? (
+      <BottomSheetView style={styles.sheetBody}>
+        <MetadataSheetPager
+          generation={generation}
+          onClose={onClose}
+          controller={metadataPagerController}
+        />
+      </BottomSheetView>
+    ) : null;
   }
 
   const title = "Settings";
@@ -73,16 +95,19 @@ export function UtilitySheetHost({
   sheet,
   predictiveBackProgress,
   onClose,
+  generation = null,
 }: {
   sheet: UtilitySheet | null;
   predictiveBackProgress: SharedValue<number>;
   onClose: () => void;
+  generation?: GenerationRecord | null;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);
   const [renderedSheet, setRenderedSheet] =
     useState<UtilitySheet | null>(sheet);
   const historyController = useHistorySheetController({ onClose });
+  const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
   const { utilitySheetTop } = useGenerationChromeMetrics();
   const snapPoints = useMemo(
@@ -167,7 +192,13 @@ export function UtilitySheetHost({
         disappearsOnIndex={-1}
         visible
         zIndex={UTILITY_BACKDROP_Z_INDEX}
-        accessibilityLabel={`${renderedSheet === "settings" ? "Settings" : "History"} 닫기`}
+        accessibilityLabel={`${
+          renderedSheet === "settings"
+            ? "Settings"
+            : renderedSheet === "history"
+              ? "History"
+              : "Metadata"
+        } 닫기`}
         onPress={onClose}
       />
       <PredictiveBackSheetLayer
@@ -191,6 +222,17 @@ export function UtilitySheetHost({
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
+          activeOffsetY={
+            renderedSheet === "metadata" ? [-10, 10] : undefined
+          }
+          failOffsetX={
+            renderedSheet === "metadata" ? [-18, 18] : undefined
+          }
+          waitFor={
+            renderedSheet === "metadata"
+              ? metadataPagerController.pageGesture
+              : undefined
+          }
           handleComponent={
             renderedSheet === "history" ? renderHistoryHandle : undefined
           }
@@ -208,6 +250,8 @@ export function UtilitySheetHost({
             sheet={renderedSheet}
             onClose={onClose}
             historyController={historyController}
+            generation={generation}
+            metadataPagerController={metadataPagerController}
           />
         </BottomSheet>
       </PredictiveBackSheetLayer>
