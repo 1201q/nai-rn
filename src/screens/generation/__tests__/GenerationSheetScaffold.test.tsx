@@ -20,6 +20,7 @@ import {
 
 const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
 const mockPromptMounted = jest.fn();
+const mockScrollableRegistration = jest.fn();
 const mockSliderProps = jest.fn<void, [ComponentProps<typeof Slider>]>();
 
 jest.mock("@gorhom/bottom-sheet", () => {
@@ -31,7 +32,19 @@ jest.mock("@gorhom/bottom-sheet", () => {
       mockSheetProps(props);
       return React.createElement(View, null, props.children as React.ReactNode);
     }),
-    BottomSheetView: View,
+    BottomSheetView: function MockSheetView({
+      focusHook = React.useEffect,
+      ...props
+    }: import("react-native").ViewProps & { focusHook?: typeof React.useEffect }) {
+      focusHook(() => {
+        mockScrollableRegistration("view");
+      });
+      return React.createElement(View, {
+        ...props,
+        testID: "sheet-body",
+        style: [props.style, { position: "absolute", left: 0, top: 0, right: 0 }],
+      });
+    },
     BottomSheetScrollView: View,
     BottomSheetTextInput: TextInput,
     useBottomSheetTimingConfigs: () => ({}),
@@ -71,11 +84,25 @@ jest.mock("../../../components/forms/Slider", () => ({
 }));
 jest.mock("../../../components/forms/SheetSelect", () => ({ SheetSelect: () => null }));
 jest.mock("../../../components/forms/FormControls", () => ({ Toggle: () => null }));
+jest.mock("../../../components/generation/ReferenceImagesSheetContent", () => {
+  const React = require("react") as typeof import("react");
+  return {
+    ReferenceImagesSheetContent: function MockReferenceContent({ active }: { active: boolean }) {
+      React.useEffect(() => {
+        if (active) mockScrollableRegistration("reference-scroll");
+      }, [active]);
+      return null;
+    },
+  };
+});
 jest.mock("../../../components/generation/PromptSheetContent", () => {
   const React = require("react") as typeof import("react");
   const { TextInput } = require("react-native") as typeof import("react-native");
   return {
-    PromptSheetContent: function MockPromptContent() {
+    PromptSheetContent: function MockPromptContent({ active }: { active: boolean }) {
+      React.useEffect(() => {
+        if (active) mockScrollableRegistration("prompt-scroll");
+      }, [active]);
       React.useEffect(() => {
         mockPromptMounted();
       }, []);
@@ -365,6 +392,27 @@ describe("generation sheet accessibility visibility", () => {
     expect(onStageChange).toHaveBeenLastCalledWith("collapsed");
   });
 
+  test("counts only enabled reference images in the tab badge", async () => {
+    const initial = useGenerationStore.getState();
+    useGenerationStore.setState({
+      i2iSourceImage: { uri: "file:///source.png" } as never,
+      i2iEnabled: true,
+      vibeReferences: [{ enabled: true }, { enabled: false }] as never,
+      preciseReferences: [{ enabled: true }, { enabled: false }] as never,
+    });
+    const screen = await render(renderPromptStage("half"));
+    expect(screen.getByText("3")).toBeTruthy();
+    await act(() => useGenerationStore.setState({ i2iEnabled: false }));
+    expect(screen.getByText("2")).toBeTruthy();
+    await act(() => useGenerationStore.setState({
+      vibeReferences: [{ enabled: false }] as never,
+      preciseReferences: [{ enabled: false }] as never,
+    }));
+    expect(screen.queryByText("2")).toBeNull();
+    expect(screen.queryByText("0")).toBeNull();
+    await act(() => useGenerationStore.setState(initial, true));
+  });
+
   test("exposes only the preview when Prompt is collapsed", async () => {
     const screen = await render(renderPromptStage("collapsed"));
 
@@ -432,6 +480,31 @@ describe("generation sheet accessibility visibility", () => {
     await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
     expect(screen.getByLabelText("테스트 Prompt 입력")).toBeTruthy();
     expect(mockPromptMounted).toHaveBeenCalledTimes(1);
+  });
+
+  test("preserves the bounded sheet layout and active scroll registration across tabs and stages", async () => {
+    const screen = await render(renderPromptStage("half"));
+    expect(StyleSheet.flatten(screen.getByTestId("sheet-body").props.style)).toMatchObject({
+      position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+    });
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("prompt-scroll");
+    await fireEvent.press(screen.getByRole("tab", { name: "Reference Images" }));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("reference-scroll");
+
+    await screen.rerender(renderPromptStage("full"));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("reference-scroll");
+
+    await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("prompt-scroll");
+    await fireEvent.press(screen.getByRole("tab", { name: "Reference Images" }));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("reference-scroll");
+    await fireEvent.press(screen.getByRole("tab", { name: "Chunks" }));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("view");
+    await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("prompt-scroll");
+    await screen.rerender(renderPromptStage("collapsed"));
+    await screen.rerender(renderPromptStage("half"));
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("prompt-scroll");
   });
 });
 

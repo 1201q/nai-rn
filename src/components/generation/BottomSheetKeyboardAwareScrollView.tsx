@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, type EffectCallback } from "react";
 import {
   createBottomSheetScrollableComponent,
   SCROLLABLE_TYPE,
@@ -22,7 +22,23 @@ const BottomSheetKeyboardAwareScrollViewComponent =
   >(SCROLLABLE_TYPE.SCROLLVIEW, AnimatedKeyboardAwareScrollView);
 
 export const BottomSheetKeyboardAwareScrollView = memo(
-  BottomSheetKeyboardAwareScrollViewComponent,
+  function BottomSheetKeyboardAwareScrollView({
+    active = true,
+    ...props
+  }: BottomSheetScrollViewProps & KeyboardAwareScrollViewProps & { active?: boolean }) {
+    function useActiveFocusEffect(effect: EffectCallback) {
+      useEffect(() => {
+        if (active) return effect();
+      }, [active, effect]);
+    }
+
+    return (
+      <BottomSheetKeyboardAwareScrollViewComponent
+        {...props}
+        focusHook={useActiveFocusEffect}
+      />
+    );
+  },
 );
 
 BottomSheetKeyboardAwareScrollView.displayName =

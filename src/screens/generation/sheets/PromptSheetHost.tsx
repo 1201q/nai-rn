@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type EffectCallback } from "react";
 import {
   Keyboard,
   Pressable,
@@ -26,6 +26,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { PromptSheetContent } from "../../../components/generation/PromptSheetContent";
+import { ReferenceImagesSheetContent } from "../../../components/generation/ReferenceImagesSheetContent";
 import { useGenerationInputCommit } from "../../../context/GenerationInputCommitContext";
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
@@ -221,11 +222,17 @@ export function PromptSheetHost({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { promptCollapsedHeight, promptFullTop } = useGenerationChromeMetrics();
   const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
+  function useStaticPageFocus(effect: EffectCallback) {
+    useEffect(() => {
+      // Scrollable pages register themselves; only the empty page is a View.
+      if (promptTab === "chunks" || promptStage === "collapsed") return effect();
+    }, [effect, promptTab, promptStage]);
+  }
   const referenceCount = useGenerationStore(
     (state) =>
-      (state.i2iSourceImage ? 1 : 0) +
-      state.vibeReferences.length +
-      state.preciseReferences.length,
+      (state.i2iSourceImage && state.i2iEnabled ? 1 : 0) +
+      state.vibeReferences.filter((reference) => reference.enabled).length +
+      state.preciseReferences.filter((reference) => reference.enabled).length,
   );
   const animatedIndex = useSharedValue(0);
   const promptPageIndex = useSharedValue(0);
@@ -414,7 +421,10 @@ export function PromptSheetHost({
           onAnimate={handleSheetAnimate}
           onChange={handleSheetChange}
         >
-          <BottomSheetView style={styles.sheetBody}>
+          <BottomSheetView
+            style={styles.sheetBody}
+            focusHook={useStaticPageFocus}
+          >
             <PromptHeader
               preview={promptPreview}
               stage={promptStage}
@@ -453,6 +463,8 @@ export function PromptSheetHost({
                       >
                         {item.key === "prompt" ? (
                           <PromptSheetContent active={active} />
+                        ) : item.key === "reference" ? (
+                          <ReferenceImagesSheetContent active={active} />
                         ) : (
                           <View style={styles.emptyPromptPage} />
                         )}

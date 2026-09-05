@@ -474,6 +474,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
 
   return (
     <BottomSheetKeyboardAwareScrollView
+      active={active}
       style={styles.scrollView}
       contentContainerStyle={[
         styles.scrollContent,
