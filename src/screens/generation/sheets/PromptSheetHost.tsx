@@ -27,7 +27,10 @@ import Reanimated, {
 
 import { PromptSheetContent } from "../../../components/generation/PromptSheetContent";
 import { useGenerationInputCommit } from "../../../context/GenerationInputCommitContext";
-import { useGenerationChromeMetrics } from "../../../hooks/useGenerationChromeMetrics";
+import {
+  GENERATION_SHEET_HEADER_HEIGHT,
+  useGenerationChromeMetrics,
+} from "../../../hooks/useGenerationChromeMetrics";
 import { useGenerationStore } from "../../../store/generationStore";
 import { tokens } from "../../../styles/tokens";
 import {
@@ -507,7 +510,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   promptHeader: {
-    height: 46,
+    height: GENERATION_SHEET_HEADER_HEIGHT,
     position: "relative",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,
@@ -529,7 +532,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
   },
   promptPreviewButton: {
-    height: 46,
+    height: GENERATION_SHEET_HEADER_HEIGHT,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",

@@ -22,6 +22,7 @@ import { toast } from "sonner-native";
 
 import {
   GENERATION_ACTION_BAR_CONTENT_HEIGHT,
+  GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
 } from "../../hooks/useGenerationChromeMetrics";
 import {
@@ -35,7 +36,6 @@ import { tokens } from "../../styles/tokens";
 
 const GRID_PADDING = 12;
 const GRID_GAP = 8;
-const HEADER_HEIGHT = 52;
 const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
 const HISTORY_SCROLL_BOTTOM_GAP = 28;
 const HISTORY_SAVE_CONCURRENCY = 3;
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.borderSubtleStrong,
   },
   header: {
-    height: HEADER_HEIGHT,
+    height: GENERATION_SHEET_HEADER_HEIGHT,
     paddingLeft: 20,
     paddingRight: 12,
     flexDirection: "row",

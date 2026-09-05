@@ -11,6 +11,9 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
+import {
+  GENERATION_SHEET_HEADER_HEIGHT,
+} from "../../../../hooks/useGenerationChromeMetrics";
 import type { GenerationRecord } from "../../../../lib/generationHistory";
 import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
@@ -228,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 46,
+    height: GENERATION_SHEET_HEADER_HEIGHT,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,

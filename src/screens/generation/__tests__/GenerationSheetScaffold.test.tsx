@@ -444,7 +444,7 @@ describe("generation sheet safe area", () => {
   });
 
   test.each([
-    { top: 0, bottom: 0, fullTop: 70, utilityTop: 56 },
+    { top: 0, bottom: 0, fullTop: 56, utilityTop: 56 },
     { top: 59, bottom: 34, fullTop: 71, utilityTop: 71 },
   ])("keeps Prompt and Settings clear of $top/$bottom insets", async ({
     top, bottom, fullTop, utilityTop,
@@ -498,7 +498,7 @@ describe("generation sheet safe area", () => {
     });
     await prompt.rerender(renderPrompt());
 
-    expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([149, 149, 320]);
+    expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([149, 149, 334]);
   });
 
   test("lets the Metadata pager win horizontal gestures over the sheet", async () => {

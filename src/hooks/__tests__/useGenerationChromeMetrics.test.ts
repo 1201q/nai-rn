@@ -11,8 +11,8 @@ const mockInsets = jest.mocked(useSafeAreaInsets);
 
 describe("generation chrome metrics", () => {
   test.each([
-    { top: 0, bottom: 0, promptFullTop: 70, utilitySheetTop: 56 },
-    { top: 24, bottom: 24, promptFullTop: 70, utilitySheetTop: 56 },
+    { top: 0, bottom: 0, promptFullTop: 56, utilitySheetTop: 56 },
+    { top: 24, bottom: 24, promptFullTop: 56, utilitySheetTop: 56 },
     { top: 59, bottom: 34, promptFullTop: 71, utilitySheetTop: 71 },
   ])("reserves safe area once for $top/$bottom insets", async (insets) => {
     mockInsets.mockReturnValue({ ...insets, left: 0, right: 0 });
@@ -30,6 +30,9 @@ describe("generation chrome metrics", () => {
     expect(
       hook.result.current.promptCollapsedHeight - hook.result.current.actionBarHeight,
     ).toBe(56);
+    expect(hook.result.current.promptFullTop).toBe(
+      hook.result.current.utilitySheetTop,
+    );
   });
 
   test("updates all metrics when the safe area changes", async () => {
@@ -43,7 +46,7 @@ describe("generation chrome metrics", () => {
       actionBarHeight: 72,
       promptCollapsedHeight: 128,
       sheetContentPaddingBottom: 200,
-      promptFullTop: 70,
+      promptFullTop: 56,
       utilitySheetTop: 56,
     });
   });

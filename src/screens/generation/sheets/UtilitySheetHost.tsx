@@ -22,7 +22,10 @@ import {
   useHistorySheetController,
 } from "../../../components/generation/HistorySheetContent";
 import type { GenerationRecord } from "../../../lib/generationHistory";
-import { useGenerationChromeMetrics } from "../../../hooks/useGenerationChromeMetrics";
+import {
+  GENERATION_SHEET_HEADER_HEIGHT,
+  useGenerationChromeMetrics,
+} from "../../../hooks/useGenerationChromeMetrics";
 import { usePredictiveBackHandler } from "../../../native/predictiveBack";
 import { tokens } from "../../../styles/tokens";
 import {
@@ -294,7 +297,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   utilityHeader: {
-    height: 52,
+    height: GENERATION_SHEET_HEADER_HEIGHT,
     paddingLeft: 20,
     paddingRight: 12,
     flexDirection: "row",

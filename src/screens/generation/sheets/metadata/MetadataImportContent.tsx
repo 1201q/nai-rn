@@ -31,7 +31,6 @@ type ImportOption = {
   key: ImportSelectionKey;
   label: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
 };
 
 function resolveImportMetadata(generation: GenerationRecord): ParsedNaiMetadata {
@@ -83,13 +82,6 @@ const ImportOptionCard = memo(function ImportOptionCard({
           pressed && styles.pressed,
         ]}
       >
-        <View style={[styles.optionIcon, selected && styles.optionIconSelected]}>
-          <Ionicons
-            name={option.icon}
-            size={18}
-            color={selected ? tokens.color.accent : tokens.color.textTertiary}
-          />
-        </View>
         <View style={styles.optionCopy}>
           <Text style={styles.optionLabel}>{option.label}</Text>
           <Text style={styles.optionDescription}>{option.description}</Text>
@@ -184,31 +176,26 @@ export const MetadataImportContent = memo(function MetadataImportContent({
         key: "prompt",
         label: "Prompt",
         description: "Base Prompt를 가져옵니다.",
-        icon: "create-outline",
       },
       {
         key: "negativePrompt",
         label: "Undesired Content",
         description: "Negative Prompt와 UC를 가져옵니다.",
-        icon: "remove-circle-outline",
       },
       {
         key: "characters",
         label: "Character Prompts",
         description: `${parsed.characters?.length ?? 0}개의 캐릭터 프롬프트`,
-        icon: "people-outline",
       },
       {
         key: "settings",
         label: "Generation Settings",
         description: "Model, Resolution, Sampling 설정",
-        icon: "options-outline",
       },
       {
         key: "seed",
         label: "Seed",
         description: parsed.seed === undefined ? "Seed 정보 없음" : String(parsed.seed),
-        icon: "dice-outline",
       },
     ],
     [parsed.characters?.length, parsed.seed],
@@ -328,17 +315,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[6],
-  },
-  optionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tokens.color.raised,
-  },
-  optionIconSelected: {
-    backgroundColor: "rgba(255,201,60,0.1)",
   },
   optionCopy: {
     flex: 1,
