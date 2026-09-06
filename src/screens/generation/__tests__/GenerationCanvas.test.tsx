@@ -1,5 +1,4 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Animated } from "react-native";
 
 import { GenerationCanvas } from "../GenerationCanvas";
 
@@ -16,10 +15,21 @@ jest.mock("react-native-gesture-handler", () => ({
   Gesture: {},
   GestureDetector: ({ children }: { children: React.ReactNode }) => children,
 }));
-jest.mock("react-native-reanimated", () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock("react-native-reanimated", () => {
+  const React = require("react") as typeof import("react");
+  const { Easing, View } = require("react-native") as typeof import("react-native");
+
+  return {
+    __esModule: true,
+    default: { View },
+    Easing,
+    Extrapolation: { CLAMP: "clamp" },
+    interpolate: () => 1,
+    useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+    useAnimatedStyle: (factory: () => object) => factory(),
+    withTiming: (value: number) => value,
+  };
+});
 jest.mock("../../../lib/generationHistory", () => ({
   resolveGenerationImageUri: jest.fn(),
 }));
@@ -35,14 +45,6 @@ jest.mock("../../../store/generationStore", () => ({
 }));
 
 describe("generation canvas toolbar accessibility", () => {
-  beforeEach(() => {
-    jest.spyOn(Animated, "timing").mockImplementation(() => ({
-      start: jest.fn(), stop: jest.fn(), reset: jest.fn(),
-    }));
-  });
-
-  afterEach(() => jest.restoreAllMocks());
-
   test("hides collapsed actions but keeps the expand button accessible", async () => {
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     const labels = [

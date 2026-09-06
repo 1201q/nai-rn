@@ -1,9 +1,7 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +15,9 @@ import * as MediaLibrary from "expo-media-library";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   cancelAnimation,
+  Easing,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDecay,
@@ -237,6 +238,7 @@ export function GenerationCanvas({
     (s) => s.setMainImageBlurred,
   );
   const [expanded, setExpanded] = useState(true);
+  const expandedRef = useRef(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [canvasSize, setCanvasSize] = useState<Size>({ width: 0, height: 0 });
@@ -244,7 +246,7 @@ export function GenerationCanvas({
     uri: string;
     aspectRatio: number;
   } | null>(null);
-  const [toolbarAnimation] = useState(() => new Animated.Value(1));
+  const toolbarAnimation = useSharedValue(1);
 
   const currentImageUri = currentGeneration
     ? resolveGenerationImageUri(currentGeneration)
@@ -283,14 +285,13 @@ export function GenerationCanvas({
   }
 
   function toggleToolbar() {
-    const nextExpanded = !expanded;
+    const nextExpanded = !expandedRef.current;
+    expandedRef.current = nextExpanded;
     setExpanded(nextExpanded);
-    Animated.timing(toolbarAnimation, {
-      toValue: nextExpanded ? 1 : 0,
+    toolbarAnimation.value = withTiming(nextExpanded ? 1 : 0, {
       duration: 180,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
+    });
   }
 
   async function saveImage() {
@@ -326,15 +327,21 @@ export function GenerationCanvas({
     }
   }
 
-  const toolbarWidth = toolbarAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [TOOLBAR_COLLAPSED_WIDTH, TOOLBAR_EXPANDED_WIDTH],
-  });
-  const actionOpacity = toolbarAnimation.interpolate({
-    inputRange: [0.25, 1],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
+  const toolbarStyle = useAnimatedStyle(() => ({
+    width: interpolate(
+      toolbarAnimation.value,
+      [0, 1],
+      [TOOLBAR_COLLAPSED_WIDTH, TOOLBAR_EXPANDED_WIDTH],
+    ),
+  }));
+  const actionStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      toolbarAnimation.value,
+      [0.25, 1],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   return (
     <View style={styles.section}>
@@ -374,12 +381,12 @@ export function GenerationCanvas({
       </View>
 
       <View style={styles.toolbarRow}>
-        <Animated.View style={[styles.toolbar, { width: toolbarWidth }]}>
-          <Animated.View
+        <Reanimated.View style={[styles.toolbar, toolbarStyle]}>
+          <Reanimated.View
             pointerEvents={expanded ? "auto" : "none"}
             accessibilityElementsHidden={!expanded}
             importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
-            style={[styles.toolbarActions, { opacity: actionOpacity }]}
+            style={[styles.toolbarActions, actionStyle]}
           >
             <ToolbarAction
               icon={mainImageBlurred ? "eye-off-outline" : "eye-outline"}
@@ -409,7 +416,7 @@ export function GenerationCanvas({
               disabled={!canUseImageActions}
               onPress={onOpenMetadata}
             />
-          </Animated.View>
+          </Reanimated.View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
@@ -429,7 +436,7 @@ export function GenerationCanvas({
               color={tokens.color.textPrimary}
             />
           </Pressable>
-        </Animated.View>
+        </Reanimated.View>
       </View>
     </View>
   );
