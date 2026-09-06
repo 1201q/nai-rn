@@ -62,16 +62,17 @@ export function useGenerationInputCommit() {
   return useContext(GenerationInputCommitContext);
 }
 
-export function useGenerationInputCommitRegistration(commit: () => void) {
+export function useGenerationInputCommitRegistration(commit: () => void, active = true) {
   const { registerPendingCommit } = useGenerationInputCommit();
   const commitRef = useRef(commit);
   const unregisterRef = useRef<(() => void) | null>(null);
   commitRef.current = commit;
 
   const activate = useCallback(() => {
+    if (!active) return;
     unregisterRef.current?.();
     unregisterRef.current = registerPendingCommit(() => commitRef.current());
-  }, [registerPendingCommit]);
+  }, [active, registerPendingCommit]);
 
   const commitAndDeactivate = useCallback(() => {
     commitRef.current();
@@ -80,11 +81,12 @@ export function useGenerationInputCommitRegistration(commit: () => void) {
   }, []);
 
   useEffect(
+    // Retained sheets also release pending input when they become inactive.
     () => () => {
       unregisterRef.current?.();
       unregisterRef.current = null;
     },
-    [],
+    [active],
   );
 
   return { activate, commitAndDeactivate };

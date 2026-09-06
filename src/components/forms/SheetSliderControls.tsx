@@ -13,7 +13,8 @@ function formatSliderValue(value: number, precision: number) {
   return Number(value.toFixed(precision)).toString();
 }
 
-export function SheetSliderControls({ label, value, min, max, step, precision, onChange }: {
+export function SheetSliderControls({ label, value, min, max, step, precision, onChange, active = true }: {
+  active?: boolean;
   label: string;
   value: number;
   min: number;
@@ -38,13 +39,18 @@ export function SheetSliderControls({ label, value, min, max, step, precision, o
   });
 
   useEffect(() => {
+    if (!active) {
+      inputFocusedRef.current = false;
+      slidingRef.current = false;
+      editing.value = false;
+    }
     if (!inputFocusedRef.current && !slidingRef.current) {
       const next = formatSliderValue(value, precision);
       draftValueRef.current = next;
       setDraftValue(next);
       display.value = value;
     }
-  }, [display, precision, value]);
+  }, [active, display, editing, precision, value]);
 
   const commitDraft = useCallback(() => {
     const parsed = slidingRef.current
@@ -69,7 +75,7 @@ export function SheetSliderControls({ label, value, min, max, step, precision, o
     display.value = next;
     onChange(next);
   }, [display, max, min, onChange, precision, step, value]);
-  const inputCommit = useGenerationInputCommitRegistration(commitDraft);
+  const inputCommit = useGenerationInputCommitRegistration(commitDraft, active);
 
   function handleSliderComplete(next: number) {
     const formatted = formatSliderValue(next, precision);

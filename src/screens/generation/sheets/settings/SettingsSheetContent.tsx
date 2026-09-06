@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import { BottomSheetTextInput, type BottomSheetScrollViewMethods } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Toggle } from "../../../../components/forms/FormControls";
@@ -100,9 +100,11 @@ function snapResolutionDimension(value: string) {
 }
 
 function ResolutionDimensionInputs({
+  active,
   resolution,
   onChange,
 }: {
+  active: boolean;
   resolution: NaiResolution;
   onChange: (resolution: NaiResolution) => void;
 }) {
@@ -113,6 +115,7 @@ function ResolutionDimensionInputs({
   const heightTextRef = useRef(heightText);
 
   useEffect(() => {
+    if (!active) focusedInputRef.current = null;
     if (focusedInputRef.current !== null) return;
     const nextWidth = String(resolution.width);
     const nextHeight = String(resolution.height);
@@ -120,7 +123,7 @@ function ResolutionDimensionInputs({
     heightTextRef.current = nextHeight;
     setWidthText(nextWidth);
     setHeightText(nextHeight);
-  }, [resolution.height, resolution.width]);
+  }, [active, resolution.height, resolution.width]);
 
   const commitDimensions = useCallback(() => {
     const width = snapResolutionDimension(widthTextRef.current);
@@ -133,8 +136,8 @@ function ResolutionDimensionInputs({
     setHeightText(nextHeight);
     onChange(resolutionFromDimensions(width, height));
   }, [onChange]);
-  const widthCommit = useGenerationInputCommitRegistration(commitDimensions);
-  const heightCommit = useGenerationInputCommitRegistration(commitDimensions);
+  const widthCommit = useGenerationInputCommitRegistration(commitDimensions, active);
+  const heightCommit = useGenerationInputCommitRegistration(commitDimensions, active);
 
   function swapDimensions() {
     const width = snapResolutionDimension(heightTextRef.current);
@@ -215,7 +218,8 @@ function ResolutionDimensionInputs({
   );
 }
 
-export function SettingsSheetContent() {
+export const SettingsSheetContent = memo(function SettingsSheetContent({ active = true }: { active?: boolean }) {
+  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const model = useGenerationStore((state) => state.model);
   const setModel = useGenerationStore((state) => state.setModel);
@@ -260,12 +264,21 @@ export function SettingsSheetContent() {
   const seedDraftRef = useRef(seedDraft);
 
   useEffect(() => {
+    if (!active) seedInputFocusedRef.current = false;
     if (!seedInputFocusedRef.current) {
       const next = seedLocked ? String(seed) : "";
       seedDraftRef.current = next;
       setSeedDraft(next);
     }
-  }, [seed, seedLocked]);
+  }, [active, seed, seedLocked]);
+
+  useEffect(() => {
+    if (active) return;
+    setOpenSelect(null);
+    setHelpKey(null);
+    setAdvancedOpen(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [active]);
 
   const modelLabel =
     MODELS.find((option) => option.value === model)?.label ?? model;
@@ -348,7 +361,7 @@ export function SettingsSheetContent() {
     setSeed(next);
     setSeedLocked(true);
   }, [setSeed, setSeedLocked]);
-  const seedCommit = useGenerationInputCommitRegistration(commitSeedDraft);
+  const seedCommit = useGenerationInputCommitRegistration(commitSeedDraft, active);
 
   function handleSeedAction() {
     if (seedDraft !== "") {
@@ -369,6 +382,9 @@ export function SettingsSheetContent() {
 
   return (
     <BottomSheetKeyboardAwareScrollView
+      ref={scrollRef}
+      active={active}
+      enabled={active}
       style={styles.settingsScroll}
       contentContainerStyle={[
         styles.settingsScrollContent,
@@ -396,6 +412,7 @@ export function SettingsSheetContent() {
           <View style={styles.resolutionHeader}>
             <Text style={styles.settingsFieldLabel}>Resolution</Text>
             <ResolutionDimensionInputs
+              active={active}
               resolution={resolution}
               onChange={setResolution}
             />
@@ -446,6 +463,7 @@ export function SettingsSheetContent() {
       <View style={styles.settingsSectionWide}>
         <Text style={styles.settingsEyebrow}>AI SETTINGS</Text>
         <SettingsSlider
+          active={active}
           label="Steps"
           helpKey="steps"
           helpOpen={helpKey === "steps"}
@@ -458,6 +476,7 @@ export function SettingsSheetContent() {
           onChange={setSteps}
         />
         <SettingsSlider
+          active={active}
           label="Prompt Guidance"
           helpKey="promptGuidance"
           helpOpen={helpKey === "promptGuidance"}
@@ -563,6 +582,7 @@ export function SettingsSheetContent() {
         {advancedOpen ? (
           <View style={styles.advancedContent}>
             <SettingsSlider
+              active={active}
               label="Prompt Guidance Rescale"
               helpKey="rescale"
               helpOpen={helpKey === "rescale"}
@@ -587,7 +607,7 @@ export function SettingsSheetContent() {
       </View>
     </BottomSheetKeyboardAwareScrollView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   settingsScroll: {

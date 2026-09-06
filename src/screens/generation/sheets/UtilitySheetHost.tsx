@@ -47,12 +47,14 @@ const UTILITY_SHEET_Z_INDEX = 85;
 
 const UtilitySheetContent = memo(function UtilitySheetContent({
   sheet,
+  active,
   onClose,
   historyController,
   generation,
   metadataPagerController,
 }: {
   sheet: UtilitySheet;
+  active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
   generation: GenerationRecord | null;
@@ -77,7 +79,12 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   const title = "Settings";
 
   return (
-    <BottomSheetView style={styles.sheetBody}>
+    <BottomSheetView
+      style={styles.sheetBody}
+      pointerEvents={active ? "auto" : "none"}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+    >
       <View style={styles.utilityHeader}>
         <Text style={styles.utilityTitle}>{title}</Text>
         <PressableSurface
@@ -89,7 +96,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
         </PressableSurface>
       </View>
       <View style={styles.divider} />
-      <SettingsSheetContent />
+      <SettingsSheetContent active={active} />
     </BottomSheetView>
   );
 });
@@ -109,15 +116,25 @@ export function UtilitySheetHost({
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);
-  const [transition, setTransition] = useState(() => ({ sheet, content: sheet }));
+  const [transition, setTransition] = useState(() => ({
+    sheet,
+    content: sheet,
+    retainSettings: sheet === "settings",
+  }));
   if (transition.sheet !== sheet) {
     // Retain closing content without waiting for a second React commit to open.
-    setTransition({ sheet, content: sheet ?? transition.content });
+    setTransition({
+      sheet,
+      content: sheet ?? transition.content,
+      retainSettings: sheet === null ? transition.retainSettings : sheet === "settings",
+    });
   }
   const latestTransition = useRef(transition);
   latestTransition.current = transition;
   const renderedSheet = sheet ?? transition.content;
   const visible = renderedSheet !== null;
+  // Cached Settings must not keep the backdrop or back handler active.
+  const contentSheet = renderedSheet ?? (transition.retainSettings ? "settings" : null);
   const historyController = useHistorySheetController({ onClose });
   const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
@@ -275,12 +292,13 @@ export function UtilitySheetHost({
           onClose={handleSheetClosed}
           onChange={handleSheetChanged}
         >
-          {renderedSheet === null ? (
+          {contentSheet === null ? (
             <BottomSheetView style={styles.sheetBody}>{null}</BottomSheetView>
           ) : (
             <UtilitySheetContent
-              key={renderedSheet}
-              sheet={renderedSheet}
+              key={contentSheet}
+              sheet={contentSheet}
+              active={visible}
               onClose={onClose}
               historyController={historyController}
               generation={generation}

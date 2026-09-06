@@ -70,6 +70,7 @@ export function SettingsHelpButton({
 }
 
 export function SettingsSlider({
+  active = true,
   label,
   helpKey,
   helpOpen,
@@ -83,6 +84,7 @@ export function SettingsSlider({
   trailing,
   overlayOpen = false,
 }: {
+  active?: boolean;
   label: string;
   helpKey: SettingsHelpKey;
   helpOpen: boolean;
@@ -116,6 +118,7 @@ export function SettingsSlider({
         {trailing}
       </View>
       <SheetSliderControls
+        active={active}
         label={label}
         value={value}
         min={min}

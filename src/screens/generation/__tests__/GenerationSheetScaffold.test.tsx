@@ -25,6 +25,9 @@ const mockSliderProps = jest.fn<void, [ComponentProps<typeof Slider>]>();
 const mockSheetMounted = jest.fn();
 const mockSheetClose = jest.fn();
 const mockSheetSnap = jest.fn();
+const mockSettingsMounted = jest.fn();
+const mockSettingsUnmounted = jest.fn();
+const mockSettingsScrollTo = jest.fn();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -128,8 +131,19 @@ jest.mock("../../../components/generation/BottomSheetKeyboardAwareScrollView", (
   const React = require("react") as typeof import("react");
   const { ScrollView } = require("react-native") as typeof import("react-native");
   return {
-    BottomSheetKeyboardAwareScrollView: (props: import("react-native").ScrollViewProps) =>
-      React.createElement(ScrollView, { ...props, testID: "settings-scroll" }),
+    BottomSheetKeyboardAwareScrollView: React.forwardRef(function MockSettingsScroll(
+      { active, ...props }: import("react-native").ScrollViewProps & { active: boolean }, ref,
+    ) {
+      React.useImperativeHandle(ref, () => ({ scrollTo: mockSettingsScrollTo }));
+      React.useEffect(() => {
+        mockSettingsMounted();
+        return () => { mockSettingsUnmounted(); };
+      }, []);
+      React.useEffect(() => {
+        mockScrollableRegistration(active ? "settings-scroll" : "settings-inactive");
+      }, [active]);
+      return React.createElement(ScrollView, { ...props, testID: "settings-scroll" });
+    }),
   };
 });
 jest.mock("react-native-gesture-handler", () => ({
@@ -208,6 +222,33 @@ describe("Utility sheet transitions", () => {
     jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
   });
 
+  test.each([true, false])("skips parent-only Settings renders while active=%s but observes store changes", async (active) => {
+    const content = (sheet: "settings" | null) => (
+      <GenerationInputCommitProvider>
+        <UtilitySheetHost sheet={sheet} generation={{ ...metadataGeneration }}
+          predictiveBackProgress={backProgress} onClose={jest.fn()} />
+      </GenerationInputCommitProvider>
+    );
+    const screen = await render(content("settings"));
+    const sheet = active ? "settings" : null;
+    if (!active) {
+      await screen.rerender(content(null));
+      await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    }
+    const sliderRenders = mockSliderProps.mock.calls.length;
+    const hostRenders = mockSheetProps.mock.calls.length;
+    await screen.rerender(content(sheet));
+    expect(mockSheetProps.mock.calls.length).toBeGreaterThan(hostRenders);
+    expect(mockSliderProps).toHaveBeenCalledTimes(sliderRenders);
+
+    await act(() => useGenerationStore.setState({ steps: 17 }));
+    expect(sliderProps().value).toBe(17);
+    expect(screen.getByLabelText("Steps 값", { includeHiddenElements: true }).props.value).toBe("17");
+    await screen.rerender(content("settings"));
+    expect(screen.getByTestId("settings-scroll")).toBeTruthy();
+    expect(mockSettingsMounted).toHaveBeenCalledTimes(1);
+  });
+
   test.each(["settings", "history", "metadata"] as const)(
     "keeps the shell mounted and ignores an interrupted %s close",
     async (sheet) => {
@@ -277,12 +318,66 @@ describe("Utility sheet transitions", () => {
     await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
     expect(backProgress.value).toBe(0);
     expect(screen.queryByTestId("settings-scroll")).toBeNull();
+    expect(screen.getByTestId("settings-scroll", { includeHiddenElements: true })).toBeTruthy();
+    expect(mockSettingsUnmounted).not.toHaveBeenCalled();
+    expect(mockScrollableRegistration).toHaveBeenCalledWith("settings-inactive");
+    expect(mockSettingsScrollTo).toHaveBeenCalledWith({ y: 0, animated: false });
     expect(onVisibilityChange).toHaveBeenLastCalledWith(false);
     expect(onClose).not.toHaveBeenCalled();
     expect(mockSheetMounted).toHaveBeenCalledTimes(1);
     await screen.rerender(content("settings"));
     expect(screen.getByTestId("settings-scroll")).toBeTruthy();
     expect(onVisibilityChange).toHaveBeenLastCalledWith(true);
+    expect(mockSettingsMounted).toHaveBeenCalledTimes(1);
+    expect(mockScrollableRegistration).toHaveBeenCalledWith("settings-scroll");
+  });
+
+  test("mounts Settings lazily and releases it when switching to History", async () => {
+    const content = (sheet: "settings" | "history" | null) => (
+      <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress} onClose={jest.fn()} />
+    );
+    const screen = await render(content(null));
+    expect(mockSettingsMounted).not.toHaveBeenCalled();
+    await screen.rerender(content("settings"));
+    await screen.rerender(content(null));
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    expect(mockSettingsUnmounted).not.toHaveBeenCalled();
+    await screen.rerender(content("history"));
+    expect(mockSettingsUnmounted).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("settings-scroll", { includeHiddenElements: true })).toBeNull();
+    await screen.rerender(content("settings"));
+    expect(mockSettingsMounted).toHaveBeenCalledTimes(2);
+  });
+
+  test("clears hidden input registration and restores Settings UI on reopen", async () => {
+    const content = (sheet: "settings" | null) => (
+      <GenerationInputCommitProvider>
+        <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress} onClose={jest.fn()} />
+        <CommitPendingButton />
+      </GenerationInputCommitProvider>
+    );
+    const screen = await render(content("settings"));
+    await fireEvent(screen.getByLabelText("Steps 값"), "focus");
+    await fireEvent.changeText(screen.getByLabelText("Steps 값"), "40");
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(useGenerationStore.getState().setSteps).toHaveBeenLastCalledWith(40);
+    await fireEvent.press(screen.getByLabelText("Advanced Settings"));
+    await fireEvent.press(screen.getByLabelText("steps 설명"));
+    await screen.rerender(content(null));
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    jest.mocked(useGenerationStore.getState().setSteps).mockClear();
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(useGenerationStore.getState().setSteps).not.toHaveBeenCalled();
+    await act(() => useGenerationStore.setState({ steps: 17 }));
+    await screen.rerender(content("settings"));
+    expect(screen.getByLabelText("Steps 값").props.value).toBe("17");
+    expect(screen.getByLabelText("Advanced Settings").props.accessibilityState).toEqual({ expanded: true });
+    expect(screen.getByLabelText("steps 설명").props.accessibilityState).toEqual({ expanded: false });
+    await fireEvent(screen.getByLabelText("Steps 값"), "focus");
+    await fireEvent.changeText(screen.getByLabelText("Steps 값"), "25");
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(useGenerationStore.getState().setSteps).toHaveBeenLastCalledWith(25);
+    expect(mockSettingsMounted).toHaveBeenCalledTimes(1);
   });
 
   test("reconciles a native completion overtaken by a reversal", async () => {
@@ -300,6 +395,37 @@ describe("Utility sheet transitions", () => {
     mockSheetSnap.mockClear();
     await act(() => closing.onChange!(-1, 844, 0));
     expect(mockSheetSnap).toHaveBeenCalledWith(0);
+  });
+
+  test.each([
+    ["Resolution width", "1024"],
+    ["Resolution height", "1536"],
+    ["Seed 값", "123"],
+  ])("resynchronizes retained %s without relying on blur", async (label, expected) => {
+    const setResolution = jest.fn();
+    const setSeed = jest.fn();
+    const setSeedLocked = jest.fn();
+    useGenerationStore.setState({ setResolution, setSeed, setSeedLocked });
+    const content = (sheet: "settings" | null) => (
+      <GenerationInputCommitProvider>
+        <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress} onClose={jest.fn()} />
+        <CommitPendingButton />
+      </GenerationInputCommitProvider>
+    );
+    const screen = await render(content("settings"));
+    await fireEvent(screen.getByLabelText(label), "focus");
+    await screen.rerender(content(null));
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    await fireEvent.press(screen.getByLabelText("Commit pending input"));
+    expect(setResolution).not.toHaveBeenCalled();
+    expect(setSeed).not.toHaveBeenCalled();
+    expect(setSeedLocked).not.toHaveBeenCalled();
+    await act(() => useGenerationStore.setState({
+      resolution: { label: "Custom", width: 1024, height: 1536 }, seed: 123, seedLocked: true,
+    }));
+    await screen.rerender(content("settings"));
+    expect(screen.getByLabelText(label).props.value).toBe(expected);
+    expect(mockSettingsMounted).toHaveBeenCalledTimes(1);
   });
 });
 
