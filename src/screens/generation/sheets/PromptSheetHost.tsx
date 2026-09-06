@@ -272,6 +272,16 @@ export function PromptSheetHost({
     },
     [handleSheetChange],
   );
+  const handleSheetSettled = useCallback(
+    (index: number) => {
+      handleSheetChange(index);
+      predictiveBackProgress.value = withTiming(0, {
+        duration: 300,
+        easing: Easing.bezier(0.32, 0.72, 0, 1),
+      });
+    },
+    [handleSheetChange, predictiveBackProgress],
+  );
   const expandPrompt = useCallback(() => {
     sheetRef.current?.snapToIndex(1);
   }, []);
@@ -392,6 +402,7 @@ export function PromptSheetHost({
         onPress={collapsePrompt}
       />
       <PredictiveBackSheetLayer
+        scaleEnabled={false}
         progress={predictiveBackProgress}
         zIndex={PROMPT_SHEET_Z_INDEX}
       >
@@ -419,7 +430,7 @@ export function PromptSheetHost({
           containerStyle={styles.promptSheetContainer}
           backgroundStyle={styles.sheetBackground}
           onAnimate={handleSheetAnimate}
-          onChange={handleSheetChange}
+          onChange={handleSheetSettled}
         >
           <BottomSheetView
             style={styles.sheetBody}

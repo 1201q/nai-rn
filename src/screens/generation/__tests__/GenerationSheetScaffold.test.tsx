@@ -269,10 +269,13 @@ describe("Utility sheet transitions", () => {
       </GenerationInputCommitProvider>
     );
     const screen = await render(content("settings"));
+    backProgress.value = 0.6;
     await screen.rerender(content(null));
+    expect(backProgress.value).toBe(0.6);
     expect(screen.getByTestId("settings-scroll")).toBeTruthy();
     expect(onVisibilityChange).toHaveBeenLastCalledWith(true);
     await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    expect(backProgress.value).toBe(0);
     expect(screen.queryByTestId("settings-scroll")).toBeNull();
     expect(onVisibilityChange).toHaveBeenLastCalledWith(false);
     expect(onClose).not.toHaveBeenCalled();
@@ -494,6 +497,16 @@ describe("generation sheet accessibility visibility", () => {
     expect(onStageChange).not.toHaveBeenCalled();
     await act(() => { sheet.onChange?.(0, 716, 0); });
     expect(onStageChange).toHaveBeenLastCalledWith("collapsed");
+  });
+
+  test.each([0, 1])("keeps predictive scale until Prompt reaches index %i", async (index) => {
+    await render(renderPromptStage("full"));
+    backProgress.value = 0.6;
+    const sheet = mockSheetProps.mock.calls.at(-1)![0];
+    await act(() => { sheet.onAnimate?.(2, index, 70, 716); });
+    expect(backProgress.value).toBe(0.6);
+    await act(() => { sheet.onChange?.(index, 716, 0); });
+    expect(backProgress.value).toBe(0);
   });
 
   test("counts only enabled reference images in the tab badge", async () => {

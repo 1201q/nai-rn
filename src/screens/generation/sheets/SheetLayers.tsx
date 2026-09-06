@@ -12,11 +12,13 @@ const PREDICTIVE_BACK_MIN_SCALE = 0.94;
 
 export function PredictiveBackSheetLayer({
   active = true,
+  scaleEnabled = true,
   progress,
   zIndex,
   children,
 }: {
   active?: boolean;
+  scaleEnabled?: boolean;
   progress: SharedValue<number>;
   zIndex: number;
   children: ReactNode;
@@ -24,12 +26,12 @@ export function PredictiveBackSheetLayer({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        scale: interpolate(
+        scale: scaleEnabled ? interpolate(
           progress.value,
           [0, PREDICTIVE_BACK_SCALE_STOP],
           [1, PREDICTIVE_BACK_MIN_SCALE],
           Extrapolation.CLAMP,
-        ),
+        ) : 1,
       },
     ],
   }));

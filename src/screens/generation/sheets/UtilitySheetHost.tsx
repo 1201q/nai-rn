@@ -133,11 +133,13 @@ export function UtilitySheetHost({
   const handleSheetClosed = useCallback(() => {
     // Native completion callbacks can arrive after a new open/close request.
     if (latestTransition.current !== transition) return;
+    cancelAnimation(predictiveBackProgress);
+    predictiveBackProgress.value = 0;
     setTransition((current) =>
       current.content === null ? current : { ...current, content: null },
     );
     if (transition.sheet !== null) onClose();
-  }, [onClose, transition]);
+  }, [onClose, predictiveBackProgress, transition]);
   const handleSheetChanged = useCallback((index: number) => {
     // Reconcile a reversal that arrived before the native animation moved.
     const latest = latestTransition.current;
@@ -180,8 +182,12 @@ export function UtilitySheetHost({
 
   useEffect(() => {
     if (sheet === null) sheetRef.current?.close();
-    else sheetRef.current?.snapToIndex(0);
-  }, [sheet]);
+    else {
+      cancelAnimation(predictiveBackProgress);
+      predictiveBackProgress.value = 0;
+      sheetRef.current?.snapToIndex(0);
+    }
+  }, [predictiveBackProgress, sheet]);
 
   useEffect(() => {
     onVisibilityChange?.(visible);

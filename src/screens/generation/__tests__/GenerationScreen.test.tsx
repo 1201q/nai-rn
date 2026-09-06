@@ -7,8 +7,12 @@ import {
   useGenerationStore,
 } from "../../../store/generationStore";
 import { GenerationScreen } from "../GenerationScreen";
+import type { PredictiveBackHandlers } from "../../../native/predictiveBack";
+import type { SharedValue } from "react-native-reanimated";
 
 const mockUtilityVisibility = jest.fn<void, [(visible: boolean) => void]>();
+const mockBackHandlers = jest.fn<void, [boolean, PredictiveBackHandlers]>();
+const mockUtilityProgress = jest.fn<void, [SharedValue<number>]>();
 
 type MockGenerationState = {
   anlasBalance: null;
@@ -140,7 +144,8 @@ jest.mock("../../../context/SuggestionBarContext", () => ({
 
 jest.mock("../../../native/predictiveBack", () => ({
   PREDICTIVE_BACK_SUPPORTED: false,
-  usePredictiveBackHandler: () => {},
+  usePredictiveBackHandler: (enabled: boolean, handlers: PredictiveBackHandlers) =>
+    mockBackHandlers(enabled, handlers),
 }));
 
 jest.mock("../GenerationCanvas", () => ({
@@ -189,11 +194,14 @@ jest.mock("../GenerationSheetScaffold", () => {
     UtilitySheetHost: function MockUtilitySheet({
       sheet,
       onVisibilityChange,
+      predictiveBackProgress,
     }: {
       sheet: "settings" | "history" | "metadata" | null;
       onVisibilityChange: (visible: boolean) => void;
+      predictiveBackProgress: SharedValue<number>;
     }) {
       mockUtilityVisibility(onVisibilityChange);
+      mockUtilityProgress(predictiveBackProgress);
       const [open, setOpen] = React.useState(false);
       return React.createElement(
         View,
@@ -243,6 +251,22 @@ describe("GenerationScreen generation acceptance", () => {
     jest.clearAllMocks();
     mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
     useGenerationStore.setState(initialState, true);
+  });
+
+  test("predictive back commit preserves the released scale while cancel restores it", async () => {
+    const screen = await render(<GenerationScreen />);
+    await fireEvent.press(screen.getByLabelText("Settings 열기"));
+    const handlers = mockBackHandlers.mock.calls.filter(([enabled]) => enabled).at(-1)![1];
+    const progress = mockUtilityProgress.mock.calls.at(-1)![0];
+    const event = { progress: 0.6, swipeEdge: 0, touchX: 100, touchY: 500 };
+    await act(() => handlers.onProgress!(event));
+    expect(progress.value).toBe(0.6);
+    await act(() => handlers.onCancel!());
+    expect(progress.value).toBe(0);
+    await act(() => handlers.onProgress!(event));
+    await act(() => handlers.onCommit!());
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
+    expect(progress.value).toBe(0.6);
   });
 
   test("hardware back closes Select, Settings, then Prompt without closing two layers", async () => {

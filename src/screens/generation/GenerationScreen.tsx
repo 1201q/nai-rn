@@ -47,7 +47,6 @@ import {
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
 
-const SHEET_BACK_COMMIT_DURATION = 300;
 const SHEET_BACK_CANCEL_SPRING = {
   damping: 30,
   stiffness: 320,
@@ -253,16 +252,9 @@ function GenerationScreenContent() {
     utilityBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
   }, [promptBackProgress, utilityBackProgress]);
   const commitPredictiveBack = useCallback(() => {
+    // Keep the released scale until the sheet finishes moving.
     handleBack();
-    promptBackProgress.value = withTiming(0, {
-      duration: SHEET_BACK_COMMIT_DURATION,
-      easing: Easing.bezier(0.32, 0.72, 0, 1),
-    });
-    utilityBackProgress.value = withTiming(0, {
-      duration: SHEET_BACK_COMMIT_DURATION,
-      easing: Easing.bezier(0.32, 0.72, 0, 1),
-    });
-  }, [handleBack, promptBackProgress, utilityBackProgress]);
+  }, [handleBack]);
 
   usePredictiveBackHandler(hasOpenSheet, {
     onStart: trackPredictiveBack,
