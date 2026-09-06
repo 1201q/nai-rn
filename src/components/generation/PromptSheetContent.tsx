@@ -77,37 +77,40 @@ function PromptDraftInput({
   );
 
   return (
-    <PromptHighlightTextInput
-      ref={inputRef}
-      bottomSheetAware
-      accessibilityLabel={
-        channel === "base" ? "Base prompt" : "Negative prompt"
-      }
-      multiline
-      scrollEnabled={false}
-      textAlignVertical="top"
-      autoCapitalize="none"
-      autoCorrect={false}
-      placeholder={channel === "base" ? "1girl, ..." : "lowres, ..."}
-      placeholderTextColor={tokens.color.textMuted}
-      onFocus={() => {
-        inputCommit.activate();
-        onFocus?.();
-        autocomplete.activateSuggestions();
-      }}
-      onBlur={() => {
-        inputCommit.commitAndDeactivate();
-        autocomplete.deactivateSuggestions();
-      }}
-      onChangeText={autocomplete.handleChangeText}
-      onSelectionChange={autocomplete.handleSelectionChange}
-      value={value}
-      style={[
-        styles.promptInput,
-        channel === "negative" && styles.negativePromptInput,
-        { height },
-      ]}
-    />
+    // Keep the markdown decorator origin local when another input changes height.
+    <View collapsable={false}>
+      <PromptHighlightTextInput
+        ref={inputRef}
+        bottomSheetAware
+        accessibilityLabel={
+          channel === "base" ? "Base prompt" : "Negative prompt"
+        }
+        multiline
+        scrollEnabled={false}
+        textAlignVertical="top"
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder={channel === "base" ? "1girl, ..." : "lowres, ..."}
+        placeholderTextColor={tokens.color.textMuted}
+        onFocus={() => {
+          inputCommit.activate();
+          onFocus?.();
+          autocomplete.activateSuggestions();
+        }}
+        onBlur={() => {
+          inputCommit.commitAndDeactivate();
+          autocomplete.deactivateSuggestions();
+        }}
+        onChangeText={autocomplete.handleChangeText}
+        onSelectionChange={autocomplete.handleSelectionChange}
+        value={value}
+        style={[
+          styles.promptInput,
+          channel === "negative" && styles.negativePromptInput,
+          { height },
+        ]}
+      />
+    </View>
   );
 }
 
