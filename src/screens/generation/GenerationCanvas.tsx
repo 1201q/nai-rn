@@ -1,4 +1,12 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -256,6 +264,11 @@ export function GenerationCanvas({
     [currentImagePath],
   );
   const displayedImageUri = streamingPreviewUri ?? currentImageUri;
+  const measurableImageUri = streamingPreviewUri ? null : displayedImageUri;
+  const measurableImageUriRef = useRef(measurableImageUri);
+  useLayoutEffect(() => {
+    measurableImageUriRef.current = measurableImageUri;
+  }, [measurableImageUri]);
   const streamingResolution =
     i2iEnabled && i2iSourceImage
       ? getI2IEffectiveResolution(i2iSourceImage)
@@ -277,16 +290,17 @@ export function GenerationCanvas({
   const canTransformImage =
     Boolean(currentImageUri) && !isLoading && !streamingPreviewUri;
 
-  function handleImageLoad(event: ImageLoadEventData) {
-    if (!displayedImageUri) return;
-    const { width, height } = event.source;
-    if (width > 0 && height > 0) {
-      setLoadedImage({
-        uri: displayedImageUri,
-        aspectRatio: width / height,
-      });
-    }
-  }
+  const handleImageLoad = useCallback((event: ImageLoadEventData) => {
+    const { url, width, height } = event.source;
+    if (url !== measurableImageUriRef.current || !(width > 0 && height > 0)) return;
+    const aspectRatio = width / height;
+    setLoadedImage((current) => {
+      if (url !== measurableImageUriRef.current) return current;
+      return current?.uri === url && current.aspectRatio === aspectRatio
+        ? current
+        : { uri: url, aspectRatio };
+    });
+  }, []);
 
   function toggleToolbar() {
     const nextExpanded = !expandedRef.current;
