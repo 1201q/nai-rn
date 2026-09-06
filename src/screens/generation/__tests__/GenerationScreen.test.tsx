@@ -8,6 +8,8 @@ import {
 } from "../../../store/generationStore";
 import { GenerationScreen } from "../GenerationScreen";
 
+const mockUtilityVisibility = jest.fn<void, [(visible: boolean) => void]>();
+
 type MockGenerationState = {
   anlasBalance: null;
   prompt: string;
@@ -186,9 +188,12 @@ jest.mock("../GenerationSheetScaffold", () => {
       ),
     UtilitySheetHost: function MockUtilitySheet({
       sheet,
+      onVisibilityChange,
     }: {
       sheet: "settings" | "history" | "metadata" | null;
+      onVisibilityChange: (visible: boolean) => void;
     }) {
+      mockUtilityVisibility(onVisibilityChange);
       const [open, setOpen] = React.useState(false);
       return React.createElement(
         View,
@@ -273,6 +278,7 @@ describe("GenerationScreen generation acceptance", () => {
       const screen = await render(<GenerationScreen />);
       await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
       await fireEvent.press(screen.getByLabelText("Settings 열기"));
+      await act(() => mockUtilityVisibility.mock.calls.at(-1)![0](true));
       await fireEvent.press(screen.getByLabelText("Model 선택"));
       await act(() => {
         useGenerationStore.setState({ prompt: "updated prompt" });
@@ -286,6 +292,9 @@ describe("GenerationScreen generation acceptance", () => {
       expect(await pressBack()).toBe(true);
       expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
       expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
+      expect(await pressBack()).toBe(true);
+      expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
+      await act(() => mockUtilityVisibility.mock.calls.at(-1)![0](false));
       expect(await pressBack()).toBe(true);
       expect(screen.getByTestId("prompt-stage").props.children).toBe("half");
       expect(await pressBack()).toBe(true);

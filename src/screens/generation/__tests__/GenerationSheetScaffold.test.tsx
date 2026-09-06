@@ -22,6 +22,9 @@ const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
 const mockPromptMounted = jest.fn();
 const mockScrollableRegistration = jest.fn();
 const mockSliderProps = jest.fn<void, [ComponentProps<typeof Slider>]>();
+const mockSheetMounted = jest.fn();
+const mockSheetClose = jest.fn();
+const mockSheetSnap = jest.fn();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -30,6 +33,8 @@ jest.mock("@gorhom/bottom-sheet", () => {
     __esModule: true,
     default: React.forwardRef(function MockSheet(props: BottomSheetProps, _ref) {
       mockSheetProps(props);
+      React.useImperativeHandle(_ref, () => ({ close: mockSheetClose, snapToIndex: mockSheetSnap }));
+      React.useEffect(() => { mockSheetMounted(); }, []);
       return React.createElement(View, null, props.children as React.ReactNode);
     }),
     BottomSheetView: function MockSheetView({
@@ -195,6 +200,105 @@ function renderSettings() {
 function sliderProps(label = "Steps") {
   return mockSliderProps.mock.calls.filter(([props]) => props.accessibilityLabel === label).at(-1)![0];
 }
+
+describe("Utility sheet transitions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGenerationStore.setState(initialState, true);
+    jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  });
+
+  test.each(["settings", "history", "metadata"] as const)(
+    "keeps the shell mounted and ignores an interrupted %s close",
+    async (sheet) => {
+      const onClose = jest.fn();
+      const content = (value: typeof sheet | null) => (
+        <GenerationInputCommitProvider>
+          <UtilitySheetHost sheet={value} generation={metadataGeneration}
+            predictiveBackProgress={backProgress} onClose={onClose} />
+        </GenerationInputCommitProvider>
+      );
+      const screen = await render(content(null));
+      expect(mockSheetProps.mock.calls.at(-1)?.[0]).toMatchObject({ index: -1, animateOnMount: false });
+      await screen.rerender(content(sheet));
+      expect(mockSheetProps.mock.calls.at(-1)?.[0].index).toBe(0);
+      expect(mockSheetSnap).toHaveBeenLastCalledWith(0);
+      mockSheetClose.mockClear();
+      await screen.rerender(content(null));
+      expect(mockSheetClose).toHaveBeenCalledTimes(1);
+      const oldClose = mockSheetProps.mock.calls.at(-1)![0].onClose!;
+      expect(mockSheetProps.mock.calls.at(-1)?.[0].index).toBe(-1);
+      await screen.rerender(content(sheet));
+      await act(() => oldClose());
+      expect(onClose).not.toHaveBeenCalled();
+      expect(mockSheetProps.mock.calls.at(-1)?.[0].index).toBe(0);
+      expect(mockSheetMounted).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test("an old Settings completion cannot close History", async () => {
+    const onClose = jest.fn();
+    const content = (sheet: "settings" | "history") => (
+      <GenerationInputCommitProvider>
+        <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress} onClose={onClose} />
+      </GenerationInputCommitProvider>
+    );
+    const screen = await render(content("settings"));
+    const oldClose = mockSheetProps.mock.calls.at(-1)![0].onClose!;
+    await screen.rerender(content("history"));
+    await act(() => oldClose());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockSheetProps.mock.calls.at(-1)?.[0].index).toBe(0);
+    expect(mockSheetMounted).toHaveBeenCalledTimes(1);
+  });
+
+  test("still reports a gesture close for the current request", async () => {
+    const onClose = jest.fn();
+    await render(<UtilitySheetHost sheet="history" predictiveBackProgress={backProgress} onClose={onClose} />);
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("retains content and back visibility until closing completes", async () => {
+    const onClose = jest.fn();
+    const onVisibilityChange = jest.fn();
+    const content = (sheet: "settings" | null) => (
+      <GenerationInputCommitProvider>
+        <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress}
+          onClose={onClose} onVisibilityChange={onVisibilityChange} />
+      </GenerationInputCommitProvider>
+    );
+    const screen = await render(content("settings"));
+    await screen.rerender(content(null));
+    expect(screen.getByTestId("settings-scroll")).toBeTruthy();
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(true);
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
+    expect(screen.queryByTestId("settings-scroll")).toBeNull();
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(false);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mockSheetMounted).toHaveBeenCalledTimes(1);
+    await screen.rerender(content("settings"));
+    expect(screen.getByTestId("settings-scroll")).toBeTruthy();
+    expect(onVisibilityChange).toHaveBeenLastCalledWith(true);
+  });
+
+  test("reconciles a native completion overtaken by a reversal", async () => {
+    const content = (sheet: "history" | null) => (
+      <UtilitySheetHost sheet={sheet} predictiveBackProgress={backProgress} onClose={jest.fn()} />
+    );
+    const screen = await render(content("history"));
+    const opening = mockSheetProps.mock.calls.at(-1)![0];
+    await screen.rerender(content(null));
+    mockSheetClose.mockClear();
+    await act(() => opening.onChange!(0, 100, 0));
+    expect(mockSheetClose).toHaveBeenCalledTimes(1);
+    const closing = mockSheetProps.mock.calls.at(-1)![0];
+    await screen.rerender(content("history"));
+    mockSheetSnap.mockClear();
+    await act(() => closing.onChange!(-1, 844, 0));
+    expect(mockSheetSnap).toHaveBeenCalledWith(0);
+  });
+});
 
 describe("Settings slider input and UI-thread display", () => {
   beforeEach(() => {

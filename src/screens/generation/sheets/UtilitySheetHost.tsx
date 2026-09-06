@@ -98,17 +98,26 @@ export function UtilitySheetHost({
   sheet,
   predictiveBackProgress,
   onClose,
+  onVisibilityChange,
   generation = null,
 }: {
   sheet: UtilitySheet | null;
   predictiveBackProgress: SharedValue<number>;
   onClose: () => void;
+  onVisibilityChange?: (visible: boolean) => void;
   generation?: GenerationRecord | null;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);
-  const [renderedSheet, setRenderedSheet] =
-    useState<UtilitySheet | null>(sheet);
+  const [transition, setTransition] = useState(() => ({ sheet, content: sheet }));
+  if (transition.sheet !== sheet) {
+    // Retain closing content without waiting for a second React commit to open.
+    setTransition({ sheet, content: sheet ?? transition.content });
+  }
+  const latestTransition = useRef(transition);
+  latestTransition.current = transition;
+  const renderedSheet = sheet ?? transition.content;
+  const visible = renderedSheet !== null;
   const historyController = useHistorySheetController({ onClose });
   const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
@@ -122,9 +131,21 @@ export function UtilitySheetHost({
     easing: Easing.bezier(0.32, 0.72, 0, 1),
   });
   const handleSheetClosed = useCallback(() => {
-    setRenderedSheet(null);
-    onClose();
-  }, [onClose]);
+    // Native completion callbacks can arrive after a new open/close request.
+    if (latestTransition.current !== transition) return;
+    setTransition((current) =>
+      current.content === null ? current : { ...current, content: null },
+    );
+    if (transition.sheet !== null) onClose();
+  }, [onClose, transition]);
+  const handleSheetChanged = useCallback((index: number) => {
+    // Reconcile a reversal that arrived before the native animation moved.
+    const latest = latestTransition.current;
+    if (index === 0 && latest.sheet === null) sheetRef.current?.close();
+    if (index === -1 && latest.sheet !== null && latest !== transition) {
+      sheetRef.current?.snapToIndex(0);
+    }
+  }, [transition]);
   const renderHistoryFooter = useCallback(
     (props: BottomSheetFooterProps) => (
       <HistorySheetFooter {...props} controller={historyController} />
@@ -158,15 +179,15 @@ export function UtilitySheetHost({
   });
 
   useEffect(() => {
-    if (sheet === null) {
-      if (renderedSheet !== null) sheetRef.current?.close();
-      return;
-    }
+    if (sheet === null) sheetRef.current?.close();
+    else sheetRef.current?.snapToIndex(0);
+  }, [sheet]);
 
-    if (sheet !== renderedSheet) {
-      setRenderedSheet(sheet);
-    }
-  }, [renderedSheet, sheet]);
+  useEffect(() => {
+    onVisibilityChange?.(visible);
+  }, [onVisibilityChange, visible]);
+
+  useEffect(() => () => onVisibilityChange?.(false), [onVisibilityChange]);
 
   useEffect(() => {
     if (sheet !== "history") historyController.exitSelectionMode();
@@ -185,15 +206,13 @@ export function UtilitySheetHost({
     return () => subscription.remove();
   }, [historyController.exitSelectionMode, historySelectionBackActive]);
 
-  if (renderedSheet === null) return null;
-
   return (
     <>
       <FixedSheetBackdrop
         animatedIndex={animatedIndex}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
-        visible
+        visible={visible}
         zIndex={UTILITY_BACKDROP_Z_INDEX}
         accessibilityLabel={`${
           renderedSheet === "settings"
@@ -205,17 +224,17 @@ export function UtilitySheetHost({
         onPress={onClose}
       />
       <PredictiveBackSheetLayer
+        active={visible}
         progress={predictiveBackProgress}
         zIndex={UTILITY_SHEET_Z_INDEX}
       >
         <BottomSheet
-          key={renderedSheet}
           ref={sheetRef}
-          index={0}
+          index={sheet === null ? -1 : 0}
           snapPoints={snapPoints}
           animatedIndex={animatedIndex}
           animationConfigs={animationConfigs}
-          animateOnMount
+          animateOnMount={false}
           enableDynamicSizing={false}
           enableContentPanningGesture
           enableHandlePanningGesture
@@ -248,14 +267,20 @@ export function UtilitySheetHost({
           containerStyle={styles.utilitySheetContainer}
           backgroundStyle={styles.sheetBackground}
           onClose={handleSheetClosed}
+          onChange={handleSheetChanged}
         >
-          <UtilitySheetContent
-            sheet={renderedSheet}
-            onClose={onClose}
-            historyController={historyController}
-            generation={generation}
-            metadataPagerController={metadataPagerController}
-          />
+          {renderedSheet === null ? (
+            <BottomSheetView style={styles.sheetBody}>{null}</BottomSheetView>
+          ) : (
+            <UtilitySheetContent
+              key={renderedSheet}
+              sheet={renderedSheet}
+              onClose={onClose}
+              historyController={historyController}
+              generation={generation}
+              metadataPagerController={metadataPagerController}
+            />
+          )}
         </BottomSheet>
       </PredictiveBackSheetLayer>
     </>

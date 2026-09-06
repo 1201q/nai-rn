@@ -11,10 +11,12 @@ const PREDICTIVE_BACK_SCALE_STOP = 0.6;
 const PREDICTIVE_BACK_MIN_SCALE = 0.94;
 
 export function PredictiveBackSheetLayer({
+  active = true,
   progress,
   zIndex,
   children,
 }: {
+  active?: boolean;
   progress: SharedValue<number>;
   zIndex: number;
   children: ReactNode;
@@ -34,7 +36,9 @@ export function PredictiveBackSheetLayer({
 
   return (
     <Reanimated.View
-      pointerEvents="box-none"
+      pointerEvents={active ? "box-none" : "none"}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
       style={[
         styles.predictiveBackSheetLayer,
         { zIndex, elevation: zIndex },

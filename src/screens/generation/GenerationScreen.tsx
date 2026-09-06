@@ -178,6 +178,7 @@ function GenerationScreenContent() {
   const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
+  const [utilitySheetVisible, setUtilitySheetVisible] = useState(false);
   const [promptStage, setPromptStage] =
     useState<PromptSheetStage>("collapsed");
   const promptBackProgress = useSharedValue(0);
@@ -216,10 +217,10 @@ function GenerationScreenContent() {
     setUtilitySheet(null);
     setPromptStage("collapsed");
   }, []);
-  const hasOpenSheet =
-    utilitySheet !== null || promptStage !== "collapsed";
+  const hasUtilitySheet = utilitySheet !== null || utilitySheetVisible;
+  const hasOpenSheet = hasUtilitySheet || promptStage !== "collapsed";
   const handleBack = useCallback(() => {
-    if (utilitySheet !== null) {
+    if (hasUtilitySheet) {
       finishInputEditing();
       setUtilitySheet(null);
       return;
@@ -230,11 +231,11 @@ function GenerationScreenContent() {
     }
     finishInputEditing();
     setPromptStage("collapsed");
-  }, [finishInputEditing, promptStage, utilitySheet]);
+  }, [finishInputEditing, hasUtilitySheet, promptStage]);
 
   const trackPredictiveBack = useCallback(
     (event: PredictiveBackEvent) => {
-      if (utilitySheet !== null) {
+      if (hasUtilitySheet) {
         cancelAnimation(utilityBackProgress);
         utilityBackProgress.value = event.progress;
         promptBackProgress.value = 0;
@@ -245,7 +246,7 @@ function GenerationScreenContent() {
       promptBackProgress.value = event.progress;
       utilityBackProgress.value = 0;
     },
-    [promptBackProgress, utilityBackProgress, utilitySheet],
+    [hasUtilitySheet, promptBackProgress, utilityBackProgress],
   );
   const cancelPredictiveBack = useCallback(() => {
     promptBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
@@ -338,6 +339,7 @@ function GenerationScreenContent() {
         sheet={utilitySheet}
         predictiveBackProgress={utilityBackProgress}
         onClose={closeUtilitySheet}
+        onVisibilityChange={setUtilitySheetVisible}
         generation={currentGeneration}
       />
 
