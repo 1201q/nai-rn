@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PrimaryButton } from "../../components/common/Buttons";
@@ -21,6 +22,12 @@ import {
 } from "../../components/common/DetailScrollHeader";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+import {
+  getGenerationPerformanceReport,
+  isGenerationPerformanceRecording,
+  startGenerationPerformance,
+  stopGenerationPerformance,
+} from "../../lib/generationPerformance";
 
 type Feedback = {
   tone: "success" | "error";
@@ -39,6 +46,31 @@ export function AppSettingsScreen() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [isRecording, setIsRecording] = useState(isGenerationPerformanceRecording);
+  const [performanceReport, setPerformanceReport] = useState(getGenerationPerformanceReport);
+  const [performanceMessage, setPerformanceMessage] = useState<string | null>(null);
+
+  function togglePerformanceRecording() {
+    setPerformanceMessage(null);
+    if (isGenerationPerformanceRecording()) {
+      setPerformanceReport(stopGenerationPerformance());
+      setIsRecording(false);
+    } else {
+      startGenerationPerformance();
+      setPerformanceReport(null);
+      setIsRecording(true);
+    }
+  }
+
+  async function copyPerformanceReport() {
+    if (!performanceReport || isGenerationPerformanceRecording()) return;
+    try {
+      const copied = await Clipboard.setStringAsync(JSON.stringify(performanceReport, null, 2));
+      setPerformanceMessage(copied ? "측정 결과 JSON을 복사했습니다." : "측정 결과를 복사하지 못했습니다.");
+    } catch {
+      setPerformanceMessage("측정 결과를 복사하지 못했습니다.");
+    }
+  }
 
   useEffect(() => {
     if (storedToken) setTokenInput(storedToken);
@@ -230,6 +262,49 @@ export function AppSettingsScreen() {
                 </Text>
               </View>
             ) : null}
+
+            <View style={styles.legacySection}>
+              <Text style={styles.sectionLabel}>PERFORMANCE BASELINE</Text>
+              <View style={styles.tokenCard}>
+                <Text style={styles.cardTitle}>
+                  {isRecording ? "성능 측정 중" : "이미지 생성 성능 측정"}
+                </Text>
+                <Text style={styles.cardDescription}>
+                  시작 후 생성 화면에서 조작하고, 이곳으로 돌아와 종료하세요.
+                  결과는 앱 종료 전 복사해 주세요.
+                </Text>
+                {__DEV__ ? (
+                  <Text style={styles.cardDescription}>
+                    개발 빌드입니다. 전후 성능 비교는 릴리스 빌드에서 진행하세요.
+                  </Text>
+                ) : null}
+                <View style={styles.saveButtonRow}>
+                  <PrimaryButton
+                    label={isRecording ? "성능 측정 종료" : "성능 측정 시작"}
+                    onPress={togglePerformanceRecording}
+                  />
+                </View>
+                <View style={styles.saveButtonRow}>
+                  <PrimaryButton
+                    label="측정 결과 JSON 복사"
+                    disabled={isRecording || !performanceReport}
+                    onPress={() => void copyPerformanceReport()}
+                  />
+                </View>
+                {performanceReport ? (
+                  <Text style={styles.cardDescription}>
+                    JS 지연 p95 {performanceReport.jsLagForeground.p95Ms.toFixed(1)}ms
+                    {" / "}최대 {performanceReport.jsLagForeground.maxMs.toFixed(1)}ms
+                    {" / "}50ms 이상 {performanceReport.jsLagForeground.atLeast50Ms}회
+                  </Text>
+                ) : null}
+                {performanceMessage ? (
+                  <Text accessibilityLiveRegion="polite" style={styles.cardDescription}>
+                    {performanceMessage}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
 
             <View style={styles.legacySection}>
               <Text style={styles.sectionLabel}>LEGACY PAGES</Text>

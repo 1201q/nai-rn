@@ -1,10 +1,19 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import * as Clipboard from "expo-clipboard";
+import {
+  isGenerationPerformanceRecording,
+  stopGenerationPerformance,
+} from "../../../lib/generationPerformance";
 
 import {
   type AnlasRefreshResult,
   useGenerationStore,
 } from "../../../store/generationStore";
 import { AppSettingsScreen } from "../AppSettingsScreen";
+
+jest.mock("expo-clipboard", () => ({
+  setStringAsync: jest.fn().mockResolvedValue(true),
+}));
 
 type MockSettingsState = {
   storedToken: string | null;
@@ -70,6 +79,28 @@ const initialState = useGenerationStore.getInitialState();
 const mockSaveToken = initialState.saveToken as MockSettingsState["saveToken"];
 const mockRefreshAnlas =
   initialState.refreshAnlas as MockSettingsState["refreshAnlas"];
+
+test("keeps recording across settings unmount and exports a stopped report without the token", async () => {
+  try {
+    useGenerationStore.setState({ storedToken: "private-token-for-test" });
+    const first = await render(<AppSettingsScreen />);
+    await fireEvent.press(first.getByLabelText("성능 측정 시작"));
+    await first.unmount();
+    expect(isGenerationPerformanceRecording()).toBe(true);
+
+    const second = await render(<AppSettingsScreen />);
+    await fireEvent.press(second.getByLabelText("성능 측정 종료"));
+    expect(isGenerationPerformanceRecording()).toBe(false);
+    await fireEvent.press(second.getByLabelText("측정 결과 JSON 복사"));
+    await waitFor(() => expect(Clipboard.setStringAsync).toHaveBeenCalled());
+    const json = jest.mocked(Clipboard.setStringAsync).mock.calls.at(-1)![0];
+    expect(JSON.parse(json)).toHaveProperty("jsLagForeground");
+    expect(json).not.toContain("private-token-for-test");
+  } finally {
+    stopGenerationPerformance();
+    await act(() => useGenerationStore.setState(initialState, true));
+  }
+});
 
 describe("AppSettingsScreen token verification feedback", () => {
   beforeEach(() => {

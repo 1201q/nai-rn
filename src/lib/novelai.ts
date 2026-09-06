@@ -1,6 +1,11 @@
 import type { NoiseSchedule } from "../constants/generation";
 import { prepareImagePromptCaptions } from "./imagePromptCaptions";
 import { type UcPresetIndex } from "./naiPresets";
+import {
+  beginGenerationPerformanceStage,
+  countGenerationPerformance,
+  measureGenerationSync,
+} from "./generationPerformance";
 
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
@@ -529,7 +534,9 @@ function parseSseEvents(
     let data: unknown = dataText;
     if (dataText) {
       try {
-        data = JSON.parse(dataText);
+        data = measureGenerationSync("stream.json_parse", () =>
+          JSON.parse(dataText),
+        );
       } catch {
         data = dataText;
       }
@@ -608,11 +615,15 @@ export async function generateNovelAiImageStream(
   signal?: AbortSignal,
 ): Promise<GenerateNovelAiImageStreamResult> {
   const { token, ...requestInput } = input;
-  const { seed, body } = createImageGenerationBody(requestInput);
+  const { seed, body } = measureGenerationSync(
+    "request.build",
+    () => createImageGenerationBody(requestInput),
+  );
   const cleanToken = normalizeBearerToken(token);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const endRequest = beginGenerationPerformanceStage("request.elapsed");
     let responseOffset = 0;
     let buffer = "";
     let scanOffset = 0;
@@ -621,6 +632,7 @@ export async function generateNovelAiImageStream(
 
     function cleanup() {
       signal?.removeEventListener("abort", handleAbort);
+      endRequest();
     }
 
     function settleError(error: unknown) {
@@ -643,27 +655,38 @@ export async function generateNovelAiImageStream(
     }
 
     function handleStreamText(text: string) {
-      const result = parseSseEvents(buffer + text, scanOffset, (_eventName, data) => {
-        const streamEvent = toNovelAiImageStreamEvent(data);
-        if (!streamEvent) return;
+      countGenerationPerformance("stream.chunks");
+      countGenerationPerformance("stream.response_chars", text.length);
+      const result = measureGenerationSync("stream.parse_dispatch", () =>
+        parseSseEvents(buffer + text, scanOffset, (_eventName, data) => {
+          const streamEvent = toNovelAiImageStreamEvent(data);
+          if (!streamEvent) return;
+          countGenerationPerformance(`stream.${streamEvent.type}_events`);
+          if (streamEvent.type !== "error") {
+            countGenerationPerformance(
+              `stream.${streamEvent.type}_base64_chars`,
+              streamEvent.imageBase64.length,
+            );
+          }
 
-        try {
-          onEvent?.(streamEvent);
-        } catch (error: unknown) {
-          settleError(error);
-          xhr.abort();
-          return;
-        }
+          try {
+            onEvent?.(streamEvent);
+          } catch (error: unknown) {
+            settleError(error);
+            xhr.abort();
+            return;
+          }
 
-        if (streamEvent.type === "final") {
-          finalImageBase64 = streamEvent.imageBase64;
-        }
+          if (streamEvent.type === "final") {
+            finalImageBase64 = streamEvent.imageBase64;
+          }
 
-        if (streamEvent.type === "error") {
-          settleError(new Error(streamEvent.message));
-          xhr.abort();
-        }
-      });
+          if (streamEvent.type === "error") {
+            settleError(new Error(streamEvent.message));
+            xhr.abort();
+          }
+        }),
+      );
       buffer = result.rest;
       scanOffset = result.scanOffset;
     }
@@ -674,8 +697,10 @@ export async function generateNovelAiImageStream(
     xhr.setRequestHeader("Accept", "text/event-stream");
 
     xhr.onprogress = () => {
+      const endRead = beginGenerationPerformanceStage("stream.read_chunk");
       const nextText = xhr.responseText.slice(responseOffset);
       responseOffset = xhr.responseText.length;
+      endRead();
       if (nextText) {
         handleStreamText(nextText);
       }
@@ -692,8 +717,10 @@ export async function generateNovelAiImageStream(
     xhr.onload = () => {
       if (isSettled) return;
 
+      const endRead = beginGenerationPerformanceStage("stream.read_chunk");
       const nextText = xhr.responseText.slice(responseOffset);
       responseOffset = xhr.responseText.length;
+      endRead();
       if (nextText) {
         handleStreamText(nextText);
       }
@@ -730,13 +757,15 @@ export async function generateNovelAiImageStream(
 
     try {
       xhr.send(
-        JSON.stringify({
-          ...body,
-          parameters: {
-            ...body.parameters,
-            stream: "sse",
-          },
-        }),
+        measureGenerationSync("request.serialize", () =>
+          JSON.stringify({
+            ...body,
+            parameters: {
+              ...body.parameters,
+              stream: "sse",
+            },
+          }),
+        ),
       );
     } catch (error: unknown) {
       settleError(error);

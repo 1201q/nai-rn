@@ -11,6 +11,7 @@ import {
 } from "./generationHistoryPage";
 import { createInitializeOnce } from "./initializeOnce";
 import { extractPngTextMetadata } from "./novelai";
+import { measureGenerationAsync, measureGenerationSync } from "./generationPerformance";
 
 const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
@@ -313,7 +314,7 @@ async function saveGenerationRecord({
     const resizedHeight = isLandscape
       ? THUMBNAIL_SIZE
       : Math.round((height / width) * THUMBNAIL_SIZE);
-    const thumbnail = await ImageManipulator.manipulateAsync(
+    const thumbnail = await measureGenerationAsync("save.thumbnail", () => ImageManipulator.manipulateAsync(
       originalFile.uri,
       [
         {
@@ -334,10 +335,10 @@ async function saveGenerationRecord({
         compress: 0.9,
         format: ImageManipulator.SaveFormat.JPEG,
       },
-    );
+    ));
     const thumbnailFile = new File(getThumbnailsDirectory(), thumbnailFileName);
     const temporaryThumbnailFile = new File(thumbnail.uri);
-    await temporaryThumbnailFile.copy(thumbnailFile);
+    await measureGenerationAsync("save.thumbnail_copy", () => temporaryThumbnailFile.copy(thumbnailFile));
     try {
       temporaryThumbnailFile.delete();
     } catch {
@@ -368,7 +369,7 @@ async function saveGenerationRecord({
   };
 
   const db = await getDatabase();
-  await db.runAsync(
+  await measureGenerationAsync("save.db_insert", () => db.runAsync(
     `INSERT INTO generations (
       id,
       image_path,
@@ -405,7 +406,7 @@ async function saveGenerationRecord({
       record.createdAt,
       record.metadataJson,
     ],
-  );
+  ));
 
   return record;
 }
@@ -424,9 +425,9 @@ export async function saveGenerationImageBase64({
 
   try {
     originalFile.create({ overwrite: true });
-    originalFile.write(imageBase64, { encoding: "base64" });
+    measureGenerationSync("save.original_write", () => originalFile.write(imageBase64, { encoding: "base64" }));
 
-    const imageBytes = await originalFile.bytes();
+    const imageBytes = await measureGenerationAsync("save.original_read", () => originalFile.bytes());
     return await saveGenerationRecord({
       ...recordInput,
       id,
@@ -434,7 +435,7 @@ export async function saveGenerationImageBase64({
       imagePath,
       thumbnailFileName,
       originalFile,
-      metadata: extractPngTextMetadata(imageBytes),
+      metadata: measureGenerationSync("save.metadata", () => extractPngTextMetadata(imageBytes)),
     });
   } catch (error: unknown) {
     deleteStoredFile(imagePath);

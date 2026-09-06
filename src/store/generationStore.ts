@@ -46,6 +46,13 @@ import {
 } from "../lib/i2iReference";
 import { storage } from "../lib/storage";
 import {
+  beginGenerationPerformanceImage,
+  countGenerationPerformance,
+  endGenerationPerformanceImage,
+  measureGenerationAsync,
+  measureGenerationSync,
+} from "../lib/generationPerformance";
+import {
   buildMetadataImportPatch,
   type MetadataImportSelection,
 } from "../lib/metadataImport";
@@ -1690,6 +1697,18 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }
 
         let lastPreviewUpdateAt = 0;
+        beginGenerationPerformanceImage({
+          index: i,
+          total,
+          width: opts.width,
+          height: opts.height,
+          steps,
+          model: opts.model,
+          blurred: get().mainImageBlurred,
+          i2i: Boolean(opts.i2iImageBase64),
+          vibeCount: opts.vibeEncodedImages?.length ?? 0,
+          preciseCount: opts.preciseReferenceImages?.length ?? 0,
+        });
         const result = await generateNovelAiImageStream(
           {
             token,
@@ -1722,19 +1741,21 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
               }
 
               lastPreviewUpdateAt = now;
-              set({
+              countGenerationPerformance("preview.intermediate_updates");
+              measureGenerationSync("preview.store_update", () => set({
                 streamingPreviewUri: `data:image/jpeg;base64,${event.imageBase64}`,
                 streamingStep: event.step,
                 streamingGenerationId: event.generationId,
-              });
+              }));
               return;
             }
 
             if (event.type === "final") {
-              set({
+              countGenerationPerformance("preview.final_updates");
+              measureGenerationSync("preview.store_update", () => set({
                 streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
                 streamingGenerationId: event.generationId,
-              });
+              }));
               return;
             }
 
@@ -1743,7 +1764,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           abortController.signal,
         );
 
-        const generation = await saveGenerationImageBase64({
+        const generation = await measureGenerationAsync("save.elapsed", () => saveGenerationImageBase64({
           imageBase64: result.imageBase64,
           prompt,
           negativePrompt,
@@ -1756,7 +1777,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           noiseSchedule: opts.noiseSchedule,
           sampler: opts.sampler,
           seed: result.seed,
-        });
+        }));
 
         set((state) => ({
           currentGeneration: generation,
@@ -1772,6 +1793,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           streamingStep: null,
           streamingGenerationId: null,
         }));
+        endGenerationPerformanceImage("success");
         get().refreshAnlas();
 
         if (
@@ -1788,6 +1810,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       // 한 장 실패 시 큐 중단. 부분 완료분은 history 유지.
       const wasCancelled =
         get().queueCancelRequested || abortController.signal.aborted;
+      endGenerationPerformanceImage(wasCancelled ? "cancelled" : "error");
       if (!wasCancelled) {
         set({
           message: error instanceof Error ? error.message : String(error),
