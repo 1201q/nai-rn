@@ -248,9 +248,13 @@ export function GenerationCanvas({
   } | null>(null);
   const toolbarAnimation = useSharedValue(1);
 
-  const currentImageUri = currentGeneration
-    ? resolveGenerationImageUri(currentGeneration)
-    : null;
+  const currentImagePath = currentGeneration?.imagePath;
+  const currentImageUri = useMemo(
+    () => currentImagePath === undefined
+      ? null
+      : resolveGenerationImageUri({ imagePath: currentImagePath }),
+    [currentImagePath],
+  );
   const displayedImageUri = streamingPreviewUri ?? currentImageUri;
   const streamingResolution =
     i2iEnabled && i2iSourceImage
