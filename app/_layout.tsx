@@ -90,38 +90,6 @@ export default function RootLayout() {
                           : tokens.color.app,
                     },
                   }}
-                  screenListeners={({ route }) => ({
-                    focus: () => {
-                      if (__DEV__) {
-                        console.log("[navigation] focus", {
-                          route: route.name,
-                        });
-                      }
-                    },
-                    blur: () => {
-                      if (__DEV__) {
-                        console.log("[navigation] blur", {
-                          route: route.name,
-                        });
-                      }
-                    },
-                    transitionStart: (event) => {
-                      if (__DEV__) {
-                        console.log("[navigation] transitionStart", {
-                          route: route.name,
-                          closing: event.data.closing,
-                        });
-                      }
-                    },
-                    transitionEnd: (event) => {
-                      if (__DEV__) {
-                        console.log("[navigation] transitionEnd", {
-                          route: route.name,
-                          closing: event.data.closing,
-                        });
-                      }
-                    },
-                  })}
                 />
               </PortalProvider>
               {/* PortalHost보다 뒤에 렌더링해 preview 위에 표시한다. */}
