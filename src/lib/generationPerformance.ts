@@ -1,10 +1,25 @@
 import { AppState, Platform } from "react-native";
+import { generationTrace } from "./generationTrace";
 
 const SAMPLE_INTERVAL_MS = 100;
 const MAX_SAMPLES = 2048;
 const MAX_SLOW_EVENTS = 256;
 const MAX_IMAGES = 100;
+const MAX_TIMELINE_EVENTS = 8192;
 const NOOP = () => {};
+
+type TimelineEvent = {
+  name: string;
+  startMs: number;
+  endMs?: number;
+  imageIndex?: number;
+  appState: string;
+};
+
+function hasTimeline(name: string) {
+  return name === "request.elapsed" || name === "stream.parse_dispatch" ||
+    name === "stream.json_parse" || name.startsWith("preview.") || name.startsWith("save.");
+}
 
 type Statistics = {
   count: number;
@@ -47,6 +62,12 @@ type Session = {
   subscription: { remove(): void } | null;
   appState: string;
   stateRevision: number;
+  timeline: TimelineEvent[];
+  timelineEventsOmitted: number;
+  traceAnchor?: {
+    name: string; beforeMs: number; afterMs: number; enabled: boolean;
+    beforeBootMs?: number; afterBootMs?: number;
+  };
 };
 
 function statistics(): Statistics {
@@ -90,7 +111,7 @@ let lastReport: ReturnType<typeof buildReport> | null = null;
 
 function buildReport(session: Session) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     startedAt: session.startedAt,
     startedAtUnixMs: session.startedAtUnixMs,
     durationMs: performance.now() - session.start,
@@ -112,6 +133,10 @@ function buildReport(session: Session) {
     slowJsEventsTruncated: session.lag.over50 > session.slowEvents.length,
     images: session.images,
     imageLimit: MAX_IMAGES,
+    timeline: session.timeline,
+    timelineEventLimit: MAX_TIMELINE_EVENTS,
+    timelineEventsOmitted: session.timelineEventsOmitted,
+    traceAnchor: session.traceAnchor,
     notes: [
       "Stage durations are elapsed time, not JS CPU time; nested stages overlap.",
       "JS lag is sampled timer lateness in the foreground, not frame time or input latency.",
@@ -119,6 +144,10 @@ function buildReport(session: Session) {
       "Generation/idle lag excludes ticks spanning an image boundary; foreground lag includes them.",
       "Response sizes are string code units, not network bytes.",
       "An image without an outcome was still running when recording stopped.",
+      "Timeline times are relative to recording start; an event without endMs was unfinished at stop.",
+      "Timeline order is start order; nested intervals overlap. Async intervals include waiting.",
+      "Android trace markers cover synchronous timeline stages only, when runtime tracing is enabled.",
+      "Use the session trace anchor to align clocks; wall-clock timestamps alone are approximate.",
     ],
   };
 }
@@ -150,9 +179,18 @@ export function startGenerationPerformance() {
     subscription: null,
     appState: AppState.currentState,
     stateRevision: 0,
+    timeline: [],
+    timelineEventsOmitted: 0,
   };
   active = session;
   lastReport = null;
+  const anchorName = `nai.perf.session:${startedAtUnixMs}`;
+  const beforeMs = performance.now() - session.start;
+  const nativeAnchor = generationTrace?.anchor(anchorName);
+  session.traceAnchor = {
+    name: anchorName, beforeMs, afterMs: performance.now() - session.start,
+    enabled: false, ...nativeAnchor,
+  };
 
   function scheduleTick() {
     if (active !== session || session.appState !== "active") return;
@@ -220,24 +258,46 @@ export function beginGenerationPerformanceStage(name: string) {
   const start = performance.now();
   const appState = session.appState;
   const stateRevision = session.stateRevision;
+  let event: TimelineEvent | undefined;
+  if (hasTimeline(name)) {
+    if (session.timeline.length < MAX_TIMELINE_EVENTS) {
+      event = {
+        name, startMs: start - session.start,
+        imageIndex: session.image?.index, appState,
+      };
+      session.timeline.push(event);
+    } else {
+      session.timelineEventsOmitted += 1;
+    }
+  }
+  let ended = false;
   return () => {
-    if (active !== session) return;
+    if (active !== session || ended) return;
+    ended = true;
+    const end = performance.now();
     const state = session.stateRevision === stateRevision ? appState : "state-changed";
+    if (event) {
+      event.endMs = end - session.start;
+      event.appState = state;
+    }
     const key = `${state}/${name}`;
     let stats = session.stages.get(key);
     if (!stats) {
       stats = statistics();
       session.stages.set(key, stats);
     }
-    record(stats, performance.now() - start);
+    record(stats, end - start);
   };
 }
 
 export function measureGenerationSync<T>(name: string, operation: () => T): T {
   const end = beginGenerationPerformanceStage(name);
+  const trace = active !== null && hasTimeline(name) &&
+    generationTrace?.beginSection(`nai.perf/${name}`);
   try {
     return operation();
   } finally {
+    if (trace) generationTrace?.endSection();
     end();
   }
 }

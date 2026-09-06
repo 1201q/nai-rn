@@ -1752,7 +1752,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
             if (event.type === "final") {
               countGenerationPerformance("preview.final_updates");
-              measureGenerationSync("preview.store_update", () => set({
+              measureGenerationSync("preview.final_store_update", () => set({
                 streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
                 streamingGenerationId: event.generationId,
               }));

@@ -50,4 +50,7 @@ assets/tags.json
 # Native module build outputs
 /modules/*/android/build/
 
+# Local performance captures
+/artifacts/perfetto/
+
 /.understand-anything

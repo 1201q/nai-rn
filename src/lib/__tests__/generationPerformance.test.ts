@@ -1,4 +1,13 @@
 import { AppState } from "react-native";
+import { generationTrace } from "../generationTrace";
+
+jest.mock("../generationTrace", () => ({
+  generationTrace: {
+    anchor: jest.fn(() => ({ beforeBootMs: 1000, afterBootMs: 1001, enabled: true })),
+    beginSection: jest.fn(() => true),
+    endSection: jest.fn(),
+  },
+}));
 import {
   beginGenerationPerformanceImage,
   beginGenerationPerformanceStage,
@@ -26,6 +35,7 @@ beforeEach(() => {
   now = 0;
   jest.spyOn(performance, "now").mockImplementation(() => now);
   removeSubscription.mockClear();
+  jest.clearAllMocks();
   AppState.currentState = "active";
   jest.spyOn(AppState, "addEventListener").mockImplementation((_event, listener) => {
     changeState = listener as (state: string) => void;
@@ -132,4 +142,65 @@ test("bounds samples and slow events while retaining total counts and maximum", 
   expect(report.slowJsEvents).toHaveLength(256);
   expect(report.slowJsEventsTruncated).toBe(true);
   expect(random).not.toHaveBeenCalled();
+});
+
+test("records nested timeline starts, image identity and unfinished work without late mutation", () => {
+  startGenerationPerformance();
+  beginGenerationPerformanceImage(image);
+  now = 10;
+  const endRequest = beginGenerationPerformanceStage("request.elapsed");
+  now = 20;
+  measureGenerationSync("stream.parse_dispatch", () => {
+    now = 25;
+    measureGenerationSync("stream.json_parse", () => { now = 30; });
+    now = 40;
+  });
+  now = 45;
+  const report = stopGenerationPerformance()!;
+  now = 60;
+  endRequest();
+  expect(report.timeline).toEqual([
+    { name: "request.elapsed", startMs: 10, imageIndex: 1, appState: "active" },
+    { name: "stream.parse_dispatch", startMs: 20, endMs: 40, imageIndex: 1, appState: "active" },
+    { name: "stream.json_parse", startMs: 25, endMs: 30, imageIndex: 1, appState: "active" },
+  ]);
+  expect(report.traceAnchor).toMatchObject({ beforeBootMs: 1000, afterBootMs: 1001, enabled: true });
+});
+
+test("balances synchronous native sections on errors and never spans async waits", async () => {
+  measureGenerationSync("save.metadata", () => 1);
+  expect(generationTrace!.beginSection).not.toHaveBeenCalled();
+  startGenerationPerformance();
+  expect(() => measureGenerationSync("save.metadata", () => { throw new Error("test"); })).toThrow("test");
+  await measureGenerationAsync("save.thumbnail", async () => { now = 50; });
+  expect(generationTrace!.beginSection).toHaveBeenCalledTimes(1);
+  expect(generationTrace!.endSection).toHaveBeenCalledTimes(1);
+  expect(stopGenerationPerformance()!.timeline).toHaveLength(2);
+});
+
+test("bounds the timeline without losing aggregate stage counts", () => {
+  startGenerationPerformance();
+  for (let index = 0; index < 8200; index++) {
+    measureGenerationSync("stream.parse_dispatch", () => { now += 1; });
+  }
+  measureGenerationSync("stream.read_chunk", () => { now += 1; });
+  const report = stopGenerationPerformance()!;
+  expect(report.timeline).toHaveLength(8192);
+  expect(report.timelineEventsOmitted).toBe(8);
+  expect(report.stages["active/stream.parse_dispatch"].count).toBe(8200);
+});
+
+test("keeps starting image identity and app-state transition on an async interval", async () => {
+  startGenerationPerformance();
+  beginGenerationPerformanceImage(image);
+  await measureGenerationAsync("save.thumbnail", async () => {
+    now = 10;
+    endGenerationPerformanceImage("success");
+    beginGenerationPerformanceImage({ ...image, index: 2 });
+    changeState("background");
+    now = 30;
+  });
+  expect(stopGenerationPerformance()!.timeline[0]).toMatchObject({
+    imageIndex: 1, startMs: 0, endMs: 30, appState: "state-changed",
+  });
 });
