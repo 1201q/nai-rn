@@ -18,7 +18,8 @@ type TimelineEvent = {
 
 function hasTimeline(name: string) {
   return name === "request.elapsed" || name === "stream.parse_dispatch" ||
-    name === "stream.json_parse" || name.startsWith("preview.") || name.startsWith("save.");
+    name === "stream.json_parse" || name.startsWith("preview.") || name.startsWith("save.") ||
+    name === "native.response_and_save";
 }
 
 type Statistics = {

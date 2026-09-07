@@ -3,6 +3,13 @@ import { StyleSheet } from "react-native";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 
 import { GenerationCanvas } from "../GenerationCanvas";
+import { generationImagePipeline, releaseNativePreviews } from "../../../../modules/generation-image-pipeline";
+
+jest.mock("../../../../modules/generation-image-pipeline", () => ({
+  ...jest.requireActual("../../../../modules/generation-image-pipeline"),
+  generationImagePipeline: { retainPreviews: jest.fn() },
+  releaseNativePreviews: jest.fn(),
+}));
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("expo-image", () => {
@@ -104,6 +111,20 @@ describe("generation canvas toolbar accessibility", () => {
 });
 
 describe("generation canvas image loading", () => {
+  test("retains a request across preview frames and releases it after source replacement", async () => {
+    mockGenerationState.streamingPreviewUri = "file:///cache/nai-stream-previews/gen_test/0.jpg";
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(screen.getByTestId("canvas-image").props.cachePolicy).toBe("none");
+    expect(generationImagePipeline!.retainPreviews).toHaveBeenCalledWith("gen_test");
+    mockGenerationState.streamingPreviewUri = "file:///cache/nai-stream-previews/gen_test/1.jpg";
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(releaseNativePreviews).not.toHaveBeenCalled();
+    mockGenerationState.streamingPreviewUri = "file:///originals/final.png";
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(releaseNativePreviews).toHaveBeenCalledWith("gen_test");
+    expect(screen.getByTestId("canvas-image").props.cachePolicy).toBe("memory-disk");
+  });
+
   function loadEvent(url: string, width: number, height: number): ImageLoadEventData {
     return { cacheType: "none", source: { url, width, height, mediaType: "image/png" } };
   }

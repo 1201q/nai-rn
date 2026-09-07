@@ -9,7 +9,6 @@ import {
   type GenerationRecord,
   listGenerationIds,
   listGenerationPage,
-  saveGenerationImageBase64,
 } from "../lib/generationHistory";
 import {
   mergeGenerationHistoryRecords,
@@ -32,9 +31,9 @@ import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
   encodeNovelAiVibe,
-  generateNovelAiImageStream,
   getNovelAiAnlasBalance,
 } from "../lib/novelai";
+import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
@@ -49,7 +48,6 @@ import {
   beginGenerationPerformanceImage,
   countGenerationPerformance,
   endGenerationPerformanceImage,
-  measureGenerationAsync,
   measureGenerationSync,
 } from "../lib/generationPerformance";
 import {
@@ -1709,7 +1707,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           vibeCount: opts.vibeEncodedImages?.length ?? 0,
           preciseCount: opts.preciseReferenceImages?.length ?? 0,
         });
-        const result = await generateNovelAiImageStream(
+        const generation = await generateAndSaveImage(
           {
             token,
             prompt,
@@ -1729,7 +1727,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
               }
 
               // 백그라운드에선 미리보기 base64 디코딩이 메모리 낭비 — 스킵
-              if (AppState.currentState !== "active") {
+              if (AppState.currentState !== "active" || !event.imageUri) {
+                set({ streamingStep: event.step });
                 return;
               }
               const now = Date.now();
@@ -1743,7 +1742,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
               lastPreviewUpdateAt = now;
               countGenerationPerformance("preview.intermediate_updates");
               measureGenerationSync("preview.store_update", () => set({
-                streamingPreviewUri: `data:image/jpeg;base64,${event.imageBase64}`,
+                streamingPreviewUri: event.imageUri,
                 streamingStep: event.step,
                 streamingGenerationId: event.generationId,
               }));
@@ -1753,7 +1752,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             if (event.type === "final") {
               countGenerationPerformance("preview.final_updates");
               measureGenerationSync("preview.final_store_update", () => set({
-                streamingPreviewUri: `data:image/png;base64,${event.imageBase64}`,
+                streamingPreviewUri: event.imageUri,
                 streamingGenerationId: event.generationId,
               }));
               return;
@@ -1763,21 +1762,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           },
           abortController.signal,
         );
-
-        const generation = await measureGenerationAsync("save.elapsed", () => saveGenerationImageBase64({
-          imageBase64: result.imageBase64,
-          prompt,
-          negativePrompt,
-          model: opts.model,
-          width: opts.width,
-          height: opts.height,
-          steps: opts.steps,
-          scale: opts.promptGuidance,
-          cfgRescale: opts.promptGuidanceRescale,
-          noiseSchedule: opts.noiseSchedule,
-          sampler: opts.sampler,
-          seed: result.seed,
-        }));
 
         set((state) => ({
           currentGeneration: generation,

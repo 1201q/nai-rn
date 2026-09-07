@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.generationimagepipeline'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.generationimagepipeline"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+  testOptions { unitTests.returnDefaultValues = true }
+}
+
+dependencies {
+  implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.json:json:20240303'
+}

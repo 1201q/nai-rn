@@ -368,6 +368,10 @@ async function saveGenerationRecord({
     metadataJson: JSON.stringify(metadata),
   };
 
+  return insertGenerationRecord(record);
+}
+
+async function insertGenerationRecord(record: GenerationRecord) {
   const db = await getDatabase();
   await measureGenerationAsync("save.db_insert", () => db.runAsync(
     `INSERT INTO generations (
@@ -409,6 +413,41 @@ async function saveGenerationRecord({
   ));
 
   return record;
+}
+
+export async function prepareNativeGenerationFiles() {
+  await initGenerationHistoryStorage();
+  const id = createGenerationId();
+  return {
+    id,
+    imagePath: `${ORIGINALS_DIR}/${id}.png`,
+    thumbnailPath: `${THUMBNAILS_DIR}/${id}.jpg`,
+    originalUri: new File(getOriginalsDirectory(), `${id}.png`).uri,
+    thumbnailUri: new File(getThumbnailsDirectory(), `${id}.jpg`).uri,
+  };
+}
+
+export function discardNativeGenerationFiles(files: { imagePath: string; thumbnailPath: string }) {
+  deleteStoredFile(files.imagePath);
+  deleteStoredFile(files.thumbnailPath);
+}
+
+export async function savePreparedGeneration(
+  files: Awaited<ReturnType<typeof prepareNativeGenerationFiles>>,
+  input: Omit<SaveGenerationInput, "imageBytes">,
+  hasThumbnail: boolean,
+) {
+  const { metadata, ...recordInput } = input;
+  try {
+    return await insertGenerationRecord({
+      ...recordInput, id: files.id, createdAt: Date.now(),
+      imagePath: files.imagePath, thumbnailPath: hasThumbnail ? files.thumbnailPath : null,
+      metadataJson: JSON.stringify(metadata),
+    });
+  } catch (error) {
+    discardNativeGenerationFiles(files);
+    throw error;
+  }
 }
 
 export async function saveGenerationImageBase64({

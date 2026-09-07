@@ -74,7 +74,7 @@ export async function getNovelAiAnlasBalance(
   const purchased = data.trainingStepsLeft?.purchasedTrainingSteps ?? 0;
   return { fixed, purchased, total: fixed + purchased };
 }
-type GenerateNovelAiImageInput = {
+export type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
   negativePrompt: string;
@@ -250,7 +250,7 @@ function isV4Model(model: string): boolean {
   return model.startsWith("nai-diffusion-4");
 }
 
-function normalizeBearerToken(token: string): string {
+export function normalizeBearerToken(token: string): string {
   const trimmed = token.trim();
   return trimmed.toLowerCase().startsWith("bearer ")
     ? trimmed.slice(7).trim()
