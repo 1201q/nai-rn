@@ -1726,9 +1726,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
                 updateGenerationProgress(i, total, doneSteps, totalSteps);
               }
 
-              // 백그라운드에선 미리보기 base64 디코딩이 메모리 낭비 — 스킵
+              // 화면 진행률은 350ms 제한을 통과한 프리뷰와 함께 갱신한다.
               if (AppState.currentState !== "active" || !event.imageUri) {
-                set({ streamingStep: event.step });
                 return;
               }
               const now = Date.now();
