@@ -363,12 +363,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   const handleChange = useCallback(
     (index: number) => {
-      if (__DEV__) {
-        console.log("[app-sheet] change", {
-          index,
-          route: stackRef.current[stackRef.current.length - 1]?.route,
-        });
-      }
       const wasOpen = openRef.current;
       const nextOpen = index >= 0;
       if (nextOpen !== openRef.current) {
@@ -398,12 +392,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const handleCloseComplete = useCallback(() => {
-    if (__DEV__) {
-      console.log("[app-sheet] close", {
-        route: stackRef.current[stackRef.current.length - 1]?.route,
-        trackedOpen: openRef.current,
-      });
-    }
     if (!openRef.current && !closingRef.current) return;
     finalizeClose();
   }, [finalizeClose]);

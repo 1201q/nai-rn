@@ -51,3 +51,6 @@ assets/tags.json
 /modules/*/android/build/
 
 /.understand-anything
+
+# Local performance recordings
+/artifacts/perfetto/

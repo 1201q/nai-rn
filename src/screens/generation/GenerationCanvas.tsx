@@ -34,6 +34,7 @@ import Reanimated, {
 import { toast } from "sonner-native";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
+import { generationImagePipeline, previewRequestId, releaseNativePreviews } from "../../../modules/generation-image-pipeline";
 import {
   getI2IEffectiveResolution,
   useGenerationStore,
@@ -219,7 +220,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
             source={{ uri }}
             blurRadius={blurRadius}
             contentFit="cover"
-            cachePolicy="memory-disk"
+            cachePolicy={previewRequestId(uri) ? "none" : "memory-disk"}
             transition={0}
             style={StyleSheet.absoluteFill}
             onLoad={onLoad}
@@ -237,6 +238,12 @@ export function GenerationCanvas({
 }) {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
+  const previewRequest = previewRequestId(streamingPreviewUri);
+  useEffect(() => {
+    if (previewRequest) generationImagePipeline?.retainPreviews(previewRequest);
+    // Effect cleanup runs after the committed source change or unmount.
+    return () => { if (previewRequest) releaseNativePreviews(previewRequest); };
+  }, [previewRequest]);
   const isLoading = useGenerationStore((s) => s.isLoading);
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
