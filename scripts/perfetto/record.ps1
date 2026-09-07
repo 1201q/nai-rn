@@ -40,8 +40,9 @@ Write-Host "Device output: $remoteTrace"
 $deadline = [DateTime]::UtcNow.AddSeconds($DurationSeconds + 30)
 do {
     Start-Sleep -Seconds 1
-    & adb @adbArgs shell "kill -0 $capturePid 2>/dev/null"
-    $running = $LASTEXITCODE -eq 0
+    # Perfetto runs under another UID; kill -0 may fail while it is still recording.
+    $processIds = Invoke-PerfAdb -Arguments @('shell', 'ps', '-A', '-o', 'PID')
+    $running = @($processIds | ForEach-Object { $_.Trim() }) -contains $capturePid
     if ($running -and [DateTime]::UtcNow -gt $deadline) {
         throw "Capture did not exit on time. Device trace retained at $remoteTrace"
     }
