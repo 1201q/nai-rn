@@ -77,5 +77,10 @@
     "preset": "jest-expo",
     "modulePathIgnorePatterns": ["<rootDir>/.claude/worktrees/"]
   },
+  "reanimated": {
+    "staticFeatureFlags": {
+      "FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS": false
+    }
+  },
   "private": true
 }
