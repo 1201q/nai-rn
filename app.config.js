@@ -11,6 +11,12 @@ export default {
     name: config.name,
     slug: "nai-rn",
     version: "1.0.0",
+    runtimeVersion: {
+      policy: "fingerprint",
+    },
+    updates: {
+      url: "https://u.expo.dev/1dd3b0a5-a64b-48f6-bf4e-56ad2521e001",
+    },
     scheme: "nairn",
     orientation: "portrait",
     icon: "./assets/logo.png",
