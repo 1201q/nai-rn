@@ -59,6 +59,14 @@ const generation: GenerationRecord = {
 };
 
 describe("MetadataSheetContent", () => {
+  test("displays extracted metadata without a generated record", async () => {
+    const screen = await render(<MetadataSheetContent generation={{ metadataJson: JSON.stringify({ Comment: JSON.stringify({ prompt: "external prompt", seed: 42 }) }) }} />);
+    expect(screen.getByText("external prompt")).toBeTruthy();
+    expect(screen.getByText("42")).toBeTruthy();
+    expect(screen.queryByText("CREATED")).toBeNull();
+    expect(screen.queryByText(/undefined/)).toBeNull();
+    expect(screen.queryByText(/^ID /)).toBeNull();
+  });
   test("shows the current image record with its embedded metadata", async () => {
     const screen = await render(
       <MetadataSheetContent generation={generation} />,

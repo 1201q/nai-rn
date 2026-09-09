@@ -14,7 +14,7 @@ import Reanimated, {
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
 } from "../../../../hooks/useGenerationChromeMetrics";
-import type { GenerationRecord } from "../../../../lib/generationHistory";
+import type { MetadataSheetSource } from "./MetadataSheetContent";
 import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
 import { MetadataImportContent } from "./MetadataImportContent";
@@ -35,7 +35,7 @@ export const MetadataSheetPager = memo(function MetadataSheetPager({
   onClose,
   controller,
 }: {
-  generation: GenerationRecord;
+  generation: MetadataSheetSource;
   onClose: () => void;
   controller: MetadataSheetPagerController;
 }) {

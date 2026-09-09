@@ -1,9 +1,16 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
+import { toast } from "sonner-native";
+import { extractPngTextMetadata } from "../../../lib/novelai";
 
 import { useGenerationStore } from "../../../store/generationStore";
-import { ImageToImageReferenceCard, PreciseReferenceCard, VibeReferenceCard } from "../ReferenceImagesSheetContent";
+import { ImageToImageReferenceCard, MetadataExtractCard, PreciseReferenceCard, VibeReferenceCard } from "../ReferenceImagesSheetContent";
+
+jest.mock("expo-file-system", () => ({ File: jest.fn() }));
+jest.mock("sonner-native", () => ({ toast: { info: jest.fn(), error: jest.fn() } }));
+jest.mock("../../../lib/novelai", () => ({ extractPngTextMetadata: jest.fn() }));
 
 jest.mock("react-native-reanimated", () => {
   const React = require("react");
@@ -90,6 +97,52 @@ beforeEach(() => {
   });
   jest.mocked(ImagePicker.requestMediaLibraryPermissionsAsync).mockResolvedValue({ granted: true } as never);
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: true, assets: null });
+});
+
+describe("Metadata Extract", () => {
+  const bytes = new Uint8Array([137, 80, 78, 71]);
+  beforeEach(() => {
+    jest.mocked(File).mockImplementation(() => ({ bytes: async () => bytes }) as File);
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///metadata.png" }] } as never);
+  });
+
+  it("opens the metadata sheet with extracted image metadata", async () => {
+    const metadata = { Comment: JSON.stringify({ prompt: "test prompt", seed: 42 }) };
+    jest.mocked(extractPngTextMetadata).mockReturnValue(metadata);
+    const onExtract = jest.fn();
+    const screen = await render(<MetadataExtractCard onExtract={onExtract} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
+    await waitFor(() => expect(onExtract).toHaveBeenCalledWith(JSON.stringify(metadata)));
+    expect(extractPngTextMetadata).toHaveBeenCalledWith(bytes);
+  });
+
+  it("shows a toast without opening a sheet when metadata is absent", async () => {
+    jest.mocked(extractPngTextMetadata).mockReturnValue({});
+    const onExtract = jest.fn();
+    const screen = await render(<MetadataExtractCard onExtract={onExtract} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith("이미지에 메타데이터가 없습니다."));
+    expect(onExtract).not.toHaveBeenCalled();
+  });
+
+  it("does not open a sheet when picking is canceled", async () => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: true, assets: null });
+    const onExtract = jest.fn();
+    const screen = await render(<MetadataExtractCard onExtract={onExtract} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
+    await waitFor(() => expect(screen.getByRole("button").props.accessibilityState.busy).toBe(false));
+    expect(onExtract).not.toHaveBeenCalled();
+    expect(toast.info).not.toHaveBeenCalled();
+  });
+
+  it("shows an error without opening a sheet when reading fails", async () => {
+    jest.mocked(File).mockImplementation(() => ({ bytes: async () => { throw new Error("read failed"); } }) as unknown as File);
+    const onExtract = jest.fn();
+    const screen = await render(<MetadataExtractCard onExtract={onExtract} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(onExtract).not.toHaveBeenCalled();
+  });
 });
 
 it.each(["vibe", "precise"] as const)("shows active/total counts for disabled %s images", async (kind) => {

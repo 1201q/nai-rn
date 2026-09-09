@@ -21,7 +21,7 @@ import {
   type HistorySheetController,
   useHistorySheetController,
 } from "../../../components/generation/HistorySheetContent";
-import type { GenerationRecord } from "../../../lib/generationHistory";
+import type { MetadataSheetSource } from "./metadata/MetadataSheetContent";
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
@@ -57,7 +57,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
-  generation: GenerationRecord | null;
+  generation: MetadataSheetSource | null;
   metadataPagerController: MetadataSheetPagerController;
 }) {
   if (sheet === "history") {
@@ -112,7 +112,7 @@ export function UtilitySheetHost({
   predictiveBackProgress: SharedValue<number>;
   onClose: () => void;
   onVisibilityChange?: (visible: boolean) => void;
-  generation?: GenerationRecord | null;
+  generation?: MetadataSheetSource | null;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);

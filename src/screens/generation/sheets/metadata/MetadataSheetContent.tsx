@@ -13,6 +13,8 @@ import { getUcPresetLabel } from "../../../../lib/naiPresets";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { monoFont, tokens } from "../../../../styles/tokens";
 
+export type MetadataSheetSource = GenerationRecord | { metadataJson: string };
+
 type MetadataValue = {
   label: string;
   value: string;
@@ -23,9 +25,9 @@ type PromptMode = "base" | "negative";
 
 function optionLabel(
   options: ReadonlyArray<{ label: string; value: string }>,
-  value: string,
+  value: string | undefined,
 ) {
-  return options.find((option) => option.value === value)?.label ?? value;
+  return options.find((option) => option.value === value)?.label ?? value ?? "-";
 }
 
 function formatCreatedAt(createdAt: number) {
@@ -193,7 +195,7 @@ const ReadonlyCharacterPrompt = memo(function ReadonlyCharacterPrompt({
 export const MetadataSheetContent = memo(function MetadataSheetContent({
   generation,
 }: {
-  generation: GenerationRecord;
+  generation: Partial<GenerationRecord> & { metadataJson: string };
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const parsed = useMemo(
@@ -209,16 +211,16 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     { label: "MODEL", value: optionLabel(MODELS, model) },
     {
       label: "RESOLUTION",
-      value: `${resolution.width} x ${resolution.height}`,
+      value: resolution.width && resolution.height ? `${resolution.width} x ${resolution.height}` : "-",
     },
-    { label: "STEPS", value: String(parsed?.steps ?? generation.steps) },
+    { label: "STEPS", value: String(parsed?.steps ?? generation.steps ?? "-") },
     {
       label: "PROMPT GUIDANCE",
-      value: String(parsed?.promptGuidance ?? generation.scale),
+      value: String(parsed?.promptGuidance ?? generation.scale ?? "-"),
     },
     {
       label: "CFG RESCALE",
-      value: String(parsed?.promptGuidanceRescale ?? generation.cfgRescale),
+      value: String(parsed?.promptGuidanceRescale ?? generation.cfgRescale ?? "-"),
     },
     {
       label: "SAMPLER",
@@ -253,11 +255,11 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
           ? "-"
           : getUcPresetLabel(parsed.ucPreset),
     },
-    { label: "CREATED", value: formatCreatedAt(generation.createdAt) },
+    ...(generation.createdAt === undefined ? [] : [{ label: "CREATED", value: formatCreatedAt(generation.createdAt) }]),
   ];
   const characters = parsed?.characters ?? [];
-  const prompt = parsed?.prompt ?? generation.prompt;
-  const negativePrompt = parsed?.negativePrompt ?? generation.negativePrompt;
+  const prompt = parsed?.prompt ?? generation.prompt ?? "";
+  const negativePrompt = parsed?.negativePrompt ?? generation.negativePrompt ?? "";
 
   return (
     <BottomSheetScrollView
@@ -293,9 +295,9 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
         </View>
       </View>
 
-      <Text style={styles.recordId}>
+      {generation.id ? <Text style={styles.recordId}>
         ID {generation.id}
-      </Text>
+      </Text> : null}
     </BottomSheetScrollView>
   );
 });

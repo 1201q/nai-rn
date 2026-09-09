@@ -54,6 +54,17 @@ const generation: GenerationRecord = {
 describe("MetadataImportContent", () => {
   beforeEach(() => jest.clearAllMocks());
 
+  test("imports extracted fields without inventing missing generation settings", async () => {
+    const screen = await render(<MetadataImportContent generation={{ metadataJson: JSON.stringify({ Comment: JSON.stringify({ prompt: "external prompt" }) }) }} onImported={jest.fn()} />);
+    await fireEvent.press(screen.getByRole("button", { name: "선택 항목 가져오기" }));
+    const [parsed] = mockApplyMetadataImport.mock.calls[0];
+    expect(parsed.prompt).toBe("external prompt");
+    expect(parsed.model).toBeUndefined();
+    expect(parsed.resolution).toBeUndefined();
+    expect(parsed.steps).toBeUndefined();
+    expect(parsed.sampler).toBeUndefined();
+  });
+
   test("applies the selected metadata with the chosen character mode", async () => {
     const onImported = jest.fn();
     const screen = await render(

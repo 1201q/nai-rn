@@ -177,6 +177,7 @@ function GenerationScreenContent() {
   const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
+  const [extractedMetadata, setExtractedMetadata] = useState<{ metadataJson: string } | null>(null);
   const [utilitySheetVisible, setUtilitySheetVisible] = useState(false);
   const [promptStage, setPromptStage] =
     useState<PromptSheetStage>("collapsed");
@@ -210,8 +211,14 @@ function GenerationScreenContent() {
     [finishInputEditing],
   );
   const openMetadataSheet = useCallback(() => {
+    setExtractedMetadata(null);
     toggleUtilitySheet("metadata");
   }, [toggleUtilitySheet]);
+  const handleMetadataExtract = useCallback((metadataJson: string) => {
+    finishInputEditing();
+    setExtractedMetadata({ metadataJson });
+    setUtilitySheet("metadata");
+  }, [finishInputEditing]);
   const handleGenerationStarted = useCallback(() => {
     setUtilitySheet(null);
     setPromptStage("collapsed");
@@ -325,6 +332,7 @@ function GenerationScreenContent() {
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}
         onPromptStageChange={handlePromptStageChange}
+        onMetadataExtract={handleMetadataExtract}
       />
 
       <UtilitySheetHost
@@ -332,7 +340,7 @@ function GenerationScreenContent() {
         predictiveBackProgress={utilityBackProgress}
         onClose={closeUtilitySheet}
         onVisibilityChange={setUtilitySheetVisible}
-        generation={currentGeneration}
+        generation={extractedMetadata ?? currentGeneration}
       />
 
       <View

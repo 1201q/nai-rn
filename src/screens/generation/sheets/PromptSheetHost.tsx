@@ -211,11 +211,13 @@ export function PromptSheetHost({
   promptStage,
   predictiveBackProgress,
   onPromptStageChange,
+  onMetadataExtract,
 }: {
   promptPreview: string;
   promptStage: PromptSheetStage;
   predictiveBackProgress: SharedValue<number>;
   onPromptStageChange: (stage: PromptSheetStage) => void;
+  onMetadataExtract?: (metadataJson: string) => void;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const { commitPendingInput } = useGenerationInputCommit();
@@ -475,7 +477,7 @@ export function PromptSheetHost({
                         {item.key === "prompt" ? (
                           <PromptSheetContent active={active} />
                         ) : item.key === "reference" ? (
-                          <ReferenceImagesSheetContent active={active} />
+                          <ReferenceImagesSheetContent active={active} onMetadataExtract={onMetadataExtract} />
                         ) : (
                           <View style={styles.emptyPromptPage} />
                         )}

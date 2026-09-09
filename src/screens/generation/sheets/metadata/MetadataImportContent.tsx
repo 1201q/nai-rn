@@ -4,7 +4,7 @@ import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { toast } from "sonner-native";
 
-import type { GenerationRecord } from "../../../../lib/generationHistory";
+import type { MetadataSheetSource } from "./MetadataSheetContent";
 import {
   parseNaiMetadataJson,
   type ParsedNaiMetadata,
@@ -33,8 +33,9 @@ type ImportOption = {
   description: string;
 };
 
-function resolveImportMetadata(generation: GenerationRecord): ParsedNaiMetadata {
+function resolveImportMetadata(generation: MetadataSheetSource): ParsedNaiMetadata {
   const parsed = parseNaiMetadataJson(generation.metadataJson);
+  if (!("id" in generation)) return parsed ?? { raw: {}, hasSettings: false };
   return {
     raw: parsed?.raw ?? {},
     prompt: parsed?.prompt ?? generation.prompt,
@@ -152,7 +153,7 @@ export const MetadataImportContent = memo(function MetadataImportContent({
   generation,
   onImported,
 }: {
-  generation: GenerationRecord;
+  generation: MetadataSheetSource;
   onImported: () => void;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
