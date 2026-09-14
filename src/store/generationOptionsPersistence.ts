@@ -12,12 +12,6 @@ type StoredCharacterPrompt = {
   position: { x: number; y: number };
 };
 
-type StoredCustomResolution = {
-  id: string;
-  width: number;
-  height: number;
-};
-
 type StoredGenerationOptions = {
   prompt: string;
   negativePrompt: string;
@@ -28,7 +22,6 @@ type StoredGenerationOptions = {
   characterPositionEnabled: boolean;
   model: string;
   resolution: NaiResolution;
-  customResolutions: StoredCustomResolution[];
   steps: number;
   promptGuidance: number;
   promptGuidanceRescale: number;
@@ -39,8 +32,6 @@ type StoredGenerationOptions = {
   batchCount: number;
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
-  vibeReferenceExpandedIds: string[];
-  preciseReferenceExpandedIds: string[];
   i2iSourceImage: {
     storagePath: string;
     width: number;
@@ -73,7 +64,6 @@ const PERSISTED_OPTION_KEYS = [
   "characterPositionEnabled",
   "model",
   "resolution",
-  "customResolutions",
   "steps",
   "promptGuidance",
   "promptGuidanceRescale",
@@ -83,8 +73,6 @@ const PERSISTED_OPTION_KEYS = [
   "batchCount",
   "varietyPlus",
   "normalizeVibeStrengths",
-  "vibeReferenceExpandedIds",
-  "preciseReferenceExpandedIds",
   "i2iSourceImage",
   "i2iEnabled",
   "i2iStrength",
@@ -105,7 +93,6 @@ export function selectPersistedOptions(
     characterPositionEnabled: state.characterPositionEnabled,
     model: state.model,
     resolution: state.resolution,
-    customResolutions: state.customResolutions,
     steps: state.steps,
     promptGuidance: state.promptGuidance,
     promptGuidanceRescale: state.promptGuidanceRescale,
@@ -116,8 +103,6 @@ export function selectPersistedOptions(
     batchCount: state.batchCount,
     varietyPlus: state.varietyPlus,
     normalizeVibeStrengths: state.normalizeVibeStrengths,
-    vibeReferenceExpandedIds: state.vibeReferenceExpandedIds,
-    preciseReferenceExpandedIds: state.preciseReferenceExpandedIds,
     ...(state.i2iSourceImage
       ? {
           i2iSourceImage: {

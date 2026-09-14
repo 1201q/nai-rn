@@ -7,7 +7,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-import { CHARACTER_BADGE_COLORS } from "../generation/CharacterCard";
+import { CHARACTER_BADGE_COLORS } from "../../styles/characterBadgeColors";
 
 const GRID_SIZE = 5;
 const GRID_INDEXES = Array.from({ length: GRID_SIZE }, (_, index) => index);

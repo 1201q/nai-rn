@@ -51,10 +51,6 @@ export function getMetadataImportAvailability(
   };
 }
 
-export function hasImportableMetadata(parsed: ParsedNaiMetadata) {
-  return Object.values(getMetadataImportAvailability(parsed)).some(Boolean);
-}
-
 export function createMetadataImportSelection(
   parsed: ParsedNaiMetadata,
 ): MetadataImportSelection {

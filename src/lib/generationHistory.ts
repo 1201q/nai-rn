@@ -487,13 +487,3 @@ export function resolveGenerationImageUri(
 ) {
   return fileFromStoredPath(record.imagePath).uri;
 }
-
-export function resolveGenerationThumbnailUri(record: GenerationRecord) {
-  if (!record.thumbnailPath) {
-    return null;
-  }
-
-  const file = fileFromStoredPath(record.thumbnailPath);
-
-  return file.exists ? file.uri : null;
-}

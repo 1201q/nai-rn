@@ -2,10 +2,7 @@ import { Asset } from "expo-asset";
 import { File } from "expo-file-system";
 import { inflateSync, strFromU8 } from "fflate";
 
-import {
-  getImagePromptTokenPolicy,
-  type ImagePromptTokenizerType,
-} from "../../constants/generation";
+import type { ImagePromptTokenizerType } from "../../constants/generation";
 import {
   NovelAiClipTokenizer,
   NovelAiT5Tokenizer,
@@ -43,10 +40,4 @@ export function getPromptTokenizer(
     });
   }
   return tokenizerPromises[type];
-}
-
-export function warmPromptTokenizerForModel(model: string): Promise<void> {
-  const policy = getImagePromptTokenPolicy(model);
-  if (!policy) return Promise.resolve();
-  return getPromptTokenizer(policy.tokenizer).then(() => undefined);
 }

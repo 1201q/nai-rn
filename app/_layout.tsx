@@ -67,8 +67,7 @@ export default function RootLayout() {
         <KeyboardProvider>
           <GenerationOptionsProvider>
             <AppSheetProvider>
-              {/* PortalProvider 는 AppSheetProvider 안쪽 — 기본 호스트가 옵션
-                  시트(BottomSheet)보다 먼저 그려져 z 순서: 시트 > preview > pager. */}
+              {/* Keep portal content below the global option sheets. */}
               <PortalProvider>
                 <Stack
                   screenLayout={({ children }) =>
@@ -92,7 +91,7 @@ export default function RootLayout() {
                   }}
                 />
               </PortalProvider>
-              {/* PortalHost보다 뒤에 렌더링해 preview 위에 표시한다. */}
+              {/* Render notifications after portal content. */}
               <Toaster
                 position="bottom-center"
                 theme="dark"

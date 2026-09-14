@@ -6,36 +6,6 @@ import { tokens } from "../../styles/tokens";
 
 export const DETAIL_HEADER_TOP_OFFSET = 8;
 export const DETAIL_FIXED_HEADER_CONTENT_OFFSET = 72;
-export const DETAIL_SCROLL_TITLE_HEIGHT = 110;
-
-export function DetailScrollTitle({
-  title,
-  scrollY,
-  containerHeight = DETAIL_SCROLL_TITLE_HEIGHT,
-  navigationSpacerHeight = 42,
-}: {
-  title: string;
-  scrollY: Animated.Value;
-  containerHeight?: number;
-  navigationSpacerHeight?: number;
-}) {
-  const opacity = scrollY.interpolate({
-    inputRange: [0, 56],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-
-  return (
-    <View style={[styles.scrollTitle, { height: containerHeight }]}>
-      <View
-        style={[styles.navigationSpacer, { height: navigationSpacerHeight }]}
-      />
-      <Animated.View style={[styles.largeTitleContainer, { opacity }]}>
-        <Text style={styles.largeTitle}>{title}</Text>
-      </Animated.View>
-    </View>
-  );
-}
 
 export function DetailHeaderOverlay({
   title,
@@ -163,22 +133,6 @@ export function DetailHeaderOverlay({
 }
 
 const styles = StyleSheet.create({
-  scrollTitle: {
-    height: DETAIL_SCROLL_TITLE_HEIGHT,
-  },
-  navigationSpacer: {
-    height: 42,
-  },
-  largeTitleContainer: {
-    height: 56,
-    justifyContent: "center",
-  },
-  largeTitle: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.bold,
-    fontSize: tokens.type["2xl"],
-    letterSpacing: tokens.tracking.tight,
-  },
   edgeFade: {
     position: "absolute",
     top: 0,

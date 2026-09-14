@@ -269,72 +269,6 @@ export function AppSettingsScreen() {
                 </Pressable>
               </View>
             </View>
-
-            <View style={styles.legacySection}>
-              <Text style={styles.sectionLabel}>LEGACY PAGES</Text>
-
-              <View style={styles.legacyCard}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="기존 Settings와 Prompt 페이지 열기"
-                  onPress={() => router.navigate("/image-settings")}
-                  style={({ pressed }) => [
-                    styles.legacyRow,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.legacyIcon}>
-                    <Ionicons
-                      name="options-outline"
-                      size={20}
-                      color={tokens.color.accent}
-                    />
-                  </View>
-                  <View style={styles.legacyCopy}>
-                    <Text style={styles.legacyTitle}>Settings / Prompt</Text>
-                    <Text style={styles.legacyDescription}>
-                      기존 탭 기반 이미지 생성 설정 화면
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={tokens.color.textMuted}
-                  />
-                </Pressable>
-
-                <View style={styles.legacyDivider} />
-
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="기존 History 페이지 열기"
-                  onPress={() => router.navigate("/history")}
-                  style={({ pressed }) => [
-                    styles.legacyRow,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.legacyIcon}>
-                    <Ionicons
-                      name="images-outline"
-                      size={20}
-                      color={tokens.color.accent}
-                    />
-                  </View>
-                  <View style={styles.legacyCopy}>
-                    <Text style={styles.legacyTitle}>History</Text>
-                    <Text style={styles.legacyDescription}>
-                      기존 전체 화면 이미지 생성 기록
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={tokens.color.textMuted}
-                  />
-                </Pressable>
-              </View>
-            </View>
           </View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
@@ -474,9 +408,6 @@ const styles = StyleSheet.create({
   generationSection: {
     marginTop: 36,
   },
-  legacySection: {
-    marginTop: 36,
-  },
   legacyCard: {
     overflow: "hidden",
     borderRadius: tokens.radius.xl,
@@ -512,11 +443,6 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
     lineHeight: 17,
-  },
-  legacyDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 68,
-    backgroundColor: tokens.color.borderSubtle,
   },
   pressed: {
     opacity: 0.68,

@@ -571,26 +571,6 @@ export async function updatePreciseReferenceSettings(
   });
 }
 
-export async function updatePreciseReferencesEnabled(
-  ids: readonly string[],
-  enabled: boolean,
-): Promise<void> {
-  const uniqueIds = [...new Set(ids)];
-  if (uniqueIds.length === 0) return;
-
-  await settingsMutationQueue.run(uniqueIds, async () => {
-    await initPreciseReferenceStorage();
-    const db = await getDatabase();
-    const placeholders = uniqueIds.map(() => "?").join(", ");
-    await db.runAsync(
-      `UPDATE precise_references
-         SET enabled = ?, updated_at = ?
-       WHERE id IN (${placeholders})`,
-      [enabled ? 1 : 0, Date.now(), ...uniqueIds],
-    );
-  });
-}
-
 export async function deletePreciseReference(id: string) {
   await initPreciseReferenceStorage();
   const db = await getDatabase();

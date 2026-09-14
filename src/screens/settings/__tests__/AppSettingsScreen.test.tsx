@@ -6,6 +6,8 @@ import {
 } from "../../../store/generationStore";
 import { AppSettingsScreen } from "../AppSettingsScreen";
 
+const mockOpenSheet = jest.fn();
+
 type MockSettingsState = {
   batchCount: number;
   storedToken: string | null;
@@ -31,11 +33,11 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("../../../context/AppSheetContext", () => ({
-  useAppSheet: () => ({ open: jest.fn() }),
+  useAppSheet: () => ({ open: mockOpenSheet }),
 }));
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ navigate: jest.fn() }),
+  useRouter: () => ({ back: jest.fn() }),
 }));
 
 jest.mock("expo-status-bar", () => ({
@@ -82,6 +84,17 @@ describe("AppSettingsScreen token verification feedback", () => {
     jest.clearAllMocks();
     useGenerationStore.setState(initialState, true);
     mockSaveToken.mockResolvedValue(undefined);
+  });
+
+  test("keeps Batch Count accessible without legacy page links", async () => {
+    const screen = await render(<AppSettingsScreen />);
+
+    expect(screen.queryByText("LEGACY PAGES")).toBeNull();
+    expect(screen.queryByText("Settings / Prompt")).toBeNull();
+    expect(screen.queryByText("History")).toBeNull();
+    await fireEvent.press(screen.getByLabelText("Batch Count"));
+    expect(mockOpenSheet).toHaveBeenCalledWith("batchCount");
+    await screen.unmount();
   });
 
   async function saveTokenWithResult(result: AnlasRefreshResult) {

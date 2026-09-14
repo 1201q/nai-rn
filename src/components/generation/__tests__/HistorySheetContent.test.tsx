@@ -71,7 +71,6 @@ jest.mock("expo-media-library", () => ({
 jest.mock("../../../lib/generationHistory", () => ({
   iterateGenerationImageBatches: jest.fn(),
   resolveGenerationImageUri: (record: GenerationRecord) => record.imagePath,
-  resolveGenerationThumbnailUri: () => null,
 }));
 
 jest.mock("react-native-safe-area-context", () => ({

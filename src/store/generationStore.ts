@@ -69,7 +69,6 @@ import {
   replaceVibeReferenceImage,
   saveEncodedVibeReference,
   updateVibeReferenceSettings,
-  updateVibeReferencesEnabled,
   type VibeReference,
   type VibeReferenceImageInput,
 } from "../lib/vibeReferences";
@@ -81,7 +80,6 @@ import {
   readPreciseReferenceProcessedBase64,
   replacePreciseReferenceImage,
   updatePreciseReferenceSettings,
-  updatePreciseReferencesEnabled,
   type PreciseReference,
   type PreciseReferenceImageInput,
   type PreciseReferenceType,
@@ -120,12 +118,6 @@ type I2ISourceImage = {
 
 type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
   Pick<I2IReferenceImageInput, "fileName" | "mimeType">;
-
-export type CustomResolution = {
-  id: string;
-  width: number;
-  height: number;
-};
 
 function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
@@ -236,50 +228,6 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
   };
 }
 
-function isDefaultResolution(width: number, height: number) {
-  return (
-    NAI_RESOLUTIONS.find((group) => group.group === "Normal")?.options.some(
-      (item) => item.width === width && item.height === height,
-    ) ?? false
-  );
-}
-
-function resolveStoredCustomResolutions(value: unknown): CustomResolution[] {
-  if (!Array.isArray(value)) return [];
-
-  const seen = new Set<string>();
-  return value.flatMap((item, index) => {
-    if (!item || typeof item !== "object") return [];
-
-    const candidate = item as Partial<CustomResolution>;
-    if (
-      !isNumber(candidate.width) ||
-      !isNumber(candidate.height) ||
-      candidate.width < 64 ||
-      candidate.height < 64
-    ) {
-      return [];
-    }
-
-    const width = Math.round(candidate.width / 64) * 64;
-    const height = Math.round(candidate.height / 64) * 64;
-    const key = `${width}x${height}`;
-    if (seen.has(key) || isDefaultResolution(width, height)) return [];
-    seen.add(key);
-
-    return [
-      {
-        id:
-          isString(candidate.id) && candidate.id.trim()
-            ? candidate.id
-            : `custom-resolution-${width}-${height}-${index}`,
-        width,
-        height,
-      },
-    ];
-  });
-}
-
 function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
   if (!Array.isArray(value)) {
     return [];
@@ -367,8 +315,6 @@ type GenerationState = {
   setModel: (v: string) => void;
   resolution: NaiResolution;
   setResolution: (v: NaiResolution) => void;
-  customResolutions: CustomResolution[];
-  setCustomResolutions: (v: CustomResolution[]) => void;
   steps: number;
   setSteps: (v: number) => void;
   promptGuidance: number;
@@ -403,11 +349,8 @@ type GenerationState = {
   ) => Promise<VibeReference | null>;
   removeVibeReference: (id: string) => Promise<void>;
   setVibeReferenceEnabled: (id: string, enabled: boolean) => void;
-  setVibeReferencesEnabled: (enabled: boolean) => void;
   setVibeReferenceStrength: (id: string, strength: number) => void;
   setVibeReferenceInformationExtracted: (id: string, value: number) => void;
-  vibeReferenceExpandedIds: string[];
-  setVibeReferenceExpandedIds: (v: string[]) => void;
   preciseReferences: PreciseReference[];
   addPreciseReference: (
     input: PreciseReferenceImageInput,
@@ -418,15 +361,12 @@ type GenerationState = {
   ) => Promise<PreciseReference | null>;
   removePreciseReference: (id: string) => Promise<void>;
   setPreciseReferenceEnabled: (id: string, enabled: boolean) => void;
-  setPreciseReferencesEnabled: (enabled: boolean) => void;
   setPreciseReferenceStrength: (id: string, strength: number) => void;
   setPreciseReferenceFidelity: (id: string, fidelity: number) => void;
   setPreciseReferenceType: (
     id: string,
     referenceType: PreciseReferenceType,
   ) => void;
-  preciseReferenceExpandedIds: string[];
-  setPreciseReferenceExpandedIds: (v: string[]) => void;
   i2iSourceImage: I2ISourceImage | null;
   setI2ISourceImage: (
     v: I2ISourceImageInput,
@@ -582,26 +522,6 @@ function loadPersistedOptions(): Partial<GenerationState> {
     const storedResolution = resolveStoredResolution(parsed.resolution);
     if (storedResolution) next.resolution = storedResolution;
 
-    const customResolutions = resolveStoredCustomResolutions(
-      parsed.customResolutions,
-    );
-    if (
-      storedResolution &&
-      !isDefaultResolution(storedResolution.width, storedResolution.height) &&
-      !customResolutions.some(
-        (item) =>
-          item.width === storedResolution.width &&
-          item.height === storedResolution.height,
-      )
-    ) {
-      customResolutions.unshift({
-        id: `custom-resolution-${storedResolution.width}-${storedResolution.height}-legacy`,
-        width: storedResolution.width,
-        height: storedResolution.height,
-      });
-    }
-    next.customResolutions = customResolutions;
-
     if (isNumber(parsed.steps)) next.steps = parsed.steps;
     if (isNumber(parsed.promptGuidance)) {
       next.promptGuidance = parsed.promptGuidance;
@@ -619,14 +539,6 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
     if (isBoolean(parsed.normalizeVibeStrengths)) {
       next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
-    }
-    if (Array.isArray(parsed.vibeReferenceExpandedIds)) {
-      next.vibeReferenceExpandedIds =
-        parsed.vibeReferenceExpandedIds.filter(isString);
-    }
-    if (Array.isArray(parsed.preciseReferenceExpandedIds)) {
-      next.preciseReferenceExpandedIds =
-        parsed.preciseReferenceExpandedIds.filter(isString);
     }
     const storedI2IImage = resolveStoredI2ISourceImage(parsed.i2iSourceImage);
     if (storedI2IImage) {
@@ -684,8 +596,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setModel: (v) => set({ model: v }),
   resolution: DEFAULT_NAI_RESOLUTION,
   setResolution: (v) => set({ resolution: v }),
-  customResolutions: [],
-  setCustomResolutions: (v) => set({ customResolutions: v }),
   steps: 28,
   setSteps: (v) => set({ steps: v }),
   promptGuidance: 5,
@@ -707,8 +617,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   applyMetadataImport: (parsed, selection) =>
     set((state) => buildMetadataImportPatch(state, parsed, selection)),
   vibeReferences: [],
-  vibeReferenceExpandedIds: [],
-  setVibeReferenceExpandedIds: (v) => set({ vibeReferenceExpandedIds: v }),
   normalizeVibeStrengths: true,
   setNormalizeVibeStrengths: (v) => set({ normalizeVibeStrengths: v }),
   addVibeReference: async (input) => {
@@ -759,9 +667,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       vibeSettingsVersions.clear(id);
       set((state) => ({
         vibeReferences: state.vibeReferences.filter((item) => item.id !== id),
-        vibeReferenceExpandedIds: state.vibeReferenceExpandedIds.filter(
-          (value) => value !== id,
-        ),
       }));
     } catch (error: unknown) {
       set({
@@ -799,33 +704,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           message: error instanceof Error ? error.message : String(error),
         });
       });
-  },
-  setVibeReferencesEnabled: (enabled) => {
-    const state = get();
-    if (enabled && state.preciseReferences.some((item) => item.enabled)) {
-      set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
-      });
-      return;
-    }
-
-    const ids = state.vibeReferences
-      .filter((item) => item.enabled !== enabled)
-      .map((item) => item.id);
-    if (ids.length === 0) return;
-
-    const idSet = new Set(ids);
-    ids.forEach((id) => vibeSettingsVersions.start(id));
-    set({
-      vibeReferences: state.vibeReferences.map((item) =>
-        idSet.has(item.id) ? { ...item, enabled } : item,
-      ),
-    });
-    updateVibeReferencesEnabled(ids, enabled).catch((error: unknown) => {
-      set({
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
   },
   setVibeReferenceStrength: (id, strength) => {
     const version = vibeSettingsVersions.start(id);
@@ -877,9 +755,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       });
   },
   preciseReferences: [],
-  preciseReferenceExpandedIds: [],
-  setPreciseReferenceExpandedIds: (v) =>
-    set({ preciseReferenceExpandedIds: v }),
   addPreciseReference: async (input) => {
     if (get().vibeReferences.some((item) => item.enabled)) {
       set({
@@ -933,9 +808,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         preciseReferences: state.preciseReferences.filter(
           (item) => item.id !== id,
         ),
-        preciseReferenceExpandedIds: state.preciseReferenceExpandedIds.filter(
-          (value) => value !== id,
-        ),
       }));
     } catch (error: unknown) {
       set({
@@ -985,39 +857,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           message: error instanceof Error ? error.message : String(error),
         });
       });
-  },
-  setPreciseReferencesEnabled: (enabled) => {
-    const state = get();
-    if (enabled && state.vibeReferences.some((item) => item.enabled)) {
-      set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
-      });
-      return;
-    }
-    if (enabled && !isPreciseReferenceSupportedModel(state.model)) {
-      set({
-        message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
-      });
-      return;
-    }
-
-    const ids = state.preciseReferences
-      .filter((item) => item.enabled !== enabled)
-      .map((item) => item.id);
-    if (ids.length === 0) return;
-
-    const idSet = new Set(ids);
-    ids.forEach((id) => preciseSettingsVersions.start(id));
-    set({
-      preciseReferences: state.preciseReferences.map((item) =>
-        idSet.has(item.id) ? { ...item, enabled } : item,
-      ),
-    });
-    updatePreciseReferencesEnabled(ids, enabled).catch((error: unknown) => {
-      set({
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
   },
   setPreciseReferenceStrength: (id, strength) => {
     const version = preciseSettingsVersions.start(id);
@@ -1880,15 +1719,7 @@ export function useGenerationBootstrap() {
 
     listVibeReferences()
       .then((references) => {
-        setState((state) => {
-          const referenceIds = new Set(references.map((item) => item.id));
-          return {
-            vibeReferences: references,
-            vibeReferenceExpandedIds: state.vibeReferenceExpandedIds.filter(
-              (id) => referenceIds.has(id),
-            ),
-          };
-        });
+        setState({ vibeReferences: references });
       })
       .catch((error: unknown) => {
         setState({
@@ -1898,16 +1729,7 @@ export function useGenerationBootstrap() {
 
     listPreciseReferences()
       .then((references) => {
-        setState((state) => {
-          const referenceIds = new Set(references.map((item) => item.id));
-          return {
-            preciseReferences: references,
-            preciseReferenceExpandedIds:
-              state.preciseReferenceExpandedIds.filter((id) =>
-                referenceIds.has(id),
-              ),
-          };
-        });
+        setState({ preciseReferences: references });
       })
       .catch((error: unknown) => {
         setState({

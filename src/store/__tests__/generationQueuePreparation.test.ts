@@ -111,7 +111,6 @@ jest.mock("../../lib/vibeReferences", () => ({
   replaceVibeReferenceImage: jest.fn(),
   saveEncodedVibeReference: jest.fn(),
   updateVibeReferenceSettings: jest.fn(),
-  updateVibeReferencesEnabled: jest.fn(),
 }));
 
 jest.mock("../../lib/preciseReferences", () => ({
@@ -122,7 +121,6 @@ jest.mock("../../lib/preciseReferences", () => ({
   readPreciseReferenceProcessedBase64: jest.fn(),
   replacePreciseReferenceImage: jest.fn(),
   updatePreciseReferenceSettings: jest.fn(),
-  updatePreciseReferencesEnabled: jest.fn(),
 }));
 
 type Deferred<T> = {
@@ -661,5 +659,36 @@ describe("History ID catalog and pagination mutations", () => {
     expect(useGenerationStore.getState().currentGeneration).toEqual(kept);
     expect(useGenerationStore.getState().generationHistoryHasMore).toBe(false);
     expect(useGenerationStore.getState().generationHistoryLoadingMore).toBe(false);
+  });
+});
+
+
+test("restores current options while ignoring removed legacy settings", () => {
+  jest.isolateModules(() => {
+    const { storage } = require("../../lib/storage") as typeof import("../../lib/storage");
+    const resolution = { label: "Custom 960x1280", width: 960, height: 1280 };
+    jest.mocked(storage.getString).mockReturnValueOnce(JSON.stringify({
+      resolution,
+      batchCount: 4,
+      prompt: "retained prompt",
+      customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
+      vibeReferenceExpandedIds: ["old-vibe"],
+      preciseReferenceExpandedIds: ["old-precise"],
+    }));
+    const { useGenerationStore: restoredStore } = require("../generationStore") as typeof import("../generationStore");
+    const { selectPersistedOptions } = require("../generationOptionsPersistence") as typeof import("../generationOptionsPersistence");
+    const state = restoredStore.getState();
+
+    expect(state.resolution).toEqual(resolution);
+    expect(state.batchCount).toBe(4);
+    expect(state.prompt).toBe("retained prompt");
+    expect(state).not.toHaveProperty("customResolutions");
+    expect(state).not.toHaveProperty("vibeReferenceExpandedIds");
+    expect(state).not.toHaveProperty("preciseReferenceExpandedIds");
+    const persisted = selectPersistedOptions(state);
+    expect(persisted.resolution).toEqual(resolution);
+    expect(persisted).not.toHaveProperty("customResolutions");
+    expect(persisted).not.toHaveProperty("vibeReferenceExpandedIds");
+    expect(persisted).not.toHaveProperty("preciseReferenceExpandedIds");
   });
 });
