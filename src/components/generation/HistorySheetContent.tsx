@@ -29,7 +29,6 @@ import {
   type GenerationRecord,
   iterateGenerationImageBatches,
   resolveGenerationImageUri,
-  resolveGenerationThumbnailUri,
 } from "../../lib/generationHistory";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -96,11 +95,9 @@ const HistorySheetTile = memo(function HistorySheetTile({
       >
         <ExpoImage
           source={{
-            uri:
-              resolveGenerationThumbnailUri(item) ??
-              resolveGenerationImageUri(item),
+            uri: resolveGenerationImageUri(item),
           }}
-          contentFit="cover"
+          contentFit="contain"
           recyclingKey={item.id}
           transition={120}
           style={StyleSheet.absoluteFill}
