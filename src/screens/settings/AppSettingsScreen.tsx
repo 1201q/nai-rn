@@ -20,6 +20,7 @@ import {
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
 import { useGenerationStore } from "../../store/generationStore";
+import { useAppSheet } from "../../context/AppSheetContext";
 import { tokens } from "../../styles/tokens";
 
 type Feedback = {
@@ -30,6 +31,8 @@ type Feedback = {
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { open } = useAppSheet();
+  const batchCount = useGenerationStore((state) => state.batchCount);
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
   const saveToken = useGenerationStore((state) => state.saveToken);
@@ -231,6 +234,42 @@ export function AppSettingsScreen() {
               </View>
             ) : null}
 
+            <View style={styles.generationSection}>
+              <Text style={styles.sectionLabel}>GENERATION</Text>
+              <View style={styles.legacyCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Batch Count"
+                  accessibilityValue={{ text: String(batchCount) }}
+                  onPress={() => open("batchCount")}
+                  style={({ pressed }) => [
+                    styles.legacyRow,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.legacyIcon}>
+                    <Ionicons
+                      name="layers-outline"
+                      size={20}
+                      color={tokens.color.accent}
+                    />
+                  </View>
+                  <View style={styles.legacyCopy}>
+                    <Text style={styles.legacyTitle}>Batch Count</Text>
+                    <Text style={styles.legacyDescription}>
+                      한 번에 생성할 이미지 수
+                    </Text>
+                  </View>
+                  <Text style={styles.legacyTitle}>{batchCount}</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={tokens.color.textMuted}
+                  />
+                </Pressable>
+              </View>
+            </View>
+
             <View style={styles.legacySection}>
               <Text style={styles.sectionLabel}>LEGACY PAGES</Text>
 
@@ -431,6 +470,9 @@ const styles = StyleSheet.create({
   },
   feedbackTextError: {
     color: tokens.color.negative,
+  },
+  generationSection: {
+    marginTop: 36,
   },
   legacySection: {
     marginTop: 36,

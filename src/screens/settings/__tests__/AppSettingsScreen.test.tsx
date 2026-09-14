@@ -7,6 +7,7 @@ import {
 import { AppSettingsScreen } from "../AppSettingsScreen";
 
 type MockSettingsState = {
+  batchCount: number;
   storedToken: string | null;
   saveToken: jest.Mock<Promise<void>, [string]>;
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
@@ -17,6 +18,7 @@ jest.mock("../../../store/generationStore", () => {
 
   return {
     useGenerationStore: create<MockSettingsState>(() => ({
+      batchCount: 1,
       storedToken: null,
       saveToken: jest.fn(),
       refreshAnlas: jest.fn(),
@@ -26,6 +28,10 @@ jest.mock("../../../store/generationStore", () => {
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
+}));
+
+jest.mock("../../../context/AppSheetContext", () => ({
+  useAppSheet: () => ({ open: jest.fn() }),
 }));
 
 jest.mock("expo-router", () => ({

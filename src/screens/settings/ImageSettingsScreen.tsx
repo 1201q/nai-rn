@@ -788,7 +788,6 @@ const CharacterPromptSettings = memo(function CharacterPromptSettings() {
 
 function AdvancedFeaturesContent() {
   const router = useRouter();
-  const { open } = useAppSheet();
   const sourceImage = useGenerationStore((state) => state.i2iSourceImage);
   const i2iEnabled = useGenerationStore((state) => state.i2iEnabled);
   const i2iStrength = useGenerationStore((state) => state.i2iStrength);
@@ -804,7 +803,6 @@ function AdvancedFeaturesContent() {
   const setPreciseEnabled = useGenerationStore(
     (state) => state.setPreciseReferencesEnabled,
   );
-  const batchCount = useGenerationStore((state) => state.batchCount);
 
   const vibeEnabled = vibeReferences.some((item) => item.enabled);
   const preciseEnabled = preciseReferences.some((item) => item.enabled);
@@ -875,12 +873,6 @@ function AdvancedFeaturesContent() {
           label="Metadata Extract"
           onPress={() => router.navigate("/metadata-extract")}
           accentIcon
-        />
-        <View style={styles.settingsGroupDivider} />
-        <SettingsOptionRow
-          label="Batch Count"
-          value={String(batchCount)}
-          onPress={() => open("batchCount")}
         />
       </View>
     </View>
