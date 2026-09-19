@@ -54,3 +54,5 @@ assets/tags.json
 
 # Local performance recordings
 /artifacts/perfetto/
+
+.tmp-danbooru-tag-web
