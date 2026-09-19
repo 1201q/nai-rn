@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
+import { cancelAnimation } from "react-native-reanimated";
 
 import { GenerationCanvas } from "../GenerationCanvas";
 import { generationImagePipeline, releaseNativePreviews } from "../../../../modules/generation-image-pipeline";
@@ -76,6 +77,7 @@ beforeEach(() => {
   mockGenerationState.currentGeneration = null;
   mockGenerationState.streamingPreviewUri = null;
   mockGenerationState.isLoading = false;
+  mockGenerationState.mainImageBlurred = false;
   jest.clearAllMocks();
 });
 
@@ -166,5 +168,27 @@ describe("generation canvas image loading", () => {
     await act(() => onLoad(loadEvent("file:///first.png", 400, 200)));
     expect(StyleSheet.flatten(screen.getByTestId("canvas-image").parent!.props.style))
       .toMatchObject({ width: 100, height: 400 });
+  });
+
+  test("preserves the image transform when layout, loaded ratio, or blur changes", async () => {
+    mockGenerationState.currentGeneration = { imagePath: "landscape.png", width: 400, height: 200 };
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    const resetCalls = jest.mocked(cancelAnimation).mock.calls.length;
+
+    await fireEvent(screen.getByRole("image").parent!, "layout", {
+      nativeEvent: { layout: { width: 400, height: 400 } },
+    });
+    await act(() => screen.getByTestId("canvas-image").props.onLoad(
+      loadEvent("file:///landscape.png", 300, 200),
+    ));
+    mockGenerationState.mainImageBlurred = true;
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+
+    expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls);
+
+    mockGenerationState.currentGeneration = { imagePath: "next.png", width: 400, height: 200 };
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+
+    expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls + 3);
   });
 });

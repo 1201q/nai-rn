@@ -89,14 +89,12 @@ const StripePlaceholder = memo(function StripePlaceholder() {
 const FreeTransformImage = memo(function FreeTransformImage({
   uri,
   size,
-  viewportSize,
   blurRadius,
   enabled,
   onLoad,
 }: {
   uri: string;
   size: Size;
-  viewportSize: Size;
   blurRadius: number;
   enabled: boolean;
   onLoad: (event: ImageLoadEventData) => void;
@@ -115,16 +113,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
     scale.value = 1;
     translateX.value = 0;
     translateY.value = 0;
-  }, [
-    scale,
-    size.height,
-    size.width,
-    translateX,
-    translateY,
-    uri,
-    viewportSize.height,
-    viewportSize.width,
-  ]);
+  }, [scale, translateX, translateY, uri]);
 
   const panGesture = Gesture.Pan()
     .enabled(enabled)
@@ -390,7 +379,6 @@ export function GenerationCanvas({
           <FreeTransformImage
             uri={displayedImageUri}
             size={imageSize}
-            viewportSize={canvasSize}
             blurRadius={mainImageBlurred ? MAIN_IMAGE_BLUR_RADIUS : 0}
             enabled={canTransformImage}
             onLoad={handleImageLoad}
