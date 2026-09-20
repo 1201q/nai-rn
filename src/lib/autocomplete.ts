@@ -58,8 +58,8 @@ interface InsertResult {
 }
 
 /**
- * 커서 위치의 단어를 `value`로 교체하고 뒤에 `, `를 붙여 다음 태그를 이어
- * 입력하게 함. 앞 문자가 공백,콤마가 아닐 때만 구분 공백 추가.
+ * Replace the entire tag around the caret, preserving the next delimiter.
+ * Keep the caret immediately after the completed tag, before the delimiter.
  */
 export function insertTag(
   text: string,
@@ -68,10 +68,12 @@ export function insertTag(
 ): InsertResult {
   const { start } = getCurrentWord(text, position);
   const before = text.slice(0, start);
-  const after = text.slice(position);
+  const tail = text.slice(position);
+  const boundary = tail.search(/,|\r?\n|::|[|{}\[\]]/);
+  const after = boundary === -1 ? ", " : tail.slice(boundary);
 
   const needsSpace = before.length > 0 && !/[\s,:]$/.test(before);
-  const insertion = `${needsSpace ? " " : ""}${value}, `;
+  const insertion = `${needsSpace ? " " : ""}${value}`;
 
   return {
     text: before + insertion + after,

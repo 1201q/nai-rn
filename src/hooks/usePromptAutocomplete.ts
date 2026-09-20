@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type NativeSyntheticEvent,
   type TextInput,
@@ -23,6 +23,7 @@ const DEBOUNCE_MS = 150;
  *
  * 반환 핸들러를 TextInput 에 연결:
  *   <TextInput
+ *     selection={ac.selection}
  *     onChangeText={ac.handleChangeText}
  *     onSelectionChange={ac.handleSelectionChange}
  *   />
@@ -32,16 +33,21 @@ export function usePromptAutocomplete({
   value,
   onChangeText,
   inputRef,
+  channel,
 }: {
   value: string;
   onChangeText: (v: string) => void;
-  inputRef: React.RefObject<
-    Pick<TextInput, "focus" | "setNativeProps"> | null
-  >;
+  inputRef: React.RefObject<Pick<TextInput, "focus"> | null>;
+  channel: "base" | "negative";
 }) {
   const textRef = useRef(value);
   const selectionRef = useRef({ start: 0, end: 0 });
-  const selectionFrameRef = useRef<number | null>(null);
+  const channelRef = useRef(channel);
+  const pendingSelectionRef = useRef<
+    TextInputSelectionChangeEventData["selection"] | null
+  >(null);
+  const [selection, setSelection] =
+    useState<TextInputSelectionChangeEventData["selection"]>();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqIdRef = useRef(0);
   // ref pattern: 스테일 클로저 없이 항상 최신 pick 핸들러
@@ -49,41 +55,10 @@ export function usePromptAutocomplete({
 
   const barActions = useSuggestionBarActions();
 
-  useEffect(() => {
-    textRef.current = value;
-  }, [value]);
-
-  pickFnRef.current = (item: TagSuggestion) => {
-    const { text, cursor } = insertTag(
-      textRef.current,
-      selectionRef.current.start,
-      item.value,
-    );
-    textRef.current = text;
-    selectionRef.current = { start: cursor, end: cursor };
-    onChangeText(text);
-    barActions?.clearSuggestions();
-    inputRef.current?.focus();
-
-    if (selectionFrameRef.current !== null) {
-      cancelAnimationFrame(selectionFrameRef.current);
-    }
-    selectionFrameRef.current = requestAnimationFrame(() => {
-      selectionFrameRef.current = null;
-      inputRef.current?.setNativeProps({
-        selection: { start: cursor, end: cursor },
-      });
-    });
-  };
-
-  useEffect(
-    () => () => {
-      if (selectionFrameRef.current !== null) {
-        cancelAnimationFrame(selectionFrameRef.current);
-      }
-    },
-    [],
-  );
+  const releaseSelection = useCallback(() => {
+    pendingSelectionRef.current = null;
+    setSelection(undefined);
+  }, []);
 
   const clearSuggestions = useCallback(() => {
     if (debounceRef.current) {
@@ -94,14 +69,53 @@ export function usePromptAutocomplete({
     barActions?.clearSuggestions();
   }, [barActions]);
 
+  useLayoutEffect(() => {
+    if (channelRef.current !== channel || textRef.current !== value) {
+      clearSuggestions();
+      releaseSelection();
+      selectionRef.current = { start: 0, end: 0 };
+    }
+    channelRef.current = channel;
+    textRef.current = value;
+  }, [channel, clearSuggestions, releaseSelection, value]);
+
+  pickFnRef.current = (item: TagSuggestion) => {
+    const { text, cursor } = insertTag(
+      textRef.current,
+      selectionRef.current.start,
+      item.value,
+    );
+    textRef.current = text;
+    const nextSelection = { start: cursor, end: cursor };
+    const currentSelection = selectionRef.current;
+    pendingSelectionRef.current =
+      currentSelection.start === cursor && currentSelection.end === cursor
+        ? null
+        : nextSelection;
+    selectionRef.current = nextSelection;
+    setSelection(nextSelection);
+    onChangeText(text);
+    clearSuggestions();
+    inputRef.current?.focus();
+  };
+
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      reqIdRef.current += 1;
+    },
+    [],
+  );
+
   const activateSuggestions = useCallback(() => {
     barActions?.setActive(true);
   }, [barActions]);
 
   const deactivateSuggestions = useCallback(() => {
     clearSuggestions();
+    releaseSelection();
     barActions?.setActive(false);
-  }, [barActions, clearSuggestions]);
+  }, [barActions, clearSuggestions, releaseSelection]);
 
   const runSearch = useCallback(
     (text: string, caret: number) => {
@@ -131,23 +145,35 @@ export function usePromptAutocomplete({
 
   const handleChangeText = useCallback(
     (text: string) => {
+      releaseSelection();
       textRef.current = text;
       onChangeText(text);
     },
-    [onChangeText],
+    [onChangeText, releaseSelection],
   );
 
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const sel = e.nativeEvent.selection;
+      const pending = pendingSelectionRef.current;
+      if (pending) {
+        // Ignore old native positions until the completed tag's caret is applied.
+        if (sel.start === pending.start && sel.end === pending.end) {
+          selectionRef.current = sel;
+          releaseSelection();
+        }
+        return;
+      }
+      releaseSelection();
       selectionRef.current = sel;
       if (sel.start === sel.end) runSearch(textRef.current, sel.start);
       else clearSuggestions();
     },
-    [runSearch, clearSuggestions],
+    [runSearch, clearSuggestions, releaseSelection],
   );
 
   return {
+    selection,
     handleChangeText,
     handleSelectionChange,
     clearSuggestions,

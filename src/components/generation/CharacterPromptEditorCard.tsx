@@ -136,6 +136,7 @@ export const CharacterPromptEditorCard = memo(
       [mode],
     );
     const autocomplete = usePromptAutocomplete({
+      channel: mode,
       value: activeText,
       onChangeText: updateActiveText,
       inputRef: promptInputRef,
@@ -470,6 +471,7 @@ export const CharacterPromptEditorCard = memo(
                 }}
                 onChangeText={autocomplete.handleChangeText}
                 onSelectionChange={autocomplete.handleSelectionChange}
+                selection={autocomplete.selection}
                 style={[
                   styles.promptInput,
                   mode === "negative" && styles.negativePromptInput,

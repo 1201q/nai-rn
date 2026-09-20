@@ -63,6 +63,7 @@ function PromptDraftInput({
 }) {
   const inputRef = useRef<PromptHighlightTextInputHandle>(null);
   const autocomplete = usePromptAutocomplete({
+    channel,
     value,
     onChangeText: onChange,
     inputRef,
@@ -103,6 +104,7 @@ function PromptDraftInput({
         }}
         onChangeText={autocomplete.handleChangeText}
         onSelectionChange={autocomplete.handleSelectionChange}
+        selection={autocomplete.selection}
         value={value}
         style={[
           styles.promptInput,
