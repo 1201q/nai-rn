@@ -403,6 +403,7 @@ type GenerationState = {
   streamingPreviewUri: string | null;
   streamingStep: number | null;
   streamingGenerationId: number | null;
+  isViewingActiveGeneration: boolean;
 
   // 생성 상태
   isLoading: boolean;
@@ -1117,6 +1118,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   streamingPreviewUri: null,
   streamingStep: null,
   streamingGenerationId: null,
+  isViewingActiveGeneration: false,
 
   isLoading: false,
   message: null,
@@ -1197,6 +1199,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     set({
       isLoading: true,
+      isViewingActiveGeneration: true,
       message: null,
       queueTotal: 0,
       queueIndex: 0,
@@ -1583,7 +1586,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         );
 
         set((state) => ({
-          currentGeneration: generation,
+          currentGeneration: state.isViewingActiveGeneration
+            ? generation
+            : state.currentGeneration,
           generationHistory: [generation, ...state.generationHistory],
           generationHistoryIds: state.generationHistoryIds
             ? [

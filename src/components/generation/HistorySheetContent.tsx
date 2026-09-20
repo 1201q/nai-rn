@@ -39,6 +39,61 @@ const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
 const HISTORY_SCROLL_BOTTOM_GAP = 28;
 const HISTORY_SAVE_CONCURRENCY = 3;
 
+const ActiveGenerationTile = memo(function ActiveGenerationTile({
+  index,
+  size,
+  previewUri,
+  selected,
+  disabled,
+  onPress,
+}: {
+  index: number;
+  size: number;
+  previewUri: string | null;
+  selected: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        marginRight: index % 3 === 2 ? 0 : GRID_GAP,
+        marginBottom: GRID_GAP,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="생성 중인 이미지 보기"
+        accessibilityState={{ selected, disabled }}
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          StyleSheet.absoluteFill,
+          styles.tile,
+          pressed && styles.pressed,
+        ]}
+      >
+        {previewUri ? (
+          <ExpoImage
+            source={{ uri: previewUri }}
+            contentFit="contain"
+            transition={0}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
+        <View pointerEvents="none" style={styles.generatingIndicator}>
+          <ActivityIndicator color={tokens.color.textPrimary} />
+        </View>
+        {selected ? (
+          <View pointerEvents="none" style={styles.currentRing} />
+        ) : null}
+      </Pressable>
+    </View>
+  );
+});
+
 const HistorySheetTile = memo(function HistorySheetTile({
   item,
   index,
@@ -163,6 +218,13 @@ export function useHistorySheetController({
   const currentGenerationId = useGenerationStore(
     (state) => state.currentGeneration?.id ?? null,
   );
+  const isLoading = useGenerationStore((state) => state.isLoading);
+  const streamingPreviewUri = useGenerationStore(
+    (state) => state.streamingPreviewUri,
+  );
+  const isViewingActiveGeneration = useGenerationStore(
+    (state) => state.isViewingActiveGeneration,
+  );
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectingAll, setSelectingAll] = useState(false);
@@ -248,11 +310,20 @@ export function useHistorySheetController({
         return;
       }
 
-      useGenerationStore.setState({ currentGeneration: item });
+      useGenerationStore.setState({
+        currentGeneration: item,
+        isViewingActiveGeneration: false,
+      });
       onClose();
     },
     [onClose, selectionMode, toggleSelection],
   );
+
+  const handleActiveGenerationPress = useCallback(() => {
+    if (busy || selectionMode || !isLoading) return;
+    useGenerationStore.setState({ isViewingActiveGeneration: true });
+    onClose();
+  }, [busy, isLoading, onClose, selectionMode]);
 
   const toggleSelectAll = useCallback(async () => {
     if (
@@ -430,6 +501,9 @@ export function useHistorySheetController({
     () => ({
       generationHistory,
       currentGenerationId,
+      isLoading,
+      streamingPreviewUri,
+      isViewingActiveGeneration,
       historyInitialized,
       historyLoadingMore,
       loadMoreHistory,
@@ -445,6 +519,7 @@ export function useHistorySheetController({
       exitSelectionMode,
       enterSelectionMode,
       handleTilePress,
+      handleActiveGenerationPress,
       toggleSelectAll,
       saveSelected,
       deleteSelected,
@@ -459,7 +534,11 @@ export function useHistorySheetController({
       exitSelectionMode,
       generationHistory,
       currentGenerationId,
+      isLoading,
+      streamingPreviewUri,
+      isViewingActiveGeneration,
       handleTilePress,
+      handleActiveGenerationPress,
       historyInitialized,
       historyLoadingMore,
       loadMoreHistory,
@@ -570,6 +649,9 @@ export const HistorySheetContent = memo(function HistorySheetContent({
   const {
     generationHistory,
     currentGenerationId,
+    isLoading,
+    streamingPreviewUri,
+    isViewingActiveGeneration,
     historyInitialized,
     historyLoadingMore,
     loadMoreHistory,
@@ -578,15 +660,21 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     busy,
     enterSelectionMode,
     handleTilePress,
+    handleActiveGenerationPress,
   } = controller;
   const tileSize = Math.floor(
     (width - GRID_PADDING * 2 - GRID_GAP * 2) / 3,
   );
+  const listData = useMemo<(GenerationRecord | null)[]>(
+    () => isLoading ? [null, ...generationHistory] : generationHistory,
+    [generationHistory, isLoading],
+  );
+  const activeGenerationSelected = isLoading && isViewingActiveGeneration;
 
   return (
     <BottomSheetFlatList
-        data={generationHistory}
-        keyExtractor={(item) => item.id}
+        data={listData}
+        keyExtractor={(item) => item?.id ?? "active-generation"}
         numColumns={3}
         showsVerticalScrollIndicator={false}
         initialNumToRender={15}
@@ -604,7 +692,7 @@ export const HistorySheetContent = memo(function HistorySheetContent({
               HISTORY_SELECTION_ACTIONS_HEIGHT +
               HISTORY_SCROLL_BOTTOM_GAP,
           },
-          generationHistory.length === 0 && styles.emptyGrid,
+          listData.length === 0 && styles.emptyGrid,
         ]}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -633,14 +721,23 @@ export const HistorySheetContent = memo(function HistorySheetContent({
             </View>
           ) : null
         }
-        renderItem={({ item, index }) => (
+        renderItem={({ item, index }) => item === null ? (
+          <ActiveGenerationTile
+            index={index}
+            size={tileSize}
+            previewUri={streamingPreviewUri}
+            selected={activeGenerationSelected}
+            disabled={busy || selectionMode}
+            onPress={handleActiveGenerationPress}
+          />
+        ) : (
           <HistorySheetTile
             item={item}
             index={index}
             size={tileSize}
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
-            isCurrent={item.id === currentGenerationId}
+            isCurrent={!activeGenerationSelected && item.id === currentGenerationId}
             disabled={busy}
             onPress={handleTilePress}
             onLongPress={enterSelectionMode}
@@ -835,6 +932,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 12,
     backgroundColor: tokens.color.sunken,
+  },
+  generatingIndicator: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 42,
+    height: 42,
+    marginTop: -21,
+    marginLeft: -21,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(10,10,12,0.62)",
   },
   selectedDim: {
     position: "absolute",

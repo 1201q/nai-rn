@@ -64,6 +64,7 @@ jest.mock("../../../lib/generationHistory", () => ({
 const mockGenerationState = {
   currentGeneration: null as { imagePath: string; width: number; height: number } | null,
   streamingPreviewUri: null as string | null,
+  isViewingActiveGeneration: false,
   isLoading: false,
   resolution: { width: 832, height: 1216 },
   mainImageBlurred: false,
@@ -76,6 +77,7 @@ jest.mock("../../../store/generationStore", () => ({
 beforeEach(() => {
   mockGenerationState.currentGeneration = null;
   mockGenerationState.streamingPreviewUri = null;
+  mockGenerationState.isViewingActiveGeneration = false;
   mockGenerationState.isLoading = false;
   mockGenerationState.mainImageBlurred = false;
   jest.clearAllMocks();
@@ -113,8 +115,29 @@ describe("generation canvas toolbar accessibility", () => {
 });
 
 describe("generation canvas image loading", () => {
+  test("keeps showing a selected history image while a preview is streaming", async () => {
+    mockGenerationState.currentGeneration = {
+      imagePath: "history.png",
+      width: 400,
+      height: 400,
+    };
+    mockGenerationState.streamingPreviewUri =
+      "file:///cache/nai-stream-previews/gen_test/0.jpg";
+    mockGenerationState.isLoading = true;
+    mockGenerationState.isViewingActiveGeneration = false;
+
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+
+    expect(screen.getByTestId("canvas-image").props.source).toEqual({
+      uri: "file:///history.png",
+    });
+    expect(generationImagePipeline!.retainPreviews).not.toHaveBeenCalled();
+  });
+
   test("retains a request across preview frames and releases it after source replacement", async () => {
     mockGenerationState.streamingPreviewUri = "file:///cache/nai-stream-previews/gen_test/0.jpg";
+    mockGenerationState.isLoading = true;
+    mockGenerationState.isViewingActiveGeneration = true;
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     expect(screen.getByTestId("canvas-image").props.cachePolicy).toBe("none");
     expect(generationImagePipeline!.retainPreviews).toHaveBeenCalledWith("gen_test");
@@ -134,6 +157,7 @@ describe("generation canvas image loading", () => {
   test("skips preview load updates and image renders on toolbar toggles", async () => {
     mockGenerationState.streamingPreviewUri = "data:image/png;base64,preview";
     mockGenerationState.isLoading = true;
+    mockGenerationState.isViewingActiveGeneration = true;
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     const image = screen.getByTestId("canvas-image");
     const onLoad = image.props.onLoad;

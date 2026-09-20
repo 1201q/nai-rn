@@ -25,6 +25,9 @@ type MockHistoryState = {
   loadMoreGenerationHistory: jest.Mock<Promise<void>, []>;
   deleteGenerations: jest.Mock<Promise<void>, [string[]]>;
   currentGeneration: GenerationRecord | null;
+  isLoading: boolean;
+  streamingPreviewUri: string | null;
+  isViewingActiveGeneration: boolean;
 };
 
 jest.mock("../../../store/generationStore", () => {
@@ -41,6 +44,9 @@ jest.mock("../../../store/generationStore", () => {
       loadMoreGenerationHistory: jest.fn(),
       deleteGenerations: jest.fn(),
       currentGeneration: null,
+      isLoading: false,
+      streamingPreviewUri: null,
+      isViewingActiveGeneration: false,
     })),
   };
 });
@@ -166,6 +172,59 @@ function historyRecords(count: number) {
     imagePath: `file:///history/generation-${index}.png`,
   }));
 }
+
+describe("active generation history tile", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("places the active generation first and renders its preview tile", async () => {
+    useGenerationStore.setState({
+      generationHistory: [generation],
+      currentGeneration: generation,
+      isLoading: true,
+      streamingPreviewUri: "file:///preview.png",
+      isViewingActiveGeneration: true,
+    });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await render(<HistorySheetContent controller={hook.result.current} />);
+
+    const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
+    expect(listProps.data).toEqual([null, generation]);
+    const renderItem = listProps.renderItem as (info: {
+      item: GenerationRecord | null;
+      index: number;
+    }) => React.ReactElement;
+    const tile = await render(renderItem({ item: null, index: 0 }));
+    expect(
+      tile.getByRole("button", { name: "생성 중인 이미지 보기" }).props
+        .accessibilityState,
+    ).toMatchObject({ selected: true, disabled: false });
+  });
+
+  test("switches between a history image and the active generation", async () => {
+    const onClose = jest.fn();
+    useGenerationStore.setState({
+      generationHistory: [generation],
+      isLoading: true,
+      isViewingActiveGeneration: true,
+    });
+    const hook = await renderHook(() => useHistorySheetController({ onClose }));
+
+    await act(async () => hook.result.current.handleTilePress(generation));
+    expect(useGenerationStore.getState()).toMatchObject({
+      currentGeneration: generation,
+      isViewingActiveGeneration: false,
+    });
+
+    await act(async () => hook.result.current.handleActiveGenerationPress());
+    expect(useGenerationStore.getState().isViewingActiveGeneration).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("History database-wide selection", () => {
   beforeEach(() => {

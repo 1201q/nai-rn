@@ -227,13 +227,18 @@ export function GenerationCanvas({
 }) {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
-  const previewRequest = previewRequestId(streamingPreviewUri);
+  const isViewingActiveGeneration = useGenerationStore(
+    (s) => s.isViewingActiveGeneration,
+  );
+  const isLoading = useGenerationStore((s) => s.isLoading);
+  const activePreviewUri =
+    isLoading && isViewingActiveGeneration ? streamingPreviewUri : null;
+  const previewRequest = previewRequestId(activePreviewUri);
   useEffect(() => {
     if (previewRequest) generationImagePipeline?.retainPreviews(previewRequest);
     // Effect cleanup runs after the committed source change or unmount.
     return () => { if (previewRequest) releaseNativePreviews(previewRequest); };
   }, [previewRequest]);
-  const isLoading = useGenerationStore((s) => s.isLoading);
   const resolution = useGenerationStore((s) => s.resolution);
   const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
   const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
@@ -259,8 +264,8 @@ export function GenerationCanvas({
       : resolveGenerationImageUri({ imagePath: currentImagePath }),
     [currentImagePath],
   );
-  const displayedImageUri = streamingPreviewUri ?? currentImageUri;
-  const measurableImageUri = streamingPreviewUri ? null : displayedImageUri;
+  const displayedImageUri = activePreviewUri ?? currentImageUri;
+  const measurableImageUri = activePreviewUri ? null : displayedImageUri;
   const measurableImageUriRef = useRef(measurableImageUri);
   useLayoutEffect(() => {
     measurableImageUriRef.current = measurableImageUri;
@@ -269,22 +274,24 @@ export function GenerationCanvas({
     i2iEnabled && i2iSourceImage
       ? getI2IEffectiveResolution(i2iSourceImage)
       : resolution;
-  const fallbackAspectRatio = streamingPreviewUri
+  const fallbackAspectRatio = activePreviewUri
     ? streamingResolution.width / streamingResolution.height
     : currentGeneration
       ? currentGeneration.width / currentGeneration.height
       : resolution.width / resolution.height;
   const imageAspectRatio =
-    !streamingPreviewUri && loadedImage?.uri === displayedImageUri
+    !activePreviewUri && loadedImage?.uri === displayedImageUri
       ? loadedImage.aspectRatio
       : fallbackAspectRatio;
   const imageSize = useMemo(
     () => fitImage(canvasSize, imageAspectRatio),
     [canvasSize, imageAspectRatio],
   );
-  const canUseImageActions = Boolean(currentImageUri) && !isLoading;
+  const viewingActiveGeneration = isLoading && isViewingActiveGeneration;
+  const canUseImageActions =
+    Boolean(currentImageUri) && !viewingActiveGeneration;
   const canTransformImage =
-    Boolean(currentImageUri) && !isLoading && !streamingPreviewUri;
+    Boolean(currentImageUri) && !viewingActiveGeneration;
 
   const handleImageLoad = useCallback((event: ImageLoadEventData) => {
     const { url, width, height } = event.source;
@@ -384,7 +391,7 @@ export function GenerationCanvas({
             onLoad={handleImageLoad}
           />
         ) : null}
-        {isLoading && !streamingPreviewUri ? (
+        {viewingActiveGeneration && !activePreviewUri ? (
           <ActivityIndicator
             color={tokens.color.textPrimary}
             size="large"
