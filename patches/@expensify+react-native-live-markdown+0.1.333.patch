@@ -153,7 +153,7 @@ index 1fda115..fd7ae64 100644
 +  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
-index 69427e8..a65f10c 100644
+index 69427e8..fa2f6a8 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
 @@ -1,6 +1,7 @@
@@ -172,16 +172,27 @@ index 69427e8..a65f10c 100644
  
  public class MarkdownTextInputDecoratorView extends ReactViewGroup {
  
-@@ -37,7 +39,7 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+@@ -26,6 +28,8 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+   private ReactEditText mReactEditText;
+ 
+   private TextWatcher mTextWatcher;
++
++  private boolean mReadonlySelectionConfigured;
+ 
+   @Override
+   protected void onAttachedToWindow() {
+@@ -37,8 +39,9 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
        mMarkdownUtils.setMarkdownStyle(mMarkdownStyle);
        mMarkdownUtils.setParserId(mParserId);
        mReactEditText = (ReactEditText) child;
 -      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils);
 +      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils, this::postInvalidateOnAnimation);
        mReactEditText.addTextChangedListener(mTextWatcher);
++      configureReadonlySelection();
        applyNewStyles();
      }
-@@ -54,6 +56,39 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+   }
+@@ -54,6 +57,39 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
      }
    }
  
@@ -221,7 +232,11 @@ index 69427e8..a65f10c 100644
    protected void setMarkdownStyle(MarkdownStyle markdownStyle) {
      mMarkdownStyle = markdownStyle;
      if (mMarkdownUtils != null) {
-@@ -75,6 +110,7 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+@@ -72,10 +110,36 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+ 
+   protected void applyNewStyles() {
+     if (mReactEditText != null && mMarkdownUtils != null) {
++      configureReadonlySelection();
        Editable editable = mReactEditText.getText();
        if (editable instanceof SpannableStringBuilder ssb) {
          mMarkdownUtils.applyMarkdownFormatting(ssb);
@@ -229,6 +244,31 @@ index 69427e8..a65f10c 100644
        }
      }
    }
++
++  private void configureReadonlySelection() {
++    if (mReactEditText == null) {
++      return;
++    }
++
++    if (!mReactEditText.isEnabled()) {
++      // React Native implements editable={false} by disabling the EditText,
++      // which also disables long-press selection on Android. Keep the native
++      // view enabled, but remove its key listener so it remains read-only while
++      // selection and copy continue to work.
++      mReactEditText.setEnabled(true);
++      mReactEditText.setKeyListener(null);
++      mReactEditText.setShowSoftInputOnFocus(false);
++      mReactEditText.setTextIsSelectable(true);
++      mReadonlySelectionConfigured = true;
++    }
++
++    if (mReadonlySelectionConfigured) {
++      // Native text views can retain their previous selection when a sheet is
++      // detached and shown again. Always enter with a collapsed selection.
++      mReactEditText.setSelection(0);
++    }
++  }
+ }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
 index d182be1..2a21cc9 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java

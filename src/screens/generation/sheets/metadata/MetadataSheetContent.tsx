@@ -12,6 +12,7 @@ import { parseNaiMetadataJson } from "../../../../lib/naiMetadata";
 import { getUcPresetLabel } from "../../../../lib/naiPresets";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { monoFont, tokens } from "../../../../styles/tokens";
+import { PromptHighlightTextInput } from "../../../../components/forms/PromptHighlightTextInput";
 
 export type MetadataSheetSource = GenerationRecord | { metadataJson: string };
 
@@ -22,6 +23,9 @@ type MetadataValue = {
 };
 
 type PromptMode = "base" | "negative";
+
+const BASE_PROMPT_MIN_HEIGHT = 96;
+const CHARACTER_PROMPT_MIN_HEIGHT = 72;
 
 function optionLabel(
   options: ReadonlyArray<{ label: string; value: string }>,
@@ -141,14 +145,32 @@ const ReadonlyBasePrompt = memo(function ReadonlyBasePrompt({
           baseLabel="Base Prompt"
           onChange={setMode}
         />
-        <Text
+        <PromptHighlightTextInput
+          key={mode}
+          accessibilityLabel={
+            mode === "base"
+              ? "Base prompt text"
+              : "Undesired Content text"
+          }
+          caretHidden
+          editable={false}
+          multiline
+          placeholder="입력된 내용이 없습니다."
+          placeholderTextColor={
+            mode === "negative"
+              ? tokens.color.textSecondary
+              : tokens.color.textPrimary
+          }
+          scrollEnabled={false}
+          showSoftInputOnFocus={false}
+          textAlignVertical="top"
           style={[
             styles.readonlyPromptText,
+            styles.readonlyBasePromptText,
             mode === "negative" && styles.readonlyNegativePromptText,
           ]}
-        >
-          {value || "입력된 내용이 없습니다."}
-        </Text>
+          value={value}
+        />
       </View>
     </View>
   );
@@ -179,14 +201,30 @@ const ReadonlyCharacterPrompt = memo(function ReadonlyCharacterPrompt({
           baseLabel="Prompt"
           onChange={setMode}
         />
-        <Text
+        <PromptHighlightTextInput
+          key={mode}
+          accessibilityLabel={`${title} ${
+            mode === "base" ? "prompt" : "Undesired Content"
+          } text`}
+          caretHidden
+          editable={false}
+          multiline
+          placeholder="입력된 내용이 없습니다."
+          placeholderTextColor={
+            mode === "negative"
+              ? tokens.color.textSecondary
+              : tokens.color.textPrimary
+          }
+          scrollEnabled={false}
+          showSoftInputOnFocus={false}
+          textAlignVertical="top"
           style={[
             styles.readonlyPromptText,
+            styles.readonlyCharacterPromptText,
             mode === "negative" && styles.readonlyNegativePromptText,
           ]}
-        >
-          {value || "입력된 내용이 없습니다."}
-        </Text>
+          value={value}
+        />
       </View>
     </View>
   );
@@ -358,12 +396,17 @@ const styles = StyleSheet.create({
     color: tokens.color.negative,
   },
   readonlyPromptText: {
-    minHeight: 72,
     padding: 0,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
     fontSize: 15,
     lineHeight: 23,
+  },
+  readonlyBasePromptText: {
+    minHeight: BASE_PROMPT_MIN_HEIGHT,
+  },
+  readonlyCharacterPromptText: {
+    minHeight: CHARACTER_PROMPT_MIN_HEIGHT,
   },
   readonlyNegativePromptText: {
     color: tokens.color.textSecondary,

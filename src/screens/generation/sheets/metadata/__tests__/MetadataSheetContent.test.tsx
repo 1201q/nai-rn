@@ -9,6 +9,18 @@ jest.mock("@gorhom/bottom-sheet", () => {
   const { ScrollView } = require("react-native") as typeof import("react-native");
   return { BottomSheetScrollView: ScrollView };
 });
+jest.mock("../../../../../components/forms/PromptHighlightTextInput", () => {
+  const React = require("react") as typeof import("react");
+  const { TextInput } = require("react-native") as typeof import("react-native");
+  return {
+    PromptHighlightTextInput: React.forwardRef(function MockPromptInput(
+      props: import("react-native").TextInputProps,
+      ref: import("react").ForwardedRef<import("react-native").TextInput>,
+    ) {
+      return React.createElement(TextInput, { ...props, ref });
+    }),
+  };
+});
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -61,7 +73,7 @@ const generation: GenerationRecord = {
 describe("MetadataSheetContent", () => {
   test("displays extracted metadata without a generated record", async () => {
     const screen = await render(<MetadataSheetContent generation={{ metadataJson: JSON.stringify({ Comment: JSON.stringify({ prompt: "external prompt", seed: 42 }) }) }} />);
-    expect(screen.getByText("external prompt")).toBeTruthy();
+    expect(screen.getByDisplayValue("external prompt")).toBeTruthy();
     expect(screen.getByText("42")).toBeTruthy();
     expect(screen.queryByText("CREATED")).toBeNull();
     expect(screen.queryByText(/undefined/)).toBeNull();
@@ -75,24 +87,46 @@ describe("MetadataSheetContent", () => {
     expect(screen.getByText("V4.5 Full")).toBeTruthy();
     expect(screen.getByText("832 x 1216")).toBeTruthy();
     expect(screen.queryByText("CURRENT IMAGE")).toBeNull();
-    expect(screen.getByText("embedded prompt")).toBeTruthy();
-    expect(screen.queryByText("embedded negative prompt")).toBeNull();
+    expect(screen.getByDisplayValue("embedded prompt")).toBeTruthy();
+    expect(screen.queryByDisplayValue("embedded negative prompt")).toBeNull();
     await fireEvent.press(
       screen.getByRole("radio", { name: "Undesired Content" }),
     );
-    expect(screen.getByText("embedded negative prompt")).toBeTruthy();
+    expect(screen.getByDisplayValue("embedded negative prompt")).toBeTruthy();
     expect(screen.getByText("Character 1")).toBeTruthy();
-    expect(screen.getByText("character prompt")).toBeTruthy();
+    expect(screen.getByDisplayValue("character prompt")).toBeTruthy();
     await fireEvent.press(
       screen.getByRole("radio", {
         name: "Character 1 Undesired Content",
       }),
     );
-    expect(screen.getByText("character negative prompt")).toBeTruthy();
+    expect(
+      screen.getByDisplayValue("character negative prompt"),
+    ).toBeTruthy();
     expect(screen.getByText("123456")).toBeTruthy();
     expect(screen.getByText("QUALITY TAGS")).toBeTruthy();
     expect(screen.getByText("UC PRESET")).toBeTruthy();
     expect(screen.getByText("ID generation-1")).toBeTruthy();
+
+    const basePrompt = screen.getByLabelText("Undesired Content text");
+    expect(basePrompt.props).toMatchObject({
+      caretHidden: true,
+      editable: false,
+      showSoftInputOnFocus: false,
+    });
+    expect(StyleSheet.flatten(basePrompt.props.style)).toMatchObject({
+      minHeight: 96,
+      lineHeight: 23,
+    });
+
+    const characterPrompt = screen.getByLabelText(
+      "Character 1 Undesired Content text",
+    );
+    expect(characterPrompt.props.editable).toBe(false);
+    expect(StyleSheet.flatten(characterPrompt.props.style)).toMatchObject({
+      minHeight: 72,
+      lineHeight: 23,
+    });
 
     const scroll = screen.getByTestId("metadata-scroll");
     expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({
