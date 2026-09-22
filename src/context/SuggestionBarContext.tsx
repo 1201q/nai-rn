@@ -13,9 +13,10 @@ import type { TagSuggestion } from "../lib/tagDb";
 
 type SuggestionBarActions = {
   pickRef: React.MutableRefObject<((item: TagSuggestion) => void) | null>;
-  setSuggestions: (s: TagSuggestion[], pick: (item: TagSuggestion) => void) => void;
-  clearSuggestions: () => void;
-  setActive: (active: boolean) => void;
+  setSuggestions: (owner: symbol, s: TagSuggestion[], pick: (item: TagSuggestion) => void) => void;
+  clearSuggestions: (owner: symbol) => void;
+  setActive: (owner: symbol, active: boolean) => void;
+  isActive: (owner: symbol) => boolean;
 };
 
 const ActionsContext = createContext<SuggestionBarActions | null>(null);
@@ -24,29 +25,42 @@ const ActiveContext = createContext(false);
 
 export function SuggestionBarProvider({ children }: { children: ReactNode }) {
   const [suggestions, setSuggestionsState] = useState<TagSuggestion[]>([]);
-  const [active, setActive] = useState(false);
+  const [active, setActiveState] = useState(false);
+  const ownerRef = useRef<symbol | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const pickRef = useRef<((item: TagSuggestion) => void) | null>(null);
 
   const setSuggestions = useCallback(
-    (s: TagSuggestion[], pick: (item: TagSuggestion) => void) => {
+    (owner: symbol, s: TagSuggestion[], pick: (item: TagSuggestion) => void) => {
+      if (ownerRef.current !== owner) return;
       setSuggestionsState(s);
       pickRef.current = pick;
     },
     [],
   );
 
-  const clearSuggestions = useCallback(() => {
+  const resetSuggestions = useCallback(() => {
     setSuggestionsState([]);
     pickRef.current = null;
   }, []);
+
+  const isActive = useCallback((owner: symbol) => ownerRef.current === owner, []);
+  const clearSuggestions = useCallback((owner: symbol) => {
+    if (ownerRef.current === owner) resetSuggestions();
+  }, [resetSuggestions]);
+  const setActive = useCallback((owner: symbol, nextActive: boolean) => {
+    if (!nextActive && ownerRef.current !== owner) return;
+    ownerRef.current = nextActive ? owner : null;
+    resetSuggestions();
+    setActiveState(nextActive);
+  }, [resetSuggestions]);
 
   useEffect(() => {
     const handleKeyboardShow = () => {
       setKeyboardVisible(true);
     };
     const handleKeyboardHide = () => {
-      clearSuggestions();
+      resetSuggestions();
       setKeyboardVisible(false);
     };
     const subs = [
@@ -56,11 +70,11 @@ export function SuggestionBarProvider({ children }: { children: ReactNode }) {
       Keyboard.addListener("keyboardDidHide", handleKeyboardHide),
     ];
     return () => subs.forEach((s) => s.remove());
-  }, [clearSuggestions]);
+  }, [resetSuggestions]);
 
   const actions = useMemo(
-    () => ({ pickRef, setSuggestions, clearSuggestions, setActive }),
-    [setSuggestions, clearSuggestions],
+    () => ({ pickRef, setSuggestions, clearSuggestions, setActive, isActive }),
+    [setSuggestions, clearSuggestions, setActive, isActive],
   );
 
   return (

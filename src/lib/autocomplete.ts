@@ -13,20 +13,63 @@ interface CurrentWord {
   start: number;
 }
 
+export interface AutocompleteRange {
+  start: number;
+  end: number;
+}
+
+/** Numeric opening markers are indivisible boundaries, including their weight. */
+export function getAutocompleteRange(text: string, position: number): AutocompleteRange {
+  const boundaries = /-?(?:\d+\.?\d*|\.\d+)::|::|[,\r\n|{}\[\]]/g;
+  let start = 0;
+  let end = text.length;
+  for (const match of text.matchAll(boundaries)) {
+    const boundaryStart = match.index;
+    const boundaryEnd = boundaryStart + match[0].length;
+    if (boundaryEnd <= position) start = boundaryEnd;
+    else if (boundaryStart < position) return { start: position, end: position };
+    else {
+      end = boundaryStart;
+      break;
+    }
+  }
+  while (start < position && /\s/.test(text[start])) start += 1;
+  return { start, end };
+}
+
+/** Prefer the known selection when repeated characters make a text diff ambiguous. */
+export function getAutocompleteEdit(
+  previous: string,
+  text: string,
+  selection: AutocompleteRange,
+): { start: number; previousEnd: number; end: number } {
+  const addedLength = text.length - previous.length + selection.end - selection.start;
+  if (
+    addedLength >= 0 &&
+    text.slice(0, selection.start) === previous.slice(0, selection.start) &&
+    text.slice(selection.start + addedLength) === previous.slice(selection.end)
+  ) {
+    return { start: selection.start, previousEnd: selection.end, end: selection.start + addedLength };
+  }
+  let start = 0;
+  while (start < previous.length && start < text.length && previous[start] === text[start]) start += 1;
+  let previousEnd = previous.length;
+  let end = text.length;
+  while (previousEnd > start && end > start && previous[previousEnd - 1] === text[end - 1]) {
+    previousEnd -= 1;
+    end -= 1;
+  }
+  return { start, previousEnd, end };
+}
+
 /**
- * 커서 위치의 토큰: 커서 왼쪽에서 직전 콤마,줄바꿈,weight 구분자(`::`)까지.
+ * 커서 위치의 토큰: 콤마, 줄바꿈, 가중치, 괄호, 파이프 구분자 사이.
  * 단일 콜론은 경계가 아님 -> `artist:wlop` 같은 네임스페이스는 유지되고,
  * `1.2::tag`의 `tag` 부분은 자동완성됨.
  */
 export function getCurrentWord(text: string, position: number): CurrentWord {
-  const left = text.slice(0, position);
-  const afterLine = left.slice(
-    Math.max(left.lastIndexOf(","), left.lastIndexOf("\n")) + 1,
-  );
-  const weightAt = afterLine.lastIndexOf("::");
-  const raw = weightAt === -1 ? afterLine : afterLine.slice(weightAt + 2);
-  const word = raw.replace(/^\s+/, "");
-  return { word, start: position - word.length };
+  const { start } = getAutocompleteRange(text, position);
+  return { word: text.slice(start, position), start };
 }
 
 interface ParsedQuery {
@@ -58,22 +101,19 @@ interface InsertResult {
 }
 
 /**
- * Replace the entire tag around the caret, preserving the next delimiter.
- * Keep the caret immediately after the completed tag, before the delimiter.
+ * Replace the active range, preserving surrounding prompt syntax.
+ * Move past a newly inserted separator so typing starts a new tag.
  */
 export function insertTag(
   text: string,
   position: number,
   value: string,
+  range = getAutocompleteRange(text, position),
 ): InsertResult {
-  const { start } = getCurrentWord(text, position);
-  const before = text.slice(0, start);
-  const tail = text.slice(position);
-  const boundary = tail.search(/,|\r?\n|::|[|{}\[\]]/);
-  const after = boundary === -1 ? ", " : tail.slice(boundary);
-
-  const needsSpace = before.length > 0 && !/[\s,:]$/.test(before);
-  const insertion = `${needsSpace ? " " : ""}${value}`;
+  const before = text.slice(0, range.start);
+  const after = text.slice(range.end);
+  const separator = !after || !/^\s*(?:,|\r?\n|::|[|}\]])/.test(after) ? ", " : "";
+  const insertion = value + separator;
 
   return {
     text: before + insertion + after,
