@@ -15,6 +15,7 @@ import {
   type NaiResolution,
 } from "../../../../constants/generation";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
+import { resolveNoiseSchedule } from "../../../../lib/novelai";
 import { useGenerationStore } from "../../../../store/generationStore";
 import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
@@ -35,6 +36,10 @@ const MODEL_OPTIONS = MODELS.map((option) => option.label);
 const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
 const SAMPLER_OPTIONS = SAMPLERS.map((option) => option.label);
 const SCHEDULE_OPTIONS = NOISE_SCHEDULES.map((option) => option.label);
+// 공식 웹과 동일: V4 이상은 Native 스케줄을 지원하지 않는다.
+const V4_SCHEDULE_OPTIONS = NOISE_SCHEDULES.filter(
+  (option) => option.value !== "native",
+).map((option) => option.label);
 
 type SettingsSelectKey = "model" | "resolution" | "sampler" | "schedule";
 type ResolutionOrientation = "portrait" | "landscape" | "square";
@@ -284,9 +289,11 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
     MODELS.find((option) => option.value === model)?.label ?? model;
   const samplerLabel =
     SAMPLERS.find((option) => option.value === sampler)?.label ?? sampler;
+  const displaySchedule =
+    resolveNoiseSchedule(model, sampler, schedule) ?? schedule;
   const scheduleLabel =
-    NOISE_SCHEDULES.find((option) => option.value === schedule)?.label ??
-    schedule;
+    NOISE_SCHEDULES.find((option) => option.value === displaySchedule)?.label ??
+    displaySchedule;
   const currentPreset = resolutionPreset(resolution);
   const currentOrientation = resolutionOrientation(resolution);
 
@@ -597,7 +604,11 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
             <SheetSelect
               label="Schedule"
               value={scheduleLabel}
-              options={SCHEDULE_OPTIONS}
+              options={
+                model.startsWith("nai-diffusion-4")
+                  ? V4_SCHEDULE_OPTIONS
+                  : SCHEDULE_OPTIONS
+              }
               onChange={changeSchedule}
               open={openSelect === "schedule"}
               onOpenChange={(open) => setSelectOpen("schedule", open)}

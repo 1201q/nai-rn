@@ -35,10 +35,7 @@ import { toast } from "sonner-native";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import { generationImagePipeline, previewRequestId, releaseNativePreviews } from "../../../modules/generation-image-pipeline";
-import {
-  getI2IEffectiveResolution,
-  useGenerationStore,
-} from "../../store/generationStore";
+import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 
 const TOOLBAR_COLLAPSED_WIDTH = 42;
@@ -240,8 +237,6 @@ export function GenerationCanvas({
     return () => { if (previewRequest) releaseNativePreviews(previewRequest); };
   }, [previewRequest]);
   const resolution = useGenerationStore((s) => s.resolution);
-  const i2iSourceImage = useGenerationStore((s) => s.i2iSourceImage);
-  const i2iEnabled = useGenerationStore((s) => s.i2iEnabled);
   const mainImageBlurred = useGenerationStore((s) => s.mainImageBlurred);
   const setMainImageBlurred = useGenerationStore(
     (s) => s.setMainImageBlurred,
@@ -270,12 +265,8 @@ export function GenerationCanvas({
   useLayoutEffect(() => {
     measurableImageUriRef.current = measurableImageUri;
   }, [measurableImageUri]);
-  const streamingResolution =
-    i2iEnabled && i2iSourceImage
-      ? getI2IEffectiveResolution(i2iSourceImage)
-      : resolution;
   const fallbackAspectRatio = activePreviewUri
-    ? streamingResolution.width / streamingResolution.height
+    ? resolution.width / resolution.height
     : currentGeneration
       ? currentGeneration.width / currentGeneration.height
       : resolution.width / resolution.height;

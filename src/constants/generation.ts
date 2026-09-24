@@ -68,6 +68,9 @@ export const NAI_RESOLUTIONS = [
   },
 ] as const;
 
+// 공식 웹과 동일한 요청 해상도 상한 (width * height).
+export const MAX_GENERATION_PIXELS = 3_145_728;
+
 export const DEFAULT_NAI_RESOLUTION: NaiResolution =
   NAI_RESOLUTIONS[1].options[0];
 

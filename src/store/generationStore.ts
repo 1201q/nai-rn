@@ -1,7 +1,5 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import { File } from "expo-file-system";
-import * as ImageManipulator from "expo-image-manipulator";
 import { create } from "zustand";
 
 import {
@@ -32,6 +30,7 @@ import {
   type NovelAiAnlasBalance,
   encodeNovelAiVibe,
   getNovelAiAnlasBalance,
+  NovelAiRequestError,
 } from "../lib/novelai";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
@@ -39,6 +38,7 @@ import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
 import {
   deleteStoredI2IReference,
+  renderI2IRequestImageBase64,
   resolveStoredI2IReference,
   saveI2IReferenceImage,
   type I2IReferenceImageInput,
@@ -87,6 +87,7 @@ import {
 import {
   DEFAULT_NAI_RESOLUTION,
   MAX_CHARACTER_PROMPTS,
+  MAX_GENERATION_PIXELS,
   NAI_RESOLUTIONS,
   type NaiResolution,
   type NoiseSchedule,
@@ -121,27 +122,6 @@ type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
 
 function generateRandomSeed(): number {
   return Math.floor(Math.random() * 4_294_967_295);
-}
-
-function roundI2IDimensionTo64(value: number): number {
-  return Math.max(64, Math.round(value / 64) * 64);
-}
-
-// NAI i2i 픽셀 상한. 초과 시 비율 유지 축소 (hard max 1536x2048보다 보수적).
-const NAI_I2I_MAX_PIXELS = 1216 * 1216;
-
-export function getI2IEffectiveResolution(sourceImage: I2ISourceImage) {
-  let width = sourceImage.width;
-  let height = sourceImage.height;
-  if (width * height > NAI_I2I_MAX_PIXELS) {
-    const scale = Math.sqrt(NAI_I2I_MAX_PIXELS / (width * height));
-    width *= scale;
-    height *= scale;
-  }
-  return {
-    width: roundI2IDimensionTo64(width),
-    height: roundI2IDimensionTo64(height),
-  };
 }
 
 function isNoiseSchedule(value: unknown): value is NoiseSchedule {
@@ -468,7 +448,10 @@ let activeQueueAbortController: AbortController | null = null;
 const vibeSettingsVersions = createMutationVersionTracker();
 const preciseSettingsVersions = createMutationVersionTracker();
 
-async function waitForNextBatchRequest(signal: AbortSignal): Promise<boolean> {
+async function waitForNextBatchRequest(
+  signal: AbortSignal,
+  delayMs = BATCH_REQUEST_INTERVAL_MS,
+): Promise<boolean> {
   if (signal.aborted) return Promise.resolve(false);
 
   let onAbort: (() => void) | undefined;
@@ -479,7 +462,7 @@ async function waitForNextBatchRequest(signal: AbortSignal): Promise<boolean> {
 
   try {
     return await Promise.race([
-      waitForGenerationInterval(BATCH_REQUEST_INTERVAL_MS).then(
+      waitForGenerationInterval(delayMs).then(
         () => !signal.aborted,
       ),
       abortPromise,
@@ -487,6 +470,31 @@ async function waitForNextBatchRequest(signal: AbortSignal): Promise<boolean> {
   } finally {
     if (onAbort) {
       signal.removeEventListener("abort", onAbort);
+    }
+  }
+}
+
+// 429(동시 생성 제한)는 서버가 생성 전에 거절한 것이라 차감 없이 다시 시도할 수 있다.
+// 5xx는 차감 후 실패했을 수 있어 재시도하지 않는다.
+const RATE_LIMIT_RETRY_DELAYS_MS = [3000, 6000, 9000];
+
+async function retryOnRateLimit<T>(
+  request: () => Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await request();
+    } catch (error: unknown) {
+      const delayMs = RATE_LIMIT_RETRY_DELAYS_MS[attempt];
+      if (
+        !(error instanceof NovelAiRequestError) ||
+        error.status !== 429 ||
+        delayMs === undefined ||
+        !(await waitForNextBatchRequest(signal, delayMs))
+      ) {
+        throw error;
+      }
     }
   }
 }
@@ -737,6 +745,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
               informationExtracted: value,
               encodedPath: null,
               encodedInformationExtracted: null,
+              encodedModel: null,
             }
           : item,
       ),
@@ -1154,6 +1163,12 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       set({ message: "프롬프트를 입력해주세요." });
       return rejectGenerationStart("validation");
     }
+    if (s.resolution.width * s.resolution.height > MAX_GENERATION_PIXELS) {
+      set({
+        message: `해상도가 너무 큽니다. 전체 픽셀 수는 ${MAX_GENERATION_PIXELS.toLocaleString()} 이하여야 합니다 (현재 ${s.resolution.width}×${s.resolution.height}).`,
+      });
+      return rejectGenerationStart("validation");
+    }
 
     // 첫 await 전에 준비 상태를 획득해 I2I/Reference 전처리도 단일 요청으로 보장한다.
     queueStarting = true;
@@ -1212,24 +1227,17 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     // 큐 시작 시 옵션 1회 캡처 (중간 옵션 변경이 큐에 안 섞이도록). 시드만 매 장 advance.
     const total = Math.min(100, Math.max(1, s.batchCount));
-    let width = s.resolution.width;
-    let height = s.resolution.height;
+    const width = s.resolution.width;
+    const height = s.resolution.height;
     let i2iImageBase64: string | undefined;
     if (s.i2iEnabled && s.i2iSourceImage) {
       try {
-        const effectiveResolution = getI2IEffectiveResolution(s.i2iSourceImage);
-        width = effectiveResolution.width;
-        height = effectiveResolution.height;
-        // NAI는 소스 이미지 크기 == width/height를 요구. 원본을 유효 해상도로 리사이즈.
-        const resized = await ImageManipulator.manipulateAsync(
+        // NAI는 소스 이미지 크기 == width/height를 요구. 공식 웹처럼 해상도 설정 크기로 늘리고 흰 배경에 합친다.
+        i2iImageBase64 = await renderI2IRequestImageBase64(
           s.i2iSourceImage.uri,
-          [{ resize: { width, height } }],
-          { format: ImageManipulator.SaveFormat.PNG },
+          width,
+          height,
         );
-        if (stopIfPreparationCancelled()) {
-          return rejectGenerationStart("cancelled");
-        }
-        i2iImageBase64 = await new File(resized.uri).base64();
         if (stopIfPreparationCancelled()) {
           return rejectGenerationStart("cancelled");
         }
@@ -1292,7 +1300,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           if (stopIfPreparationCancelled()) {
             return rejectGenerationStart("cancelled");
           }
-          const canUseCachedEncoding = canUseCachedVibeEncoding(vibe);
+          const canUseCachedEncoding = canUseCachedVibeEncoding(vibe, s.model);
 
           if (canUseCachedEncoding) {
             encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
@@ -1310,6 +1318,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             s.storedToken,
             imageBase64,
             vibe.informationExtracted,
+            s.model,
           );
           if (stopIfPreparationCancelled()) {
             return rejectGenerationStart("cancelled");
@@ -1320,6 +1329,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             vibe.id,
             encodedBase64,
             vibe.informationExtracted,
+            s.model,
           );
           if (stopIfPreparationCancelled()) {
             return rejectGenerationStart("cancelled");
@@ -1347,6 +1357,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
                 encodedPath: updated.encodedPath,
                 encodedInformationExtracted:
                   updated.encodedInformationExtracted,
+                encodedModel: updated.encodedModel,
                 updatedAt: Math.max(item.updatedAt, updated.updatedAt),
               };
             }),
@@ -1531,7 +1542,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }
 
         let lastPreviewUpdateAt = 0;
-        const generation = await generateAndSaveImage(
+        const generation = await retryOnRateLimit(() => generateAndSaveImage(
           {
             token,
             prompt,
@@ -1583,7 +1594,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
             return;
           },
           abortController.signal,
-        );
+        ), abortController.signal);
 
         set((state) => ({
           currentGeneration: state.isViewingActiveGeneration

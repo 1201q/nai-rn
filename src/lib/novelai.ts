@@ -19,6 +19,40 @@ export class NovelAiRequestError extends Error {
   }
 }
 
+// 서버 오류 본문({"statusCode", "message"}) 또는 일반 텍스트에서 메시지를 꺼낸다.
+export function extractNovelAiServerMessage(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object") {
+      const message = (parsed as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim()) return message.trim();
+    }
+  } catch {
+    // JSON이 아니면 본문을 그대로 사용한다.
+  }
+  return trimmed.slice(0, 500);
+}
+
+export function describeNovelAiHttpError(
+  status: number,
+  serverMessage?: string,
+): string {
+  const detail = serverMessage ? `\n${serverMessage}` : "";
+  if (status === 401 || status === 403) {
+    return "NovelAI 토큰이 유효하지 않습니다. 설정에서 토큰을 확인해 주세요.";
+  }
+  if (status === 402) return `Anlas가 부족합니다.${detail}`;
+  if (status === 429) {
+    return `다른 곳에서 진행 중인 생성이 있어 요청이 거절되었습니다. 잠시 후 다시 시도해 주세요.${detail}`;
+  }
+  if (status >= 500) {
+    return `NovelAI 서버 오류가 발생했습니다 (HTTP ${status}).${detail}`;
+  }
+  return `HTTP ${status}${detail}`;
+}
+
 function createNovelAiRequestError(status: number, fallbackMessage: string) {
   return new NovelAiRequestError(
     status,
@@ -245,6 +279,46 @@ function isV4Model(model: string): boolean {
   return model.startsWith("nai-diffusion-4");
 }
 
+// 공식 웹과 동일: 스케줄을 쓰지 않는 샘플러는 noise_schedule을 보내지 않고,
+// V4 이상은 native를 지원하지 않아 샘플러 기본 스케줄로 대체한다.
+const SAMPLERS_WITHOUT_NOISE_SCHEDULE = new Set([
+  "ddim",
+  "plms",
+  "k_lms",
+  "nai_smea",
+  "nai_smea_dyn",
+  "ddim_v3",
+]);
+
+export function resolveNoiseSchedule(
+  model: string,
+  sampler: string,
+  noiseSchedule: NoiseSchedule,
+): NoiseSchedule | undefined {
+  if (SAMPLERS_WITHOUT_NOISE_SCHEDULE.has(sampler)) return undefined;
+  if (isV4Model(model) && noiseSchedule === "native") {
+    return sampler === "k_dpmpp_2m" || sampler === "k_dpm_2"
+      ? "exponential"
+      : "karras";
+  }
+  return noiseSchedule;
+}
+
+// 공식 웹과 동일: V3는 픽셀 수가 기준 이상이면 SMEA를 자동으로 켠다 (i2i와 일부 샘플러 제외).
+const V3_AUTO_SMEA_MIN_PIXELS = 2_166_785;
+const SAMPLERS_WITHOUT_SMEA = new Set(["k_dpmpp_2s_ancestral", "k_dpmpp_sde"]);
+
+// 공식 웹과 동일: 모델별 기준 sigma(V4.5 58, 그 외 19)를 832x1216 latent 대비 크기로 보정한다.
+export function getVarietyPlusSigma(
+  model: string,
+  width: number,
+  height: number,
+): number {
+  const baseSigma = model.startsWith("nai-diffusion-4-5") ? 58 : 19;
+  const latentArea = Math.floor(width / 8) * Math.floor(height / 8);
+  return baseSigma * Math.sqrt(latentArea / (104 * 152));
+}
+
 export function normalizeBearerToken(token: string): string {
   const trimmed = token.trim();
   return trimmed.toLowerCase().startsWith("bearer ")
@@ -303,11 +377,12 @@ export async function encodeNovelAiVibe(
   token: string,
   imageBase64: string,
   informationExtracted: number,
+  model: string,
 ): Promise<string> {
   const cleanToken = normalizeBearerToken(token);
   const requestBody = JSON.stringify({
     image: stripBase64Header(imageBase64),
-    model: "nai-diffusion-4-5-full",
+    model,
     information_extracted: informationExtracted,
   });
 
@@ -322,9 +397,9 @@ export async function encodeNovelAiVibe(
     xhr.onload = () => {
       if (xhr.status < 200 || xhr.status >= 300) {
         reject(
-          createNovelAiRequestError(
+          new NovelAiRequestError(
             xhr.status,
-            `Vibe encode failed: HTTP ${xhr.status}`,
+            `Vibe 인코딩 실패: ${describeNovelAiHttpError(xhr.status)}`,
           ),
         );
         return;
@@ -414,13 +489,24 @@ export function createImageGenerationBody({
           : { x: 0.5, y: 0.5 },
       ),
     );
+  const resolvedNoiseSchedule = resolveNoiseSchedule(
+    model,
+    sampler,
+    noiseSchedule,
+  );
+  const autoSmea =
+    !shouldUseV4Prompt &&
+    !isI2I &&
+    width * height >= V3_AUTO_SMEA_MIN_PIXELS &&
+    !SAMPLERS_WITHOUT_SMEA.has(sampler);
   const parameters = {
     width,
     height,
     scale: promptGuidance,
     cfg_rescale: promptGuidanceRescale,
-    noise_schedule: noiseSchedule,
+    ...(resolvedNoiseSchedule ? { noise_schedule: resolvedNoiseSchedule } : {}),
     sampler,
+    ...(shouldUseV4Prompt ? {} : { sm: autoSmea, sm_dyn: false }),
     steps,
     n_samples: 1,
     seed,
@@ -431,16 +517,24 @@ export function createImageGenerationBody({
     legacy: false,
     legacy_uc: false,
     add_original_image: true,
-    prefer_brownian: true,
+    // 공식 웹과 동일: Euler Ancestral + non-native 스케줄일 때만 버그 모드를 끈다 (서버 기본값은 true).
+    ...(sampler === "k_euler_ancestral" && resolvedNoiseSchedule !== "native"
+      ? { deliberate_euler_ancestral_bug: false, prefer_brownian: true }
+      : {}),
     ucPreset,
     image_format: "png",
     use_coords: useCharacterCoords,
-    skip_cfg_above_sigma: varietyPlus ? 58 : null,
+    skip_cfg_above_sigma: varietyPlus
+      ? getVarietyPlusSigma(model, width, height)
+      : null,
     ...(i2iImageBase64
       ? {
           image: stripBase64Header(i2iImageBase64),
           strength: i2iStrength,
           noise: i2iNoise,
+          // 공식 웹과 동일한 i2i 기본값.
+          extra_noise_seed: seed - 1,
+          color_correct: false,
         }
       : {}),
     ...(hasVibes
@@ -701,9 +795,12 @@ export async function generateNovelAiImageStream(
 
       if (xhr.status < 200 || xhr.status >= 300) {
         settleError(
-          createNovelAiRequestError(
+          new NovelAiRequestError(
             xhr.status,
-            `HTTP ${xhr.status} ${xhr.statusText}\n${xhr.responseText}`,
+            describeNovelAiHttpError(
+              xhr.status,
+              extractNovelAiServerMessage(xhr.responseText),
+            ),
           ),
         );
         return;

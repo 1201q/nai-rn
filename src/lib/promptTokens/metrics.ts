@@ -112,7 +112,7 @@ export async function calculatePromptTokenMetrics(
     target.scope === "base" ||
     (policy.tokenizer === "t5" &&
       Boolean(character?.enabled) &&
-      Boolean(character?.prompt.trim() || character?.negativePrompt.trim()));
+      Boolean(character?.prompt.trim()));
   const fieldCaption =
     target.scope === "base"
       ? baseCaption

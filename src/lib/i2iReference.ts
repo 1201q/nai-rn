@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from "expo-file-system";
+import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
 
 const REFERENCE_ROOT_DIR = "nai-references";
 const I2I_DIR = "i2i";
@@ -100,6 +101,39 @@ export function deleteStoredI2IReference(path: string | null | undefined) {
   } catch {
     // Missing file cleanup does not need to block the UI state update.
   }
+}
+
+// 공식 웹과 동일: 요청 해상도로 늘려 맞추고(stretch) 투명 영역은 흰 배경으로 합친다.
+export async function renderI2IRequestImageBase64(
+  sourceUri: string,
+  width: number,
+  height: number,
+): Promise<string> {
+  const sourceBase64 = await new File(sourceUri).base64();
+  const image = Skia.Image.MakeImageFromEncoded(
+    Skia.Data.fromBase64(sourceBase64),
+  );
+  const surface = Skia.Surface.MakeOffscreen(width, height);
+  if (!image || !surface) {
+    throw new Error("I2I 이미지를 처리하지 못했습니다.");
+  }
+
+  const canvas = surface.getCanvas();
+  canvas.clear(Skia.Color("#FFFFFF"));
+  canvas.drawImageRect(
+    image,
+    rect(0, 0, image.width(), image.height()),
+    rect(0, 0, width, height),
+    Skia.Paint(),
+    false,
+  );
+  surface.flush();
+
+  const base64 = surface.makeImageSnapshot().encodeToBase64(ImageFormat.PNG);
+  if (!base64) {
+    throw new Error("I2I 이미지를 처리하지 못했습니다.");
+  }
+  return base64;
 }
 
 export async function saveI2IReferenceImage(

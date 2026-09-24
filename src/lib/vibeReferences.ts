@@ -29,6 +29,7 @@ export type VibeReference = {
   strength: number;
   informationExtracted: number;
   encodedInformationExtracted: number | null;
+  encodedModel: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -41,10 +42,18 @@ export type VibeReferenceImageInput = {
   mimeType?: string | null;
 };
 
-export function canUseCachedVibeEncoding(reference: VibeReference) {
+// encoded_model 컬럼 추가 이전의 캐시는 모두 V4.5 Full로 인코딩됐다.
+const LEGACY_ENCODED_MODEL = "nai-diffusion-4-5-full";
+
+// Vibe 인코딩은 모델마다 다르다 (공식 웹도 모델별로 인코딩/캐시).
+export function canUseCachedVibeEncoding(
+  reference: VibeReference,
+  model: string,
+) {
   return (
     reference.encodedPath !== null &&
-    reference.encodedInformationExtracted === reference.informationExtracted
+    reference.encodedInformationExtracted === reference.informationExtracted &&
+    (reference.encodedModel ?? LEGACY_ENCODED_MODEL) === model
   );
 }
 
@@ -57,6 +66,7 @@ type VibeReferenceRow = {
   strength: number;
   information_extracted: number;
   encoded_information_extracted: number | null;
+  encoded_model: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -119,6 +129,7 @@ function rowToRecord(row: VibeReferenceRow): VibeReference {
     strength: row.strength,
     informationExtracted: row.information_extracted,
     encodedInformationExtracted: row.encoded_information_extracted,
+    encodedModel: row.encoded_model,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -226,6 +237,14 @@ async function initializeVibeReferenceStorage() {
     CREATE INDEX IF NOT EXISTS vibe_references_created_at_idx
       ON vibe_references (created_at ASC);
   `);
+  const columns = await db.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(vibe_references)",
+  );
+  if (!columns.some((column) => column.name === "encoded_model")) {
+    await db.execAsync(
+      "ALTER TABLE vibe_references ADD COLUMN encoded_model TEXT",
+    );
+  }
 }
 
 export const initVibeReferenceStorage = createInitializeOnce(
@@ -278,6 +297,7 @@ export async function addVibeReferenceFromImage(
       strength: DEFAULT_VIBE_STRENGTH,
       informationExtracted: DEFAULT_VIBE_INFORMATION_EXTRACTED,
       encodedInformationExtracted: null,
+      encodedModel: null,
       createdAt,
       updatedAt: createdAt,
     };
@@ -358,6 +378,7 @@ export async function replaceVibeReferenceImage(
              thumbnail_path = ?,
              encoded_path = NULL,
              encoded_information_extracted = NULL,
+             encoded_model = NULL,
              updated_at = ?
        WHERE id = ?`,
       [imagePath, thumbnailPath, updatedAt, id],
@@ -379,6 +400,7 @@ export async function replaceVibeReferenceImage(
     thumbnailPath,
     encodedPath: null,
     encodedInformationExtracted: null,
+    encodedModel: null,
     updatedAt,
   };
 }
@@ -420,6 +442,7 @@ export async function updateVibeReferenceSettings(
       assignments.push(
         "encoded_path = NULL",
         "encoded_information_extracted = NULL",
+        "encoded_model = NULL",
       );
     }
     if (assignments.length === 0) return current;
@@ -463,6 +486,7 @@ export async function saveEncodedVibeReference(
   id: string,
   encodedBase64: string,
   informationExtracted: number,
+  model: string,
 ): Promise<VibeReference | null> {
   return settingsMutationQueue.run([id], async () => {
     await initVibeReferenceStorage();
@@ -492,9 +516,10 @@ export async function saveEncodedVibeReference(
         `UPDATE vibe_references
            SET encoded_path = ?,
                encoded_information_extracted = ?,
+               encoded_model = ?,
                updated_at = ?
          WHERE id = ?`,
-        [encodedPath, informationExtracted, updatedAt, id],
+        [encodedPath, informationExtracted, model, updatedAt, id],
       );
     } catch (error: unknown) {
       deleteStoredFile(encodedPath);
@@ -507,6 +532,7 @@ export async function saveEncodedVibeReference(
       ...current,
       encodedPath,
       encodedInformationExtracted: informationExtracted,
+      encodedModel: model,
       updatedAt,
     };
   });

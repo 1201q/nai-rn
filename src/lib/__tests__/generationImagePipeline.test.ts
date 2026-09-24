@@ -82,6 +82,16 @@ test.each([401, 403, 500])("preserves HTTP %i error without resending", async (s
   expect(generateNovelAiImageStream).not.toHaveBeenCalled();
 });
 
+test("surfaces the native server message for HTTP errors", async () => {
+  native.generate.mockRejectedValue(new Error(
+    "Call rejected.\n→ Caused by: java.io.IOException: NAI_HTTP_402:Not enough Anlas",
+  ));
+  await expect(generateAndSaveImage(input, jest.fn(), new AbortController().signal)).rejects.toMatchObject({
+    status: 402,
+    message: "Anlas가 부족합니다.\nNot enough Anlas",
+  });
+});
+
 test("does not prepare a request for an already aborted signal", async () => {
   const controller = new AbortController(); controller.abort();
   await expect(generateAndSaveImage(input, jest.fn(), controller.signal)).rejects.toMatchObject({ name: "AbortError" });

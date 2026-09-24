@@ -1,4 +1,3 @@
-import * as ImageManipulator from "expo-image-manipulator";
 import { waitFor } from "@testing-library/react-native";
 
 import {
@@ -18,6 +17,7 @@ import {
   getNovelAiAnlasBalance,
   NovelAiRequestError,
 } from "../../lib/novelai";
+import { renderI2IRequestImageBase64 } from "../../lib/i2iReference";
 import { saveNovelAiToken } from "../../lib/secureToken";
 import { readPreciseReferenceProcessedBase64 } from "../../lib/preciseReferences";
 import {
@@ -31,11 +31,6 @@ import {
   releaseGenerationWakeLock,
   waitForGenerationInterval,
 } from "../../../modules/generation-wake-lock";
-
-jest.mock("expo-image-manipulator", () => ({
-  manipulateAsync: jest.fn(),
-  SaveFormat: { PNG: "png" },
-}));
 
 jest.mock("expo-file-system", () => ({
   File: jest.fn().mockImplementation(() => ({
@@ -96,6 +91,7 @@ jest.mock("../../lib/secureToken", () => ({
 
 jest.mock("../../lib/i2iReference", () => ({
   deleteStoredI2IReference: jest.fn(),
+  renderI2IRequestImageBase64: jest.fn(),
   resolveStoredI2IReference: jest.fn(),
   saveI2IReferenceImage: jest.fn(),
 }));
@@ -137,7 +133,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 const initialState = useGenerationStore.getInitialState();
-const mockManipulateAsync = jest.mocked(ImageManipulator.manipulateAsync);
+const mockRenderI2IRequestImageBase64 = jest.mocked(renderI2IRequestImageBase64);
 const mockStartGenerationService = jest.mocked(startGenerationService);
 const mockStopGenerationService = jest.mocked(stopGenerationService);
 const mockSaveGenerationImageBase64 = jest.mocked(
@@ -289,9 +285,8 @@ describe("generation queue preparation", () => {
   });
 
   test("blocks a second request while I2I preparation is pending", async () => {
-    const manipulation =
-      createDeferred<Awaited<ReturnType<typeof ImageManipulator.manipulateAsync>>>();
-    mockManipulateAsync.mockReturnValue(manipulation.promise);
+    const rendering = createDeferred<string>();
+    mockRenderI2IRequestImageBase64.mockReturnValue(rendering.promise);
     useGenerationStore.setState({
       i2iEnabled: true,
       i2iSourceImage: {
@@ -307,11 +302,7 @@ describe("generation queue preparation", () => {
     const loadingDuringPreparation =
       useGenerationStore.getState().isLoading;
 
-    manipulation.resolve({
-      uri: "file:///resized.png",
-      width: 1024,
-      height: 1024,
-    });
+    rendering.resolve("i2i-base64");
     const [firstResult, secondResult] = await Promise.all([
       firstRequest,
       secondRequest,
@@ -320,7 +311,7 @@ describe("generation queue preparation", () => {
     expect(loadingDuringPreparation).toBe(true);
     expect(firstResult).toEqual({ status: "started" });
     expect(secondResult).toEqual({ status: "rejected", reason: "busy" });
-    expect(mockManipulateAsync).toHaveBeenCalledTimes(1);
+    expect(mockRenderI2IRequestImageBase64).toHaveBeenCalledTimes(1);
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
   });
 
@@ -361,7 +352,7 @@ describe("generation queue preparation", () => {
   });
 
   test("releases the preparation lock after an I2I failure", async () => {
-    mockManipulateAsync.mockRejectedValueOnce(new Error("resize failed"));
+    mockRenderI2IRequestImageBase64.mockRejectedValueOnce(new Error("render failed"));
     useGenerationStore.setState({
       i2iEnabled: true,
       i2iSourceImage: {
@@ -404,6 +395,7 @@ describe("generation queue preparation", () => {
           strength: 0.6,
           informationExtracted: 0.7,
           encodedInformationExtracted: null,
+          encodedModel: null,
           createdAt: 1,
           updatedAt: 1,
         },
@@ -570,6 +562,63 @@ describe("generation queue execution", () => {
       queueTotal: 0,
       queueCancelRequested: false,
     });
+  });
+
+  test("rejects a resolution above the official pixel limit", async () => {
+    useGenerationStore.setState({
+      resolution: { label: "Custom 2048x2048", width: 2048, height: 2048 },
+    });
+
+    const result = await useGenerationStore.getState().generateImage();
+
+    expect(result).toEqual({ status: "rejected", reason: "validation" });
+    expect(useGenerationStore.getState().message).toContain("3,145,728");
+    expect(mockStartGenerationService).not.toHaveBeenCalled();
+  });
+
+  test("retries a rate-limited (429) request with the same seed", async () => {
+    useGenerationStore.setState({ seed: 42, seedLocked: true });
+    mockGenerateNovelAiImageStream
+      .mockRejectedValueOnce(new NovelAiRequestError(429, "locked"))
+      .mockRejectedValueOnce(new NovelAiRequestError(429, "locked"));
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(3);
+    expect(
+      mockGenerateNovelAiImageStream.mock.calls.map(([input]) => input.seed),
+    ).toEqual([42, 42, 42]);
+    expect(mockWaitForGenerationInterval.mock.calls.map(([ms]) => ms)).toEqual([
+      3000, 6000,
+    ]);
+    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().message).toBeNull();
+  });
+
+  test("does not retry server errors that may already be charged", async () => {
+    mockGenerateNovelAiImageStream.mockRejectedValueOnce(
+      new NovelAiRequestError(500, "server error"),
+    );
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().message).toBe("server error");
+  });
+
+  test("gives up after the rate-limit retries are exhausted", async () => {
+    mockGenerateNovelAiImageStream.mockRejectedValue(
+      new NovelAiRequestError(429, "still locked"),
+    );
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(4);
+    expect(useGenerationStore.getState().message).toBe("still locked");
+    expect(useGenerationStore.getState().isLoading).toBe(false);
   });
 
   test("runs the queue directly when foreground service is unavailable", async () => {

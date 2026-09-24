@@ -111,4 +111,97 @@ describe("image prompt captions", () => {
     expect(prepared.positiveCharacterCaptions).toEqual([]);
     expect(prepared.negativeCharacterCaptions).toEqual([]);
   });
+
+  it("drops characters without a positive prompt", () => {
+    expect(
+      resolveActiveCharacterPrompts([
+        {
+          id: "negative-only",
+          prompt: " ",
+          negativePrompt: "hat",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("sends official web i2i defaults", () => {
+    const { seed, body } = createImageGenerationBody({
+      ...requestDefaults,
+      model: "nai-diffusion-4-5-full",
+      seed: 100,
+      i2iImageBase64: "abc",
+    });
+    expect(seed).toBe(100);
+    expect(body.action).toBe("img2img");
+    expect(body.parameters).toMatchObject({
+      extra_noise_seed: 99,
+      color_correct: false,
+    });
+  });
+
+  it("resolves the noise schedule like the official web client", () => {
+    const params = (
+      model: string,
+      sampler: string,
+      noiseSchedule: "karras" | "native",
+    ) =>
+      createImageGenerationBody({
+        ...requestDefaults,
+        model,
+        sampler,
+        noiseSchedule,
+      }).body.parameters as Record<string, unknown>;
+
+    expect(params("nai-diffusion-4-5-full", "ddim_v3", "karras")).not.toHaveProperty(
+      "noise_schedule",
+    );
+    expect(params("nai-diffusion-4-5-full", "k_euler", "native").noise_schedule).toBe(
+      "karras",
+    );
+    expect(params("nai-diffusion-4-5-full", "k_dpmpp_2m", "native").noise_schedule).toBe(
+      "exponential",
+    );
+    expect(params("nai-diffusion-3", "k_euler", "native").noise_schedule).toBe(
+      "native",
+    );
+  });
+
+  it("enables V3 auto SMEA only above the web threshold", () => {
+    const params = (model: string, size: number) =>
+      createImageGenerationBody({
+        ...requestDefaults,
+        model,
+        width: size,
+        height: size,
+      }).body.parameters as Record<string, unknown>;
+
+    expect(params("nai-diffusion-3", 1536).sm).toBe(true);
+    expect(params("nai-diffusion-3", 1472).sm).toBe(false);
+    expect(params("nai-diffusion-4-5-full", 1536)).not.toHaveProperty("sm");
+  });
+
+  it("disables the Euler Ancestral bug like the official web client", () => {
+    // V4 이상은 native를 karras로 바꿔 보내므로 native 조합은 V3로 확인한다.
+    const params = (sampler: string, noiseSchedule: "karras" | "native") =>
+      createImageGenerationBody({
+        ...requestDefaults,
+        model: "nai-diffusion-3",
+        sampler,
+        noiseSchedule,
+      }).body.parameters as Record<string, unknown>;
+
+    expect(params("k_euler_ancestral", "karras")).toMatchObject({
+      deliberate_euler_ancestral_bug: false,
+      prefer_brownian: true,
+    });
+    for (const parameters of [
+      params("k_euler_ancestral", "native"),
+      params("k_euler", "karras"),
+    ]) {
+      expect(parameters).not.toHaveProperty("deliberate_euler_ancestral_bug");
+      expect(parameters).not.toHaveProperty("prefer_brownian");
+    }
+  });
 });

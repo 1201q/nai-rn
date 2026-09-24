@@ -55,7 +55,8 @@ describe("prompt token metrics", () => {
     ).resolves.toMatchObject({
       status: "ready",
       fieldTokens: 6 + 1,
-      totalTokens: 4 + 1 + (6 + 1) + 1,
+      // character-2는 긍정 프롬프트가 비어 요청에서 제외된다.
+      totalTokens: 4 + 1 + (6 + 1),
       maxTokens: 512,
       includedInTotal: true,
     });
@@ -73,8 +74,8 @@ describe("prompt token metrics", () => {
       "neg",
     );
 
-    expect(positive.totalTokens).toBe(5 + 5 + 1);
-    expect(negative.totalTokens).toBe(4 + 1 + 4);
+    expect(positive.totalTokens).toBe(5 + 5);
+    expect(negative.totalTokens).toBe(4 + 1);
   });
 
   it("counts a disabled field but excludes it from the V4 total", async () => {
@@ -90,7 +91,7 @@ describe("prompt token metrics", () => {
       ),
     ).resolves.toMatchObject({
       fieldTokens: 7,
-      totalTokens: 11,
+      totalTokens: 10,
       includedInTotal: false,
     });
   });

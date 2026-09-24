@@ -9,9 +9,9 @@ import {
 import type { CharacterPrompt } from "../store/generationStore";
 import { isBoolean, isNonEmptyString, isNumber } from "./guards";
 import {
+  hasQualityTags,
   inferUcPreset,
   isUcPresetIndex,
-  QUALITY_TAGS_SUFFIX,
   stripQualityTags,
   stripUcPreset,
   type UcPresetIndex,
@@ -177,24 +177,33 @@ export function parseNaiMetadata(
     (comment && isNonEmptyString(comment.uc) ? comment.uc : undefined) ??
     (comment ? getBaseCaption(comment.v4_negative_prompt) : undefined);
 
+  // 프리셋 문자열은 모델마다 다르므로 모델을 먼저 추정한다 (모르면 V4.5 Full 기준).
+  const model = mapSourceToModel(raw.Source, raw.Software);
+  const presetModel = model ?? "nai-diffusion-4-5-full";
   const qualityToggle =
     comment && isBoolean(comment.qualityToggle)
       ? comment.qualityToggle
-      : mergedPrompt?.endsWith(QUALITY_TAGS_SUFFIX);
+      : mergedPrompt !== undefined
+        ? hasQualityTags(mergedPrompt, presetModel)
+        : undefined;
   const ucPreset =
     comment && isUcPresetIndex(comment.ucPreset)
       ? comment.ucPreset
       : mergedNegativePrompt
-        ? inferUcPreset(mergedNegativePrompt)
+        ? inferUcPreset(mergedNegativePrompt, presetModel)
         : undefined;
 
   if (mergedPrompt !== undefined) {
     result.prompt = qualityToggle
-      ? stripQualityTags(mergedPrompt)
+      ? stripQualityTags(mergedPrompt, presetModel)
       : mergedPrompt;
   }
   if (mergedNegativePrompt !== undefined) {
-    result.negativePrompt = stripUcPreset(mergedNegativePrompt, ucPreset);
+    result.negativePrompt = stripUcPreset(
+      mergedNegativePrompt,
+      ucPreset,
+      presetModel,
+    );
   }
   if (qualityToggle !== undefined) result.qualityToggle = qualityToggle;
   if (ucPreset !== undefined) result.ucPreset = ucPreset;
@@ -224,7 +233,7 @@ export function parseNaiMetadata(
       result.varietyPlus = isNumber(comment.skip_cfg_above_sigma);
     }
   }
-  result.model = mapSourceToModel(raw.Source, raw.Software);
+  result.model = model;
 
   result.hasSettings =
     result.resolution !== undefined ||

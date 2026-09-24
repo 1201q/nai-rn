@@ -1,8 +1,8 @@
 import { AppState, Platform } from "react-native";
 import { generationImagePipeline, type NativeImageEvent } from "../../modules/generation-image-pipeline";
 import {
-  createImageGenerationBody, generateNovelAiImageStream, normalizeBearerToken,
-  NovelAiRequestError, type GenerateNovelAiImageInput,
+  createImageGenerationBody, describeNovelAiHttpError, generateNovelAiImageStream,
+  normalizeBearerToken, NovelAiRequestError, type GenerateNovelAiImageInput,
 } from "./novelai";
 import {
   discardNativeGenerationFiles, prepareNativeGenerationFiles, saveGenerationImageBase64,
@@ -66,11 +66,13 @@ export async function generateAndSaveImage(
     discardNativeGenerationFiles(files);
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("NAI_CANCELLED")) throw cancelled();
-    const status = message.match(/NAI_HTTP_(\d+)/)?.[1];
-    if (status) throw new NovelAiRequestError(Number(status),
-      status === "401" || status === "403"
-        ? "NovelAI 토큰이 유효하지 않습니다. 설정에서 토큰을 확인해 주세요."
-        : `HTTP ${status}`);
+    const httpError = message.match(/NAI_HTTP_(\d+)(?::([^\n]*))?/);
+    if (httpError) {
+      const status = Number(httpError[1]);
+      throw new NovelAiRequestError(status, describeNovelAiHttpError(
+        status, httpError[2]?.trim() || undefined,
+      ));
+    }
     throw error instanceof Error ? error : new Error(message);
   } finally {
     listening = false;

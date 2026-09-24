@@ -21,7 +21,8 @@ export function resolveActiveCharacterPrompts(
 
     const prompt = item.prompt.trim();
     const negativePrompt = item.negativePrompt.trim();
-    if (!prompt && !negativePrompt) return [];
+    // 공식 웹과 동일: 긍정 프롬프트가 빈 캐릭터는 보내지 않는다.
+    if (!prompt) return [];
 
     return [{ prompt, negativePrompt, position: item.position }];
   });
@@ -43,10 +44,16 @@ export function prepareImagePromptCaptions({
   characterPrompts: GenerateNovelAiCharacterPrompt[];
 }): PreparedImagePromptCaptions {
   const supportsCharacterCaptions = model.startsWith("nai-diffusion-4");
+  const positiveBaseCaption = mergeQualityTags(prompt, qualityToggle, model);
 
   return {
-    positiveBaseCaption: mergeQualityTags(prompt, qualityToggle),
-    negativeBaseCaption: mergeUcPreset(negativePrompt, ucPreset),
+    positiveBaseCaption,
+    negativeBaseCaption: mergeUcPreset(
+      negativePrompt,
+      ucPreset,
+      model,
+      positiveBaseCaption,
+    ),
     positiveCharacterCaptions: supportsCharacterCaptions
       ? characterPrompts.map((item) => item.prompt)
       : [],

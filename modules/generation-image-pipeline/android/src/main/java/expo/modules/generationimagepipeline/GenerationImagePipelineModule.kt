@@ -19,6 +19,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class GenerationImagePipelineModule : Module() {
   internal class Pending(@Volatile var previewEnabled: Boolean) {
@@ -118,7 +119,13 @@ class GenerationImagePipelineModule : Module() {
       var sequence = 0
       var lastPreviewAt = -350L
       call.execute().use { response ->
-        if (!response.isSuccessful) throw IOException("NAI_HTTP_${response.code}")
+        if (!response.isSuccessful) {
+          // 서버 오류 본문({"message": ...})을 JS로 전달해 원인을 표시한다.
+          val body = runCatching { response.body?.string().orEmpty() }.getOrDefault("")
+          val detail = runCatching { JSONObject(body).optString("message") }.getOrNull()
+            ?.takeIf { it.isNotBlank() } ?: body
+          throw IOException("NAI_HTTP_${response.code}:${detail.replace('\n', ' ').take(500)}")
+        }
         val responseBody = response.body ?: throw IOException("Empty image response")
         responseBody.charStream().buffered().use { reader ->
           readImageEvents(reader) { event ->

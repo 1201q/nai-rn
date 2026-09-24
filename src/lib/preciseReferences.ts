@@ -71,10 +71,25 @@ type PreciseReferenceSettingsPatch = Partial<
   Pick<PreciseReference, "enabled" | "strength" | "fidelity" | "referenceType">
 >;
 
-function getPreciseReferenceTargetSize(width: number, height: number) {
-  if (width > height) return { width: 1536, height: 1024 };
-  if (width < height) return { width: 1024, height: 1536 };
-  return { width: 1472, height: 1472 };
+const PRECISE_REFERENCE_TARGET_SIZES = [
+  { width: 1024, height: 1536 },
+  { width: 1536, height: 1024 },
+  { width: 1472, height: 1472 },
+];
+
+// 공식 웹과 동일: 원본 비율에 가장 가까운 캔버스를 고른다.
+export function getPreciseReferenceTargetSize(width: number, height: number) {
+  const aspect = width / height;
+  let best = PRECISE_REFERENCE_TARGET_SIZES[0];
+  for (const size of PRECISE_REFERENCE_TARGET_SIZES) {
+    if (
+      Math.abs(size.width / size.height - aspect) <
+      Math.abs(best.width / best.height - aspect)
+    ) {
+      best = size;
+    }
+  }
+  return best;
 }
 
 function getContainRect(
@@ -83,12 +98,13 @@ function getContainRect(
   targetWidth: number,
   targetHeight: number,
 ) {
-  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
-  const width = sourceWidth * scale;
-  const height = sourceHeight * scale;
+  const aspect = sourceWidth / sourceHeight;
+  const fitsWidth = aspect > targetWidth / targetHeight;
+  const width = fitsWidth ? targetWidth : Math.round(targetHeight * aspect);
+  const height = fitsWidth ? Math.round(targetWidth / aspect) : targetHeight;
   return {
-    x: (targetWidth - width) / 2,
-    y: (targetHeight - height) / 2,
+    x: Math.round((targetWidth - width) / 2),
+    y: Math.round((targetHeight - height) / 2),
     width,
     height,
   };
