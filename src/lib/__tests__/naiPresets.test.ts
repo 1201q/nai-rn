@@ -1,7 +1,9 @@
 import {
+  getUcPresetOptions,
   inferUcPreset,
   mergeQualityTags,
   mergeUcPreset,
+  resolveUcPresetForModel,
   stripUcPreset,
 } from "../naiPresets";
 import { getVarietyPlusSigma } from "../novelai";
@@ -77,6 +79,26 @@ describe("UC presets (official web parity)", () => {
         "hat",
       );
     }
+  });
+});
+
+describe("UC preset options per model", () => {
+  it("lists only presets the model supports", () => {
+    const labels = (model: string) =>
+      getUcPresetOptions(model).map((option) => option.label);
+
+    expect(labels("nai-diffusion-4-5-full")).toEqual([
+      "Heavy", "Light", "Human Focus", "None",
+    ]);
+    expect(labels("nai-diffusion-4-curated-preview")).toEqual([
+      "Heavy", "Light", "None",
+    ]);
+    expect(labels("nai-diffusion-furry-3")).toEqual(["Heavy", "Light", "None"]);
+  });
+
+  it("resolves a missing preset to None without touching supported ones", () => {
+    expect(resolveUcPresetForModel(3, "nai-diffusion-4-curated-preview")).toBe(4);
+    expect(resolveUcPresetForModel(3, "nai-diffusion-3")).toBe(3);
   });
 });
 

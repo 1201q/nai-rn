@@ -94,6 +94,20 @@ function getUcPresets(model: string) {
   return UC_PRESETS[model] ?? UC_PRESETS[DEFAULT_PRESET_MODEL];
 }
 
+// 선택한 모델이 지원하는 UC 프리셋만 선택지로 보여준다.
+export function getUcPresetOptions(model: string) {
+  const presets = getUcPresets(model);
+  return UC_PRESET_OPTIONS.filter((option) => presets[option.value] !== undefined);
+}
+
+// 모델에 없는 프리셋은 요청에서 None으로 처리되므로 표시도 같게 맞춘다.
+export function resolveUcPresetForModel(
+  ucPreset: UcPresetIndex,
+  model: string,
+): UcPresetIndex {
+  return getUcPresets(model)[ucPreset] === undefined ? 4 : ucPreset;
+}
+
 function appendSuffix(text: string, suffix: string) {
   return text ? `${text}${SEPARATOR}${suffix}` : suffix;
 }

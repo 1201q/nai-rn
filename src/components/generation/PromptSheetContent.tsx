@@ -15,7 +15,8 @@ import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import {
   getUcPresetLabel,
-  UC_PRESET_OPTIONS,
+  getUcPresetOptions,
+  resolveUcPresetForModel,
   type SelectableUcPresetIndex,
 } from "../../lib/naiPresets";
 import { useGenerationStore } from "../../store/generationStore";
@@ -41,9 +42,6 @@ const PROMPT_KEYBOARD_GAP = 12;
 const PROMPT_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 const QUALITY_OPTIONS = ["Quality Tags: Standard", "Quality Tags: None"];
-const UC_OPTIONS = UC_PRESET_OPTIONS.map(
-  (option) => `UC Preset: ${option.label}`,
-);
 const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
 
 function PromptDraftInput({
@@ -135,6 +133,8 @@ export const PromptComposerCard = memo(function PromptComposerCard({
   );
   const ucPreset = useGenerationStore((state) => state.ucPreset);
   const setUcPreset = useGenerationStore((state) => state.setUcPreset);
+  const model = useGenerationStore((state) => state.model);
+  const ucPresetOptions = getUcPresetOptions(model);
   const [mode, setMode] = useState<PromptChannel>("base");
   const [split, setSplit] = useState(false);
   const [promptText, setPromptText] = useState(prompt);
@@ -229,7 +229,9 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     negativeHeight,
   );
   const qualityValue = qualityToggle ? QUALITY_OPTIONS[0] : QUALITY_OPTIONS[1];
-  const ucValue = `UC Preset: ${getUcPresetLabel(ucPreset)}`;
+  const ucValue = `UC Preset: ${getUcPresetLabel(
+    resolveUcPresetForModel(ucPreset, model),
+  )}`;
 
   const renderQualitySelect = () => (
     <SheetSelect
@@ -246,13 +248,13 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     <SheetSelect
       accessibilityLabel="UC Preset"
       value={ucValue}
-      options={UC_OPTIONS}
+      options={ucPresetOptions.map((option) => `UC Preset: ${option.label}`)}
       variant="compact"
       open={openSelect === "uc"}
       onOpenChange={(open) => setOpenSelect(open ? "uc" : null)}
       onChange={(value) => {
         const label = value.replace("UC Preset: ", "");
-        const option = UC_PRESET_OPTIONS.find((item) => item.label === label);
+        const option = ucPresetOptions.find((item) => item.label === label);
         if (option) setUcPreset(option.value as SelectableUcPresetIndex);
       }}
     />

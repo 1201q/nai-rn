@@ -40,6 +40,7 @@ jest.mock("../../../store/generationStore", () => {
     negativePrompt: string;
     qualityToggle: boolean;
     ucPreset: 0 | 1 | 3 | 4;
+    model: string;
     setPrompt: (value: string) => void;
     setNegativePrompt: (value: string) => void;
     setQualityToggle: (value: boolean) => void;
@@ -49,6 +50,7 @@ jest.mock("../../../store/generationStore", () => {
     negativePrompt: "negative",
     qualityToggle: true,
     ucPreset: 0,
+    model: "nai-diffusion-4-5-full",
     setPrompt: (prompt) => set({ prompt }),
     setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
     setQualityToggle: (qualityToggle) => set({ qualityToggle }),
@@ -209,6 +211,19 @@ describe("PromptComposerCard", () => {
     await fireEvent.press(getByLabelText("Undesired Content"));
     await fireEvent.press(getByLabelText("UC Preset select"));
     expect(useGenerationStore.getState().ucPreset).toBe(1);
+  });
+
+  it("shows None when the model lacks the selected UC preset", async () => {
+    useGenerationStore.setState({
+      ucPreset: 3,
+      model: "nai-diffusion-4-curated-preview",
+    });
+    const { getByLabelText, getByText } = await render(
+      <PromptComposerCard active />,
+    );
+
+    await fireEvent.press(getByLabelText("Undesired Content"));
+    expect(getByText("UC Preset: None")).toBeTruthy();
   });
 
   it("binds the usage bar to actual prompt token targets", async () => {
