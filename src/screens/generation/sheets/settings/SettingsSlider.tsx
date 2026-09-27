@@ -1,8 +1,28 @@
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  BackHandler,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Portal } from "@gorhom/portal";
 
+import { SHEET_SELECT_PORTAL_HOST } from "../../../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../../../components/forms/SheetSliderControls";
+import {
+  PREDICTIVE_BACK_SUPPORTED,
+  usePredictiveBackHandler,
+} from "../../../../native/predictiveBack";
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
@@ -10,6 +30,11 @@ export type SettingsHelpKey =
   | "promptGuidance"
   | "rescale"
   | "variety";
+
+const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
+const TOOLTIP_WIDTH = 280;
+const TOOLTIP_MARGIN = 12;
+const TOOLTIP_GAP = 7;
 
 const SETTINGS_HELP: Record<SettingsHelpKey, string> = {
   steps:
@@ -25,45 +50,116 @@ const SETTINGS_HELP: Record<SettingsHelpKey, string> = {
 export function SettingsHelpButton({
   helpKey,
   open,
-  alignRight = false,
   onToggle,
 }: {
   helpKey: SettingsHelpKey;
   open: boolean;
-  alignRight?: boolean;
   onToggle: () => void;
 }) {
+  const buttonRef = useRef<View>(null);
+  const [anchor, setAnchor] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [tooltipHeight, setTooltipHeight] = useState(0);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const closeHelp = useCallback(() => {
+    if (open) onToggle();
+  }, [onToggle, open]);
+  const toggleHelp = useCallback(() => {
+    if (open) {
+      onToggle();
+      return;
+    }
+
+    buttonRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+      setTooltipHeight(0);
+      onToggle();
+    });
+  }, [onToggle, open]);
+
+  usePredictiveBackHandler(open, { onCommit: closeHelp });
+
+  useEffect(() => {
+    if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      closeHelp();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [closeHelp, open]);
+
+  const tooltipWidth = Math.min(
+    TOOLTIP_WIDTH,
+    Math.max(0, windowWidth - TOOLTIP_MARGIN * 2),
+  );
+  const tooltipLeft = anchor
+    ? Math.max(
+        TOOLTIP_MARGIN,
+        Math.min(
+          anchor.x - 12,
+          windowWidth - tooltipWidth - TOOLTIP_MARGIN,
+        ),
+      )
+    : 0;
+  const belowTop = anchor ? anchor.y + anchor.height + TOOLTIP_GAP : 0;
+  // 아래 공간이 부족하면 버튼 위로 띄운다.
+  const tooltipTop =
+    anchor && belowTop + tooltipHeight > windowHeight - TOOLTIP_MARGIN
+      ? Math.max(TOOLTIP_MARGIN, anchor.y - TOOLTIP_GAP - tooltipHeight)
+      : belowTop;
+
   return (
-    <View style={styles.settingsHelpAnchor}>
+    <View>
       <Pressable
+        ref={buttonRef}
         accessibilityRole="button"
         accessibilityLabel={`${helpKey} 설명`}
         accessibilityState={{ expanded: open }}
         hitSlop={6}
-        onPress={onToggle}
+        onPress={toggleHelp}
         style={({ pressed }) => [
           styles.settingsHelpButton,
-          open && styles.settingsHelpButtonOpen,
           pressed && styles.pressed,
         ]}
       >
         <Ionicons
           name="information"
           size={12}
-          color={open ? tokens.color.onAccent : tokens.color.textMuted}
+          color={tokens.color.textMuted}
         />
       </Pressable>
-      {open ? (
-        <View
-          style={[
-            styles.settingsHelpTooltip,
-            alignRight && styles.settingsHelpTooltipRight,
-          ]}
-        >
-          <Text style={styles.settingsHelpTooltipText}>
-            {SETTINGS_HELP[helpKey]}
-          </Text>
-        </View>
+      {open && anchor ? (
+        <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
+          <View style={styles.portal}>
+            <Pressable
+              {...NATIVE_RESPONDER_BLOCKER}
+              accessibilityRole="button"
+              accessibilityLabel={`${helpKey} 설명 닫기`}
+              cancelable={false}
+              onPress={closeHelp}
+              style={styles.portalBackdrop}
+            />
+            <View
+              onLayout={(event) =>
+                setTooltipHeight(event.nativeEvent.layout.height)
+              }
+              style={[
+                styles.settingsHelpTooltip,
+                { top: tooltipTop, left: tooltipLeft, width: tooltipWidth },
+              ]}
+            >
+              <Text style={styles.settingsHelpTooltipText}>
+                {SETTINGS_HELP[helpKey]}
+              </Text>
+            </View>
+          </View>
+        </Portal>
       ) : null}
     </View>
   );
@@ -82,7 +178,6 @@ export function SettingsSlider({
   onHelpToggle,
   onChange,
   trailing,
-  overlayOpen = false,
 }: {
   active?: boolean;
   label: string;
@@ -96,16 +191,10 @@ export function SettingsSlider({
   onHelpToggle: () => void;
   onChange: (value: number) => void;
   trailing?: ReactNode;
-  overlayOpen?: boolean;
 }) {
 
   return (
-    <View
-      style={[
-        styles.settingsSliderField,
-        (helpOpen || overlayOpen) && styles.settingsSliderFieldOverlayOpen,
-      ]}
-    >
+    <View style={styles.settingsSliderField}>
       <View style={styles.settingsSliderHeader}>
         <View style={styles.settingsFieldLabelRow}>
           <Text style={styles.settingsFieldLabel}>{label}</Text>
@@ -143,10 +232,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 7,
   },
-  settingsHelpAnchor: {
-    position: "relative",
-    zIndex: 30,
-  },
   settingsHelpButton: {
     width: 19,
     height: 19,
@@ -155,24 +240,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
   },
-  settingsHelpButtonOpen: {
-    backgroundColor: tokens.color.accent,
+  portal: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 100,
+    elevation: 100,
+  },
+  portalBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "transparent",
   },
   settingsHelpTooltip: {
     position: "absolute",
-    top: 26,
-    left: -12,
-    width: 280,
-    zIndex: 30,
+    zIndex: 1,
     paddingHorizontal: 15,
     paddingVertical: 13,
     borderRadius: 16,
     backgroundColor: tokens.color.toast,
     ...tokens.shadow.floatMd,
-  },
-  settingsHelpTooltipRight: {
-    right: -54,
-    left: undefined,
   },
   settingsHelpTooltipText: {
     color: tokens.color.textSecondary,
@@ -182,9 +274,6 @@ const styles = StyleSheet.create({
   },
   settingsSliderField: {
     gap: 10,
-  },
-  settingsSliderFieldOverlayOpen: {
-    zIndex: 30,
   },
   settingsSliderHeader: {
     minHeight: 19,

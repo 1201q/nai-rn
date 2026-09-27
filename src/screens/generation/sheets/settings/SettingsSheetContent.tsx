@@ -494,14 +494,12 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
           precision={1}
           onHelpToggle={() => toggleHelp("promptGuidance")}
           onChange={setPromptGuidance}
-          overlayOpen={helpKey === "variety"}
           trailing={
             <View style={styles.varietyControl}>
               <Text style={styles.varietyLabel}>Variety+</Text>
               <SettingsHelpButton
                 helpKey="variety"
                 open={helpKey === "variety"}
-                alignRight
                 onToggle={() => toggleHelp("variety")}
               />
               <Toggle
