@@ -41,7 +41,7 @@ const PROMPT_LINE_HEIGHT = 23;
 const PROMPT_KEYBOARD_GAP = 12;
 const PROMPT_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
-const QUALITY_OPTIONS = ["Quality Tags: Standard", "Quality Tags: None"];
+const QUALITY_OPTIONS = ["Standard", "None"];
 const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
 
 function PromptDraftInput({
@@ -229,14 +229,13 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     negativeHeight,
   );
   const qualityValue = qualityToggle ? QUALITY_OPTIONS[0] : QUALITY_OPTIONS[1];
-  const ucValue = `UC Preset: ${getUcPresetLabel(
-    resolveUcPresetForModel(ucPreset, model),
-  )}`;
+  const ucValue = getUcPresetLabel(resolveUcPresetForModel(ucPreset, model));
 
   const renderQualitySelect = () => (
     <SheetSelect
       accessibilityLabel="Quality Tags"
       value={qualityValue}
+      displayValue={`Quality Tags: ${qualityValue}`}
       options={QUALITY_OPTIONS}
       variant="compact"
       open={openSelect === "quality"}
@@ -248,12 +247,12 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     <SheetSelect
       accessibilityLabel="UC Preset"
       value={ucValue}
-      options={ucPresetOptions.map((option) => `UC Preset: ${option.label}`)}
+      displayValue={`UC Preset: ${ucValue}`}
+      options={ucPresetOptions.map((option) => option.label)}
       variant="compact"
       open={openSelect === "uc"}
       onOpenChange={(open) => setOpenSelect(open ? "uc" : null)}
-      onChange={(value) => {
-        const label = value.replace("UC Preset: ", "");
+      onChange={(label) => {
         const option = ucPresetOptions.find((item) => item.label === label);
         if (option) setUcPreset(option.value as SelectableUcPresetIndex);
       }}

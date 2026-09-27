@@ -114,11 +114,13 @@ jest.mock("../../forms/SheetSelect", () => {
     SheetSelect: ({
       accessibilityLabel,
       value,
+      displayValue = value,
       options,
       onChange,
     }: {
       accessibilityLabel: string;
       value: string;
+      displayValue?: string;
       options: readonly string[];
       onChange: (value: string) => void;
     }) =>
@@ -128,7 +130,7 @@ jest.mock("../../forms/SheetSelect", () => {
           accessibilityLabel: `${accessibilityLabel} select`,
           onPress: () => onChange(options[1]),
         },
-        React.createElement(Text, null, value),
+        React.createElement(Text, null, displayValue),
       ),
   };
 });

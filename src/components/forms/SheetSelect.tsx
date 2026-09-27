@@ -45,6 +45,7 @@ export function SheetSelect({
   label,
   accessibilityLabel = label,
   value,
+  displayValue = value,
   options,
   onChange,
   variant = "field",
@@ -55,6 +56,7 @@ export function SheetSelect({
   label?: string;
   accessibilityLabel?: string;
   value: string;
+  displayValue?: string;
   options: readonly string[];
   onChange: (value: string) => void;
   variant?: "field" | "compact";
@@ -189,7 +191,7 @@ export function SheetSelect({
           numberOfLines={1}
           style={variant === "field" ? styles.value : styles.compactValue}
         >
-          {value}
+          {displayValue}
         </Text>
         <Ionicons
           name={open ? "chevron-up" : "chevron-down"}
