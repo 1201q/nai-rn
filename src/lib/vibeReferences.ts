@@ -20,16 +20,21 @@ const DEFAULT_VIBE_INFORMATION_EXTRACTED = 0.7;
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 const settingsMutationQueue = createKeyedMutationQueue();
 
+export type VibeEncoding = {
+  model: string;
+  informationExtracted: number;
+  path: string;
+};
+
 export type VibeReference = {
   id: string;
   imagePath: string;
   thumbnailPath: string | null;
-  encodedPath: string | null;
   enabled: boolean;
   strength: number;
   informationExtracted: number;
-  encodedInformationExtracted: number | null;
-  encodedModel: string | null;
+  // 모델별 인코딩 캐시 (reference당 모델 하나에 하나).
+  encodings: VibeEncoding[];
   createdAt: number;
   updatedAt: number;
 };
@@ -46,29 +51,38 @@ export type VibeReferenceImageInput = {
 const LEGACY_ENCODED_MODEL = "nai-diffusion-4-5-full";
 
 // Vibe 인코딩은 모델마다 다르다 (공식 웹도 모델별로 인코딩/캐시).
+function findCachedVibeEncoding(reference: VibeReference, model: string) {
+  return reference.encodings.find(
+    (encoding) =>
+      encoding.model === model &&
+      encoding.informationExtracted === reference.informationExtracted,
+  );
+}
+
 export function canUseCachedVibeEncoding(
   reference: VibeReference,
   model: string,
 ) {
-  return (
-    reference.encodedPath !== null &&
-    reference.encodedInformationExtracted === reference.informationExtracted &&
-    (reference.encodedModel ?? LEGACY_ENCODED_MODEL) === model
-  );
+  return findCachedVibeEncoding(reference, model) !== undefined;
 }
 
+// vibe_references의 encoded_* 컬럼은 레거시(단일 캐시)로, 마이그레이션 후 항상 NULL이다.
 type VibeReferenceRow = {
   id: string;
   image_path: string;
   thumbnail_path: string | null;
-  encoded_path: string | null;
   enabled: number;
   strength: number;
   information_extracted: number;
-  encoded_information_extracted: number | null;
-  encoded_model: string | null;
   created_at: number;
   updated_at: number;
+};
+
+type VibeEncodingRow = {
+  reference_id: string;
+  model: string;
+  information_extracted: number;
+  encoded_path: string;
 };
 
 type VibeReferenceSettingsPatch = Partial<
@@ -119,20 +133,45 @@ function ensureVibeDirectories() {
   getEncodedDirectory().create({ idempotent: true, intermediates: true });
 }
 
-function rowToRecord(row: VibeReferenceRow): VibeReference {
+function rowToRecord(
+  row: VibeReferenceRow,
+  encodings: VibeEncoding[],
+): VibeReference {
   return {
     id: row.id,
     imagePath: row.image_path,
     thumbnailPath: row.thumbnail_path,
-    encodedPath: row.encoded_path,
     enabled: row.enabled === 1,
     strength: row.strength,
     informationExtracted: row.information_extracted,
-    encodedInformationExtracted: row.encoded_information_extracted,
-    encodedModel: row.encoded_model,
+    encodings,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function encodingRowToRecord(row: VibeEncodingRow): VibeEncoding {
+  return {
+    model: row.model,
+    informationExtracted: row.information_extracted,
+    path: row.encoded_path,
+  };
+}
+
+async function getVibeReference(
+  db: SQLite.SQLiteDatabase,
+  id: string,
+): Promise<VibeReference | null> {
+  const row = await db.getFirstAsync<VibeReferenceRow>(
+    "SELECT * FROM vibe_references WHERE id = ?",
+    [id],
+  );
+  if (!row) return null;
+  const encodings = await db.getAllAsync<VibeEncodingRow>(
+    "SELECT * FROM vibe_reference_encodings WHERE reference_id = ?",
+    [id],
+  );
+  return rowToRecord(row, encodings.map(encodingRowToRecord));
 }
 
 function fileFromStoredPath(path: string) {
@@ -176,6 +215,10 @@ function deleteStoredFile(path: string | null) {
   } catch {
     // DB state is the source of truth; missing file cleanup can be ignored.
   }
+}
+
+function deleteEncodingFiles(reference: VibeReference) {
+  for (const encoding of reference.encodings) deleteStoredFile(encoding.path);
 }
 
 async function createThumbnail(
@@ -237,6 +280,16 @@ async function initializeVibeReferenceStorage() {
     CREATE INDEX IF NOT EXISTS vibe_references_created_at_idx
       ON vibe_references (created_at ASC);
   `);
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS vibe_reference_encodings (
+      reference_id TEXT NOT NULL,
+      model TEXT NOT NULL,
+      information_extracted REAL NOT NULL,
+      encoded_path TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (reference_id, model)
+    );
+  `);
   const columns = await db.getAllAsync<{ name: string }>(
     "PRAGMA table_info(vibe_references)",
   );
@@ -245,6 +298,26 @@ async function initializeVibeReferenceStorage() {
       "ALTER TABLE vibe_references ADD COLUMN encoded_model TEXT",
     );
   }
+  // 레거시 단일 캐시를 모델별 테이블로 옮긴다 (모델 미기록분은 V4.5 Full).
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO vibe_reference_encodings
+         (reference_id, model, information_extracted, encoded_path, updated_at)
+       SELECT id, COALESCE(encoded_model, ?), encoded_information_extracted,
+              encoded_path, updated_at
+         FROM vibe_references
+        WHERE encoded_path IS NOT NULL
+          AND encoded_information_extracted IS NOT NULL`,
+      [LEGACY_ENCODED_MODEL],
+    );
+    await db.runAsync(
+      `UPDATE vibe_references
+          SET encoded_path = NULL,
+              encoded_information_extracted = NULL,
+              encoded_model = NULL
+        WHERE encoded_path IS NOT NULL`,
+    );
+  });
 }
 
 export const initVibeReferenceStorage = createInitializeOnce(
@@ -257,7 +330,16 @@ export async function listVibeReferences(): Promise<VibeReference[]> {
   const rows = await db.getAllAsync<VibeReferenceRow>(
     "SELECT * FROM vibe_references ORDER BY created_at ASC",
   );
-  return rows.map(rowToRecord);
+  const encodingRows = await db.getAllAsync<VibeEncodingRow>(
+    "SELECT * FROM vibe_reference_encodings",
+  );
+  const encodingsById = new Map<string, VibeEncoding[]>();
+  for (const row of encodingRows) {
+    const list = encodingsById.get(row.reference_id) ?? [];
+    list.push(encodingRowToRecord(row));
+    encodingsById.set(row.reference_id, list);
+  }
+  return rows.map((row) => rowToRecord(row, encodingsById.get(row.id) ?? []));
 }
 
 export async function addVibeReferenceFromImage(
@@ -292,12 +374,10 @@ export async function addVibeReferenceFromImage(
       id,
       imagePath,
       thumbnailPath,
-      encodedPath: null,
       enabled: true,
       strength: DEFAULT_VIBE_STRENGTH,
       informationExtracted: DEFAULT_VIBE_INFORMATION_EXTRACTED,
-      encodedInformationExtracted: null,
-      encodedModel: null,
+      encodings: [],
       createdAt,
       updatedAt: createdAt,
     };
@@ -308,23 +388,19 @@ export async function addVibeReferenceFromImage(
         id,
         image_path,
         thumbnail_path,
-        encoded_path,
         enabled,
         strength,
         information_extracted,
-        encoded_information_extracted,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.imagePath,
         record.thumbnailPath,
-        record.encodedPath,
         record.enabled ? 1 : 0,
         record.strength,
         record.informationExtracted,
-        record.encodedInformationExtracted,
         record.createdAt,
         record.updatedAt,
       ],
@@ -344,13 +420,9 @@ export async function replaceVibeReferenceImage(
 ): Promise<VibeReference | null> {
   await initVibeReferenceStorage();
   const db = await getDatabase();
-  const existing = await db.getFirstAsync<VibeReferenceRow>(
-    "SELECT * FROM vibe_references WHERE id = ?",
-    [id],
-  );
-  if (!existing) return null;
+  const current = await getVibeReference(db, id);
+  if (!current) return null;
 
-  const current = rowToRecord(existing);
   const updatedAt = Date.now();
   const replacementSuffix = `${updatedAt}_${Math.random()
     .toString(36)
@@ -372,17 +444,20 @@ export async function replaceVibeReferenceImage(
       thumbnailFileName,
     );
 
-    await db.runAsync(
-      `UPDATE vibe_references
-         SET image_path = ?,
-             thumbnail_path = ?,
-             encoded_path = NULL,
-             encoded_information_extracted = NULL,
-             encoded_model = NULL,
-             updated_at = ?
-       WHERE id = ?`,
-      [imagePath, thumbnailPath, updatedAt, id],
-    );
+    await db.withTransactionAsync(async () => {
+      await db.runAsync(
+        `UPDATE vibe_references
+           SET image_path = ?,
+               thumbnail_path = ?,
+               updated_at = ?
+         WHERE id = ?`,
+        [imagePath, thumbnailPath, updatedAt, id],
+      );
+      await db.runAsync(
+        "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
+        [id],
+      );
+    });
   } catch (error: unknown) {
     deleteStoredFile(imagePath);
     deleteStoredFile(thumbnailPathCandidate);
@@ -392,15 +467,13 @@ export async function replaceVibeReferenceImage(
 
   deleteStoredFile(current.imagePath);
   deleteStoredFile(current.thumbnailPath);
-  deleteStoredFile(current.encodedPath);
+  deleteEncodingFiles(current);
 
   return {
     ...current,
     imagePath,
     thumbnailPath,
-    encodedPath: null,
-    encodedInformationExtracted: null,
-    encodedModel: null,
+    encodings: [],
     updatedAt,
   };
 }
@@ -412,13 +485,9 @@ export async function updateVibeReferenceSettings(
   return settingsMutationQueue.run([id], async () => {
     await initVibeReferenceStorage();
     const db = await getDatabase();
-    const existing = await db.getFirstAsync<VibeReferenceRow>(
-      "SELECT * FROM vibe_references WHERE id = ?",
-      [id],
-    );
-    if (!existing) return null;
+    const current = await getVibeReference(db, id);
+    if (!current) return null;
 
-    const current = rowToRecord(existing);
     const assignments: string[] = [];
     const values: (string | number | null)[] = [];
 
@@ -438,48 +507,49 @@ export async function updateVibeReferenceSettings(
       assignments.push("information_extracted = ?");
       values.push(patch.informationExtracted);
     }
-    if (shouldClearEncoded) {
-      assignments.push(
-        "encoded_path = NULL",
-        "encoded_information_extracted = NULL",
-        "encoded_model = NULL",
-      );
-    }
     if (assignments.length === 0) return current;
 
     assignments.push("updated_at = ?");
     values.push(Date.now(), id);
-    await db.runAsync(
-      `UPDATE vibe_references
-         SET ${assignments.join(", ")}
-       WHERE id = ?`,
-      values,
-    );
+    // Information Extracted가 바뀌면 모든 모델의 인코딩을 무효화한다.
+    await db.withTransactionAsync(async () => {
+      await db.runAsync(
+        `UPDATE vibe_references
+           SET ${assignments.join(", ")}
+         WHERE id = ?`,
+        values,
+      );
+      if (shouldClearEncoded) {
+        await db.runAsync(
+          "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
+          [id],
+        );
+      }
+    });
 
-    const updated = await db.getFirstAsync<VibeReferenceRow>(
-      "SELECT * FROM vibe_references WHERE id = ?",
-      [id],
-    );
-    if (shouldClearEncoded) deleteStoredFile(current.encodedPath);
-    return updated ? rowToRecord(updated) : null;
+    const updated = await getVibeReference(db, id);
+    if (shouldClearEncoded) deleteEncodingFiles(current);
+    return updated;
   });
 }
 
 export async function deleteVibeReference(id: string) {
   await initVibeReferenceStorage();
   const db = await getDatabase();
-  const existing = await db.getFirstAsync<VibeReferenceRow>(
-    "SELECT * FROM vibe_references WHERE id = ?",
-    [id],
-  );
-  if (!existing) return;
+  const record = await getVibeReference(db, id);
+  if (!record) return;
 
-  const record = rowToRecord(existing);
-  await db.runAsync("DELETE FROM vibe_references WHERE id = ?", [id]);
+  await db.withTransactionAsync(async () => {
+    await db.runAsync("DELETE FROM vibe_references WHERE id = ?", [id]);
+    await db.runAsync(
+      "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
+      [id],
+    );
+  });
 
   deleteStoredFile(record.imagePath);
   deleteStoredFile(record.thumbnailPath);
-  deleteStoredFile(record.encodedPath);
+  deleteEncodingFiles(record);
 }
 
 export async function saveEncodedVibeReference(
@@ -491,13 +561,8 @@ export async function saveEncodedVibeReference(
   return settingsMutationQueue.run([id], async () => {
     await initVibeReferenceStorage();
     const db = await getDatabase();
-    const existing = await db.getFirstAsync<VibeReferenceRow>(
-      "SELECT * FROM vibe_references WHERE id = ?",
-      [id],
-    );
-    if (!existing) return null;
-
-    const current = rowToRecord(existing);
+    const current = await getVibeReference(db, id);
+    if (!current) return null;
     if (current.informationExtracted !== informationExtracted) return null;
 
     const updatedAt = Date.now();
@@ -513,27 +578,28 @@ export async function saveEncodedVibeReference(
       encodedFile.write(encodedBase64, { encoding: "base64" });
 
       await db.runAsync(
-        `UPDATE vibe_references
-           SET encoded_path = ?,
-               encoded_information_extracted = ?,
-               encoded_model = ?,
-               updated_at = ?
-         WHERE id = ?`,
-        [encodedPath, informationExtracted, model, updatedAt, id],
+        `INSERT OR REPLACE INTO vibe_reference_encodings
+           (reference_id, model, information_extracted, encoded_path, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, model, informationExtracted, encodedPath, updatedAt],
       );
     } catch (error: unknown) {
       deleteStoredFile(encodedPath);
       throw error;
     }
 
-    deleteStoredFile(current.encodedPath);
+    // 같은 모델의 이전 인코딩 파일만 교체한다. 다른 모델 캐시는 유지.
+    const previous = current.encodings.find(
+      (encoding) => encoding.model === model,
+    );
+    if (previous) deleteStoredFile(previous.path);
 
     return {
       ...current,
-      encodedPath,
-      encodedInformationExtracted: informationExtracted,
-      encodedModel: model,
-      updatedAt,
+      encodings: [
+        ...current.encodings.filter((encoding) => encoding.model !== model),
+        { model, informationExtracted, path: encodedPath },
+      ],
     };
   });
 }
@@ -546,11 +612,13 @@ export async function readVibeReferenceImageBase64(
 
 export async function readEncodedVibeReferenceBase64(
   reference: VibeReference,
+  model: string,
 ): Promise<string> {
-  if (!reference.encodedPath) {
-    throw new Error("Vibe reference is not encoded.");
+  const encoding = findCachedVibeEncoding(reference, model);
+  if (!encoding) {
+    throw new Error("Vibe reference is not encoded for this model.");
   }
-  return fileFromStoredPath(reference.encodedPath).base64();
+  return fileFromStoredPath(encoding.path).base64();
 }
 
 export function resolveVibeReferenceImageUri(reference: VibeReference) {

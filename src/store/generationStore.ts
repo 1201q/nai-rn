@@ -743,9 +743,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           ? {
               ...item,
               informationExtracted: value,
-              encodedPath: null,
-              encodedInformationExtracted: null,
-              encodedModel: null,
+              encodings: [],
             }
           : item,
       ),
@@ -1303,7 +1301,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           const canUseCachedEncoding = canUseCachedVibeEncoding(vibe, s.model);
 
           if (canUseCachedEncoding) {
-            encodedImages.push(await readEncodedVibeReferenceBase64(vibe));
+            encodedImages.push(
+              await readEncodedVibeReferenceBase64(vibe, s.model),
+            );
             if (stopIfPreparationCancelled()) {
               return rejectGenerationStart("cancelled");
             }
@@ -1354,10 +1354,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
               }
               return {
                 ...item,
-                encodedPath: updated.encodedPath,
-                encodedInformationExtracted:
-                  updated.encodedInformationExtracted,
-                encodedModel: updated.encodedModel,
+                encodings: updated.encodings,
                 updatedAt: Math.max(item.updatedAt, updated.updatedAt),
               };
             }),
