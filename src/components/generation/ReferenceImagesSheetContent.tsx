@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
 import { extractPngTextMetadata } from "../../lib/novelai";
+import { extractStealthMetadata } from "../../lib/stealthMetadata";
 import Reanimated, {
   Easing,
   ReduceMotion,
@@ -325,8 +326,11 @@ export function MetadataExtractCard({ onExtract }: { onExtract: (metadataJson: s
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, base64: false });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
-      const metadata = extractPngTextMetadata(await new File(asset.uri).bytes());
-      if (!Object.values(metadata).some((value) => value.trim())) {
+      const bytes = await new File(asset.uri).bytes();
+      const hasValue = (entries: Record<string, string>) => Object.values(entries).some((value) => value.trim());
+      const textMetadata = extractPngTextMetadata(bytes);
+      const metadata = hasValue(textMetadata) ? textMetadata : extractStealthMetadata(bytes);
+      if (!hasValue(metadata)) {
         toast.info("이미지에 메타데이터가 없습니다.");
         return;
       }

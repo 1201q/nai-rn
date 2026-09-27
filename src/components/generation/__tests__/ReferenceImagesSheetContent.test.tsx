@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
 import { extractPngTextMetadata } from "../../../lib/novelai";
+import { extractStealthMetadata } from "../../../lib/stealthMetadata";
 
 import { useGenerationStore } from "../../../store/generationStore";
 import { ImageToImageReferenceCard, MetadataExtractCard, PreciseReferenceCard, VibeReferenceCard } from "../ReferenceImagesSheetContent";
@@ -11,6 +12,7 @@ import { ImageToImageReferenceCard, MetadataExtractCard, PreciseReferenceCard, V
 jest.mock("expo-file-system", () => ({ File: jest.fn() }));
 jest.mock("sonner-native", () => ({ toast: { info: jest.fn(), error: jest.fn() } }));
 jest.mock("../../../lib/novelai", () => ({ extractPngTextMetadata: jest.fn() }));
+jest.mock("../../../lib/stealthMetadata", () => ({ extractStealthMetadata: jest.fn(() => ({})) }));
 
 jest.mock("react-native-reanimated", () => {
   const React = require("react");
@@ -114,6 +116,17 @@ describe("Metadata Extract", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
     await waitFor(() => expect(onExtract).toHaveBeenCalledWith(JSON.stringify(metadata)));
     expect(extractPngTextMetadata).toHaveBeenCalledWith(bytes);
+  });
+
+  it("falls back to stealth alpha metadata when text chunks are absent", async () => {
+    const metadata = { Description: "stealth prompt" };
+    jest.mocked(extractPngTextMetadata).mockReturnValue({});
+    jest.mocked(extractStealthMetadata).mockReturnValueOnce(metadata);
+    const onExtract = jest.fn();
+    const screen = await render(<MetadataExtractCard onExtract={onExtract} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Metadata Extract 이미지 추가" }));
+    await waitFor(() => expect(onExtract).toHaveBeenCalledWith(JSON.stringify(metadata)));
+    expect(extractStealthMetadata).toHaveBeenCalledWith(bytes);
   });
 
   it("shows a toast without opening a sheet when metadata is absent", async () => {
