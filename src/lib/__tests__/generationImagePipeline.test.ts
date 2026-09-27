@@ -58,6 +58,20 @@ test("uses native files and common request options without JS response decoding"
   expect(onEvent).toHaveBeenCalledTimes(1);
 });
 
+test("records the noise schedule that was actually sent", async () => {
+  await generateAndSaveImage({ ...input, noiseSchedule: "native" }, jest.fn(), new AbortController().signal);
+  const body = JSON.parse(native.generate.mock.calls[0][2]);
+  expect(body.parameters.noise_schedule).toBe("karras");
+  expect(savePreparedGeneration).toHaveBeenCalledWith(files, expect.objectContaining({ noiseSchedule: "karras" }), true);
+});
+
+test("keeps the configured schedule for samplers that do not send one", async () => {
+  await generateAndSaveImage({ ...input, sampler: "ddim_v3" }, jest.fn(), new AbortController().signal);
+  const body = JSON.parse(native.generate.mock.calls[0][2]);
+  expect(body.parameters).not.toHaveProperty("noise_schedule");
+  expect(savePreparedGeneration).toHaveBeenCalledWith(files, expect.objectContaining({ noiseSchedule: "karras" }), true);
+});
+
 test("bridges cancellation and normalizes native cancellation without retry", async () => {
   const controller = new AbortController();
   native.generate.mockImplementation(async () => { controller.abort(); throw new Error("NAI_CANCELLED"); });
@@ -90,6 +104,16 @@ test("surfaces the native server message for HTTP errors", async () => {
     status: 402,
     message: "Anlas가 부족합니다.\nNot enough Anlas",
   });
+});
+
+test("surfaces the server message from a stream error event", async () => {
+  native.generate.mockRejectedValue(new Error(
+    "Call rejected.\n→ Caused by: java.io.IOException: NAI_STREAM_ERROR:Concurrent generation is locked",
+  ));
+  await expect(generateAndSaveImage(input, jest.fn(), new AbortController().signal)).rejects.toThrow(
+    "NovelAI 생성 오류: Concurrent generation is locked",
+  );
+  expect(discardNativeGenerationFiles).toHaveBeenCalledWith(files);
 });
 
 test("does not prepare a request for an already aborted signal", async () => {

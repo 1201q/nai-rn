@@ -9,17 +9,28 @@ internal fun readImageEvents(
   consume: (JSONObject) -> Unit,
 ) {
   val data = StringBuilder()
+  var eventName = ""
   fun dispatch() {
+    val name = eventName
+    eventName = ""
     if (data.isEmpty()) return
     val text = data.toString()
     data.setLength(0)
-    val event = try { JSONObject(text) } catch (_: org.json.JSONException) { return }
+    val parsed = try { JSONObject(text) } catch (_: org.json.JSONException) { null }
+    // `event: error`는 본문이 JSON이 아니어도 오류로 전달한다. 그 외 비JSON 데이터([DONE] 등)는 무시.
+    val event = when {
+      name != "error" -> parsed ?: return
+      parsed == null -> JSONObject().put("event_type", "error").put("message", text)
+      !parsed.has("event_type") -> parsed.put("event_type", "error")
+      else -> parsed
+    }
     if (event.has("samp_ix") && event.optInt("samp_ix") != 0) return
     consume(event)
   }
   while (true) {
     val line = reader.readLine() ?: break
     if (line.isEmpty()) dispatch()
+    else if (line.startsWith("event:")) eventName = line.substring(6).trim()
     else if (line.startsWith("data:")) {
       if (data.isNotEmpty()) data.append('\n')
       data.append(line.substring(5).removePrefix(" "))

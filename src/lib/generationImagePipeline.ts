@@ -2,7 +2,8 @@ import { AppState, Platform } from "react-native";
 import { generationImagePipeline, type NativeImageEvent } from "../../modules/generation-image-pipeline";
 import {
   createImageGenerationBody, describeNovelAiHttpError, generateNovelAiImageStream,
-  normalizeBearerToken, NovelAiRequestError, type GenerateNovelAiImageInput,
+  normalizeBearerToken, NovelAiRequestError, resolveNoiseSchedule,
+  type GenerateNovelAiImageInput,
 } from "./novelai";
 import {
   discardNativeGenerationFiles, prepareNativeGenerationFiles, saveGenerationImageBase64,
@@ -20,7 +21,10 @@ export async function generateAndSaveImage(
     prompt: input.prompt, negativePrompt: input.negativePrompt, model: input.model,
     width: input.width, height: input.height, steps: input.steps,
     scale: input.promptGuidance, cfgRescale: input.promptGuidanceRescale,
-    noiseSchedule: input.noiseSchedule, sampler: input.sampler,
+    // 실제 전송값을 기록한다 (V4+ native -> 샘플러 기본값). 스케줄을 보내지 않는 샘플러는 설정값 유지.
+    noiseSchedule: resolveNoiseSchedule(input.model, input.sampler, input.noiseSchedule)
+      ?? input.noiseSchedule,
+    sampler: input.sampler,
   };
   if (Platform.OS !== "android") {
     const result = await generateNovelAiImageStream(input, (event) => {
@@ -66,6 +70,8 @@ export async function generateAndSaveImage(
     discardNativeGenerationFiles(files);
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("NAI_CANCELLED")) throw cancelled();
+    const streamError = message.match(/NAI_STREAM_ERROR:([^\n]*)/)?.[1]?.trim();
+    if (streamError) throw new Error(`NovelAI 생성 오류: ${streamError}`);
     const httpError = message.match(/NAI_HTTP_(\d+)(?::([^\n]*))?/);
     if (httpError) {
       const status = Number(httpError[1]);

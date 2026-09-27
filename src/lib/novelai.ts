@@ -737,8 +737,15 @@ export async function generateNovelAiImageStream(
     }
 
     function handleStreamText(text: string) {
-      const result = parseSseEvents(buffer + text, scanOffset, (_eventName, data) => {
-        const streamEvent = toNovelAiImageStreamEvent(data);
+      const result = parseSseEvents(buffer + text, scanOffset, (eventName, data) => {
+        // `event: error`는 본문이 JSON이 아니어도 오류로 처리한다.
+        const streamEvent: NovelAiImageStreamEvent | null =
+          eventName === "error"
+            ? {
+                type: "error",
+                message: `NovelAI 생성 오류: ${getStreamErrorMessage(data)}`,
+              }
+            : toNovelAiImageStreamEvent(data);
         if (!streamEvent) return;
 
         try {

@@ -133,7 +133,10 @@ class GenerationImagePipelineModule : Module() {
             val type = event.optString("event_type")
             val generationId = if (event.isNull("gen_id")) null else event.optDouble("gen_id")
             val image = event.optString("image")
-            if (type == "error") throw IOException(event.optString("message", event.optString("error", "Image stream failed")))
+            if (type == "error") {
+              val detail = event.optString("message").ifBlank { event.optString("error") }.ifBlank { "Image stream failed" }
+              throw IOException("NAI_STREAM_ERROR:${detail.replace('\n', ' ').take(500)}")
+            }
             if (type == "intermediate" && image.isNotEmpty()) {
               val step = if (event.isNull("step_ix")) null else event.optInt("step_ix")
               val payload = mutableMapOf<String, Any?>("requestId" to id, "type" to type, "step" to step, "generationId" to generationId)

@@ -22,6 +22,19 @@ class StreamParserTest {
     assertEquals("final", events[1].getString("event_type"))
   }
 
+  @Test fun errorEventsAreDeliveredEvenWithoutJson() {
+    val text = "event: error\ndata: Concurrent generation is locked\n\n" +
+      "event: error\ndata: {\"message\":\"Bad request\"}\n\n" +
+      "data: [DONE]\n\n"
+    val events = mutableListOf<org.json.JSONObject>()
+    readImageEvents(text.reader().buffered()) { events.add(it) }
+    assertEquals(2, events.size)
+    assertEquals("error", events[0].getString("event_type"))
+    assertEquals("Concurrent generation is locked", events[0].getString("message"))
+    assertEquals("error", events[1].getString("event_type"))
+    assertEquals("Bad request", events[1].getString("message"))
+  }
+
   @Test fun callbackErrorsAreNotSwallowed() {
     assertThrows(IOException::class.java) {
       readImageEvents("data: {}\n\n".reader().buffered()) { throw IOException("cancelled") }
