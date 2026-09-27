@@ -393,7 +393,7 @@ export async function addVibeReferenceFromImage(
         information_extracted,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.imagePath,

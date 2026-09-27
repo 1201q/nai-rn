@@ -171,6 +171,22 @@ test("moves the legacy single cache into the per-model table", async () => {
   expect(reloaded.find((item) => item.id === "legacy")!.encodings).toHaveLength(1);
 });
 
+test("adds a new reference without encodings", async () => {
+  testGlobals.__vibeTestFiles!.set("picked.png", "source-image");
+  const module = loadModule();
+
+  const added = await module.addVibeReferenceFromImage({
+    uri: "picked.png",
+    width: 600,
+    height: 400,
+    fileName: "picked.png",
+  });
+
+  expect(added.encodings).toEqual([]);
+  const [listed] = await module.listVibeReferences();
+  expect(listed).toMatchObject({ id: added.id, encodings: [], informationExtracted: 0.7 });
+});
+
 test("keeps other models' caches and replaces only the same model", async () => {
   const module = loadModule();
   await module.initVibeReferenceStorage();
