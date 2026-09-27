@@ -34,14 +34,20 @@ export default {
       predictiveBackGestureEnabled: true,
       softwareKeyboardLayoutMode: "resize",
       package: config.id,
+      // READ/WRITE_EXTERNAL_STORAGE는 Expo 템플릿이 maxSdkVersion 32로 추가하므로 따로 적지 않는다.
       permissions: [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.POST_PROMOTED_NOTIFICATIONS",
         "android.permission.WAKE_LOCK",
+      ],
+      // 앱이 쓰지 않는 권한 차단.
+      // - SYSTEM_ALERT_WINDOW: Expo 템플릿 기본값 (다른 앱 위에 표시)
+      // - READ_MEDIA_*: expo-media-library 플러그인이 추가. 이미지 선택은 시스템 Photo Picker,
+      //   저장은 writeOnly라 Android 13+에서 사진 읽기 권한이 필요 없다 (Play 사진 권한 정책 대응).
+      blockedPermissions: [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
       ],
     },
     web: {
@@ -81,6 +87,8 @@ export default {
         {
           photosPermission:
             "이미지를 가져와 메타데이터를 추출하기 위해 사진 보관함 접근 권한이 필요합니다.",
+          // 동영상 촬영을 하지 않으므로 RECORD_AUDIO를 추가하지 않는다.
+          microphonePermission: false,
         },
       ],
       [
