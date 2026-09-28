@@ -19,6 +19,7 @@ import { Toaster, toast } from "sonner-native";
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { AppSheetProvider } from "../src/context/AppSheetContext";
 import { PredictiveBackScreen } from "../src/components/navigation/PredictiveBackScreen";
+import { GenerationFloatingPreview } from "../src/components/generation/GenerationFloatingPreview";
 import { initializePredictiveBack } from "../src/native/predictiveBack";
 import { useGenerationStore } from "../src/store/generationStore";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
@@ -191,6 +192,8 @@ export default function RootLayout() {
                 }}
               />
             </AppSheetProvider>
+            {/* 생성 이미지 인앱 플로팅: 전역 시트/화면보다 위에 떠야 한다. */}
+            <GenerationFloatingPreview />
           </GenerationOptionsProvider>
         </KeyboardProvider>
       </SafeAreaProvider>

@@ -35,6 +35,8 @@ export const PREDICTIVE_BACK_HAS_PROGRESS =
   nativeModule?.progressAvailable === true;
 
 const owners = new Map<object, PredictiveBackHandlers>();
+// 다른 owner가 없을 때만 받는 가장 낮은 우선순위 핸들러 (루트 화면 뒤로가기).
+let fallback: PredictiveBackHandlers | null = null;
 const observers = new Set<PredictiveBackHandlers>();
 let subscriptions: Array<{ remove: () => void }> | null = null;
 let appliedMode: "app" | "system" | null = null;
@@ -44,7 +46,7 @@ function currentHandlers() {
   for (const handlers of owners.values()) {
     current = handlers;
   }
-  return current;
+  return current ?? fallback ?? undefined;
 }
 
 function dispatch(
@@ -94,7 +96,7 @@ function ensureSubscribed() {
 function applyMode(force = false) {
   if (!nativeModule) return;
 
-  const nextMode = owners.size > 0 ? "app" : "system";
+  const nextMode = owners.size > 0 || fallback ? "app" : "system";
   if (!force && appliedMode === nextMode) return;
 
   appliedMode = nextMode;
@@ -120,6 +122,15 @@ export function acquirePredictiveBack(
 
 export function releasePredictiveBack(token: object) {
   if (!nativeModule || !owners.delete(token)) return;
+  applyMode(true);
+}
+
+// system 모드에서는 RN BackHandler까지 뒤로가기가 오지 않으므로, 루트 뒤로가기를 가로채려면 이걸 쓴다.
+export function setFallbackPredictiveBack(handlers: PredictiveBackHandlers | null) {
+  if (!nativeModule || fallback === handlers) return;
+
+  ensureSubscribed();
+  fallback = handlers;
   applyMode(true);
 }
 

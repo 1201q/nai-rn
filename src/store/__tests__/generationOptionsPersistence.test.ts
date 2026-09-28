@@ -34,6 +34,7 @@ function createState(
     i2iNoise: 0,
     mainImageBlurred: false,
     autoPipEnabled: true,
+    backPipEnabled: true,
     ...overrides,
   };
 }

@@ -1,11 +1,11 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Platform } from "react-native";
 
 import {
   type AnlasRefreshResult,
   useGenerationStore,
 } from "../../../store/generationStore";
 import { AppSettingsScreen } from "../AppSettingsScreen";
+import { generationImagePipeline } from "../../../../modules/generation-image-pipeline";
 
 const mockOpenSheet = jest.fn();
 
@@ -16,6 +16,8 @@ type MockSettingsState = {
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
   autoPipEnabled: boolean;
   setAutoPipEnabled: (value: boolean) => void;
+  backPipEnabled: boolean;
+  setBackPipEnabled: (value: boolean) => void;
 };
 
 jest.mock("../../../store/generationStore", () => {
@@ -29,9 +31,15 @@ jest.mock("../../../store/generationStore", () => {
       refreshAnlas: jest.fn(),
       autoPipEnabled: true,
       setAutoPipEnabled: (value) => set({ autoPipEnabled: value }),
+      backPipEnabled: true,
+      setBackPipEnabled: (value) => set({ backPipEnabled: value }),
     })),
   };
 });
+
+jest.mock("../../../../modules/generation-image-pipeline", () => ({
+  generationImagePipeline: { isPipSupported: jest.fn(() => true) },
+}));
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
@@ -172,31 +180,32 @@ describe("AppSettingsScreen token verification feedback", () => {
   });
 });
 
-describe("AppSettingsScreen auto PiP", () => {
-  const originalOS = Platform.OS;
+describe("AppSettingsScreen PiP settings", () => {
   beforeEach(() => {
     useGenerationStore.setState(initialState, true);
   });
-  afterEach(() => { Platform.OS = originalOS; });
 
-  test("toggles auto PiP in the store on Android", async () => {
-    Platform.OS = "android";
+  test.each([
+    ["생성 중 나가면 PiP", "autoPipEnabled"],
+    ["뒤로가기 시 PiP", "backPipEnabled"],
+  ] as const)("toggles %s in the store", async (name, key) => {
     const screen = await render(<AppSettingsScreen />);
-    const toggle = screen.getByRole("switch", { name: "생성 중 나가면 PiP" });
+    const toggle = screen.getByRole("switch", { name });
     expect(toggle.props.accessibilityState).toMatchObject({ checked: true });
 
     await fireEvent.press(toggle);
 
-    expect(useGenerationStore.getState().autoPipEnabled).toBe(false);
-    expect(screen.getByRole("switch", { name: "생성 중 나가면 PiP" }).props.accessibilityState)
+    expect(useGenerationStore.getState()[key]).toBe(false);
+    expect(screen.getByRole("switch", { name }).props.accessibilityState)
       .toMatchObject({ checked: false });
     await screen.unmount();
   });
 
-  test("hides the auto PiP row outside Android", async () => {
-    Platform.OS = "ios";
+  test("hides PiP settings when system PiP is unsupported", async () => {
+    jest.mocked(generationImagePipeline!.isPipSupported).mockReturnValueOnce(false);
     const screen = await render(<AppSettingsScreen />);
     expect(screen.queryByRole("switch", { name: "생성 중 나가면 PiP" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "뒤로가기 시 PiP" })).toBeNull();
     await screen.unmount();
   });
 });

@@ -11,7 +11,6 @@ export type NativeImageEvent = {
 
 type NativePipelineEvents = {
   image: NativeImageEvent;
-  pipChange: { active: boolean };
   pipAction: { action: "cancel" };
 };
 
@@ -28,10 +27,9 @@ export const generationImagePipeline = Platform.OS === "android"
     releasePreviews(requestId: string): Promise<void>;
     retainPreviews(requestId: string): void;
     isPipSupported(): boolean;
-    openPip(width: number, height: number): void;
-    closePip(): void;
-    setPipSession(generating: boolean, autoEnter: boolean, width: number, height: number): void;
-    setAutoPipSuppressed(suppressed: boolean): void;
+    setPipState(autoEnter: boolean, generating: boolean): void;
+    setPipSourceRect(x: number, y: number, width: number, height: number): void;
+    enterPip(): void;
     addListener<E extends keyof NativePipelineEvents>(
       name: E, listener: (event: NativePipelineEvents[E]) => void,
     ): { remove(): void };
@@ -40,18 +38,6 @@ export const generationImagePipeline = Platform.OS === "android"
 
 export function previewRequestId(uri: string | null) {
   return uri?.match(/\/nai-stream-previews\/(gen_[a-zA-Z0-9_]+)\//)?.[1] ?? null;
-}
-
-let autoPipSuppressions = 0;
-
-// 앱이 직접 다른 Activity(권한 창, 이미지 선택기)를 띄우면 onUserLeaveHint가 와서 자동 PiP가 켜지므로 그동안 막는다.
-export async function withAutoPipSuppressed<T>(task: () => Promise<T>): Promise<T> {
-  if (autoPipSuppressions++ === 0) generationImagePipeline?.setAutoPipSuppressed(true);
-  try {
-    return await task();
-  } finally {
-    if (--autoPipSuppressions === 0) generationImagePipeline?.setAutoPipSuppressed(false);
-  }
 }
 
 export function releaseNativePreviews(requestId: string) {

@@ -9,7 +9,7 @@ import { generationImagePipeline, releaseNativePreviews } from "../../../../modu
 jest.mock("../../../../modules/generation-image-pipeline", () => ({
   ...jest.requireActual("../../../../modules/generation-image-pipeline"),
   generationImagePipeline: {
-    retainPreviews: jest.fn(), isPipSupported: jest.fn(() => true), openPip: jest.fn(), closePip: jest.fn(),
+    retainPreviews: jest.fn(), setPipSourceRect: jest.fn(),
   },
   releaseNativePreviews: jest.fn(),
 }));
@@ -71,7 +71,8 @@ const mockGenerationState = {
   resolution: { width: 832, height: 1216 },
   mainImageBlurred: false,
   setMainImageBlurred: jest.fn(),
-  isPipActive: false,
+  isFloatingOpen: false,
+  setFloatingOpen: jest.fn(),
 };
 jest.mock("../../../store/generationStore", () => ({
   useGenerationStore: (selector: (state: object) => unknown) => selector(mockGenerationState),
@@ -83,7 +84,7 @@ beforeEach(() => {
   mockGenerationState.isViewingActiveGeneration = false;
   mockGenerationState.isLoading = false;
   mockGenerationState.mainImageBlurred = false;
-  mockGenerationState.isPipActive = false;
+  mockGenerationState.isFloatingOpen = false;
   jest.clearAllMocks();
 });
 
@@ -230,42 +231,36 @@ describe("generation canvas PiP", () => {
   });
   afterEach(() => { Platform.OS = originalOS; });
 
-  test("shows the PiP button only while viewing a supported active generation", async () => {
+  test("shows the PiP button only while viewing an active generation", async () => {
     Platform.OS = "android";
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     await fireEvent.press(screen.getByRole("button", { name: "PiP로 보기" }));
-    expect(generationImagePipeline!.openPip).toHaveBeenCalledWith(832, 1216);
+    expect(mockGenerationState.setFloatingOpen).toHaveBeenCalledWith(true);
 
     mockGenerationState.isViewingActiveGeneration = false;
     await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
   });
 
-  test("hides the PiP button when PiP is unsupported or not Android", async () => {
-    Platform.OS = "android";
-    jest.mocked(generationImagePipeline!.isPipSupported).mockReturnValueOnce(false);
+  test("hides the PiP button outside Android", async () => {
+    Platform.OS = "ios";
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
-    await screen.unmount();
-
-    Platform.OS = "ios";
-    const ios = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
-    expect(ios.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
   });
 
-  test("replaces the preview with a placeholder while PiP is active", async () => {
-    mockGenerationState.isPipActive = true;
+  test("replaces the preview with a placeholder while the floating view is open", async () => {
+    mockGenerationState.isFloatingOpen = true;
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
     expect(screen.queryByTestId("canvas-image")).toBeNull();
     expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
     expect(screen.getByText("PiP에서 보는 중")).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: "PiP 닫고 여기서 보기" }));
-    expect(generationImagePipeline!.closePip).toHaveBeenCalled();
+    expect(mockGenerationState.setFloatingOpen).toHaveBeenCalledWith(false);
   });
 
-  test("shows the image normally once the queue ends with PiP still open", async () => {
-    mockGenerationState.isPipActive = true;
+  test("shows the image normally once the queue ends with the floating view still open", async () => {
+    mockGenerationState.isFloatingOpen = true;
     mockGenerationState.isLoading = false;
     mockGenerationState.currentGeneration = { imagePath: "final.png", width: 832, height: 1216 };
     const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);

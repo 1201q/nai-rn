@@ -3,7 +3,6 @@ import notifee, {
   AndroidImportance,
   AuthorizationStatus,
 } from "react-native-notify-kit";
-import { withAutoPipSuppressed } from "../../modules/generation-image-pipeline";
 
 const isAndroid = Platform.OS === "android";
 
@@ -18,11 +17,11 @@ const LIVE_UPDATE_SHORT_TEXT_KEY = "nairn.liveUpdateShortText";
 let channelReady = false;
 
 async function ensureNotifReady() {
-  // Android 13+에서 requestPermission은 결과와 무관하게 권한 Activity를 띄워 onUserLeaveHint(자동 PiP)를
-  // 유발한다. 아직 묻지 않은 경우에만 요청한다 (거부 상태는 시스템이 어차피 다시 묻지 않는다).
+  // Android 13+에서 requestPermission은 허용 상태여도 매번 권한 Activity를 띄운다.
+  // 아직 묻지 않은 경우에만 요청한다 (거부 상태는 시스템이 어차피 다시 묻지 않는다).
   const { authorizationStatus } = await notifee.getNotificationSettings();
   if (authorizationStatus === AuthorizationStatus.NOT_DETERMINED) {
-    await withAutoPipSuppressed(() => notifee.requestPermission());
+    await notifee.requestPermission();
   }
   if (!channelReady) {
     await notifee.createChannel({

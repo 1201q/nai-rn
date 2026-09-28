@@ -35,8 +35,10 @@ import Reanimated, {
 import { toast } from "sonner-native";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
+import { reportPipSourceRect, setCanvasImageRect } from "../../lib/pipLayout";
+import { usePipBackScale } from "../../hooks/usePipBackScale";
 import {
-  generationImagePipeline, previewRequestId, releaseNativePreviews, withAutoPipSuppressed,
+  generationImagePipeline, previewRequestId, releaseNativePreviews,
 } from "../../../modules/generation-image-pipeline";
 import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
@@ -105,6 +107,25 @@ const FreeTransformImage = memo(function FreeTransformImage({
   const panStartX = useSharedValue(0);
   const panStartY = useSharedValue(0);
   const pinchStartScale = useSharedValue(1);
+  const frameRef = useRef<View>(null);
+  const isFloatingOpen = useGenerationStore((s) => s.isFloatingOpen);
+  const backScale = usePipBackScale(!isFloatingOpen);
+
+  // 플로팅 열기/복귀 애니메이션과 시스템 PiP 진입 애니메이션이 이 이미지 자리에서 시작/끝나도록 위치를 기록한다.
+  const reportSourceRect = useCallback(() => {
+    frameRef.current?.measureInWindow((x, y, width, height) => {
+      if (!(width > 0 && height > 0)) return;
+      const rect = { x, y, width, height };
+      setCanvasImageRect(rect);
+      // 플로팅이 열려 있으면 PiP는 플로팅 자리에서 시작한다.
+      if (!useGenerationStore.getState().isFloatingOpen) reportPipSourceRect(rect);
+    });
+  }, []);
+
+  // 플로팅이 닫히면 PiP 시작 영역을 다시 캔버스로 돌린다.
+  useEffect(() => {
+    if (!isFloatingOpen) reportSourceRect();
+  }, [isFloatingOpen, reportSourceRect]);
 
   useEffect(() => {
     cancelAnimation(scale);
@@ -191,7 +212,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
-      { scale: scale.value },
+      { scale: scale.value * backScale.value },
     ],
   }));
 
@@ -204,7 +225,11 @@ const FreeTransformImage = memo(function FreeTransformImage({
         accessibilityState={{ disabled: !enabled }}
         style={styles.zoomViewport}
       >
-        <Reanimated.View style={[styles.generatedImage, size, imageStyle]}>
+        <Reanimated.View
+          ref={frameRef}
+          onLayout={reportSourceRect}
+          style={[styles.generatedImage, size, imageStyle]}
+        >
           <ExpoImage
             source={{ uri }}
             blurRadius={blurRadius}
@@ -244,7 +269,8 @@ export function GenerationCanvas({
   const setMainImageBlurred = useGenerationStore(
     (s) => s.setMainImageBlurred,
   );
-  const isPipActive = useGenerationStore((s) => s.isPipActive);
+  const isFloatingOpen = useGenerationStore((s) => s.isFloatingOpen);
+  const setFloatingOpen = useGenerationStore((s) => s.setFloatingOpen);
   const [expanded, setExpanded] = useState(true);
   const expandedRef = useRef(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -287,16 +313,10 @@ export function GenerationCanvas({
     Boolean(currentImageUri) && !viewingActiveGeneration;
   const canTransformImage =
     Boolean(currentImageUri) && !viewingActiveGeneration;
-  // 시스템 설정에서 PiP를 끌 수 있으므로 생성이 시작될 때마다 다시 확인한다.
-  const isPipSupported = useMemo(
-    () =>
-      Platform.OS === "android" &&
-      viewingActiveGeneration &&
-      (generationImagePipeline?.isPipSupported() ?? false),
-    [viewingActiveGeneration],
-  );
-  const showPipButton = isPipSupported && !isPipActive;
-  const showPipPlaceholder = viewingActiveGeneration && isPipActive;
+  // 인앱 플로팅은 시스템 PiP와 달리 OS 버전/설정과 무관하다 (iOS는 제외).
+  const showPipButton =
+    Platform.OS === "android" && viewingActiveGeneration && !isFloatingOpen;
+  const showPipPlaceholder = viewingActiveGeneration && isFloatingOpen;
 
   const handleImageLoad = useCallback((event: ImageLoadEventData) => {
     const { url, width, height } = event.source;
@@ -324,9 +344,9 @@ export function GenerationCanvas({
     if (!currentImageUri || isSaving) return;
     setIsSaving(true);
     try {
-      const permission = await withAutoPipSuppressed(() =>
-        MediaLibrary.requestPermissionsAsync(true, ["photo"]),
-      );
+      const permission = await MediaLibrary.requestPermissionsAsync(true, [
+        "photo",
+      ]);
       if (!permission.granted) {
         Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
         return;
@@ -386,7 +406,7 @@ export function GenerationCanvas({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="PiP 닫고 여기서 보기"
-            onPress={() => generationImagePipeline?.closePip()}
+            onPress={() => setFloatingOpen(false)}
             style={({ pressed }) => [
               styles.pipPlaceholder,
               pressed && styles.toolbarPressed,
@@ -413,7 +433,7 @@ export function GenerationCanvas({
             onLoad={handleImageLoad}
           />
         ) : null}
-        {viewingActiveGeneration && !activePreviewUri && !isPipActive ? (
+        {viewingActiveGeneration && !activePreviewUri && !isFloatingOpen ? (
           <ActivityIndicator
             color={tokens.color.textPrimary}
             size="large"
@@ -428,12 +448,7 @@ export function GenerationCanvas({
             <ToolbarAction
               icon="browsers-outline"
               label="PiP로 보기"
-              onPress={() =>
-                generationImagePipeline?.openPip(
-                  resolution.width,
-                  resolution.height,
-                )
-              }
+              onPress={() => setFloatingOpen(true)}
             />
           </View>
         ) : null}

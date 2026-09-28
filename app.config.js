@@ -102,6 +102,7 @@ export default {
         },
       ],
       "expo-status-bar",
+      "./plugins/withMainActivityPip",
     ],
     extra: {
       eas: {

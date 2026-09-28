@@ -3,7 +3,6 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { withAutoPipSuppressed } from "../../../modules/generation-image-pipeline";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
 import { extractPngTextMetadata } from "../../lib/novelai";
@@ -84,13 +83,12 @@ function useReferenceUpload(kind: ReferenceKind) {
     pending.current = true;
     setBusy(true);
     try {
-      const permission = await withAutoPipSuppressed(() => ImagePicker.requestMediaLibraryPermissionsAsync());
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         state.setMessage("이미지를 선택하려면 사진 접근 권한이 필요합니다.");
         return;
       }
-      const result = await withAutoPipSuppressed(() =>
-        ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, base64: false }));
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, base64: false });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
       const input = { uri: asset.uri, width: asset.width || 64, height: asset.height || 64, fileName: asset.fileName, mimeType: asset.mimeType };
@@ -320,13 +318,12 @@ export function MetadataExtractCard({ onExtract }: { onExtract: (metadataJson: s
     pending.current = true;
     setBusy(true);
     try {
-      const permission = await withAutoPipSuppressed(() => ImagePicker.requestMediaLibraryPermissionsAsync());
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         toast.error("이미지를 선택하려면 사진 접근 권한이 필요합니다.");
         return;
       }
-      const result = await withAutoPipSuppressed(() =>
-        ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, base64: false }));
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 1, base64: false });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
       const bytes = await new File(asset.uri).bytes();

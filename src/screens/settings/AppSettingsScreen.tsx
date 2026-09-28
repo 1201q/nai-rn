@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
@@ -21,6 +21,7 @@ import {
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
 import { useGenerationStore } from "../../store/generationStore";
+import { generationImagePipeline } from "../../../modules/generation-image-pipeline";
 import { useAppSheet } from "../../context/AppSheetContext";
 import { tokens } from "../../styles/tokens";
 
@@ -37,6 +38,15 @@ export function AppSettingsScreen() {
   const autoPipEnabled = useGenerationStore((state) => state.autoPipEnabled);
   const setAutoPipEnabled = useGenerationStore(
     (state) => state.setAutoPipEnabled,
+  );
+  const backPipEnabled = useGenerationStore((state) => state.backPipEnabled);
+  const setBackPipEnabled = useGenerationStore(
+    (state) => state.setBackPipEnabled,
+  );
+  // 시스템 PiP는 Android 12+이고 시스템 설정에서 허용된 경우에만 동작한다.
+  const isPipSupported = useMemo(
+    () => generationImagePipeline?.isPipSupported() ?? false,
+    [],
   );
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
@@ -272,7 +282,7 @@ export function AppSettingsScreen() {
                     color={tokens.color.textMuted}
                   />
                 </Pressable>
-                {Platform.OS === "android" ? (
+                {isPipSupported ? (
                   <View style={[styles.legacyRow, styles.legacyRowDivider]}>
                     <View style={styles.legacyIcon}>
                       <Ionicons
@@ -291,6 +301,28 @@ export function AppSettingsScreen() {
                       label="생성 중 나가면 PiP"
                       value={autoPipEnabled}
                       onChange={setAutoPipEnabled}
+                    />
+                  </View>
+                ) : null}
+                {isPipSupported ? (
+                  <View style={[styles.legacyRow, styles.legacyRowDivider]}>
+                    <View style={styles.legacyIcon}>
+                      <Ionicons
+                        name="arrow-undo-outline"
+                        size={20}
+                        color={tokens.color.accent}
+                      />
+                    </View>
+                    <View style={styles.legacyCopy}>
+                      <Text style={styles.legacyTitle}>뒤로가기 시 PiP</Text>
+                      <Text style={styles.legacyDescription}>
+                        생성 중 뒤로가기로 나가면 이미지를 PiP 창으로 보여줍니다
+                      </Text>
+                    </View>
+                    <Toggle
+                      label="뒤로가기 시 PiP"
+                      value={backPipEnabled}
+                      onChange={setBackPipEnabled}
                     />
                   </View>
                 ) : null}

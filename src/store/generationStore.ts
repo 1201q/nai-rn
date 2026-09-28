@@ -34,6 +34,8 @@ import {
 } from "../lib/novelai";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { generationImagePipeline } from "../../modules/generation-image-pipeline";
+import { setFallbackPredictiveBack } from "../native/predictiveBack";
+import { cancelPipBack, commitPipBack, updatePipBack } from "../lib/pipLayout";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
@@ -361,10 +363,15 @@ type GenerationState = {
   clearI2I: () => void;
   mainImageBlurred: boolean;
   setMainImageBlurred: (v: boolean) => void;
-  // 생성 중 앱을 나가면 PiP 자동 진입 (Android)
+  // 생성 중 앱을 나가면(홈) PiP 자동 진입 (Android 12+)
   autoPipEnabled: boolean;
   setAutoPipEnabled: (v: boolean) => void;
-  isPipActive: boolean;
+  // 생성 중 루트 화면에서 뒤로가기 시 PiP 진입 (Android 12+)
+  backPipEnabled: boolean;
+  setBackPipEnabled: (v: boolean) => void;
+  // 생성 이미지를 앱 위에 띄우는 인앱 플로팅. 사용자가 닫을 때까지 유지.
+  isFloatingOpen: boolean;
+  setFloatingOpen: (v: boolean) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -570,6 +577,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
     }
     if (isBoolean(parsed.autoPipEnabled)) {
       next.autoPipEnabled = parsed.autoPipEnabled;
+    }
+    if (isBoolean(parsed.backPipEnabled)) {
+      next.backPipEnabled = parsed.backPipEnabled;
     }
     return next;
   } catch {
@@ -983,7 +993,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setMainImageBlurred: (v) => set({ mainImageBlurred: v }),
   autoPipEnabled: true,
   setAutoPipEnabled: (v) => set({ autoPipEnabled: v }),
-  isPipActive: false,
+  backPipEnabled: true,
+  setBackPipEnabled: (v) => set({ backPipEnabled: v }),
+  isFloatingOpen: false,
+  setFloatingOpen: (v) => set({ isFloatingOpen: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
@@ -1762,30 +1775,40 @@ export function useGenerationBootstrap() {
       });
   }, []);
 
-  // PiP (Android): 큐 상태/자동 진입 설정을 네이티브에 동기화하고 PiP 이벤트를 받는다.
+  // PiP (Android 12+): 메인 Activity PiP 상태를 네이티브에 동기화하고, 취소 액션/루트 뒤로가기를 처리한다.
   useEffect(() => {
     const native = generationImagePipeline;
     if (!native) return;
-    const { getState, setState, subscribe } = useGenerationStore;
+    const { getState, subscribe } = useGenerationStore;
+    // 생성 중이거나 플로팅이 열려 있으면(큐 종료 후 최종 이미지) PiP로 볼 이미지가 있다.
+    const hasPipImage = (s: GenerationState) => s.isLoading || s.isFloatingOpen;
+    // 루트 뒤로가기는 predictive-back의 fallback으로 받는다 (시트/화면 처리가 항상 우선).
+    // 제스처 중에는 이미지를 직접 줄여 피드백을 주고, 줄어든 자리에서 PiP로 이어진다 (usePipBackScale).
+    const backToPip = {
+      onStart: ({ progress }: { progress: number }) => updatePipBack(progress),
+      onProgress: ({ progress }: { progress: number }) => updatePipBack(progress),
+      onCancel: cancelPipBack,
+      onCommit: () => {
+        commitPipBack();
+        native.enterPip();
+      },
+    };
     const sync = (s: GenerationState) => {
-      native.setPipSession(
-        s.isLoading,
-        s.isLoading && s.autoPipEnabled,
-        s.resolution.width,
-        s.resolution.height,
-      );
+      native.setPipState(s.autoPipEnabled && hasPipImage(s), s.isLoading);
+      const backEnabled =
+        s.backPipEnabled && hasPipImage(s) && native.isPipSupported();
+      setFallbackPredictiveBack(backEnabled ? backToPip : null);
     };
     sync(getState());
     const unsubscribe = subscribe((state, prev) => {
       if (
         state.isLoading !== prev.isLoading ||
-        state.autoPipEnabled !== prev.autoPipEnabled
+        state.isFloatingOpen !== prev.isFloatingOpen ||
+        state.autoPipEnabled !== prev.autoPipEnabled ||
+        state.backPipEnabled !== prev.backPipEnabled
       ) {
         sync(state);
       }
-    });
-    const pipChange = native.addListener("pipChange", ({ active }) => {
-      setState({ isPipActive: active });
     });
     const pipAction = native.addListener("pipAction", ({ action }) => {
       if (action === "cancel" && getState().isLoading) {
@@ -1794,8 +1817,8 @@ export function useGenerationBootstrap() {
     });
     return () => {
       unsubscribe();
-      pipChange.remove();
       pipAction.remove();
+      setFallbackPredictiveBack(null);
     };
   }, []);
 

@@ -42,6 +42,7 @@ type StoredGenerationOptions = {
   i2iNoise: number;
   mainImageBlurred: boolean;
   autoPipEnabled: boolean;
+  backPipEnabled: boolean;
 };
 
 export type PersistedGenerationOptions = Partial<StoredGenerationOptions>;
@@ -80,6 +81,7 @@ const PERSISTED_OPTION_KEYS = [
   "i2iNoise",
   "mainImageBlurred",
   "autoPipEnabled",
+  "backPipEnabled",
 ] as const satisfies readonly (keyof PersistableGenerationState)[];
 
 export function selectPersistedOptions(
@@ -119,6 +121,7 @@ export function selectPersistedOptions(
     i2iNoise: state.i2iNoise,
     mainImageBlurred: state.mainImageBlurred,
     autoPipEnabled: state.autoPipEnabled,
+    backPipEnabled: state.backPipEnabled,
   };
 }
 
