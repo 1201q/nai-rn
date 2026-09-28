@@ -10,6 +10,7 @@ import {
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,7 +35,9 @@ import Reanimated, {
 import { toast } from "sonner-native";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
-import { generationImagePipeline, previewRequestId, releaseNativePreviews } from "../../../modules/generation-image-pipeline";
+import {
+  generationImagePipeline, previewRequestId, releaseNativePreviews, withAutoPipSuppressed,
+} from "../../../modules/generation-image-pipeline";
 import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 
@@ -241,6 +244,7 @@ export function GenerationCanvas({
   const setMainImageBlurred = useGenerationStore(
     (s) => s.setMainImageBlurred,
   );
+  const isPipActive = useGenerationStore((s) => s.isPipActive);
   const [expanded, setExpanded] = useState(true);
   const expandedRef = useRef(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -283,6 +287,16 @@ export function GenerationCanvas({
     Boolean(currentImageUri) && !viewingActiveGeneration;
   const canTransformImage =
     Boolean(currentImageUri) && !viewingActiveGeneration;
+  // 시스템 설정에서 PiP를 끌 수 있으므로 생성이 시작될 때마다 다시 확인한다.
+  const isPipSupported = useMemo(
+    () =>
+      Platform.OS === "android" &&
+      viewingActiveGeneration &&
+      (generationImagePipeline?.isPipSupported() ?? false),
+    [viewingActiveGeneration],
+  );
+  const showPipButton = isPipSupported && !isPipActive;
+  const showPipPlaceholder = viewingActiveGeneration && isPipActive;
 
   const handleImageLoad = useCallback((event: ImageLoadEventData) => {
     const { url, width, height } = event.source;
@@ -310,9 +324,9 @@ export function GenerationCanvas({
     if (!currentImageUri || isSaving) return;
     setIsSaving(true);
     try {
-      const permission = await MediaLibrary.requestPermissionsAsync(true, [
-        "photo",
-      ]);
+      const permission = await withAutoPipSuppressed(() =>
+        MediaLibrary.requestPermissionsAsync(true, ["photo"]),
+      );
       if (!permission.granted) {
         Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
         return;
@@ -368,12 +382,29 @@ export function GenerationCanvas({
           );
         }}
       >
-        {!displayedImageUri ? (
+        {showPipPlaceholder ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="PiP 닫고 여기서 보기"
+            onPress={() => generationImagePipeline?.closePip()}
+            style={({ pressed }) => [
+              styles.pipPlaceholder,
+              pressed && styles.toolbarPressed,
+            ]}
+          >
+            <Ionicons
+              name="browsers-outline"
+              size={28}
+              color={tokens.color.textMuted}
+            />
+            <Text style={styles.pipPlaceholderLabel}>PiP에서 보는 중</Text>
+          </Pressable>
+        ) : !displayedImageUri ? (
           <View style={styles.placeholder}>
             <StripePlaceholder />
           </View>
         ) : null}
-        {displayedImageUri ? (
+        {displayedImageUri && !showPipPlaceholder ? (
           <FreeTransformImage
             uri={displayedImageUri}
             size={imageSize}
@@ -382,7 +413,7 @@ export function GenerationCanvas({
             onLoad={handleImageLoad}
           />
         ) : null}
-        {viewingActiveGeneration && !activePreviewUri ? (
+        {viewingActiveGeneration && !activePreviewUri && !isPipActive ? (
           <ActivityIndicator
             color={tokens.color.textPrimary}
             size="large"
@@ -392,6 +423,20 @@ export function GenerationCanvas({
       </View>
 
       <View style={styles.toolbarRow}>
+        {showPipButton ? (
+          <View style={styles.pipButton}>
+            <ToolbarAction
+              icon="browsers-outline"
+              label="PiP로 보기"
+              onPress={() =>
+                generationImagePipeline?.openPip(
+                  resolution.width,
+                  resolution.height,
+                )
+              }
+            />
+          </View>
+        ) : null}
         <Reanimated.View style={[styles.toolbar, toolbarStyle]}>
           <Reanimated.View
             pointerEvents={expanded ? "auto" : "none"}
@@ -556,9 +601,35 @@ const styles = StyleSheet.create({
   toolbarRow: {
     height: 42,
     marginBottom: tokens.space[4],
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pipButton: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.overlay,
+    ...tokens.shadow.floatSm,
+  },
+  pipPlaceholder: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: tokens.space[3],
+  },
+  pipPlaceholderLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.xs,
   },
   toolbar: {
+    marginLeft: "auto",
     height: 42,
     overflow: "hidden",
     borderRadius: tokens.radius.pill,

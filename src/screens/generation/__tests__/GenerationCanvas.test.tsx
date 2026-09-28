@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import { cancelAnimation } from "react-native-reanimated";
 
@@ -8,7 +8,9 @@ import { generationImagePipeline, releaseNativePreviews } from "../../../../modu
 
 jest.mock("../../../../modules/generation-image-pipeline", () => ({
   ...jest.requireActual("../../../../modules/generation-image-pipeline"),
-  generationImagePipeline: { retainPreviews: jest.fn() },
+  generationImagePipeline: {
+    retainPreviews: jest.fn(), isPipSupported: jest.fn(() => true), openPip: jest.fn(), closePip: jest.fn(),
+  },
   releaseNativePreviews: jest.fn(),
 }));
 
@@ -69,6 +71,7 @@ const mockGenerationState = {
   resolution: { width: 832, height: 1216 },
   mainImageBlurred: false,
   setMainImageBlurred: jest.fn(),
+  isPipActive: false,
 };
 jest.mock("../../../store/generationStore", () => ({
   useGenerationStore: (selector: (state: object) => unknown) => selector(mockGenerationState),
@@ -80,6 +83,7 @@ beforeEach(() => {
   mockGenerationState.isViewingActiveGeneration = false;
   mockGenerationState.isLoading = false;
   mockGenerationState.mainImageBlurred = false;
+  mockGenerationState.isPipActive = false;
   jest.clearAllMocks();
 });
 
@@ -214,5 +218,58 @@ describe("generation canvas image loading", () => {
     await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
 
     expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls + 3);
+  });
+});
+
+describe("generation canvas PiP", () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => {
+    mockGenerationState.streamingPreviewUri = "file:///cache/nai-stream-previews/gen_test/0.jpg";
+    mockGenerationState.isLoading = true;
+    mockGenerationState.isViewingActiveGeneration = true;
+  });
+  afterEach(() => { Platform.OS = originalOS; });
+
+  test("shows the PiP button only while viewing a supported active generation", async () => {
+    Platform.OS = "android";
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    await fireEvent.press(screen.getByRole("button", { name: "PiP로 보기" }));
+    expect(generationImagePipeline!.openPip).toHaveBeenCalledWith(832, 1216);
+
+    mockGenerationState.isViewingActiveGeneration = false;
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
+  });
+
+  test("hides the PiP button when PiP is unsupported or not Android", async () => {
+    Platform.OS = "android";
+    jest.mocked(generationImagePipeline!.isPipSupported).mockReturnValueOnce(false);
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
+    await screen.unmount();
+
+    Platform.OS = "ios";
+    const ios = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(ios.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
+  });
+
+  test("replaces the preview with a placeholder while PiP is active", async () => {
+    mockGenerationState.isPipActive = true;
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(screen.queryByTestId("canvas-image")).toBeNull();
+    expect(screen.queryByRole("button", { name: "PiP로 보기" })).toBeNull();
+    expect(screen.getByText("PiP에서 보는 중")).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole("button", { name: "PiP 닫고 여기서 보기" }));
+    expect(generationImagePipeline!.closePip).toHaveBeenCalled();
+  });
+
+  test("shows the image normally once the queue ends with PiP still open", async () => {
+    mockGenerationState.isPipActive = true;
+    mockGenerationState.isLoading = false;
+    mockGenerationState.currentGeneration = { imagePath: "final.png", width: 832, height: 1216 };
+    const screen = await render(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+    expect(screen.queryByText("PiP에서 보는 중")).toBeNull();
+    expect(screen.getByTestId("canvas-image").props.source).toEqual({ uri: "file:///final.png" });
   });
 });

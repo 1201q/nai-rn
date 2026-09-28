@@ -33,6 +33,7 @@ import {
   NovelAiRequestError,
 } from "../lib/novelai";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
+import { generationImagePipeline } from "../../modules/generation-image-pipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
@@ -360,6 +361,10 @@ type GenerationState = {
   clearI2I: () => void;
   mainImageBlurred: boolean;
   setMainImageBlurred: (v: boolean) => void;
+  // 생성 중 앱을 나가면 PiP 자동 진입 (Android)
+  autoPipEnabled: boolean;
+  setAutoPipEnabled: (v: boolean) => void;
+  isPipActive: boolean;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -562,6 +567,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isNumber(parsed.i2iNoise)) next.i2iNoise = parsed.i2iNoise;
     if (isBoolean(parsed.mainImageBlurred)) {
       next.mainImageBlurred = parsed.mainImageBlurred;
+    }
+    if (isBoolean(parsed.autoPipEnabled)) {
+      next.autoPipEnabled = parsed.autoPipEnabled;
     }
     return next;
   } catch {
@@ -973,6 +981,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setI2INoise: (v) => set({ i2iNoise: v }),
   mainImageBlurred: false,
   setMainImageBlurred: (v) => set({ mainImageBlurred: v }),
+  autoPipEnabled: true,
+  setAutoPipEnabled: (v) => set({ autoPipEnabled: v }),
+  isPipActive: false,
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
@@ -1749,6 +1760,43 @@ export function useGenerationBootstrap() {
           message: error instanceof Error ? error.message : String(error),
         });
       });
+  }, []);
+
+  // PiP (Android): 큐 상태/자동 진입 설정을 네이티브에 동기화하고 PiP 이벤트를 받는다.
+  useEffect(() => {
+    const native = generationImagePipeline;
+    if (!native) return;
+    const { getState, setState, subscribe } = useGenerationStore;
+    const sync = (s: GenerationState) => {
+      native.setPipSession(
+        s.isLoading,
+        s.isLoading && s.autoPipEnabled,
+        s.resolution.width,
+        s.resolution.height,
+      );
+    };
+    sync(getState());
+    const unsubscribe = subscribe((state, prev) => {
+      if (
+        state.isLoading !== prev.isLoading ||
+        state.autoPipEnabled !== prev.autoPipEnabled
+      ) {
+        sync(state);
+      }
+    });
+    const pipChange = native.addListener("pipChange", ({ active }) => {
+      setState({ isPipActive: active });
+    });
+    const pipAction = native.addListener("pipAction", ({ action }) => {
+      if (action === "cancel" && getState().isLoading) {
+        getState().requestQueueCancel();
+      }
+    });
+    return () => {
+      unsubscribe();
+      pipChange.remove();
+      pipAction.remove();
+    };
   }, []);
 
   // persist: 저장 대상 옵션 변경을 합쳐 마지막 상태만 write

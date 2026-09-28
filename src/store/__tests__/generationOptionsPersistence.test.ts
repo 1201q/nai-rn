@@ -33,6 +33,7 @@ function createState(
     i2iStrength: 0.7,
     i2iNoise: 0,
     mainImageBlurred: false,
+    autoPipEnabled: true,
     ...overrides,
   };
 }

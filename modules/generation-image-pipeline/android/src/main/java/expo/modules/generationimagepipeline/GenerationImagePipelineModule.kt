@@ -1,8 +1,14 @@
 package expo.modules.generationimagepipeline
 
+import android.app.AppOpsManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
+import android.os.Process
 import android.os.SystemClock
 import android.util.Base64
 import expo.modules.kotlin.functions.Coroutine
@@ -50,7 +56,12 @@ class GenerationImagePipelineModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("GenerationImagePipeline")
-    Events("image")
+    Events("image", "pipChange", "pipAction")
+
+    OnCreate {
+      PipImageHub.onActiveChange = { sendEvent("pipChange", mapOf("active" to it)) }
+      PipImageHub.onCancel = { sendEvent("pipAction", mapOf("action" to "cancel")) }
+    }
 
     // Register synchronously so immediate AbortSignal cancellation cannot race generate().
     Function("prepare") { id: String, enabled: Boolean ->
@@ -73,7 +84,59 @@ class GenerationImagePipelineModule : Module() {
     AsyncFunction("generate") Coroutine { id: String, token: String, body: String, originalUri: String, thumbnailUri: String ->
       withContext(Dispatchers.IO) { generate(id, token, body, originalUri, thumbnailUri) }
     }
-    OnDestroy { requests.values.forEach { it.cancel() } }
+    Function("isPipSupported") { isPipSupported() }
+    Function("openPip") { width: Int, height: Int ->
+      PipImageHub.width = width
+      PipImageHub.height = height
+      openPip()
+    }
+    Function("closePip") { PipImageHub.close() }
+    // 큐 진행 여부(PiP 취소 액션 노출)와 나가면 자동 PiP 여부를 JS 큐 상태와 동기화한다.
+    Function("setPipSession") { generating: Boolean, autoEnter: Boolean, width: Int, height: Int ->
+      PipImageHub.autoEnter = autoEnter
+      PipImageHub.width = width
+      PipImageHub.height = height
+      PipImageHub.setGenerating(generating)
+      if (!generating && !PipImageHub.active) PipImageHub.latestFrame = null
+    }
+    Function("setAutoPipSuppressed") { suppressed: Boolean -> PipImageHub.autoSuppressed = suppressed }
+    OnUserLeavesActivity { if (PipImageHub.autoEnter && !PipImageHub.autoSuppressed) openPip() }
+    OnDestroy {
+      requests.values.forEach { it.cancel() }
+      PipImageHub.onActiveChange = null
+      PipImageHub.onCancel = null
+    }
+  }
+
+  private fun isPipSupported(): Boolean {
+    val context = appContext.reactContext ?: return false
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+    if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false
+    // 시스템 설정의 앱별 PiP 허용 여부.
+    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), context.packageName)
+    } else {
+      @Suppress("DEPRECATION")
+      appOps.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), context.packageName)
+    }
+    return mode == AppOpsManager.MODE_ALLOWED
+  }
+
+  private fun openPip() {
+    if (PipImageHub.active || !isPipSupported()) return
+    val context: Context = appContext.currentActivity ?: appContext.reactContext ?: return
+    PipImageHub.setActive(true)
+    PipImageHub.expectActivity()
+    PipImageHub.latestFrame?.let { PipImageHub.pushFrame(it) }
+    try {
+      // NO_USER_ACTION: 메인 Activity의 onUserLeaveHint(자동 PiP)를 다시 트리거하지 않게 한다.
+      context.startActivity(Intent(context, GenerationPipActivity::class.java).addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_NO_ANIMATION,
+      ))
+    } catch (_: Exception) {
+      PipImageHub.setActive(false)
+    }
   }
 
   private fun outputFile(uri: String, id: String, directory: String, extension: String): File {
@@ -141,12 +204,18 @@ class GenerationImagePipelineModule : Module() {
               val step = if (event.isNull("step_ix")) null else event.optInt("step_ix")
               val payload = mutableMapOf<String, Any?>("requestId" to id, "type" to type, "step" to step, "generationId" to generationId)
               val now = SystemClock.elapsedRealtime()
-              if (pending.previewEnabled && now - lastPreviewAt >= 350) {
+              if (now - lastPreviewAt >= 350) {
                 lastPreviewAt = now
-                previewDir.mkdirs()
-                val file = File(previewDir, "${sequence++}.jpg")
-                file.writeBytes(Base64.decode(image, Base64.DEFAULT))
-                payload["imageUri"] = Uri.fromFile(file).toString()
+                val frame = Base64.decode(image, Base64.DEFAULT)
+                PipImageHub.latestFrame = frame
+                // PiP로 보는 중에는 메인 캔버스가 프리뷰를 그리지 않으므로 JS용 파일 쓰기를 생략한다.
+                if (PipImageHub.active) PipImageHub.pushFrame(frame)
+                else if (pending.previewEnabled) {
+                  previewDir.mkdirs()
+                  val file = File(previewDir, "${sequence++}.jpg")
+                  file.writeBytes(frame)
+                  payload["imageUri"] = Uri.fromFile(file).toString()
+                }
               }
               sendEvent("image", payload)
             } else if (type == "final" && image.isNotEmpty()) {
@@ -161,6 +230,8 @@ class GenerationImagePipelineModule : Module() {
       pending.beginSaving()
       original.parentFile?.mkdirs()
       original.writeBytes(bytes)
+      PipImageHub.latestFrame = bytes
+      PipImageHub.pushFrame(bytes)
       sendEvent("image", mapOf("requestId" to id, "type" to "final", "imageUri" to originalUri, "step" to null, "generationId" to finalGenerationId))
       val metadata = pngMetadata(bytes)
       val hasThumbnail = withContext(Dispatchers.Default) { createThumbnail(original, thumbnail) }

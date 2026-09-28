@@ -30,6 +30,7 @@ import {
   iterateGenerationImageBatches,
   resolveGenerationImageUri,
 } from "../../lib/generationHistory";
+import { withAutoPipSuppressed } from "../../../modules/generation-image-pipeline";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
@@ -378,9 +379,9 @@ export function useHistorySheetController({
     let savedCount = 0;
     try {
       setSaving(true);
-      const permission = await MediaLibrary.requestPermissionsAsync(true, [
-        "photo",
-      ]);
+      const permission = await withAutoPipSuppressed(() =>
+        MediaLibrary.requestPermissionsAsync(true, ["photo"]),
+      );
       if (!permission.granted) {
         Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
         return;

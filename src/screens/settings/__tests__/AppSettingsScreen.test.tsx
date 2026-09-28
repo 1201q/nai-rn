@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Platform } from "react-native";
 
 import {
   type AnlasRefreshResult,
@@ -13,17 +14,21 @@ type MockSettingsState = {
   storedToken: string | null;
   saveToken: jest.Mock<Promise<void>, [string]>;
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
+  autoPipEnabled: boolean;
+  setAutoPipEnabled: (value: boolean) => void;
 };
 
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
 
   return {
-    useGenerationStore: create<MockSettingsState>(() => ({
+    useGenerationStore: create<MockSettingsState>((set) => ({
       batchCount: 1,
       storedToken: null,
       saveToken: jest.fn(),
       refreshAnlas: jest.fn(),
+      autoPipEnabled: true,
+      setAutoPipEnabled: (value) => set({ autoPipEnabled: value }),
     })),
   };
 });
@@ -66,6 +71,29 @@ jest.mock("../../../components/common/Buttons", () => {
         { accessibilityLabel: label, onPress },
         React.createElement(Text, null, label),
       ),
+  };
+});
+
+jest.mock("../../../components/forms/FormControls", () => {
+  const React = require("react") as typeof import("react");
+  const { Pressable } = require("react-native") as typeof import("react-native");
+
+  return {
+    Toggle: ({
+      label,
+      value,
+      onChange,
+    }: {
+      label: string;
+      value: boolean;
+      onChange: (value: boolean) => void;
+    }) =>
+      React.createElement(Pressable, {
+        accessibilityRole: "switch",
+        accessibilityLabel: label,
+        accessibilityState: { checked: value },
+        onPress: () => onChange(!value),
+      }),
   };
 });
 
@@ -140,6 +168,35 @@ describe("AppSettingsScreen token verification feedback", () => {
         "토큰은 저장했지만 현재 유효성을 확인하지 못했습니다.",
       ),
     ).toBeTruthy();
+    await screen.unmount();
+  });
+});
+
+describe("AppSettingsScreen auto PiP", () => {
+  const originalOS = Platform.OS;
+  beforeEach(() => {
+    useGenerationStore.setState(initialState, true);
+  });
+  afterEach(() => { Platform.OS = originalOS; });
+
+  test("toggles auto PiP in the store on Android", async () => {
+    Platform.OS = "android";
+    const screen = await render(<AppSettingsScreen />);
+    const toggle = screen.getByRole("switch", { name: "생성 중 나가면 PiP" });
+    expect(toggle.props.accessibilityState).toMatchObject({ checked: true });
+
+    await fireEvent.press(toggle);
+
+    expect(useGenerationStore.getState().autoPipEnabled).toBe(false);
+    expect(screen.getByRole("switch", { name: "생성 중 나가면 PiP" }).props.accessibilityState)
+      .toMatchObject({ checked: false });
+    await screen.unmount();
+  });
+
+  test("hides the auto PiP row outside Android", async () => {
+    Platform.OS = "ios";
+    const screen = await render(<AppSettingsScreen />);
+    expect(screen.queryByRole("switch", { name: "생성 중 나가면 PiP" })).toBeNull();
     await screen.unmount();
   });
 });
