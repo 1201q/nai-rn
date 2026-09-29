@@ -2,11 +2,8 @@ import { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
-import {
-  MODELS,
-  NOISE_SCHEDULES,
-  SAMPLERS,
-} from "../../../../constants/generation";
+import { NOISE_SCHEDULES, SAMPLERS } from "../../../../constants/generation";
+import { MODELS } from "../../../../constants/models";
 import type { GenerationRecord } from "../../../../lib/generationHistory";
 import { parseNaiMetadataJson } from "../../../../lib/naiMetadata";
 import { getUcPresetLabel } from "../../../../lib/naiPresets";

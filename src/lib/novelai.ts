@@ -1,4 +1,5 @@
 import type { NoiseSchedule } from "../constants/generation";
+import { getModelCapabilities } from "../constants/models";
 import { prepareImagePromptCaptions } from "./imagePromptCaptions";
 import { type UcPresetIndex } from "./naiPresets";
 
@@ -285,10 +286,6 @@ export function extractPngTextMetadata(
   return metadata;
 }
 
-function isV4Model(model: string): boolean {
-  return model.startsWith("nai-diffusion-4");
-}
-
 // 공식 웹과 동일: 스케줄을 쓰지 않는 샘플러는 noise_schedule을 보내지 않고,
 // V4 이상은 native를 지원하지 않아 샘플러 기본 스케줄로 대체한다.
 const SAMPLERS_WITHOUT_NOISE_SCHEDULE = new Set([
@@ -306,7 +303,10 @@ export function resolveNoiseSchedule(
   noiseSchedule: NoiseSchedule,
 ): NoiseSchedule | undefined {
   if (SAMPLERS_WITHOUT_NOISE_SCHEDULE.has(sampler)) return undefined;
-  if (isV4Model(model) && noiseSchedule === "native") {
+  if (
+    !getModelCapabilities(model).nativeNoiseSchedule &&
+    noiseSchedule === "native"
+  ) {
     return sampler === "k_dpmpp_2m" || sampler === "k_dpm_2"
       ? "exponential"
       : "karras";
@@ -326,20 +326,20 @@ export function shouldUseAutoSmea(
   isI2I: boolean,
 ): boolean {
   return (
-    !isV4Model(model) &&
+    getModelCapabilities(model).autoSmea &&
     !isI2I &&
     width * height >= V3_AUTO_SMEA_MIN_PIXELS &&
     !SAMPLERS_WITHOUT_SMEA.has(sampler)
   );
 }
 
-// 공식 웹과 동일: 모델별 기준 sigma(V4.5 58, 그 외 19)를 832x1216 latent 대비 크기로 보정한다.
+// 공식 웹과 동일: 모델별 기준 sigma를 832x1216 latent 대비 크기로 보정한다.
 export function getVarietyPlusSigma(
   model: string,
   width: number,
   height: number,
 ): number {
-  const baseSigma = model.startsWith("nai-diffusion-4-5") ? 58 : 19;
+  const baseSigma = getModelCapabilities(model).varietyPlusBaseSigma;
   const latentArea = Math.floor(width / 8) * Math.floor(height / 8);
   return baseSigma * Math.sqrt(latentArea / (104 * 152));
 }
@@ -478,7 +478,7 @@ export function createImageGenerationBody({
   });
   const mergedPrompt = captions.positiveBaseCaption;
   const mergedNegativePrompt = captions.negativeBaseCaption;
-  const shouldUseV4Prompt = isV4Model(model);
+  const shouldUseV4Prompt = getModelCapabilities(model).v4Prompt;
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
   const hasPreciseReferences = preciseReferenceImages.length > 0;

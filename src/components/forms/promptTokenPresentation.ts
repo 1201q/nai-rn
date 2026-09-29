@@ -1,4 +1,4 @@
-import type { ImagePromptTokenizerType } from "../../constants/generation";
+import type { ImagePromptTokenizerType } from "../../constants/models";
 import type {
   PromptTokenMetrics,
   PromptTokenTarget,

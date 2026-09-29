@@ -1,3 +1,4 @@
+import { getModelCapabilities } from "../constants/models";
 import type { CharacterPrompt } from "../store/generationStore";
 import type { GenerateNovelAiCharacterPrompt } from "./novelai";
 import {
@@ -43,7 +44,7 @@ export function prepareImagePromptCaptions({
   ucPreset: UcPresetIndex;
   characterPrompts: GenerateNovelAiCharacterPrompt[];
 }): PreparedImagePromptCaptions {
-  const supportsCharacterCaptions = model.startsWith("nai-diffusion-4");
+  const supportsCharacterCaptions = getModelCapabilities(model).v4Prompt;
   const positiveBaseCaption = mergeQualityTags(prompt, qualityToggle, model);
 
   return {

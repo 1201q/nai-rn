@@ -29,6 +29,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { getModelCapabilities } from "../../constants/models";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import {
   MAX_PRECISE_REFERENCES,
@@ -103,9 +104,7 @@ function useReferenceUpload(kind: ReferenceKind) {
     const state = useGenerationStore.getState();
     if (
       kind === "precise" &&
-      !["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(
-        state.model,
-      )
+      !getModelCapabilities(state.model).preciseReference
     ) {
       state.setMessage("Precise Reference는 V4.5 모델에서 사용할 수 있습니다.");
       return;
@@ -159,9 +158,7 @@ function useReferenceUpload(kind: ReferenceKind) {
       else if (
         kind === "precise" &&
         current.preciseReferences.length < MAX_PRECISE_REFERENCES &&
-        ["nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"].includes(
-          current.model,
-        )
+        getModelCapabilities(current.model).preciseReference
       )
         await current.addPreciseReference(input);
     } catch {

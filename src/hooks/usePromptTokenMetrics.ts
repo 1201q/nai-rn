@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { getImagePromptTokenPolicy } from "../constants/generation";
+import { getImagePromptTokenPolicy } from "../constants/models";
 import {
   calculatePromptTokenMetrics,
   type PromptTokenMetrics,

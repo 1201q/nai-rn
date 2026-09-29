@@ -1,3 +1,5 @@
+import { getModelCapabilities } from "../constants/models";
+
 // NovelAI 웹 클라이언트 번들(2026-09-24)에서 추출한 비용 산식 기반 예상치 (V4.5 이하).
 // 근거: docs/2026-09-24-novelai-anlas-cost-policy.md §2, §3.3, §4.2
 
@@ -47,8 +49,8 @@ export function estimateAnlasCost(input: AnlasCostInput): number {
     px <= OPUS_FREE_MAX_PIXELS &&
     input.steps <= OPUS_FREE_MAX_STEPS;
 
-  const isV4Plus = input.model.startsWith("nai-diffusion-4");
-  const vibeExtra = isV4Plus
+  const supportsVibe = getModelCapabilities(input.model).vibeTransfer;
+  const vibeExtra = supportsVibe
     ? Math.max(0, input.activeVibeCount - VIBE_FREE_COUNT) * VIBE_EXTRA_COST
     : 0;
   const perRequest =
@@ -57,6 +59,8 @@ export function estimateAnlasCost(input: AnlasCostInput): number {
     input.activePreciseReferenceCount * PRECISE_REFERENCE_COST;
 
   // Vibe 인코딩은 첫 요청에서만 발생하고 이후는 캐시를 쓴다.
-  const oneTime = isV4Plus ? input.unencodedVibeCount * VIBE_ENCODE_COST : 0;
+  const oneTime = supportsVibe
+    ? input.unencodedVibeCount * VIBE_ENCODE_COST
+    : 0;
   return perRequest * input.batchCount + oneTime;
 }

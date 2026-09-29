@@ -1,3 +1,5 @@
+import { getModelCapabilities } from "../constants/models";
+
 // 공식 웹 클라이언트(2026-09-24 번들)의 모델별 품질 태그 / UC 프리셋과 결합 규칙을 옮겼다.
 export type UcPresetIndex = 0 | 1 | 2 | 3 | 4;
 export type SelectableUcPresetIndex = 0 | 1 | 3 | 4;
@@ -53,12 +55,6 @@ const UC_PRESETS: Record<string, Partial<Record<UcPresetIndex, string>>> = {
   },
 };
 
-// Curated 계열은 UC에 nsfw를 자동으로 붙이지 않는다.
-const CURATED_MODELS = new Set([
-  "nai-diffusion-4-5-curated",
-  "nai-diffusion-4-curated-preview",
-]);
-
 // V4+ 프롬프트의 "Text:" 블록 경계 (웹 클라이언트 정규식 그대로).
 const TEXT_BLOCK_PATTERN = /(?:^|\s|[,.:[\]{}、。])text:(?!:)/i;
 
@@ -82,10 +78,6 @@ export function getUcPresetLabel(value: UcPresetIndex): string {
   return (
     UC_PRESET_OPTIONS.find((option) => option.value === value)?.label ?? "None"
   );
-}
-
-function isV4PlusModel(model: string) {
-  return model.startsWith("nai-diffusion-4");
 }
 
 function getQualitySuffix(model: string) {
@@ -131,7 +123,7 @@ export function mergeQualityTags(
   if (!qualityToggle) return prompt;
   const suffix = getQualitySuffix(model);
 
-  if (isV4PlusModel(model)) {
+  if (getModelCapabilities(model).v4Prompt) {
     // 첫 세그먼트의 "Text:" 블록 앞부분에만 붙인다.
     const { head, tail } = splitFirstSegment(prompt);
     const parts = head.split(TEXT_BLOCK_PATTERN);
@@ -161,12 +153,12 @@ export function mergeUcPreset(
   const isNone = ucPreset === 4 || presets[ucPreset] === undefined;
   const prefix = (isNone ? presets[4] : presets[ucPreset]) ?? "";
   const addNsfw =
-    !CURATED_MODELS.has(model) &&
+    !getModelCapabilities(model).curated &&
     !isNone &&
     prefix !== "" &&
     !positivePrompt.toLowerCase().includes("nsfw");
 
-  if (isV4PlusModel(model)) {
+  if (getModelCapabilities(model).v4Prompt) {
     const { head, tail } = splitFirstSegment(negativePrompt);
     const merged =
       prefix === ""

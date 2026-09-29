@@ -1,29 +1,6 @@
 export type NoiseSchedule =
   "native" | "karras" | "exponential" | "polyexponential";
 
-export type ImagePromptTokenizerType = "t5" | "clip";
-
-export type ImagePromptTokenPolicy = {
-  tokenizer: ImagePromptTokenizerType;
-  maxTokens: number;
-};
-
-export const IMAGE_PROMPT_TOKEN_POLICIES: Readonly<
-  Record<string, ImagePromptTokenPolicy>
-> = {
-  "nai-diffusion-4-5-full": { tokenizer: "t5", maxTokens: 512 },
-  "nai-diffusion-4-5-curated": { tokenizer: "t5", maxTokens: 512 },
-  "nai-diffusion-4-curated-preview": { tokenizer: "t5", maxTokens: 512 },
-  "nai-diffusion-3": { tokenizer: "clip", maxTokens: 225 },
-  "nai-diffusion-furry-3": { tokenizer: "clip", maxTokens: 225 },
-};
-
-export function getImagePromptTokenPolicy(
-  model: string,
-): ImagePromptTokenPolicy | undefined {
-  return IMAGE_PROMPT_TOKEN_POLICIES[model];
-}
-
 export type NaiResolution = {
   label: string;
   width: number;
@@ -70,34 +47,6 @@ export const MAX_GENERATION_PIXELS = 3_145_728;
 
 export const DEFAULT_NAI_RESOLUTION: NaiResolution =
   NAI_RESOLUTIONS[1].options[0];
-
-export const MODELS = [
-  {
-    label: "V4.5 Full",
-    value: "nai-diffusion-4-5-full",
-    description: "최신 V4.5 모델, 배경 표현이 좋고 자유도 높음",
-  },
-  {
-    label: "V4.5 Curated",
-    value: "nai-diffusion-4-5-curated",
-    description: "정제된 데이터로 학습해 안전하고 일관된 기본 모델",
-  },
-  {
-    label: "V4 Curated (Legacy)",
-    value: "nai-diffusion-4-curated-preview",
-    description: "이전 세대 V4 모델, 정제된 데이터라 안전하지만 제한적",
-  },
-  {
-    label: "Anime V3 (Legacy)",
-    value: "nai-diffusion-3",
-    description: "SDXL 기반 이전 세대 모델, 태그 순서 영향을 많이 받음",
-  },
-  {
-    label: "Furry V3 (Legacy)",
-    value: "nai-diffusion-furry-3",
-    description: "퍼리 특화 데이터로 학습한 이전 세대 모델, 전용 태그 사용",
-  },
-];
 
 export const SAMPLERS = [
   {

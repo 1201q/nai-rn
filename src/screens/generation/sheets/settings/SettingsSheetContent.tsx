@@ -11,12 +11,12 @@ import { SheetSelect } from "../../../../components/forms/SheetSelect";
 import { BottomSheetKeyboardAwareScrollView } from "../../../../components/generation/BottomSheetKeyboardAwareScrollView";
 import { useGenerationInputCommitRegistration } from "../../../../context/GenerationInputCommitContext";
 import {
-  MODELS,
   NAI_RESOLUTIONS,
   NOISE_SCHEDULES,
   SAMPLERS,
   type NaiResolution,
 } from "../../../../constants/generation";
+import { getModelCapabilities, MODELS } from "../../../../constants/models";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { resolveNoiseSchedule } from "../../../../lib/novelai";
 import { useGenerationStore } from "../../../../store/generationStore";
@@ -619,9 +619,9 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
               label="Schedule"
               value={scheduleLabel}
               options={
-                model.startsWith("nai-diffusion-4")
-                  ? V4_SCHEDULE_OPTIONS
-                  : SCHEDULE_OPTIONS
+                getModelCapabilities(model).nativeNoiseSchedule
+                  ? SCHEDULE_OPTIONS
+                  : V4_SCHEDULE_OPTIONS
               }
               onChange={changeSchedule}
               open={openSelect === "schedule"}

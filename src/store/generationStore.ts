@@ -91,6 +91,7 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
+import { getModelCapabilities } from "../constants/models";
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
@@ -150,16 +151,6 @@ function resolveStoredI2ISourceImage(value: unknown): I2ISourceImage | null {
     width: image.width,
     height: image.height,
   });
-}
-
-function isVibeSupportedModel(model: string): boolean {
-  return model.startsWith("nai-diffusion-4");
-}
-
-function isPreciseReferenceSupportedModel(model: string): boolean {
-  return (
-    model === "nai-diffusion-4-5-full" || model === "nai-diffusion-4-5-curated"
-  );
 }
 
 function replaceVibeInList(
@@ -824,7 +815,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return;
     }
 
-    if (enabled && !isPreciseReferenceSupportedModel(get().model)) {
+    if (enabled && !getModelCapabilities(get().model).preciseReference) {
       set({
         message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
       });
@@ -1264,7 +1255,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     if (activeVibes.length > 0) {
-      if (!isVibeSupportedModel(s.model)) {
+      if (!getModelCapabilities(s.model).vibeTransfer) {
         set({
           message: "Vibe Transfer는 V4 이상 모델에서 사용할 수 있습니다.",
         });
@@ -1374,7 +1365,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     if (activePreciseReferences.length > 0) {
-      if (!isPreciseReferenceSupportedModel(s.model)) {
+      if (!getModelCapabilities(s.model).preciseReference) {
         set({
           message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
         });

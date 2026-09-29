@@ -2,7 +2,7 @@ import { Asset } from "expo-asset";
 import { File } from "expo-file-system";
 import { inflateSync, strFromU8 } from "fflate";
 
-import type { ImagePromptTokenizerType } from "../../constants/generation";
+import type { ImagePromptTokenizerType } from "../../constants/models";
 import {
   NovelAiClipTokenizer,
   NovelAiT5Tokenizer,

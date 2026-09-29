@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
-import { getImagePromptTokenPolicy } from "../../constants/generation";
+import { getImagePromptTokenPolicy } from "../../constants/models";
 import { usePromptTokenMetrics } from "../../hooks/usePromptTokenMetrics";
 import type { PromptTokenTarget } from "../../lib/promptTokens/metrics";
 import { useGenerationStore } from "../../store/generationStore";
