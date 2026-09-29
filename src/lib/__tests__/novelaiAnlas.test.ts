@@ -8,6 +8,28 @@ describe("getNovelAiAnlasBalance", () => {
     jest.restoreAllMocks();
   });
 
+  test("reads balance, tier and expiry from the subscription response", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tier: 3,
+        expiresAt: 1_800_000_000,
+        trainingStepsLeft: {
+          fixedTrainingStepsLeft: 10,
+          purchasedTrainingSteps: 5,
+        },
+      }),
+    } as Response);
+
+    await expect(getNovelAiAnlasBalance("token")).resolves.toEqual({
+      fixed: 10,
+      purchased: 5,
+      total: 15,
+      tier: 3,
+      expiresAt: 1_800_000_000,
+    });
+  });
+
   test.each([401, 403])(
     "preserves HTTP %s as an authentication error",
     async (status) => {

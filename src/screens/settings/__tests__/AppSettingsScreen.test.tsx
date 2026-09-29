@@ -118,7 +118,7 @@ describe("AppSettingsScreen token verification feedback", () => {
   test("shows verified feedback after a successful balance refresh", async () => {
     const screen = await saveTokenWithResult({
       status: "success",
-      balance: { fixed: 20, purchased: 7, total: 27 },
+      balance: { fixed: 20, purchased: 7, total: 27, tier: 1, expiresAt: 0 },
     });
 
     expect(screen.getByText("API 토큰을 저장하고 확인했습니다.")).toBeTruthy();

@@ -35,6 +35,7 @@ import {
   type PredictiveBackEvent,
 } from "../../native/predictiveBack";
 import {
+  selectAnlasCost,
   selectOverallPercent,
   useGenerationStore,
 } from "../../store/generationStore";
@@ -65,6 +66,10 @@ function GenerateAction({
   const queueTotal = useGenerationStore((s) => s.queueTotal);
   const queueIndex = useGenerationStore((s) => s.queueIndex);
   const percent = useGenerationStore(selectOverallPercent);
+  const anlasCost = useGenerationStore(selectAnlasCost);
+  const anlasBalanceTotal = useGenerationStore(
+    (s) => s.anlasBalance?.total ?? null,
+  );
   const generateImage = useGenerationStore((s) => s.generateImage);
   const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
   const progress = useSharedValue(0);
@@ -94,11 +99,18 @@ function GenerateAction({
     : batchCount > 1
       ? `${batchCount}장 생성`
       : "생성";
+  // 무료이거나 구독 정보를 모르면 표시하지 않는다.
+  const showCost = !isLoading && anlasCost !== null && anlasCost > 0;
+  const insufficient =
+    showCost && anlasBalanceTotal !== null && anlasBalanceTotal < anlasCost;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={
+        showCost ? `예상 ${anlasCost} Anlas 소모` : undefined
+      }
       onPress={() => {
         if (isLoading) {
           requestQueueCancel();
@@ -127,6 +139,26 @@ function GenerateAction({
         />
         <Text style={styles.generateButtonLabel}>{label}</Text>
       </View>
+      {showCost ? (
+        <View
+          testID="generation-anlas-cost"
+          style={[styles.costBadge, insufficient && styles.costBadgeInsufficient]}
+        >
+          <Ionicons
+            name="diamond-outline"
+            size={11}
+            color={insufficient ? tokens.color.negative : tokens.color.onAccent}
+          />
+          <Text
+            style={[
+              styles.costBadgeText,
+              insufficient && styles.costBadgeTextInsufficient,
+            ]}
+          >
+            {anlasCost.toLocaleString()}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -487,6 +519,29 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.bold,
     fontSize: 16,
     letterSpacing: -0.2,
+  },
+  costBadge: {
+    position: "absolute",
+    right: 10,
+    zIndex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(23,19,10,0.14)",
+  },
+  costBadgeInsufficient: {
+    backgroundColor: tokens.color.onAccent,
+  },
+  costBadgeText: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.bold,
+    fontSize: 12,
+  },
+  costBadgeTextInsufficient: {
+    color: tokens.color.negative,
   },
   actionPressed: {
     opacity: 0.65,

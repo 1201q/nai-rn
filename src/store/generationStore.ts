@@ -31,7 +31,9 @@ import {
   encodeNovelAiVibe,
   getNovelAiAnlasBalance,
   NovelAiRequestError,
+  shouldUseAutoSmea,
 } from "../lib/novelai";
+import { estimateAnlasCost } from "../lib/anlasCost";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
@@ -1658,6 +1660,40 @@ export const selectOverallPercent = (s: GenerationState) => {
   if (s.queueTotal === 0 || s.queueSteps === 0) return 0;
   const done = (s.queueIndex - 1) * s.queueSteps + (s.streamingStep ?? 0);
   return Math.min(1, Math.max(0, done / (s.queueTotal * s.queueSteps)));
+};
+
+// 이번 생성의 예상 Anlas 소모량. 구독 정보(잔액·tier)를 아직 모르면 null.
+export const selectAnlasCost = (s: GenerationState): number | null => {
+  if (!s.anlasBalance) return null;
+  const activeVibes = s.vibeReferences
+    .filter((item) => item.enabled)
+    .slice(0, MAX_VIBE_REFERENCES);
+  const isI2I = s.i2iEnabled && s.i2iSourceImage !== null;
+  return estimateAnlasCost({
+    model: s.model,
+    width: s.resolution.width,
+    height: s.resolution.height,
+    steps: s.steps,
+    strength: isI2I ? s.i2iStrength : 1,
+    smea: shouldUseAutoSmea(
+      s.model,
+      s.resolution.width,
+      s.resolution.height,
+      s.sampler,
+      isI2I,
+    ),
+    batchCount: Math.min(100, Math.max(1, s.batchCount)),
+    tier: s.anlasBalance.tier,
+    expiresAt: s.anlasBalance.expiresAt,
+    nowSeconds: Date.now() / 1000,
+    activeVibeCount: activeVibes.length,
+    unencodedVibeCount: activeVibes.filter(
+      (item) => !canUseCachedVibeEncoding(item, s.model),
+    ).length,
+    activePreciseReferenceCount: s.preciseReferences
+      .filter((item) => item.enabled)
+      .slice(0, MAX_PRECISE_REFERENCES).length,
+  });
 };
 
 // 초기 로드(옵션/토큰/히스토리) + persist 구독. Provider에서 1회 호출.

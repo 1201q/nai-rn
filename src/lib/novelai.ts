@@ -66,6 +66,10 @@ export type NovelAiAnlasBalance = {
   fixed: number;
   purchased: number;
   total: number;
+  // 0 paper, 1 tablet, 2 scroll, 3 opus
+  tier: number;
+  // 구독 만료 시각 (Unix 초)
+  expiresAt: number;
 };
 
 type NovelAiPreciseReferenceType =
@@ -93,6 +97,8 @@ export async function getNovelAiAnlasBalance(
   }
 
   const data = (await response.json()) as {
+    tier?: number;
+    expiresAt?: number;
     trainingStepsLeft?: {
       fixedTrainingStepsLeft?: number;
       purchasedTrainingSteps?: number;
@@ -101,7 +107,13 @@ export async function getNovelAiAnlasBalance(
 
   const fixed = data.trainingStepsLeft?.fixedTrainingStepsLeft ?? 0;
   const purchased = data.trainingStepsLeft?.purchasedTrainingSteps ?? 0;
-  return { fixed, purchased, total: fixed + purchased };
+  return {
+    fixed,
+    purchased,
+    total: fixed + purchased,
+    tier: data.tier ?? 0,
+    expiresAt: data.expiresAt ?? 0,
+  };
 }
 export type GenerateNovelAiImageInput = {
   token: string;
@@ -308,6 +320,21 @@ export function resolveNoiseSchedule(
 const V3_AUTO_SMEA_MIN_PIXELS = 2_166_785;
 const SAMPLERS_WITHOUT_SMEA = new Set(["k_dpmpp_2s_ancestral", "k_dpmpp_sde"]);
 
+export function shouldUseAutoSmea(
+  model: string,
+  width: number,
+  height: number,
+  sampler: string,
+  isI2I: boolean,
+): boolean {
+  return (
+    !isV4Model(model) &&
+    !isI2I &&
+    width * height >= V3_AUTO_SMEA_MIN_PIXELS &&
+    !SAMPLERS_WITHOUT_SMEA.has(sampler)
+  );
+}
+
 // 공식 웹과 동일: 모델별 기준 sigma(V4.5 58, 그 외 19)를 832x1216 latent 대비 크기로 보정한다.
 export function getVarietyPlusSigma(
   model: string,
@@ -494,11 +521,7 @@ export function createImageGenerationBody({
     sampler,
     noiseSchedule,
   );
-  const autoSmea =
-    !shouldUseV4Prompt &&
-    !isI2I &&
-    width * height >= V3_AUTO_SMEA_MIN_PIXELS &&
-    !SAMPLERS_WITHOUT_SMEA.has(sampler);
+  const autoSmea = shouldUseAutoSmea(model, width, height, sampler, isI2I);
   const parameters = {
     width,
     height,

@@ -200,7 +200,7 @@ describe("ANLAS balance refresh", () => {
 
   test("clears the previous balance when replacing the token", async () => {
     useGenerationStore.setState({
-      anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+      anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
     });
 
     await useGenerationStore.getState().saveToken("new-token");
@@ -213,7 +213,7 @@ describe("ANLAS balance refresh", () => {
   });
 
   test("returns the verified balance after a successful refresh", async () => {
-    const balance = { fixed: 20, purchased: 7, total: 27 };
+    const balance = { fixed: 20, purchased: 7, total: 27, tier: 1, expiresAt: 0 };
     mockGetNovelAiAnlasBalance.mockResolvedValue(balance);
 
     const result = await useGenerationStore.getState().refreshAnlas();
@@ -226,7 +226,7 @@ describe("ANLAS balance refresh", () => {
     "reports HTTP %s as an invalid token and clears the balance",
     async (status) => {
       useGenerationStore.setState({
-        anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+        anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
       });
       mockGetNovelAiAnlasBalance.mockRejectedValue(
         new NovelAiRequestError(status, "invalid token"),
@@ -241,7 +241,7 @@ describe("ANLAS balance refresh", () => {
 
   test("reports a network failure without restoring a replaced token balance", async () => {
     useGenerationStore.setState({
-      anlasBalance: { fixed: 10, purchased: 5, total: 15 },
+      anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
     });
     await useGenerationStore.getState().saveToken("new-token");
     mockGetNovelAiAnlasBalance.mockRejectedValue(new Error("Network failed"));
@@ -259,7 +259,7 @@ describe("ANLAS balance refresh", () => {
 
     const pendingRefresh = useGenerationStore.getState().refreshAnlas();
     await useGenerationStore.getState().saveToken("new-token");
-    refresh.resolve({ fixed: 10, purchased: 5, total: 15 });
+    refresh.resolve({ fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 });
 
     await expect(pendingRefresh).resolves.toEqual({
       status: "skipped",

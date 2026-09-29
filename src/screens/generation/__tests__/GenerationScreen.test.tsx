@@ -7,6 +7,7 @@ import {
   useGenerationStore,
 } from "../../../store/generationStore";
 import { GenerationScreen } from "../GenerationScreen";
+import type { NovelAiAnlasBalance } from "../../../lib/novelai";
 import type { PredictiveBackHandlers } from "../../../native/predictiveBack";
 import type { SharedValue } from "react-native-reanimated";
 
@@ -15,7 +16,8 @@ const mockBackHandlers = jest.fn<void, [boolean, PredictiveBackHandlers]>();
 const mockUtilityProgress = jest.fn<void, [SharedValue<number>]>();
 
 type MockGenerationState = {
-  anlasBalance: null;
+  anlasBalance: NovelAiAnlasBalance | null;
+  anlasCost: number | null;
   prompt: string;
   currentGeneration: null;
   isLoading: boolean;
@@ -31,8 +33,10 @@ jest.mock("../../../store/generationStore", () => {
 
   return {
     selectOverallPercent: () => 0,
+    selectAnlasCost: (s: MockGenerationState) => s.anlasCost,
     useGenerationStore: create<MockGenerationState>(() => ({
       anlasBalance: null,
+      anlasCost: null,
       prompt: "prompt",
       currentGeneration: null,
       isLoading: false,
@@ -432,5 +436,56 @@ describe("GenerationScreen generation acceptance", () => {
       );
     });
     await screen.unmount();
+  });
+});
+
+const setMockState = useGenerationStore.setState as (
+  partial: Partial<MockGenerationState>,
+) => void;
+
+function balance(total: number): NovelAiAnlasBalance {
+  return { fixed: total, purchased: 0, total, tier: 1, expiresAt: 0 };
+}
+
+describe("GenerationScreen Anlas cost badge", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("shows the expected cost when generation is paid", async () => {
+    setMockState({ anlasBalance: balance(100), anlasCost: 20 });
+    const screen = await render(<GenerationScreen />);
+    const badge = screen.getByTestId("generation-anlas-cost");
+    expect(badge).toHaveTextContent("20");
+    expect(badge).toHaveStyle({ backgroundColor: "rgba(23,19,10,0.14)" });
+  });
+
+  test("highlights the badge when the balance is insufficient", async () => {
+    setMockState({ anlasBalance: balance(10), anlasCost: 20 });
+    const screen = await render(<GenerationScreen />);
+    expect(screen.getByTestId("generation-anlas-cost")).toHaveStyle({
+      backgroundColor: "#17130A",
+    });
+  });
+
+  test.each([
+    ["free", balance(100), 0],
+    ["unknown subscription", null, null],
+  ])("hides the badge when %s", async (_case, anlasBalance, anlasCost) => {
+    setMockState({ anlasBalance, anlasCost });
+    const screen = await render(<GenerationScreen />);
+    expect(screen.queryByTestId("generation-anlas-cost")).toBeNull();
+  });
+
+  test("hides the badge while generating", async () => {
+    setMockState({
+      anlasBalance: balance(100),
+      anlasCost: 20,
+      isLoading: true,
+    });
+    const screen = await render(<GenerationScreen />);
+    expect(screen.queryByTestId("generation-anlas-cost")).toBeNull();
   });
 });
