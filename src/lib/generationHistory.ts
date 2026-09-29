@@ -1,4 +1,4 @@
-import { Directory, File, Paths } from "expo-file-system";
+import { File } from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as SQLite from "expo-sqlite";
 
@@ -10,6 +10,11 @@ import {
   type GenerationHistoryPage,
 } from "./generationHistoryPage";
 import { createInitializeOnce } from "./initializeOnce";
+import {
+  createManagedDirectory,
+  createStorageId,
+} from "./localData/managedFiles";
+import { createDatabaseOpener } from "./localData/sqlite";
 import { extractPngTextMetadata } from "./novelai";
 
 const DATABASE_NAME = "generation-history.db";
@@ -20,7 +25,8 @@ const THUMBNAIL_SIZE = 512;
 const DELETE_QUERY_BATCH_SIZE = 300;
 const IMAGE_QUERY_BATCH_SIZE = 300;
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const getDatabase = createDatabaseOpener(DATABASE_NAME);
+const imageFiles = createManagedDirectory(IMAGE_ROOT_DIR);
 
 export type GenerationRecord = {
   id: string;
@@ -83,40 +89,6 @@ type GenerationRow = {
   metadata_json: string;
 };
 
-function getDatabase() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
-      (error: unknown) => {
-        dbPromise = null;
-        throw error;
-      },
-    );
-  }
-  return dbPromise;
-}
-
-function createGenerationId() {
-  return `gen_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getImageRootDirectory() {
-  return new Directory(Paths.document, IMAGE_ROOT_DIR);
-}
-
-function getOriginalsDirectory() {
-  return new Directory(getImageRootDirectory(), ORIGINALS_DIR);
-}
-
-function getThumbnailsDirectory() {
-  return new Directory(getImageRootDirectory(), THUMBNAILS_DIR);
-}
-
-function ensureImageDirectories() {
-  getImageRootDirectory().create({ idempotent: true, intermediates: true });
-  getOriginalsDirectory().create({ idempotent: true, intermediates: true });
-  getThumbnailsDirectory().create({ idempotent: true, intermediates: true });
-}
-
 function rowToRecord(row: GenerationRow): GenerationRecord {
   return {
     id: row.id,
@@ -138,27 +110,8 @@ function rowToRecord(row: GenerationRow): GenerationRecord {
   };
 }
 
-function fileFromStoredPath(path: string) {
-  const [directoryName, fileName] = path.split("/");
-  return new File(
-    new Directory(getImageRootDirectory(), directoryName),
-    fileName,
-  );
-}
-
-function deleteStoredFile(path: string | null) {
-  if (!path) return;
-
-  try {
-    const file = fileFromStoredPath(path);
-    if (file.exists) file.delete();
-  } catch {
-    // DB state is the source of truth; missing file cleanup can be ignored.
-  }
-}
-
 async function initializeGenerationHistoryStorage() {
-  ensureImageDirectories();
+  imageFiles.ensure(ORIGINALS_DIR, THUMBNAILS_DIR);
   const db = await getDatabase();
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS generations (
@@ -268,8 +221,8 @@ export async function deleteGenerations(ids: string[]) {
 
   // File deletion cannot be rolled back; start it only after the DB commits.
   for (const row of rows) {
-    deleteStoredFile(row.image_path);
-    deleteStoredFile(row.thumbnail_path);
+    imageFiles.remove(row.image_path);
+    imageFiles.remove(row.thumbnail_path);
   }
 }
 
@@ -332,7 +285,9 @@ async function saveGenerationRecord({
         format: ImageManipulator.SaveFormat.JPEG,
       },
     );
-    const thumbnailFile = new File(getThumbnailsDirectory(), thumbnailFileName);
+    const thumbnailFile = imageFiles.file(
+      `${THUMBNAILS_DIR}/${thumbnailFileName}`,
+    );
     const temporaryThumbnailFile = new File(thumbnail.uri);
     await temporaryThumbnailFile.copy(thumbnailFile);
     try {
@@ -341,7 +296,7 @@ async function saveGenerationRecord({
       // The thumbnail has already been copied into app storage.
     }
   } catch {
-    deleteStoredFile(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
+    imageFiles.remove(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
     thumbnailPath = null;
   }
 
@@ -413,13 +368,13 @@ async function insertGenerationRecord(record: GenerationRecord) {
 
 export async function prepareNativeGenerationFiles() {
   await initGenerationHistoryStorage();
-  const id = createGenerationId();
+  const id = createStorageId("gen");
   return {
     id,
     imagePath: `${ORIGINALS_DIR}/${id}.png`,
     thumbnailPath: `${THUMBNAILS_DIR}/${id}.jpg`,
-    originalUri: new File(getOriginalsDirectory(), `${id}.png`).uri,
-    thumbnailUri: new File(getThumbnailsDirectory(), `${id}.jpg`).uri,
+    originalUri: imageFiles.file(`${ORIGINALS_DIR}/${id}.png`).uri,
+    thumbnailUri: imageFiles.file(`${THUMBNAILS_DIR}/${id}.jpg`).uri,
   };
 }
 
@@ -427,8 +382,8 @@ export function discardNativeGenerationFiles(files: {
   imagePath: string;
   thumbnailPath: string;
 }) {
-  deleteStoredFile(files.imagePath);
-  deleteStoredFile(files.thumbnailPath);
+  imageFiles.remove(files.imagePath);
+  imageFiles.remove(files.thumbnailPath);
 }
 
 export async function savePreparedGeneration(
@@ -458,11 +413,11 @@ export async function saveGenerationImageBase64({
 }: SaveGenerationBase64Input): Promise<GenerationRecord> {
   await initGenerationHistoryStorage();
 
-  const id = createGenerationId();
+  const id = createStorageId("gen");
   const createdAt = Date.now();
   const imagePath = `${ORIGINALS_DIR}/${id}.png`;
   const thumbnailFileName = `${id}.jpg`;
-  const originalFile = new File(getOriginalsDirectory(), `${id}.png`);
+  const originalFile = imageFiles.file(`${ORIGINALS_DIR}/${id}.png`);
 
   try {
     originalFile.create({ overwrite: true });
@@ -479,8 +434,8 @@ export async function saveGenerationImageBase64({
       metadata: extractPngTextMetadata(imageBytes),
     });
   } catch (error: unknown) {
-    deleteStoredFile(imagePath);
-    deleteStoredFile(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
+    imageFiles.remove(imagePath);
+    imageFiles.remove(`${THUMBNAILS_DIR}/${thumbnailFileName}`);
     throw error;
   }
 }
@@ -488,5 +443,5 @@ export async function saveGenerationImageBase64({
 export function resolveGenerationImageUri(
   record: Pick<GenerationRecord, "imagePath">,
 ) {
-  return fileFromStoredPath(record.imagePath).uri;
+  return imageFiles.file(record.imagePath).uri;
 }

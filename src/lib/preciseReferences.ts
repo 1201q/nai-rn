@@ -1,9 +1,17 @@
-import { Directory, File, Paths } from "expo-file-system";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as SQLite from "expo-sqlite";
+import { File } from "expo-file-system";
 import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
 
 import { createInitializeOnce } from "./initializeOnce";
+import {
+  copyImageToFile,
+  createJpegThumbnail,
+  getImageExtension,
+} from "./localData/imageFiles";
+import {
+  createManagedDirectory,
+  createStorageId,
+} from "./localData/managedFiles";
+import { createDatabaseOpener } from "./localData/sqlite";
 import { createKeyedMutationQueue } from "./referenceMutation";
 
 const DATABASE_NAME = "precise-references.db";
@@ -20,7 +28,8 @@ const DEFAULT_PRECISE_REFERENCE_STRENGTH = 0.6;
 const DEFAULT_PRECISE_REFERENCE_FIDELITY = 0.6;
 const DEFAULT_PRECISE_REFERENCE_TYPE = "character&style";
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const getDatabase = createDatabaseOpener(DATABASE_NAME);
+const referenceFiles = createManagedDirectory(REFERENCE_ROOT_DIR);
 const settingsMutationQueue = createKeyedMutationQueue();
 
 export type PreciseReferenceType = "character" | "style" | "character&style";
@@ -110,50 +119,6 @@ function getContainRect(
   };
 }
 
-function getDatabase() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
-      (error: unknown) => {
-        dbPromise = null;
-        throw error;
-      },
-    );
-  }
-  return dbPromise;
-}
-
-function createPreciseReferenceId() {
-  return `precise_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getReferenceRootDirectory() {
-  return new Directory(Paths.document, REFERENCE_ROOT_DIR);
-}
-
-function getPreciseDirectory() {
-  return new Directory(getReferenceRootDirectory(), PRECISE_DIR);
-}
-
-function getOriginalsDirectory() {
-  return new Directory(getPreciseDirectory(), ORIGINALS_DIR);
-}
-
-function getThumbnailsDirectory() {
-  return new Directory(getPreciseDirectory(), THUMBNAILS_DIR);
-}
-
-function getProcessedDirectory() {
-  return new Directory(getPreciseDirectory(), PROCESSED_DIR);
-}
-
-function ensurePreciseDirectories() {
-  getReferenceRootDirectory().create({ idempotent: true, intermediates: true });
-  getPreciseDirectory().create({ idempotent: true, intermediates: true });
-  getOriginalsDirectory().create({ idempotent: true, intermediates: true });
-  getThumbnailsDirectory().create({ idempotent: true, intermediates: true });
-  getProcessedDirectory().create({ idempotent: true, intermediates: true });
-}
-
 function rowToRecord(row: PreciseReferenceRow): PreciseReference {
   return {
     id: row.id,
@@ -171,88 +136,6 @@ function rowToRecord(row: PreciseReferenceRow): PreciseReference {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-function fileFromStoredPath(path: string) {
-  const segments = path.split("/");
-  let directory = getReferenceRootDirectory();
-  for (const segment of segments.slice(0, -1)) {
-    directory = new Directory(directory, segment);
-  }
-  return new File(directory, segments[segments.length - 1]);
-}
-
-function getImageExtension(input: PreciseReferenceImageInput) {
-  const fileName = input.fileName?.toLowerCase();
-  if (fileName?.endsWith(".png")) return "png";
-  if (fileName?.endsWith(".webp")) return "webp";
-  if (fileName?.endsWith(".jpg") || fileName?.endsWith(".jpeg")) return "jpg";
-
-  if (input.mimeType === "image/png") return "png";
-  if (input.mimeType === "image/webp") return "webp";
-  return "jpg";
-}
-
-async function copyImageToFile(sourceUri: string, destinationFile: File) {
-  try {
-    const sourceFile = new File(sourceUri);
-    await sourceFile.copy(destinationFile);
-  } catch {
-    const sourceFile = new File(sourceUri);
-    const base64 = await sourceFile.base64();
-    destinationFile.create({ overwrite: true });
-    destinationFile.write(base64, { encoding: "base64" });
-  }
-}
-
-function deleteStoredFile(path: string | null) {
-  if (!path) return;
-
-  try {
-    const file = fileFromStoredPath(path);
-    if (file.exists) file.delete();
-  } catch {
-    // DB state is the source of truth; missing file cleanup can be ignored.
-  }
-}
-
-async function createThumbnail(
-  sourceUri: string,
-  width: number,
-  height: number,
-  thumbnailFileName: string,
-) {
-  const thumbnailPath = `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
-
-  try {
-    const thumbnail = await ImageManipulator.manipulateAsync(
-      sourceUri,
-      [
-        {
-          resize:
-            width >= height
-              ? { width: THUMBNAIL_SIZE }
-              : { height: THUMBNAIL_SIZE },
-        },
-      ],
-      {
-        compress: 0.82,
-        format: ImageManipulator.SaveFormat.JPEG,
-      },
-    );
-    const thumbnailFile = new File(getThumbnailsDirectory(), thumbnailFileName);
-    const temporaryThumbnailFile = new File(thumbnail.uri);
-    await copyImageToFile(temporaryThumbnailFile.uri, thumbnailFile);
-    try {
-      temporaryThumbnailFile.delete();
-    } catch {
-      // The thumbnail has already been copied into app storage.
-    }
-    return thumbnailPath;
-  } catch {
-    deleteStoredFile(thumbnailPath);
-    return null;
-  }
 }
 
 async function createProcessedReferenceImage(
@@ -301,7 +184,9 @@ async function createProcessedReferenceImage(
     throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
   }
 
-  const processedFile = new File(getProcessedDirectory(), processedFileName);
+  const processedFile = referenceFiles.file(
+    `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+  );
   processedFile.create({ overwrite: true });
   processedFile.write(processedBase64, { encoding: "base64" });
 
@@ -313,7 +198,12 @@ async function createProcessedReferenceImage(
 }
 
 async function initializePreciseReferenceStorage() {
-  ensurePreciseDirectories();
+  referenceFiles.ensure(
+    PRECISE_DIR,
+    `${PRECISE_DIR}/${ORIGINALS_DIR}`,
+    `${PRECISE_DIR}/${THUMBNAILS_DIR}`,
+    `${PRECISE_DIR}/${PROCESSED_DIR}`,
+  );
   const db = await getDatabase();
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS precise_references (
@@ -361,23 +251,23 @@ export async function addPreciseReferenceFromImage(
     throw new Error(`Precise Reference limit is ${MAX_PRECISE_REFERENCES}.`);
   }
 
-  const id = createPreciseReferenceId();
+  const id = createStorageId("precise");
   const createdAt = Date.now();
   const extension = getImageExtension(input);
   const imageFileName = `${id}.${extension}`;
   const thumbnailFileName = `${id}.jpg`;
   const processedFileName = `${id}.jpg`;
   const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = new File(getOriginalsDirectory(), imageFileName);
+  const imageFile = referenceFiles.file(imagePath);
 
   try {
     await copyImageToFile(input.uri, imageFile);
 
-    const thumbnailPath = await createThumbnail(
-      input.uri,
-      input.width,
-      input.height,
-      thumbnailFileName,
+    const thumbnailPath = await createJpegThumbnail(
+      referenceFiles,
+      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      input,
+      THUMBNAIL_SIZE,
     );
     const processed = await createProcessedReferenceImage(
       imageFile.uri,
@@ -441,9 +331,13 @@ export async function addPreciseReferenceFromImage(
 
     return record;
   } catch (error: unknown) {
-    deleteStoredFile(imagePath);
-    deleteStoredFile(`${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`);
-    deleteStoredFile(`${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`);
+    referenceFiles.remove(imagePath);
+    referenceFiles.remove(
+      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+    );
+    referenceFiles.remove(
+      `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+    );
     if (error instanceof Error) throw error;
     throw new Error("Precise Reference 이미지를 추가하지 못했습니다.");
   }
@@ -471,15 +365,15 @@ export async function replacePreciseReferenceImage(
   const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
   const processedFileName = `${id}_${replacementSuffix}.jpg`;
   const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = new File(getOriginalsDirectory(), imageFileName);
+  const imageFile = referenceFiles.file(imagePath);
 
   try {
     await copyImageToFile(input.uri, imageFile);
-    const thumbnailPath = await createThumbnail(
-      input.uri,
-      input.width,
-      input.height,
-      thumbnailFileName,
+    const thumbnailPath = await createJpegThumbnail(
+      referenceFiles,
+      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      input,
+      THUMBNAIL_SIZE,
     );
     const processed = await createProcessedReferenceImage(
       imageFile.uri,
@@ -512,9 +406,9 @@ export async function replacePreciseReferenceImage(
       ],
     );
 
-    deleteStoredFile(current.imagePath);
-    deleteStoredFile(current.thumbnailPath);
-    deleteStoredFile(current.processedPath);
+    referenceFiles.remove(current.imagePath);
+    referenceFiles.remove(current.thumbnailPath);
+    referenceFiles.remove(current.processedPath);
 
     return {
       ...current,
@@ -528,9 +422,13 @@ export async function replacePreciseReferenceImage(
       updatedAt,
     };
   } catch (error: unknown) {
-    deleteStoredFile(imagePath);
-    deleteStoredFile(`${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`);
-    deleteStoredFile(`${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`);
+    referenceFiles.remove(imagePath);
+    referenceFiles.remove(
+      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+    );
+    referenceFiles.remove(
+      `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+    );
     if (error instanceof Error) throw error;
     throw new Error("Precise Reference 이미지를 교체하지 못했습니다.");
   }
@@ -599,25 +497,25 @@ export async function deletePreciseReference(id: string) {
   const record = rowToRecord(existing);
   await db.runAsync("DELETE FROM precise_references WHERE id = ?", [id]);
 
-  deleteStoredFile(record.imagePath);
-  deleteStoredFile(record.thumbnailPath);
-  deleteStoredFile(record.processedPath);
+  referenceFiles.remove(record.imagePath);
+  referenceFiles.remove(record.thumbnailPath);
+  referenceFiles.remove(record.processedPath);
 }
 
 export async function readPreciseReferenceProcessedBase64(
   reference: PreciseReference,
 ): Promise<string> {
-  return fileFromStoredPath(reference.processedPath).base64();
+  return referenceFiles.file(reference.processedPath).base64();
 }
 
 export function resolvePreciseReferenceImageUri(reference: PreciseReference) {
-  return fileFromStoredPath(reference.imagePath).uri;
+  return referenceFiles.file(reference.imagePath).uri;
 }
 
 export function resolvePreciseReferenceThumbnailUri(
   reference: PreciseReference,
 ) {
   if (!reference.thumbnailPath) return null;
-  const file = fileFromStoredPath(reference.thumbnailPath);
+  const file = referenceFiles.file(reference.thumbnailPath);
   return file.exists ? file.uri : null;
 }

@@ -297,3 +297,48 @@ test("removes cache rows and files when a reference is deleted", async () => {
     ),
   ).toEqual([]);
 });
+
+test("replaces the image, clears caches and removes the previous files", async () => {
+  testGlobals.__vibeTestFiles!.set("picked.png", "source-image");
+  testGlobals.__vibeTestFiles!.set("replacement.webp", "replacement-image");
+  const module = loadModule();
+  const added = await module.addVibeReferenceFromImage({
+    uri: "picked.png",
+    width: 600,
+    height: 400,
+    fileName: "picked.png",
+  });
+  await module.saveEncodedVibeReference(
+    added.id,
+    "full",
+    0.7,
+    "nai-diffusion-4-5-full",
+  );
+
+  const replaced = await module.replaceVibeReferenceImage(added.id, {
+    uri: "replacement.webp",
+    width: 400,
+    height: 600,
+    mimeType: "image/webp",
+  });
+
+  expect(replaced).toMatchObject({ id: added.id, encodings: [] });
+  expect(replaced!.imagePath).toMatch(
+    new RegExp(`^vibes/originals/${added.id}_\\d+_[a-z0-9]+\\.webp$`),
+  );
+  expect(
+    [...testGlobals.__vibeTestFiles!.keys()]
+      .filter((path) => path.startsWith("doc/nai-references/"))
+      .sort(),
+  ).toEqual([`doc/nai-references/${replaced!.imagePath}`]);
+  await expect(module.readVibeReferenceImageBase64(replaced!)).resolves.toBe(
+    "replacement-image",
+  );
+  await expect(
+    module.replaceVibeReferenceImage("missing", {
+      uri: "replacement.webp",
+      width: 1,
+      height: 1,
+    }),
+  ).resolves.toBeNull();
+});

@@ -1,8 +1,16 @@
-import { Directory, File, Paths } from "expo-file-system";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as SQLite from "expo-sqlite";
+import type { SQLiteDatabase } from "expo-sqlite";
 
 import { createInitializeOnce } from "./initializeOnce";
+import {
+  copyImageToFile,
+  createJpegThumbnail,
+  getImageExtension,
+} from "./localData/imageFiles";
+import {
+  createManagedDirectory,
+  createStorageId,
+} from "./localData/managedFiles";
+import { createDatabaseOpener } from "./localData/sqlite";
 import { createKeyedMutationQueue } from "./referenceMutation";
 
 const DATABASE_NAME = "vibe-references.db";
@@ -17,7 +25,8 @@ export const MAX_VIBE_REFERENCES = 16;
 const DEFAULT_VIBE_STRENGTH = 0.6;
 const DEFAULT_VIBE_INFORMATION_EXTRACTED = 0.7;
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const getDatabase = createDatabaseOpener(DATABASE_NAME);
+const referenceFiles = createManagedDirectory(REFERENCE_ROOT_DIR);
 const settingsMutationQueue = createKeyedMutationQueue();
 
 export type VibeEncoding = {
@@ -89,50 +98,6 @@ type VibeReferenceSettingsPatch = Partial<
   Pick<VibeReference, "enabled" | "strength" | "informationExtracted">
 >;
 
-function getDatabase() {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).catch(
-      (error: unknown) => {
-        dbPromise = null;
-        throw error;
-      },
-    );
-  }
-  return dbPromise;
-}
-
-function createVibeReferenceId() {
-  return `vibe_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getReferenceRootDirectory() {
-  return new Directory(Paths.document, REFERENCE_ROOT_DIR);
-}
-
-function getVibesDirectory() {
-  return new Directory(getReferenceRootDirectory(), VIBES_DIR);
-}
-
-function getOriginalsDirectory() {
-  return new Directory(getVibesDirectory(), ORIGINALS_DIR);
-}
-
-function getThumbnailsDirectory() {
-  return new Directory(getVibesDirectory(), THUMBNAILS_DIR);
-}
-
-function getEncodedDirectory() {
-  return new Directory(getVibesDirectory(), ENCODED_DIR);
-}
-
-function ensureVibeDirectories() {
-  getReferenceRootDirectory().create({ idempotent: true, intermediates: true });
-  getVibesDirectory().create({ idempotent: true, intermediates: true });
-  getOriginalsDirectory().create({ idempotent: true, intermediates: true });
-  getThumbnailsDirectory().create({ idempotent: true, intermediates: true });
-  getEncodedDirectory().create({ idempotent: true, intermediates: true });
-}
-
 function rowToRecord(
   row: VibeReferenceRow,
   encodings: VibeEncoding[],
@@ -159,7 +124,7 @@ function encodingRowToRecord(row: VibeEncodingRow): VibeEncoding {
 }
 
 async function getVibeReference(
-  db: SQLite.SQLiteDatabase,
+  db: SQLiteDatabase,
   id: string,
 ): Promise<VibeReference | null> {
   const row = await db.getFirstAsync<VibeReferenceRow>(
@@ -174,94 +139,18 @@ async function getVibeReference(
   return rowToRecord(row, encodings.map(encodingRowToRecord));
 }
 
-function fileFromStoredPath(path: string) {
-  const segments = path.split("/");
-  let directory = getReferenceRootDirectory();
-  for (const segment of segments.slice(0, -1)) {
-    directory = new Directory(directory, segment);
-  }
-  return new File(directory, segments[segments.length - 1]);
-}
-
-function getImageExtension(input: VibeReferenceImageInput) {
-  const fileName = input.fileName?.toLowerCase();
-  if (fileName?.endsWith(".png")) return "png";
-  if (fileName?.endsWith(".webp")) return "webp";
-  if (fileName?.endsWith(".jpg") || fileName?.endsWith(".jpeg")) return "jpg";
-
-  if (input.mimeType === "image/png") return "png";
-  if (input.mimeType === "image/webp") return "webp";
-  return "jpg";
-}
-
-async function copyImageToFile(sourceUri: string, destinationFile: File) {
-  try {
-    const sourceFile = new File(sourceUri);
-    await sourceFile.copy(destinationFile);
-  } catch {
-    const sourceFile = new File(sourceUri);
-    const base64 = await sourceFile.base64();
-    destinationFile.create({ overwrite: true });
-    destinationFile.write(base64, { encoding: "base64" });
-  }
-}
-
-function deleteStoredFile(path: string | null) {
-  if (!path) return;
-
-  try {
-    const file = fileFromStoredPath(path);
-    if (file.exists) file.delete();
-  } catch {
-    // DB state is the source of truth; missing file cleanup can be ignored.
-  }
-}
-
 function deleteEncodingFiles(reference: VibeReference) {
-  for (const encoding of reference.encodings) deleteStoredFile(encoding.path);
-}
-
-async function createThumbnail(
-  sourceUri: string,
-  width: number,
-  height: number,
-  thumbnailFileName: string,
-) {
-  const thumbnailPath = `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
-
-  try {
-    const thumbnail = await ImageManipulator.manipulateAsync(
-      sourceUri,
-      [
-        {
-          resize:
-            width >= height
-              ? { width: THUMBNAIL_SIZE }
-              : { height: THUMBNAIL_SIZE },
-        },
-      ],
-      {
-        compress: 0.82,
-        format: ImageManipulator.SaveFormat.JPEG,
-      },
-    );
-    const thumbnailFile = new File(getThumbnailsDirectory(), thumbnailFileName);
-    const temporaryThumbnailFile = new File(thumbnail.uri);
-    await copyImageToFile(temporaryThumbnailFile.uri, thumbnailFile);
-    try {
-      temporaryThumbnailFile.delete();
-    } catch {
-      // The thumbnail has already been copied into app storage.
-    }
-    return thumbnailPath;
-  } catch {
-    deleteStoredFile(thumbnailPath);
-    return null;
-  }
+  for (const encoding of reference.encodings)
+    referenceFiles.remove(encoding.path);
 }
 
 async function initializeVibeReferenceStorage() {
-  ensureVibeDirectories();
+  referenceFiles.ensure(
+    VIBES_DIR,
+    `${VIBES_DIR}/${ORIGINALS_DIR}`,
+    `${VIBES_DIR}/${THUMBNAILS_DIR}`,
+    `${VIBES_DIR}/${ENCODED_DIR}`,
+  );
   const db = await getDatabase();
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS vibe_references (
@@ -352,22 +241,22 @@ export async function addVibeReferenceFromImage(
     throw new Error(`Vibe reference limit is ${MAX_VIBE_REFERENCES}.`);
   }
 
-  const id = createVibeReferenceId();
+  const id = createStorageId("vibe");
   const createdAt = Date.now();
   const extension = getImageExtension(input);
   const imageFileName = `${id}.${extension}`;
   const thumbnailFileName = `${id}.jpg`;
   const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = new File(getOriginalsDirectory(), imageFileName);
+  const imageFile = referenceFiles.file(imagePath);
 
   try {
     await copyImageToFile(input.uri, imageFile);
 
-    const thumbnailPath = await createThumbnail(
-      input.uri,
-      input.width,
-      input.height,
-      thumbnailFileName,
+    const thumbnailPath = await createJpegThumbnail(
+      referenceFiles,
+      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      input,
+      THUMBNAIL_SIZE,
     );
 
     const record: VibeReference = {
@@ -408,8 +297,10 @@ export async function addVibeReferenceFromImage(
 
     return record;
   } catch (error: unknown) {
-    deleteStoredFile(imagePath);
-    deleteStoredFile(`${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`);
+    referenceFiles.remove(imagePath);
+    referenceFiles.remove(
+      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+    );
     throw error;
   }
 }
@@ -431,17 +322,17 @@ export async function replaceVibeReferenceImage(
   const imageFileName = `${id}_${replacementSuffix}.${extension}`;
   const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
   const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = new File(getOriginalsDirectory(), imageFileName);
+  const imageFile = referenceFiles.file(imagePath);
   const thumbnailPathCandidate = `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
   let thumbnailPath: string | null = null;
 
   try {
     await copyImageToFile(input.uri, imageFile);
-    thumbnailPath = await createThumbnail(
-      input.uri,
-      input.width,
-      input.height,
-      thumbnailFileName,
+    thumbnailPath = await createJpegThumbnail(
+      referenceFiles,
+      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      input,
+      THUMBNAIL_SIZE,
     );
 
     await db.withTransactionAsync(async () => {
@@ -459,14 +350,14 @@ export async function replaceVibeReferenceImage(
       );
     });
   } catch (error: unknown) {
-    deleteStoredFile(imagePath);
-    deleteStoredFile(thumbnailPathCandidate);
+    referenceFiles.remove(imagePath);
+    referenceFiles.remove(thumbnailPathCandidate);
     if (error instanceof Error) throw error;
     throw new Error("Vibe 이미지를 교체하지 못했습니다.");
   }
 
-  deleteStoredFile(current.imagePath);
-  deleteStoredFile(current.thumbnailPath);
+  referenceFiles.remove(current.imagePath);
+  referenceFiles.remove(current.thumbnailPath);
   deleteEncodingFiles(current);
 
   return {
@@ -547,8 +438,8 @@ export async function deleteVibeReference(id: string) {
     );
   });
 
-  deleteStoredFile(record.imagePath);
-  deleteStoredFile(record.thumbnailPath);
+  referenceFiles.remove(record.imagePath);
+  referenceFiles.remove(record.thumbnailPath);
   deleteEncodingFiles(record);
 }
 
@@ -571,7 +462,7 @@ export async function saveEncodedVibeReference(
       .slice(2, 10)}`;
     const encodedFileName = `${id}_${encodedSuffix}.bin`;
     const encodedPath = `${VIBES_DIR}/${ENCODED_DIR}/${encodedFileName}`;
-    const encodedFile = new File(getEncodedDirectory(), encodedFileName);
+    const encodedFile = referenceFiles.file(encodedPath);
 
     try {
       encodedFile.create({ overwrite: true });
@@ -584,7 +475,7 @@ export async function saveEncodedVibeReference(
         [id, model, informationExtracted, encodedPath, updatedAt],
       );
     } catch (error: unknown) {
-      deleteStoredFile(encodedPath);
+      referenceFiles.remove(encodedPath);
       throw error;
     }
 
@@ -592,7 +483,7 @@ export async function saveEncodedVibeReference(
     const previous = current.encodings.find(
       (encoding) => encoding.model === model,
     );
-    if (previous) deleteStoredFile(previous.path);
+    if (previous) referenceFiles.remove(previous.path);
 
     return {
       ...current,
@@ -607,7 +498,7 @@ export async function saveEncodedVibeReference(
 export async function readVibeReferenceImageBase64(
   reference: VibeReference,
 ): Promise<string> {
-  return fileFromStoredPath(reference.imagePath).base64();
+  return referenceFiles.file(reference.imagePath).base64();
 }
 
 export async function readEncodedVibeReferenceBase64(
@@ -618,15 +509,15 @@ export async function readEncodedVibeReferenceBase64(
   if (!encoding) {
     throw new Error("Vibe reference is not encoded for this model.");
   }
-  return fileFromStoredPath(encoding.path).base64();
+  return referenceFiles.file(encoding.path).base64();
 }
 
 export function resolveVibeReferenceImageUri(reference: VibeReference) {
-  return fileFromStoredPath(reference.imagePath).uri;
+  return referenceFiles.file(reference.imagePath).uri;
 }
 
 export function resolveVibeReferenceThumbnailUri(reference: VibeReference) {
   if (!reference.thumbnailPath) return null;
-  const file = fileFromStoredPath(reference.thumbnailPath);
+  const file = referenceFiles.file(reference.thumbnailPath);
   return file.exists ? file.uri : null;
 }
