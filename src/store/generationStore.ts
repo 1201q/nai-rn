@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 
 import {
   deleteGenerations as deleteStoredGenerations,
@@ -103,6 +103,15 @@ const NOTIF_PROGRESS_THROTTLE_MS = 800;
 const BATCH_REQUEST_INTERVAL_MS = 500;
 const DEFAULT_I2I_STRENGTH = 0.7;
 const DEFAULT_I2I_NOISE = 0;
+const REFERENCE_CONFLICT_MESSAGE =
+  "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.";
+const PRECISE_UNSUPPORTED_MESSAGE =
+  "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.";
+
+function toErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof Error) return error.message;
+  return fallback ?? String(error);
+}
 
 type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
   Pick<I2IReferenceImageInput, "fileName" | "mimeType">;
@@ -140,22 +149,8 @@ function resolveStoredI2ISourceImage(value: unknown): I2ISourceImage | null {
   });
 }
 
-function replaceVibeInList(
-  references: VibeReference[],
-  nextReference: VibeReference,
-) {
-  return references.map((item) =>
-    item.id === nextReference.id ? nextReference : item,
-  );
-}
-
-function replacePreciseInList(
-  references: PreciseReference[],
-  nextReference: PreciseReference,
-) {
-  return references.map((item) =>
-    item.id === nextReference.id ? nextReference : item,
-  );
+function replaceById<T extends { id: string }>(items: T[], nextItem: T) {
+  return items.map((item) => (item.id === nextItem.id ? nextItem : item));
 }
 
 function resolveStoredResolution(value: unknown): NaiResolution | null {
@@ -417,8 +412,53 @@ let queueStarting = false;
 let queueRunning = false;
 let activeQueuePreparationAbortController: AbortController | null = null;
 let activeQueueAbortController: AbortController | null = null;
-const vibeSettingsVersions = createMutationVersionTracker();
-const preciseSettingsVersions = createMutationVersionTracker();
+
+type StoreSet = StoreApi<GenerationState>["setState"];
+
+type ReferenceList<T extends { id: string }> = {
+  versions: ReturnType<typeof createMutationVersionTracker>;
+  select: (state: GenerationState) => T[];
+  assign: (items: T[]) => Partial<GenerationState>;
+};
+
+const vibeReferenceList: ReferenceList<VibeReference> = {
+  versions: createMutationVersionTracker(),
+  select: (state) => state.vibeReferences,
+  assign: (vibeReferences) => ({ vibeReferences }),
+};
+
+const preciseReferenceList: ReferenceList<PreciseReference> = {
+  versions: createMutationVersionTracker(),
+  select: (state) => state.preciseReferences,
+  assign: (preciseReferences) => ({ preciseReferences }),
+};
+
+// 설정을 즉시 반영한 뒤 저장한다. 저장 결과와 실패는 같은 reference의 마지막 변경일 때만 반영한다.
+function updateReferenceSettings<T extends { id: string }>(
+  set: StoreSet,
+  list: ReferenceList<T>,
+  id: string,
+  patch: Partial<T>,
+  persist: () => Promise<T | null>,
+) {
+  const version = list.versions.start(id);
+  set((state) =>
+    list.assign(
+      list
+        .select(state)
+        .map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    ),
+  );
+  persist()
+    .then((reference) => {
+      if (!reference || !list.versions.isLatest(id, version)) return;
+      set((state) => list.assign(replaceById(list.select(state), reference)));
+    })
+    .catch((error: unknown) => {
+      if (!list.versions.isLatest(id, version)) return;
+      set({ message: toErrorMessage(error) });
+    });
+}
 
 async function waitForNextBatchRequest(
   signal: AbortSignal,
@@ -599,7 +639,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   addVibeReference: async (input) => {
     if (get().preciseReferences.some((item) => item.enabled)) {
       set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: REFERENCE_CONFLICT_MESSAGE,
       });
       return null;
     }
@@ -612,10 +652,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return reference;
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Vibe 이미지를 추가하지 못했습니다.",
+        message: toErrorMessage(error, "Vibe 이미지를 추가하지 못했습니다."),
       });
       return null;
     }
@@ -625,15 +662,12 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       const reference = await replaceVibeReferenceImage(id, input);
       if (!reference) return null;
       set((state) => ({
-        vibeReferences: replaceVibeInList(state.vibeReferences, reference),
+        vibeReferences: replaceById(state.vibeReferences, reference),
       }));
       return reference;
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Vibe 이미지를 교체하지 못했습니다.",
+        message: toErrorMessage(error, "Vibe 이미지를 교체하지 못했습니다."),
       });
       return null;
     }
@@ -641,100 +675,45 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   removeVibeReference: async (id) => {
     try {
       await deleteStoredVibeReference(id);
-      vibeSettingsVersions.clear(id);
+      vibeReferenceList.versions.clear(id);
       set((state) => ({
         vibeReferences: state.vibeReferences.filter((item) => item.id !== id),
       }));
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Vibe 이미지를 삭제하지 못했습니다.",
+        message: toErrorMessage(error, "Vibe 이미지를 삭제하지 못했습니다."),
       });
     }
   },
   setVibeReferenceEnabled: (id, enabled) => {
     if (enabled && get().preciseReferences.some((item) => item.enabled)) {
-      set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
-      });
+      set({ message: REFERENCE_CONFLICT_MESSAGE });
       return;
     }
-
-    const version = vibeSettingsVersions.start(id);
-    set((state) => ({
-      vibeReferences: state.vibeReferences.map((item) =>
-        item.id === id ? { ...item, enabled } : item,
-      ),
-    }));
-    updateVibeReferenceSettings(id, { enabled })
-      .then((reference) => {
-        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
-        set((state) => ({
-          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!vibeSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(set, vibeReferenceList, id, { enabled }, () =>
+      updateVibeReferenceSettings(id, { enabled }),
+    );
   },
   setVibeReferenceStrength: (id, strength) => {
-    const version = vibeSettingsVersions.start(id);
-    set((state) => ({
-      vibeReferences: state.vibeReferences.map((item) =>
-        item.id === id ? { ...item, strength } : item,
-      ),
-    }));
-    updateVibeReferenceSettings(id, { strength })
-      .then((reference) => {
-        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
-        set((state) => ({
-          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!vibeSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(set, vibeReferenceList, id, { strength }, () =>
+      updateVibeReferenceSettings(id, { strength }),
+    );
   },
   setVibeReferenceInformationExtracted: (id, value) => {
-    const version = vibeSettingsVersions.start(id);
-    set((state) => ({
-      vibeReferences: state.vibeReferences.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              informationExtracted: value,
-              encodings: [],
-            }
-          : item,
-      ),
-    }));
-    updateVibeReferenceSettings(id, { informationExtracted: value })
-      .then((reference) => {
-        if (!reference || !vibeSettingsVersions.isLatest(id, version)) return;
-        set((state) => ({
-          vibeReferences: replaceVibeInList(state.vibeReferences, reference),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!vibeSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    // Information Extracted가 바뀌면 모든 모델의 인코딩 캐시가 무효화된다.
+    updateReferenceSettings(
+      set,
+      vibeReferenceList,
+      id,
+      { informationExtracted: value, encodings: [] },
+      () => updateVibeReferenceSettings(id, { informationExtracted: value }),
+    );
   },
   preciseReferences: [],
   addPreciseReference: async (input) => {
     if (get().vibeReferences.some((item) => item.enabled)) {
       set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: REFERENCE_CONFLICT_MESSAGE,
       });
       return null;
     }
@@ -747,10 +726,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return reference;
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Precise Reference 이미지를 추가하지 못했습니다.",
+        message: toErrorMessage(
+          error,
+          "Precise Reference 이미지를 추가하지 못했습니다.",
+        ),
       });
       return null;
     }
@@ -760,18 +739,15 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       const reference = await replacePreciseReferenceImage(id, input);
       if (!reference) return null;
       set((state) => ({
-        preciseReferences: replacePreciseInList(
-          state.preciseReferences,
-          reference,
-        ),
+        preciseReferences: replaceById(state.preciseReferences, reference),
       }));
       return reference;
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Precise Reference 이미지를 교체하지 못했습니다.",
+        message: toErrorMessage(
+          error,
+          "Precise Reference 이미지를 교체하지 못했습니다.",
+        ),
       });
       return null;
     }
@@ -779,7 +755,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   removePreciseReference: async (id) => {
     try {
       await deleteStoredPreciseReference(id);
-      preciseSettingsVersions.clear(id);
+      preciseReferenceList.versions.clear(id);
       set((state) => ({
         preciseReferences: state.preciseReferences.filter(
           (item) => item.id !== id,
@@ -787,130 +763,44 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       }));
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "Precise Reference 이미지를 삭제하지 못했습니다.",
+        message: toErrorMessage(
+          error,
+          "Precise Reference 이미지를 삭제하지 못했습니다.",
+        ),
       });
     }
   },
   setPreciseReferenceEnabled: (id, enabled) => {
     if (enabled && get().vibeReferences.some((item) => item.enabled)) {
-      set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
-      });
+      set({ message: REFERENCE_CONFLICT_MESSAGE });
       return;
     }
-
     if (enabled && !getModelCapabilities(get().model).preciseReference) {
-      set({
-        message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
-      });
+      set({ message: PRECISE_UNSUPPORTED_MESSAGE });
       return;
     }
-
-    const version = preciseSettingsVersions.start(id);
-    set((state) => ({
-      preciseReferences: state.preciseReferences.map((item) =>
-        item.id === id ? { ...item, enabled } : item,
-      ),
-    }));
-    updatePreciseReferenceSettings(id, { enabled })
-      .then((reference) => {
-        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
-          return;
-        }
-        set((state) => ({
-          preciseReferences: replacePreciseInList(
-            state.preciseReferences,
-            reference,
-          ),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!preciseSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(set, preciseReferenceList, id, { enabled }, () =>
+      updatePreciseReferenceSettings(id, { enabled }),
+    );
   },
   setPreciseReferenceStrength: (id, strength) => {
-    const version = preciseSettingsVersions.start(id);
-    set((state) => ({
-      preciseReferences: state.preciseReferences.map((item) =>
-        item.id === id ? { ...item, strength } : item,
-      ),
-    }));
-    updatePreciseReferenceSettings(id, { strength })
-      .then((reference) => {
-        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
-          return;
-        }
-        set((state) => ({
-          preciseReferences: replacePreciseInList(
-            state.preciseReferences,
-            reference,
-          ),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!preciseSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(set, preciseReferenceList, id, { strength }, () =>
+      updatePreciseReferenceSettings(id, { strength }),
+    );
   },
   setPreciseReferenceFidelity: (id, fidelity) => {
-    const version = preciseSettingsVersions.start(id);
-    set((state) => ({
-      preciseReferences: state.preciseReferences.map((item) =>
-        item.id === id ? { ...item, fidelity } : item,
-      ),
-    }));
-    updatePreciseReferenceSettings(id, { fidelity })
-      .then((reference) => {
-        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
-          return;
-        }
-        set((state) => ({
-          preciseReferences: replacePreciseInList(
-            state.preciseReferences,
-            reference,
-          ),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!preciseSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(set, preciseReferenceList, id, { fidelity }, () =>
+      updatePreciseReferenceSettings(id, { fidelity }),
+    );
   },
   setPreciseReferenceType: (id, referenceType) => {
-    const version = preciseSettingsVersions.start(id);
-    set((state) => ({
-      preciseReferences: state.preciseReferences.map((item) =>
-        item.id === id ? { ...item, referenceType } : item,
-      ),
-    }));
-    updatePreciseReferenceSettings(id, { referenceType })
-      .then((reference) => {
-        if (!reference || !preciseSettingsVersions.isLatest(id, version)) {
-          return;
-        }
-        set((state) => ({
-          preciseReferences: replacePreciseInList(
-            state.preciseReferences,
-            reference,
-          ),
-        }));
-      })
-      .catch((error: unknown) => {
-        if (!preciseSettingsVersions.isLatest(id, version)) return;
-        set({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+    updateReferenceSettings(
+      set,
+      preciseReferenceList,
+      id,
+      { referenceType },
+      () => updatePreciseReferenceSettings(id, { referenceType }),
+    );
   },
   i2iSourceImage: null,
   setI2ISourceImage: async (v) => {
@@ -924,10 +814,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return storedImage;
     } catch (error: unknown) {
       set({
-        message:
-          error instanceof Error
-            ? error.message
-            : "I2I 이미지를 저장하지 못했습니다.",
+        message: toErrorMessage(error, "I2I 이미지를 저장하지 못했습니다."),
       });
       return null;
     }
@@ -1053,7 +940,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     } catch (error: unknown) {
       set({
         generationHistoryLoadingMore: false,
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
       });
     }
   },
@@ -1235,7 +1122,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
 
     if (activeVibes.length > 0 && activePreciseReferences.length > 0) {
       set({
-        message: "Precise Reference와 Vibe Transfer는 함께 사용할 수 없습니다.",
+        message: REFERENCE_CONFLICT_MESSAGE,
       });
       finishPreparation();
       return rejectGenerationStart("validation");
@@ -1338,10 +1225,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const wasCancelled = preparationCancelled();
         if (!wasCancelled) {
           set({
-            message:
-              error instanceof Error
-                ? error.message
-                : "Vibe 이미지를 인코딩하지 못했습니다.",
+            message: toErrorMessage(
+              error,
+              "Vibe 이미지를 인코딩하지 못했습니다.",
+            ),
           });
         }
         finishPreparation();
@@ -1354,7 +1241,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     if (activePreciseReferences.length > 0) {
       if (!getModelCapabilities(s.model).preciseReference) {
         set({
-          message: "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.",
+          message: PRECISE_UNSUPPORTED_MESSAGE,
         });
         finishPreparation();
         return rejectGenerationStart("validation");
@@ -1380,10 +1267,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         const wasCancelled = preparationCancelled();
         if (!wasCancelled) {
           set({
-            message:
-              error instanceof Error
-                ? error.message
-                : "Precise Reference 이미지를 읽지 못했습니다.",
+            message: toErrorMessage(
+              error,
+              "Precise Reference 이미지를 읽지 못했습니다.",
+            ),
           });
         }
         finishPreparation();
@@ -1601,7 +1488,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         get().queueCancelRequested || abortController.signal.aborted;
       if (!wasCancelled) {
         set({
-          message: error instanceof Error ? error.message : String(error),
+          message: toErrorMessage(error),
         });
       }
     } finally {
@@ -1710,7 +1597,7 @@ export function useGenerationBootstrap() {
       })
       .catch((error: unknown) => {
         setState({
-          message: error instanceof Error ? error.message : String(error),
+          message: toErrorMessage(error),
         });
       });
 
@@ -1734,7 +1621,7 @@ export function useGenerationBootstrap() {
       .catch((error: unknown) => {
         setState({
           generationHistoryInitialized: true,
-          message: error instanceof Error ? error.message : String(error),
+          message: toErrorMessage(error),
         });
       });
 
@@ -1744,7 +1631,7 @@ export function useGenerationBootstrap() {
       })
       .catch((error: unknown) => {
         setState({
-          message: error instanceof Error ? error.message : String(error),
+          message: toErrorMessage(error),
         });
       });
 
@@ -1754,7 +1641,7 @@ export function useGenerationBootstrap() {
       })
       .catch((error: unknown) => {
         setState({
-          message: error instanceof Error ? error.message : String(error),
+          message: toErrorMessage(error),
         });
       });
   }, []);
