@@ -1,0 +1,10 @@
+android/
+ios/
+dist/
+artifacts/
+docs/
+patches/
+assets/
+.claude/
+.expo/
+package-lock.json
