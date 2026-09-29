@@ -6,7 +6,7 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
-import type { CharacterPrompt } from "../store/generationStore";
+import type { CharacterPrompt } from "../types/generation";
 import { isBoolean, isNonEmptyString, isNumber } from "./guards";
 import {
   hasQualityTags,

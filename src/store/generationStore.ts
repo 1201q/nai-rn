@@ -92,6 +92,9 @@ import {
   type NoiseSchedule,
 } from "../constants/generation";
 import { getModelCapabilities } from "../constants/models";
+import type { CharacterPrompt, I2ISourceImage } from "../types/generation";
+
+export type { CharacterPrompt };
 
 const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
 const STREAMING_PREVIEW_THROTTLE_MS = 350;
@@ -100,22 +103,6 @@ const NOTIF_PROGRESS_THROTTLE_MS = 800;
 const BATCH_REQUEST_INTERVAL_MS = 500;
 const DEFAULT_I2I_STRENGTH = 0.7;
 const DEFAULT_I2I_NOISE = 0;
-
-export type CharacterPrompt = {
-  id: string;
-  name?: string;
-  prompt: string;
-  negativePrompt: string;
-  enabled: boolean;
-  position: { x: number; y: number };
-};
-
-type I2ISourceImage = {
-  uri: string;
-  storagePath: string;
-  width: number;
-  height: number;
-};
 
 type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
   Pick<I2IReferenceImageInput, "fileName" | "mimeType">;

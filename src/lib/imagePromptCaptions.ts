@@ -1,5 +1,5 @@
 import { getModelCapabilities } from "../constants/models";
-import type { CharacterPrompt } from "../store/generationStore";
+import type { CharacterPrompt } from "../types/generation";
 import type { GenerateNovelAiCharacterPrompt } from "./novelai";
 import {
   mergeQualityTags,

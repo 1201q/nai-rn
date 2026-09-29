@@ -1,5 +1,5 @@
 import { getImagePromptTokenPolicy } from "../../constants/models";
-import type { CharacterPrompt } from "../../store/generationStore";
+import type { CharacterPrompt } from "../../types/generation";
 import {
   prepareImagePromptCaptions,
   resolveActiveCharacterPrompts,
