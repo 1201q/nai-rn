@@ -49,9 +49,9 @@ describe("UC presets (official web parity)", () => {
   });
 
   it("never adds nsfw for curated models or the None preset", () => {
-    expect(
-      mergeUcPreset("", 0, "nai-diffusion-4-5-curated", "1girl"),
-    ).toMatch(/^blurry, lowres, upscaled/);
+    expect(mergeUcPreset("", 0, "nai-diffusion-4-5-curated", "1girl")).toMatch(
+      /^blurry, lowres, upscaled/,
+    );
     expect(mergeUcPreset("hat", 4, "nai-diffusion-4-5-full", "1girl")).toBe(
       "hat",
     );
@@ -88,16 +88,23 @@ describe("UC preset options per model", () => {
       getUcPresetOptions(model).map((option) => option.label);
 
     expect(labels("nai-diffusion-4-5-full")).toEqual([
-      "Heavy", "Light", "Human Focus", "None",
+      "Heavy",
+      "Light",
+      "Human Focus",
+      "None",
     ]);
     expect(labels("nai-diffusion-4-curated-preview")).toEqual([
-      "Heavy", "Light", "None",
+      "Heavy",
+      "Light",
+      "None",
     ]);
     expect(labels("nai-diffusion-furry-3")).toEqual(["Heavy", "Light", "None"]);
   });
 
   it("resolves a missing preset to None without touching supported ones", () => {
-    expect(resolveUcPresetForModel(3, "nai-diffusion-4-curated-preview")).toBe(4);
+    expect(resolveUcPresetForModel(3, "nai-diffusion-4-curated-preview")).toBe(
+      4,
+    );
     expect(resolveUcPresetForModel(3, "nai-diffusion-3")).toBe(3);
   });
 });
@@ -105,8 +112,12 @@ describe("UC preset options per model", () => {
 describe("Variety+ sigma (official web parity)", () => {
   it("scales the model base sigma by latent size", () => {
     expect(getVarietyPlusSigma("nai-diffusion-4-5-full", 832, 1216)).toBe(58);
-    expect(getVarietyPlusSigma("nai-diffusion-4-curated-preview", 832, 1216)).toBe(19);
+    expect(
+      getVarietyPlusSigma("nai-diffusion-4-curated-preview", 832, 1216),
+    ).toBe(19);
     expect(getVarietyPlusSigma("nai-diffusion-3", 832, 1216)).toBe(19);
-    expect(getVarietyPlusSigma("nai-diffusion-4-5-full", 1024, 1536)).toBeCloseTo(72.32, 2);
+    expect(
+      getVarietyPlusSigma("nai-diffusion-4-5-full", 1024, 1536),
+    ).toBeCloseTo(72.32, 2);
   });
 });

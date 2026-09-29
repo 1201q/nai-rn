@@ -48,8 +48,7 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
         (minimum, [, score]) => Math.min(minimum, score),
         Number.POSITIVE_INFINITY,
       ) - 10;
-    this.eosId =
-      config.post_processor?.special_tokens?.["</s>"]?.ids[0] ?? 1;
+    this.eosId = config.post_processor?.special_tokens?.["</s>"]?.ids[0] ?? 1;
 
     const processors: Array<{
       type: string;
@@ -162,7 +161,10 @@ function bytesToUnicode(): Map<number, string> {
   }
 
   return new Map(
-    bytes.map((value, index) => [value, String.fromCodePoint(characters[index])]),
+    bytes.map((value, index) => [
+      value,
+      String.fromCodePoint(characters[index]),
+    ]),
   );
 }
 

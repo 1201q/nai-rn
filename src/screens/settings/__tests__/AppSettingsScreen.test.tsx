@@ -128,7 +128,9 @@ describe("AppSettingsScreen token verification feedback", () => {
   test("shows invalid-token feedback for an authentication failure", async () => {
     const screen = await saveTokenWithResult({ status: "invalid-token" });
 
-    expect(screen.getByText("토큰은 저장했지만 유효하지 않습니다.")).toBeTruthy();
+    expect(
+      screen.getByText("토큰은 저장했지만 유효하지 않습니다."),
+    ).toBeTruthy();
     await screen.unmount();
   });
 
@@ -136,9 +138,7 @@ describe("AppSettingsScreen token verification feedback", () => {
     const screen = await saveTokenWithResult({ status: "unavailable" });
 
     expect(
-      screen.getByText(
-        "토큰은 저장했지만 현재 유효성을 확인하지 못했습니다.",
-      ),
+      screen.getByText("토큰은 저장했지만 현재 유효성을 확인하지 못했습니다."),
     ).toBeTruthy();
     await screen.unmount();
   });

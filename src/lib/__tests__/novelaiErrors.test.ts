@@ -6,7 +6,9 @@ import {
 describe("NovelAI HTTP error messages", () => {
   it("extracts the message from a JSON error body", () => {
     expect(
-      extractNovelAiServerMessage('{"statusCode":402,"message":"Not enough Anlas"}'),
+      extractNovelAiServerMessage(
+        '{"statusCode":402,"message":"Not enough Anlas"}',
+      ),
     ).toBe("Not enough Anlas");
     expect(extractNovelAiServerMessage("  plain text  ")).toBe("plain text");
     expect(extractNovelAiServerMessage("   ")).toBeUndefined();
@@ -19,7 +21,9 @@ describe("NovelAI HTTP error messages", () => {
     expect(describeNovelAiHttpError(402, "Not enough Anlas")).toBe(
       "Anlas가 부족합니다.\nNot enough Anlas",
     );
-    expect(describeNovelAiHttpError(429)).toContain("다른 곳에서 진행 중인 생성");
+    expect(describeNovelAiHttpError(429)).toContain(
+      "다른 곳에서 진행 중인 생성",
+    );
     expect(describeNovelAiHttpError(503)).toBe(
       "NovelAI 서버 오류가 발생했습니다 (HTTP 503).",
     );

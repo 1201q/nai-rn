@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Reanimated, {
   Extrapolation,
   interpolate,
@@ -26,12 +31,14 @@ export function PredictiveBackSheetLayer({
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        scale: scaleEnabled ? interpolate(
-          progress.value,
-          [0, PREDICTIVE_BACK_SCALE_STOP],
-          [1, PREDICTIVE_BACK_MIN_SCALE],
-          Extrapolation.CLAMP,
-        ) : 1,
+        scale: scaleEnabled
+          ? interpolate(
+              progress.value,
+              [0, PREDICTIVE_BACK_SCALE_STOP],
+              [1, PREDICTIVE_BACK_MIN_SCALE],
+              Extrapolation.CLAMP,
+            )
+          : 1,
       },
     ],
   }));

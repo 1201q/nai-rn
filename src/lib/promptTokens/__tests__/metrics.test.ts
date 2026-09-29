@@ -3,9 +3,12 @@ import { calculatePromptTokenMetrics } from "../metrics";
 jest.mock("../loader", () => ({
   getPromptTokenizer: async (type: "t5" | "clip") => ({
     encode: (text: string) =>
-      Array.from({
-        length: text.length + (type === "t5" ? 1 : 0),
-      }, (_, index) => index),
+      Array.from(
+        {
+          length: text.length + (type === "t5" ? 1 : 0),
+        },
+        (_, index) => index,
+      ),
   }),
 }));
 

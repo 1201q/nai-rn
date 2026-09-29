@@ -47,7 +47,11 @@ export function getPromptTokenFieldProgress(
   }
   return Math.max(
     0,
-    Math.min(1, metrics.fieldTokens / metrics.maxTokens, metrics.totalTokens / metrics.maxTokens),
+    Math.min(
+      1,
+      metrics.fieldTokens / metrics.maxTokens,
+      metrics.totalTokens / metrics.maxTokens,
+    ),
   );
 }
 

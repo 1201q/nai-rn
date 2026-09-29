@@ -28,13 +28,19 @@ jest.mock("expo-file-system", () => {
   class Directory {
     uri: string;
     constructor(...parts: Array<string | { uri: string }>) {
-      this.uri = parts.map((part) => typeof part === "string" ? part : part.uri).join("/");
+      this.uri = parts
+        .map((part) => (typeof part === "string" ? part : part.uri))
+        .join("/");
     }
     create() {}
   }
   class File extends Directory {
-    get exists() { return !mockMissingFiles.has(this.uri); }
-    delete() { mockDeleteFile(this.uri); }
+    get exists() {
+      return !mockMissingFiles.has(this.uri);
+    }
+    delete() {
+      mockDeleteFile(this.uri);
+    }
   }
   return { Directory, File, Paths: { document: "file:///documents" } };
 });
@@ -56,33 +62,50 @@ describe("generation history transactional deletion", () => {
     mockEvents = [];
     mockCommitError = null;
     mockMissingFiles.clear();
-    jest.mocked(SQLite.openDatabaseAsync).mockImplementation(async (_name, options) => (
-      options?.useNewConnection ? mockDeleteDb : mockSharedDb
-    ) as unknown as SQLite.SQLiteDatabase);
+    jest
+      .mocked(SQLite.openDatabaseAsync)
+      .mockImplementation(
+        async (_name, options) =>
+          (options?.useNewConnection
+            ? mockDeleteDb
+            : mockSharedDb) as unknown as SQLite.SQLiteDatabase,
+      );
     mockSharedDb.execAsync.mockResolvedValue(undefined);
-    mockDeleteDb.closeAsync.mockImplementation(async () => { mockEvents.push("close"); });
-    mockDeleteDb.getAllAsync.mockImplementation(async (_sql: string, ids: string[]) => {
-      mockEvents.push("select");
-      return ids.flatMap((id) => mockRows.has(id) ? [mockRows.get(id)!] : []);
+    mockDeleteDb.closeAsync.mockImplementation(async () => {
+      mockEvents.push("close");
     });
-    mockDeleteDb.runAsync.mockImplementation(async (_sql: string, ids: string[]) => {
-      mockEvents.push("delete");
-      ids.forEach((id) => mockRows.delete(id));
+    mockDeleteDb.getAllAsync.mockImplementation(
+      async (_sql: string, ids: string[]) => {
+        mockEvents.push("select");
+        return ids.flatMap((id) =>
+          mockRows.has(id) ? [mockRows.get(id)!] : [],
+        );
+      },
+    );
+    mockDeleteDb.runAsync.mockImplementation(
+      async (_sql: string, ids: string[]) => {
+        mockEvents.push("delete");
+        ids.forEach((id) => mockRows.delete(id));
+      },
+    );
+    mockDeleteDb.withTransactionAsync.mockImplementation(
+      async (task: () => Promise<void>) => {
+        const before = new Map(mockRows);
+        mockEvents.push("begin");
+        try {
+          await task();
+          if (mockCommitError) throw mockCommitError;
+          mockEvents.push("commit");
+        } catch (error) {
+          mockRows = before;
+          mockEvents.push("rollback");
+          throw error;
+        }
+      },
+    );
+    mockDeleteFile.mockImplementation(() => {
+      mockEvents.push("file");
     });
-    mockDeleteDb.withTransactionAsync.mockImplementation(async (task: () => Promise<void>) => {
-      const before = new Map(mockRows);
-      mockEvents.push("begin");
-      try {
-        await task();
-        if (mockCommitError) throw mockCommitError;
-        mockEvents.push("commit");
-      } catch (error) {
-        mockRows = before;
-        mockEvents.push("rollback");
-        throw error;
-      }
-    });
-    mockDeleteFile.mockImplementation(() => { mockEvents.push("file"); });
   });
 
   test("does nothing for an empty selection", async () => {
@@ -92,41 +115,60 @@ describe("generation history transactional deletion", () => {
     expect(mockDeleteFile).not.toHaveBeenCalled();
   });
 
-  test.each([1, 299, 300, 301, 601])("deletes %i IDs in bounded queries within one transaction", async (count) => {
-    const ids = seedRows(count);
-    const untouched = { id: "keep", image_path: "originals/keep.png", thumbnail_path: null };
-    mockRows.set(untouched.id, untouched);
+  test.each([1, 299, 300, 301, 601])(
+    "deletes %i IDs in bounded queries within one transaction",
+    async (count) => {
+      const ids = seedRows(count);
+      const untouched = {
+        id: "keep",
+        image_path: "originals/keep.png",
+        thumbnail_path: null,
+      };
+      mockRows.set(untouched.id, untouched);
 
-    await deleteGenerations(ids);
+      await deleteGenerations(ids);
 
-    expect(SQLite.openDatabaseAsync).toHaveBeenLastCalledWith(
-      "generation-history.db", { useNewConnection: true },
-    );
-    expect(mockDeleteDb.withTransactionAsync).toHaveBeenCalledTimes(1);
-    expect(mockDeleteDb.getAllAsync).toHaveBeenCalledTimes(Math.ceil(count / 300));
-    expect(mockDeleteDb.runAsync).toHaveBeenCalledTimes(Math.ceil(count / 300));
-    for (const query of [mockDeleteDb.getAllAsync, mockDeleteDb.runAsync]) {
-      expect(query.mock.calls.flatMap(([, params]) => params)).toEqual(ids);
-      for (const [sql, params] of query.mock.calls) {
-        expect(params.length).toBeLessThanOrEqual(300);
-        expect(sql.match(/\?/g)).toHaveLength(params.length);
+      expect(SQLite.openDatabaseAsync).toHaveBeenLastCalledWith(
+        "generation-history.db",
+        { useNewConnection: true },
+      );
+      expect(mockDeleteDb.withTransactionAsync).toHaveBeenCalledTimes(1);
+      expect(mockDeleteDb.getAllAsync).toHaveBeenCalledTimes(
+        Math.ceil(count / 300),
+      );
+      expect(mockDeleteDb.runAsync).toHaveBeenCalledTimes(
+        Math.ceil(count / 300),
+      );
+      for (const query of [mockDeleteDb.getAllAsync, mockDeleteDb.runAsync]) {
+        expect(query.mock.calls.flatMap(([, params]) => params)).toEqual(ids);
+        for (const [sql, params] of query.mock.calls) {
+          expect(params.length).toBeLessThanOrEqual(300);
+          expect(sql.match(/\?/g)).toHaveLength(params.length);
+        }
       }
-    }
-    expect(mockDeleteDb.getAllAsync.mock.calls[0][0]).toMatch(/^SELECT image_path, thumbnail_path /);
-    expect([...mockRows.values()]).toEqual([untouched]);
-    expect(mockDeleteFile).toHaveBeenCalledTimes(count * 2);
-    expect(mockEvents.indexOf("commit")).toBeLessThan(mockEvents.indexOf("file"));
-    expect(mockDeleteDb.closeAsync).toHaveBeenCalledTimes(1);
-  });
+      expect(mockDeleteDb.getAllAsync.mock.calls[0][0]).toMatch(
+        /^SELECT image_path, thumbnail_path /,
+      );
+      expect([...mockRows.values()]).toEqual([untouched]);
+      expect(mockDeleteFile).toHaveBeenCalledTimes(count * 2);
+      expect(mockEvents.indexOf("commit")).toBeLessThan(
+        mockEvents.indexOf("file"),
+      );
+      expect(mockDeleteDb.closeAsync).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test("deduplicates across batches and ignores IDs missing from storage", async () => {
     const ids = seedRows(301);
     await deleteGenerations([...ids, ...ids, "missing"]);
 
-    expect(mockDeleteDb.runAsync.mock.calls.flatMap(([, params]) => params))
-      .toEqual([...ids, "missing"]);
+    expect(
+      mockDeleteDb.runAsync.mock.calls.flatMap(([, params]) => params),
+    ).toEqual([...ids, "missing"]);
     expect(mockDeleteFile).toHaveBeenCalledTimes(602);
-    expect(new Set(mockDeleteFile.mock.calls.map(([path]) => path)).size).toBe(602);
+    expect(new Set(mockDeleteFile.mock.calls.map(([path]) => path)).size).toBe(
+      602,
+    );
   });
 
   test.each(["getAllAsync", "runAsync"] as const)(
@@ -135,7 +177,8 @@ describe("generation history transactional deletion", () => {
       const ids = seedRows(601);
       const before = new Map(mockRows);
       const query = mockDeleteDb[method];
-      query.mockImplementationOnce(query.getMockImplementation()!)
+      query
+        .mockImplementationOnce(query.getMockImplementation()!)
         .mockRejectedValueOnce(new Error("query failed"));
 
       await expect(deleteGenerations(ids)).rejects.toThrow("query failed");
@@ -170,13 +213,19 @@ describe("generation history transactional deletion", () => {
     const ids = seedRows(1);
     let commit!: () => void;
     let ready!: () => void;
-    const commitGate = new Promise<void>((resolve) => { commit = resolve; });
-    const queriesFinished = new Promise<void>((resolve) => { ready = resolve; });
-    mockDeleteDb.withTransactionAsync.mockImplementation(async (task: () => Promise<void>) => {
-      await task();
-      ready();
-      await commitGate;
+    const commitGate = new Promise<void>((resolve) => {
+      commit = resolve;
     });
+    const queriesFinished = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    mockDeleteDb.withTransactionAsync.mockImplementation(
+      async (task: () => Promise<void>) => {
+        await task();
+        ready();
+        await commitGate;
+      },
+    );
 
     const deletion = deleteGenerations(ids);
     await queriesFinished;
@@ -192,7 +241,9 @@ describe("generation history transactional deletion", () => {
     const ids = seedRows(3);
     mockRows.get(ids[0])!.thumbnail_path = null;
     mockMissingFiles.add("file:///documents/nai-images/originals/0.png");
-    mockDeleteFile.mockImplementationOnce(() => { throw new Error("file locked"); });
+    mockDeleteFile.mockImplementationOnce(() => {
+      throw new Error("file locked");
+    });
 
     await expect(deleteGenerations(ids)).resolves.toBeUndefined();
 

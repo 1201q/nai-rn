@@ -84,9 +84,7 @@ export const BatchCountSheet = memo(function BatchCountSheet() {
             Math.max(MIN_TRANSLATE_X, dragStartX.value + event.translationX),
           );
           translateX.value = nextX;
-          const nextIndex = clampIndex(
-            Math.round(-nextX / TICK_SPACING),
-          );
+          const nextIndex = clampIndex(Math.round(-nextX / TICK_SPACING));
           if (nextIndex !== selectedIndex.value) {
             selectedIndex.value = nextIndex;
             runOnJS(hapticTick)();

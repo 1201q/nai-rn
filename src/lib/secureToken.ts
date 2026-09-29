@@ -1,6 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from "expo-secure-store";
 
-const NOVELAI_TOKEN_KEY = 'novelai_api_token';
+const NOVELAI_TOKEN_KEY = "novelai_api_token";
 
 export async function saveNovelAiToken(token: string): Promise<void> {
   await SecureStore.setItemAsync(NOVELAI_TOKEN_KEY, token);

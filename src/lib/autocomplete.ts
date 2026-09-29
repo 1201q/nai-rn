@@ -19,7 +19,10 @@ export interface AutocompleteRange {
 }
 
 /** Numeric opening markers are indivisible boundaries, including their weight. */
-export function getAutocompleteRange(text: string, position: number): AutocompleteRange {
+export function getAutocompleteRange(
+  text: string,
+  position: number,
+): AutocompleteRange {
   const boundaries = /-?(?:\d+\.?\d*|\.\d+)::|::|[,\r\n|{}\[\]]/g;
   let start = 0;
   let end = text.length;
@@ -27,7 +30,8 @@ export function getAutocompleteRange(text: string, position: number): Autocomple
     const boundaryStart = match.index;
     const boundaryEnd = boundaryStart + match[0].length;
     if (boundaryEnd <= position) start = boundaryEnd;
-    else if (boundaryStart < position) return { start: position, end: position };
+    else if (boundaryStart < position)
+      return { start: position, end: position };
     else {
       end = boundaryStart;
       break;
@@ -43,19 +47,33 @@ export function getAutocompleteEdit(
   text: string,
   selection: AutocompleteRange,
 ): { start: number; previousEnd: number; end: number } {
-  const addedLength = text.length - previous.length + selection.end - selection.start;
+  const addedLength =
+    text.length - previous.length + selection.end - selection.start;
   if (
     addedLength >= 0 &&
     text.slice(0, selection.start) === previous.slice(0, selection.start) &&
     text.slice(selection.start + addedLength) === previous.slice(selection.end)
   ) {
-    return { start: selection.start, previousEnd: selection.end, end: selection.start + addedLength };
+    return {
+      start: selection.start,
+      previousEnd: selection.end,
+      end: selection.start + addedLength,
+    };
   }
   let start = 0;
-  while (start < previous.length && start < text.length && previous[start] === text[start]) start += 1;
+  while (
+    start < previous.length &&
+    start < text.length &&
+    previous[start] === text[start]
+  )
+    start += 1;
   let previousEnd = previous.length;
   let end = text.length;
-  while (previousEnd > start && end > start && previous[previousEnd - 1] === text[end - 1]) {
+  while (
+    previousEnd > start &&
+    end > start &&
+    previous[previousEnd - 1] === text[end - 1]
+  ) {
     previousEnd -= 1;
     end -= 1;
   }
@@ -112,7 +130,8 @@ export function insertTag(
 ): InsertResult {
   const before = text.slice(0, range.start);
   const after = text.slice(range.end);
-  const separator = !after || !/^\s*(?:,|\r?\n|::|[|}\]])/.test(after) ? ", " : "";
+  const separator =
+    !after || !/^\s*(?:,|\r?\n|::|[|}\]])/.test(after) ? ", " : "";
   const insertion = value + separator;
 
   return {

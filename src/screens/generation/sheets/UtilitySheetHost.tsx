@@ -1,5 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  BackHandler,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import BottomSheet, {
   type BottomSheetFooterProps,
   type BottomSheetHandleProps,
@@ -126,7 +132,8 @@ export function UtilitySheetHost({
     setTransition({
       sheet,
       content: sheet ?? transition.content,
-      retainSettings: sheet === null ? transition.retainSettings : sheet === "settings",
+      retainSettings:
+        sheet === null ? transition.retainSettings : sheet === "settings",
     });
   }
   const latestTransition = useRef(transition);
@@ -134,7 +141,8 @@ export function UtilitySheetHost({
   const renderedSheet = sheet ?? transition.content;
   const visible = renderedSheet !== null;
   // Cached Settings must not keep the backdrop or back handler active.
-  const contentSheet = renderedSheet ?? (transition.retainSettings ? "settings" : null);
+  const contentSheet =
+    renderedSheet ?? (transition.retainSettings ? "settings" : null);
   const historyController = useHistorySheetController({ onClose });
   const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
@@ -157,14 +165,17 @@ export function UtilitySheetHost({
     );
     if (transition.sheet !== null) onClose();
   }, [onClose, predictiveBackProgress, transition]);
-  const handleSheetChanged = useCallback((index: number) => {
-    // Reconcile a reversal that arrived before the native animation moved.
-    const latest = latestTransition.current;
-    if (index === 0 && latest.sheet === null) sheetRef.current?.close();
-    if (index === -1 && latest.sheet !== null && latest !== transition) {
-      sheetRef.current?.snapToIndex(0);
-    }
-  }, [transition]);
+  const handleSheetChanged = useCallback(
+    (index: number) => {
+      // Reconcile a reversal that arrived before the native animation moved.
+      const latest = latestTransition.current;
+      if (index === 0 && latest.sheet === null) sheetRef.current?.close();
+      if (index === -1 && latest.sheet !== null && latest !== transition) {
+        sheetRef.current?.snapToIndex(0);
+      }
+    },
+    [transition],
+  );
   const renderHistoryFooter = useCallback(
     (props: BottomSheetFooterProps) => (
       <HistorySheetFooter {...props} controller={historyController} />
@@ -267,12 +278,8 @@ export function UtilitySheetHost({
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
-          activeOffsetY={
-            renderedSheet === "metadata" ? [-10, 10] : undefined
-          }
-          failOffsetX={
-            renderedSheet === "metadata" ? [-18, 18] : undefined
-          }
+          activeOffsetY={renderedSheet === "metadata" ? [-10, 10] : undefined}
+          failOffsetX={renderedSheet === "metadata" ? [-18, 18] : undefined}
           waitFor={
             renderedSheet === "metadata"
               ? metadataPagerController.pageGesture

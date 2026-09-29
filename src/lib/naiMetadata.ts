@@ -125,9 +125,8 @@ function buildCharacters(comment: Record<string, unknown>): CharacterPrompt[] {
     const prompt = prompts[index]?.prompt ?? "";
     const negativePrompt = negatives[index]?.prompt ?? "";
     if (!prompt && !negativePrompt) continue;
-    const centers = prompts[index]?.centers ?? negatives[index]?.centers ?? [
-      { x: 0.5, y: 0.5 },
-    ];
+    const centers = prompts[index]?.centers ??
+      negatives[index]?.centers ?? [{ x: 0.5, y: 0.5 }];
     for (let centerIndex = 0; centerIndex < centers.length; centerIndex += 1) {
       if (characters.length >= MAX_CHARACTER_PROMPTS) break;
       characters.push({

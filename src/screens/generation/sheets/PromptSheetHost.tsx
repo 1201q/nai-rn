@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type EffectCallback } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type EffectCallback,
+} from "react";
 import {
   Keyboard,
   Pressable,
@@ -227,7 +234,8 @@ export function PromptSheetHost({
   function useStaticPageFocus(effect: EffectCallback) {
     useEffect(() => {
       // Scrollable pages register themselves; only the empty page is a View.
-      if (promptTab === "chunks" || promptStage === "collapsed") return effect();
+      if (promptTab === "chunks" || promptStage === "collapsed")
+        return effect();
     }, [effect, promptTab, promptStage]);
   }
   const referenceCount = useGenerationStore(
@@ -331,7 +339,8 @@ export function PromptSheetHost({
         })
         .onUpdate((event) => {
           const minimumTranslateX = -windowWidth * (PROMPT_TABS.length - 1);
-          const nextTranslateX = promptPageDragStartX.value + event.translationX;
+          const nextTranslateX =
+            promptPageDragStartX.value + event.translationX;
 
           if (nextTranslateX > 0) {
             promptPageTranslateX.value = nextTranslateX * 0.2;
@@ -477,7 +486,10 @@ export function PromptSheetHost({
                         {item.key === "prompt" ? (
                           <PromptSheetContent active={active} />
                         ) : item.key === "reference" ? (
-                          <ReferenceImagesSheetContent active={active} onMetadataExtract={onMetadataExtract} />
+                          <ReferenceImagesSheetContent
+                            active={active}
+                            onMetadataExtract={onMetadataExtract}
+                          />
                         ) : (
                           <View style={styles.emptyPromptPage} />
                         )}

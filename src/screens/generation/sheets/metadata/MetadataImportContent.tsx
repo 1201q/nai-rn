@@ -21,11 +21,7 @@ import { useGenerationStore } from "../../../../store/generationStore";
 import { tokens } from "../../../../styles/tokens";
 
 type ImportSelectionKey =
-  | "prompt"
-  | "negativePrompt"
-  | "characters"
-  | "settings"
-  | "seed";
+  "prompt" | "negativePrompt" | "characters" | "settings" | "seed";
 
 type ImportOption = {
   key: ImportSelectionKey;
@@ -33,7 +29,9 @@ type ImportOption = {
   description: string;
 };
 
-function resolveImportMetadata(generation: MetadataSheetSource): ParsedNaiMetadata {
+function resolveImportMetadata(
+  generation: MetadataSheetSource,
+): ParsedNaiMetadata {
   const parsed = parseNaiMetadataJson(generation.metadataJson);
   if (!("id" in generation)) return parsed ?? { raw: {}, hasSettings: false };
   return {
@@ -78,10 +76,7 @@ const ImportOptionCard = memo(function ImportOptionCard({
         accessibilityLabel={option.label}
         accessibilityState={{ checked: selected }}
         onPress={() => onChange(!selected)}
-        style={({ pressed }) => [
-          styles.optionRow,
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
       >
         <View style={styles.optionCopy}>
           <Text style={styles.optionLabel}>{option.label}</Text>
@@ -160,10 +155,7 @@ export const MetadataImportContent = memo(function MetadataImportContent({
   const applyMetadataImport = useGenerationStore(
     (state) => state.applyMetadataImport,
   );
-  const parsed = useMemo(
-    () => resolveImportMetadata(generation),
-    [generation],
-  );
+  const parsed = useMemo(() => resolveImportMetadata(generation), [generation]);
   const available = useMemo(
     () => getMetadataImportAvailability(parsed),
     [parsed],
@@ -196,7 +188,8 @@ export const MetadataImportContent = memo(function MetadataImportContent({
       {
         key: "seed",
         label: "Seed",
-        description: parsed.seed === undefined ? "Seed 정보 없음" : String(parsed.seed),
+        description:
+          parsed.seed === undefined ? "Seed 정보 없음" : String(parsed.seed),
       },
     ],
     [parsed.characters?.length, parsed.seed],
@@ -267,7 +260,11 @@ export const MetadataImportContent = memo(function MetadataImportContent({
           pressed && canImport && styles.pressed,
         ]}
       >
-        <Ionicons name="download-outline" size={18} color={tokens.color.onAccent} />
+        <Ionicons
+          name="download-outline"
+          size={18}
+          color={tokens.color.onAccent}
+        />
         <Text style={styles.importButtonLabel}>선택 항목 가져오기</Text>
       </Pressable>
     </BottomSheetScrollView>

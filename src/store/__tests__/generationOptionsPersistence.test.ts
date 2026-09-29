@@ -68,9 +68,7 @@ describe("generation options persistence", () => {
       height: 768,
     });
     expect(
-      selectPersistedOptions(
-        createState({ seed: 456, seedLocked: true }),
-      ).seed,
+      selectPersistedOptions(createState({ seed: 456, seedLocked: true })).seed,
     ).toBe(456);
   });
 
@@ -106,9 +104,7 @@ describe("generation options persistence", () => {
 
     persistence.handleStateChange(firstState, initialState);
     persistence.handleStateChange(lastState, firstState);
-    jest.advanceTimersByTime(
-      GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS - 1,
-    );
+    jest.advanceTimersByTime(GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS - 1);
     expect(write).not.toHaveBeenCalled();
 
     jest.advanceTimersByTime(1);

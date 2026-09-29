@@ -81,12 +81,18 @@ export const PromptTokenCounter = memo(function PromptTokenCounter({
   const tooltipLeft = anchor
     ? Math.max(
         16,
-        Math.min(windowWidth - tooltipWidth - 16, anchor.x + anchor.width - tooltipWidth),
+        Math.min(
+          windowWidth - tooltipWidth - 16,
+          anchor.x + anchor.width - tooltipWidth,
+        ),
       )
     : 16;
   const tooltipTop = anchor
     ? showBelow
-      ? Math.min(windowHeight - tooltipHeight - 16, anchor.y + anchor.height + 10)
+      ? Math.min(
+          windowHeight - tooltipHeight - 16,
+          anchor.y + anchor.height + 10,
+        )
       : Math.max(16, anchor.y - tooltipHeight - 10)
     : 16;
   const arrowLeft = anchor

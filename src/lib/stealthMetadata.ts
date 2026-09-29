@@ -55,7 +55,9 @@ export function decodeStealthAlpha(
   return metadata;
 }
 
-export function extractStealthMetadata(bytes: Uint8Array): Record<string, string> {
+export function extractStealthMetadata(
+  bytes: Uint8Array,
+): Record<string, string> {
   const image = Skia.Image.MakeImageFromEncoded(Skia.Data.fromBytes(bytes));
   if (!image) return {};
 

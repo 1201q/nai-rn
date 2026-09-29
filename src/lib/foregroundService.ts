@@ -1,7 +1,5 @@
 import { Platform } from "react-native";
-import notifee, {
-  AndroidImportance,
-} from "react-native-notify-kit";
+import notifee, { AndroidImportance } from "react-native-notify-kit";
 
 const isAndroid = Platform.OS === "android";
 
@@ -35,7 +33,9 @@ function progressBody(
   totalSteps: number,
 ) {
   const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
-  return imageTotal > 1 ? `${imageIndex}/${imageTotal} · ${pct}%` : `${pct}% 생성중`;
+  return imageTotal > 1
+    ? `${imageIndex}/${imageTotal} · ${pct}%`
+    : `${pct}% 생성중`;
 }
 
 function progressConfig(doneSteps: number, totalSteps: number) {

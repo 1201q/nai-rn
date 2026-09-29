@@ -31,18 +31,13 @@ export function buildGenerationHistoryPageQuery(
              OR (created_at = ? AND id < ?)
           ORDER BY created_at DESC, id DESC
           LIMIT ?`,
-    params: [
-      cursor.createdAt,
-      cursor.createdAt,
-      cursor.id,
-      fetchLimit,
-    ] as (string | number)[],
+    params: [cursor.createdAt, cursor.createdAt, cursor.id, fetchLimit] as (
+      string | number
+    )[],
   };
 }
 
-export function createGenerationHistoryPage<
-  T extends GenerationHistoryCursor,
->(
+export function createGenerationHistoryPage<T extends GenerationHistoryCursor>(
   records: T[],
   limit = GENERATION_HISTORY_PAGE_SIZE,
 ): GenerationHistoryPage<T> {

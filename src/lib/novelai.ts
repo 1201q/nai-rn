@@ -4,8 +4,7 @@ import { type UcPresetIndex } from "./naiPresets";
 
 const NOVELAI_IMAGE_STREAM_API_URL =
   "https://image.novelai.net/ai/generate-image-stream";
-const NOVELAI_VIBE_ENCODE_API_URL =
-  "https://image.novelai.net/ai/encode-vibe";
+const NOVELAI_VIBE_ENCODE_API_URL = "https://image.novelai.net/ai/encode-vibe";
 const NOVELAI_SUBSCRIPTION_API_URL =
   "https://image.novelai.net/user/subscription";
 
@@ -72,10 +71,7 @@ export type NovelAiAnlasBalance = {
   expiresAt: number;
 };
 
-type NovelAiPreciseReferenceType =
-  | "character"
-  | "style"
-  | "character&style";
+type NovelAiPreciseReferenceType = "character" | "style" | "character&style";
 
 export async function getNovelAiAnlasBalance(
   token: string,
@@ -237,7 +233,9 @@ function addMetadataEntry(
   metadata[`${key}#${duplicateIndex}`] = value;
 }
 
-export function extractPngTextMetadata(bytes: Uint8Array): Record<string, string> {
+export function extractPngTextMetadata(
+  bytes: Uint8Array,
+): Record<string, string> {
   const metadata: Record<string, string> = {};
   const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
@@ -485,7 +483,9 @@ export function createImageGenerationBody({
   const hasVibes = vibeEncodedImages.length > 0;
   const hasPreciseReferences = preciseReferenceImages.length > 0;
   const useCharacterCoords =
-    shouldUseV4Prompt && characterPositionEnabled && characterPrompts.length > 0;
+    shouldUseV4Prompt &&
+    characterPositionEnabled &&
+    characterPrompts.length > 0;
   const preciseStrengthValues =
     preciseReferenceStrengths.length === preciseReferenceImages.length
       ? preciseReferenceStrengths
@@ -572,8 +572,9 @@ export function createImageGenerationBody({
       ? {
           director_reference_images:
             preciseReferenceImages.map(stripBase64Header),
-          director_reference_information_extracted:
-            preciseReferenceImages.map(() => 1),
+          director_reference_information_extracted: preciseReferenceImages.map(
+            () => 1,
+          ),
           director_reference_strength_values: preciseStrengthValues,
           director_reference_secondary_strength_values:
             preciseFidelityValues.map((value) => 1 - value),
@@ -760,34 +761,38 @@ export async function generateNovelAiImageStream(
     }
 
     function handleStreamText(text: string) {
-      const result = parseSseEvents(buffer + text, scanOffset, (eventName, data) => {
-        // `event: error`는 본문이 JSON이 아니어도 오류로 처리한다.
-        const streamEvent: NovelAiImageStreamEvent | null =
-          eventName === "error"
-            ? {
-                type: "error",
-                message: `NovelAI 생성 오류: ${getStreamErrorMessage(data)}`,
-              }
-            : toNovelAiImageStreamEvent(data);
-        if (!streamEvent) return;
+      const result = parseSseEvents(
+        buffer + text,
+        scanOffset,
+        (eventName, data) => {
+          // `event: error`는 본문이 JSON이 아니어도 오류로 처리한다.
+          const streamEvent: NovelAiImageStreamEvent | null =
+            eventName === "error"
+              ? {
+                  type: "error",
+                  message: `NovelAI 생성 오류: ${getStreamErrorMessage(data)}`,
+                }
+              : toNovelAiImageStreamEvent(data);
+          if (!streamEvent) return;
 
-        try {
-          onEvent?.(streamEvent);
-        } catch (error: unknown) {
-          settleError(error);
-          xhr.abort();
-          return;
-        }
+          try {
+            onEvent?.(streamEvent);
+          } catch (error: unknown) {
+            settleError(error);
+            xhr.abort();
+            return;
+          }
 
-        if (streamEvent.type === "final") {
-          finalImageBase64 = streamEvent.imageBase64;
-        }
+          if (streamEvent.type === "final") {
+            finalImageBase64 = streamEvent.imageBase64;
+          }
 
-        if (streamEvent.type === "error") {
-          settleError(new Error(streamEvent.message));
-          xhr.abort();
-        }
-      });
+          if (streamEvent.type === "error") {
+            settleError(new Error(streamEvent.message));
+            xhr.abort();
+          }
+        },
+      );
       buffer = result.rest;
       scanOffset = result.scanOffset;
     }

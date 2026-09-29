@@ -34,7 +34,11 @@ import Reanimated, {
 import { toast } from "sonner-native";
 
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
-import { generationImagePipeline, previewRequestId, releaseNativePreviews } from "../../../modules/generation-image-pipeline";
+import {
+  generationImagePipeline,
+  previewRequestId,
+  releaseNativePreviews,
+} from "../../../modules/generation-image-pipeline";
 import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 
@@ -234,13 +238,13 @@ export function GenerationCanvas({
   useEffect(() => {
     if (previewRequest) generationImagePipeline?.retainPreviews(previewRequest);
     // Effect cleanup runs after the committed source change or unmount.
-    return () => { if (previewRequest) releaseNativePreviews(previewRequest); };
+    return () => {
+      if (previewRequest) releaseNativePreviews(previewRequest);
+    };
   }, [previewRequest]);
   const resolution = useGenerationStore((s) => s.resolution);
   const mainImageBlurred = useGenerationStore((s) => s.mainImageBlurred);
-  const setMainImageBlurred = useGenerationStore(
-    (s) => s.setMainImageBlurred,
-  );
+  const setMainImageBlurred = useGenerationStore((s) => s.setMainImageBlurred);
   const [expanded, setExpanded] = useState(true);
   const expandedRef = useRef(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -254,9 +258,10 @@ export function GenerationCanvas({
 
   const currentImagePath = currentGeneration?.imagePath;
   const currentImageUri = useMemo(
-    () => currentImagePath === undefined
-      ? null
-      : resolveGenerationImageUri({ imagePath: currentImagePath }),
+    () =>
+      currentImagePath === undefined
+        ? null
+        : resolveGenerationImageUri({ imagePath: currentImagePath }),
     [currentImagePath],
   );
   const displayedImageUri = activePreviewUri ?? currentImageUri;
@@ -286,7 +291,8 @@ export function GenerationCanvas({
 
   const handleImageLoad = useCallback((event: ImageLoadEventData) => {
     const { url, width, height } = event.source;
-    if (url !== measurableImageUriRef.current || !(width > 0 && height > 0)) return;
+    if (url !== measurableImageUriRef.current || !(width > 0 && height > 0))
+      return;
     const aspectRatio = width / height;
     setLoadedImage((current) => {
       if (url !== measurableImageUriRef.current) return current;
@@ -396,14 +402,14 @@ export function GenerationCanvas({
           <Reanimated.View
             pointerEvents={expanded ? "auto" : "none"}
             accessibilityElementsHidden={!expanded}
-            importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
+            importantForAccessibility={
+              expanded ? "auto" : "no-hide-descendants"
+            }
             style={[styles.toolbarActions, actionStyle]}
           >
             <ToolbarAction
               icon={mainImageBlurred ? "eye-off-outline" : "eye-outline"}
-              label={
-                mainImageBlurred ? "이미지 블러 해제" : "이미지 블러 적용"
-              }
+              label={mainImageBlurred ? "이미지 블러 해제" : "이미지 블러 적용"}
               active={mainImageBlurred}
               onPress={() => setMainImageBlurred(!mainImageBlurred)}
             />

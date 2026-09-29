@@ -40,7 +40,8 @@ jest.mock("../../../store/generationStore", () => {
 
 jest.mock("../../forms/PromptHighlightTextInput", () => {
   const React = require("react") as typeof import("react");
-  const { TextInput } = require("react-native") as typeof import("react-native");
+  const { TextInput } =
+    require("react-native") as typeof import("react-native");
 
   return {
     PromptHighlightTextInput: React.forwardRef(function MockPromptInput(
@@ -107,9 +108,7 @@ describe("CharacterPromptSection", () => {
   });
 
   it("adds a character and stores its editable name in the existing name field", async () => {
-    const { getByLabelText } = await render(
-      <CharacterPromptSectionHarness />,
-    );
+    const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
     expect(getByLabelText("Character 1 Prompt")).toBeTruthy();
@@ -123,22 +122,20 @@ describe("CharacterPromptSection", () => {
 
     await fireEvent.changeText(nameInput, "   ");
     await fireEvent(nameInput, "blur");
-    expect(useGenerationStore.getState().characterPrompts[0].name).toBeUndefined();
+    expect(
+      useGenerationStore.getState().characterPrompts[0].name,
+    ).toBeUndefined();
   });
 
   it("commits the character prompt when switching to undesired content", async () => {
-    const { getByLabelText } = await render(
-      <CharacterPromptSectionHarness />,
-    );
+    const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
     await fireEvent.changeText(
       getByLabelText("Character 1 prompt"),
       "blue eyes",
     );
-    await fireEvent.press(
-      getByLabelText("Character 1 Undesired Content"),
-    );
+    await fireEvent.press(getByLabelText("Character 1 Undesired Content"));
 
     expect(useGenerationStore.getState().characterPrompts[0].prompt).toBe(
       "blue eyes",
@@ -156,9 +153,7 @@ describe("CharacterPromptSection", () => {
     expect(queryByLabelText("Character 1 복사")).toBeNull();
     await fireEvent.press(getByLabelText("Character 1 위치 지정"));
 
-    expect(
-      useGenerationStore.getState().characterPositionEnabled,
-    ).toBe(true);
+    expect(useGenerationStore.getState().characterPositionEnabled).toBe(true);
     expect(mockOpenCharacterPosition).toHaveBeenCalledWith(character.id);
   });
 
@@ -187,7 +182,9 @@ describe("CharacterPromptSection", () => {
     await fireEvent.press(getByLabelText("Character 1 활성화"));
 
     expect(
-      StyleSheet.flatten(getByTestId(`character-${character.id}-card`).props.style),
+      StyleSheet.flatten(
+        getByTestId(`character-${character.id}-card`).props.style,
+      ),
     ).toMatchObject({
       borderColor: "#2B2A30",
       borderWidth: 1,
@@ -213,9 +210,7 @@ describe("CharacterPromptSection", () => {
   });
 
   it("keeps edge move-button dividers opaque", async () => {
-    const { getByLabelText } = await render(
-      <CharacterPromptSectionHarness />,
-    );
+    const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
@@ -253,9 +248,9 @@ describe("CharacterPromptSection", () => {
     await fireEvent.press(getByLabelText("Character 1 접기"));
     expect(queryByLabelText("Character 1 prompt")).toBeNull();
     expect(getByText("blue eyes").props.numberOfLines).toBe(1);
-    expect(getByLabelText("character-token-positive").props.accessibilityHint).toBe(
-      "bar",
-    );
+    expect(
+      getByLabelText("character-token-positive").props.accessibilityHint,
+    ).toBe("bar");
 
     await fireEvent.press(getByLabelText("Character 1 편집"));
     expect(dismissKeyboard).toHaveBeenCalledTimes(1);
@@ -277,9 +272,7 @@ describe("CharacterPromptSection", () => {
       position: { x: 0.5, y: 0.5 },
     };
     useGenerationStore.getState().setCharacterPrompts([character]);
-    useGenerationStore
-      .getState()
-      .setCharacterPromptExpandedIds([character.id]);
+    useGenerationStore.getState().setCharacterPromptExpandedIds([character.id]);
 
     const { getByLabelText, getByTestId } = await render(
       <CharacterPromptSectionHarness />,

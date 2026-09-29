@@ -133,7 +133,9 @@ const HistorySheetTile = memo(function HistorySheetTile({
               : "History 이미지 선택"
             : "메인 이미지로 표시"
         }
-        accessibilityHint={isCurrent ? "현재 메인에 표시 중인 이미지" : undefined}
+        accessibilityHint={
+          isCurrent ? "현재 메인에 표시 중인 이미지" : undefined
+        }
         accessibilityState={{
           selected: selectionMode ? selected : undefined,
           disabled,
@@ -236,15 +238,21 @@ export function useHistorySheetController({
   const selectionRequestRef = useRef(0);
   const deletePhaseRef = useRef<"idle" | "confirming" | "deleting">("idle");
 
-  useEffect(() => () => {
-    selectionRequestRef.current += 1;
-  }, []);
+  useEffect(
+    () => () => {
+      selectionRequestRef.current += 1;
+    },
+    [],
+  );
 
   const availableIdList = useMemo(
     () => historyIds ?? generationHistory.map((item) => item.id),
     [historyIds, generationHistory],
   );
-  const availableIds = useMemo(() => new Set(availableIdList), [availableIdList]);
+  const availableIds = useMemo(
+    () => new Set(availableIdList),
+    [availableIdList],
+  );
   const selectedIds = useMemo(() => {
     const validIds = [...selectionIds].filter((id) => availableIds.has(id));
     return validIds.length === selectionIds.size
@@ -280,21 +288,26 @@ export function useHistorySheetController({
     setSelectedIds(new Set([id]));
   }, []);
 
-  const toggleSelection = useCallback((id: string) => {
-    if (
-      selectingAllRef.current ||
-      savingRef.current ||
-      deletePhaseRef.current !== "idle"
-    ) {
-      return;
-    }
-    setSelectedIds((current) => {
-      const next = new Set([...current].filter((value) => availableIds.has(value)));
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, [availableIds]);
+  const toggleSelection = useCallback(
+    (id: string) => {
+      if (
+        selectingAllRef.current ||
+        savingRef.current ||
+        deletePhaseRef.current !== "idle"
+      ) {
+        return;
+      }
+      setSelectedIds((current) => {
+        const next = new Set(
+          [...current].filter((value) => availableIds.has(value)),
+        );
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+    [availableIds],
+  );
 
   const handleTilePress = useCallback(
     (item: GenerationRecord) => {
@@ -662,66 +675,65 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     handleTilePress,
     handleActiveGenerationPress,
   } = controller;
-  const tileSize = Math.floor(
-    (width - GRID_PADDING * 2 - GRID_GAP * 2) / 3,
-  );
+  const tileSize = Math.floor((width - GRID_PADDING * 2 - GRID_GAP * 2) / 3);
   const listData = useMemo<(GenerationRecord | null)[]>(
-    () => isLoading ? [null, ...generationHistory] : generationHistory,
+    () => (isLoading ? [null, ...generationHistory] : generationHistory),
     [generationHistory, isLoading],
   );
   const activeGenerationSelected = isLoading && isViewingActiveGeneration;
 
   return (
     <BottomSheetFlatList
-        data={listData}
-        keyExtractor={(item) => item?.id ?? "active-generation"}
-        numColumns={3}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={15}
-        maxToRenderPerBatch={9}
-        windowSize={7}
-        onEndReached={() => {
-          void loadMoreHistory();
-        }}
-        onEndReachedThreshold={0.4}
-        contentContainerStyle={[
-          styles.gridContent,
-          {
-            paddingBottom:
-              actionBarHeight +
-              HISTORY_SELECTION_ACTIONS_HEIGHT +
-              HISTORY_SCROLL_BOTTOM_GAP,
-          },
-          listData.length === 0 && styles.emptyGrid,
-        ]}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            {historyInitialized ? (
-              <>
-                <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
-                <Text style={styles.emptyText}>
-                  이미지를 생성하면 여기에 기록이 쌓입니다
-                </Text>
-              </>
-            ) : (
-              <ActivityIndicator
-                accessibilityLabel="History 불러오는 중"
-                color={tokens.color.textMuted}
-              />
-            )}
+      data={listData}
+      keyExtractor={(item) => item?.id ?? "active-generation"}
+      numColumns={3}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={15}
+      maxToRenderPerBatch={9}
+      windowSize={7}
+      onEndReached={() => {
+        void loadMoreHistory();
+      }}
+      onEndReachedThreshold={0.4}
+      contentContainerStyle={[
+        styles.gridContent,
+        {
+          paddingBottom:
+            actionBarHeight +
+            HISTORY_SELECTION_ACTIONS_HEIGHT +
+            HISTORY_SCROLL_BOTTOM_GAP,
+        },
+        listData.length === 0 && styles.emptyGrid,
+      ]}
+      ListEmptyComponent={
+        <View style={styles.emptyState}>
+          {historyInitialized ? (
+            <>
+              <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
+              <Text style={styles.emptyText}>
+                이미지를 생성하면 여기에 기록이 쌓입니다
+              </Text>
+            </>
+          ) : (
+            <ActivityIndicator
+              accessibilityLabel="History 불러오는 중"
+              color={tokens.color.textMuted}
+            />
+          )}
+        </View>
+      }
+      ListFooterComponent={
+        historyLoadingMore ? (
+          <View style={styles.loadingFooter}>
+            <ActivityIndicator
+              accessibilityLabel="이전 History 불러오는 중"
+              color={tokens.color.textMuted}
+            />
           </View>
-        }
-        ListFooterComponent={
-          historyLoadingMore ? (
-            <View style={styles.loadingFooter}>
-              <ActivityIndicator
-                accessibilityLabel="이전 History 불러오는 중"
-                color={tokens.color.textMuted}
-              />
-            </View>
-          ) : null
-        }
-        renderItem={({ item, index }) => item === null ? (
+        ) : null
+      }
+      renderItem={({ item, index }) =>
+        item === null ? (
           <ActiveGenerationTile
             index={index}
             size={tileSize}
@@ -737,13 +749,16 @@ export const HistorySheetContent = memo(function HistorySheetContent({
             size={tileSize}
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
-            isCurrent={!activeGenerationSelected && item.id === currentGenerationId}
+            isCurrent={
+              !activeGenerationSelected && item.id === currentGenerationId
+            }
             disabled={busy}
             onPress={handleTilePress}
             onLongPress={enterSelectionMode}
           />
-        )}
-      />
+        )
+      }
+    />
   );
 });
 

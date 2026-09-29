@@ -1,5 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
@@ -11,9 +17,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 
-import {
-  GENERATION_SHEET_HEADER_HEIGHT,
-} from "../../../../hooks/useGenerationChromeMetrics";
+import { GENERATION_SHEET_HEADER_HEIGHT } from "../../../../hooks/useGenerationChromeMetrics";
 import type { MetadataSheetSource } from "./MetadataSheetContent";
 import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
@@ -39,13 +43,8 @@ export const MetadataSheetPager = memo(function MetadataSheetPager({
   onClose: () => void;
   controller: MetadataSheetPagerController;
 }) {
-  const {
-    tab,
-    changeTab,
-    pageGesture,
-    pageTrackStyle,
-    windowWidth,
-  } = controller;
+  const { tab, changeTab, pageGesture, pageTrackStyle, windowWidth } =
+    controller;
 
   return (
     <View style={styles.container}>
@@ -60,12 +59,11 @@ export const MetadataSheetPager = memo(function MetadataSheetPager({
                 accessibilityLabel={item.label}
                 accessibilityState={{ selected: active }}
                 onPress={() => changeTab(item.key)}
-                style={({ pressed }) => [
-                  styles.tab,
-                  pressed && styles.pressed,
-                ]}
+                style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
               >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                <Text
+                  style={[styles.tabLabel, active && styles.tabLabelActive]}
+                >
                   {item.label}
                 </Text>
                 <View
@@ -203,13 +201,7 @@ export function useMetadataSheetPagerController() {
             easing: Easing.bezier(0.32, 0.72, 0, 1),
           });
         }),
-    [
-      pageDragStartX,
-      pageIndex,
-      pageTranslateX,
-      selectPage,
-      windowWidth,
-    ],
+    [pageDragStartX, pageIndex, pageTranslateX, selectPage, windowWidth],
   );
   const pageTrackStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pageTranslateX.value }],

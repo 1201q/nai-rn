@@ -61,18 +61,14 @@ describe("prompt token presentation", () => {
         { scope: "base", channel: "positive" },
         "t5",
       ),
-    ).toBe(
-      "이 입력 94 · 다른 입력 187 · 전체 281 / 512 · 231 남음",
-    );
+    ).toBe("이 입력 94 · 다른 입력 187 · 전체 281 / 512 · 231 남음");
     expect(
       formatPromptTokenTooltip(
         readyMetrics(520),
         { scope: "base", channel: "positive" },
         "t5",
       ),
-    ).toBe(
-      "이 입력 94 · 다른 입력 426 · 전체 520 / 512 · 8 초과",
-    );
+    ).toBe("이 입력 94 · 다른 입력 426 · 전체 520 / 512 · 8 초과");
   });
 
   it("explains why character prompts are excluded", () => {

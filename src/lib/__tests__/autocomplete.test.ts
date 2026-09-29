@@ -1,4 +1,9 @@
-import { getAutocompleteEdit, getCurrentWord, insertTag, parseQuery } from "../autocomplete";
+import {
+  getAutocompleteEdit,
+  getCurrentWord,
+  insertTag,
+  parseQuery,
+} from "../autocomplete";
 
 describe("insertTag", () => {
   it.each([
@@ -9,18 +14,30 @@ describe("insertTag", () => {
     ["simple::, smile", 6, "simple background::, smile"],
     ["simple|smile", 6, "simple background|smile"],
     ["simple]", 6, "simple background]"],
-  ])("completes %j without leaving a suffix or duplicating a delimiter", (text, caret, expected) => {
-    expect(insertTag(text, caret, "simple background")).toEqual({
-      text: expected,
-      cursor: text === "simple" ? "simple background, ".length : "simple background".length,
-    });
-  });
+  ])(
+    "completes %j without leaving a suffix or duplicating a delimiter",
+    (text, caret, expected) => {
+      expect(insertTag(text, caret, "simple background")).toEqual({
+        text: expected,
+        cursor:
+          text === "simple"
+            ? "simple background, ".length
+            : "simple background".length,
+      });
+    },
+  );
 
   it("preserves preceding tags and weight syntax", () => {
     const before = "1girl, 1.2::";
-    const result = insertTag(`${before}simple foreground::, smile`, before.length + 6, "simple background");
+    const result = insertTag(
+      `${before}simple foreground::, smile`,
+      before.length + 6,
+      "simple background",
+    );
     expect(result.text).toBe(`${before}simple background::, smile`);
-    expect(result.text.slice(0, result.cursor)).toBe(`${before}simple background`);
+    expect(result.text.slice(0, result.cursor)).toBe(
+      `${before}simple background`,
+    );
   });
 
   it.each([
@@ -35,22 +52,39 @@ describe("insertTag", () => {
     expect(insertTag(text, caret, "blue hair").text).toBe(expected);
   });
 
-  it.each(["depth of field, smile", "-1::sky::", "1.5::sky::", ".5::sky::", "{sky}", "[sky]", "1.5::sky, -1::clouds::::"])(
-    "preserves the whole existing suffix %j when given an insertion range", (suffix) => {
-      expect(insertTag(`gir${suffix}`, 3, "1girl", { start: 0, end: 3 })).toEqual({
-        text: `1girl, ${suffix}`, cursor: 7,
+  it.each([
+    "depth of field, smile",
+    "-1::sky::",
+    "1.5::sky::",
+    ".5::sky::",
+    "{sky}",
+    "[sky]",
+    "1.5::sky, -1::clouds::::",
+  ])(
+    "preserves the whole existing suffix %j when given an insertion range",
+    (suffix) => {
+      expect(
+        insertTag(`gir${suffix}`, 3, "1girl", { start: 0, end: 3 }),
+      ).toEqual({
+        text: `1girl, ${suffix}`,
+        cursor: 7,
       });
     },
   );
 
   it("finds namespaces inside brackets and ignores the interior of weight markers", () => {
-    expect(parseQuery(getCurrentWord("{artist:wl}", 10).word)).toEqual({ type: "artist", query: "wl" });
+    expect(parseQuery(getCurrentWord("{artist:wl}", 10).word)).toEqual({
+      type: "artist",
+      query: "wl",
+    });
     expect(getCurrentWord("-1.5::sky::", 3).word).toBe("");
   });
 
   it("uses the selection to disambiguate insertion before repeated characters", () => {
     expect(getAutocompleteEdit("girl", "ggirl", { start: 0, end: 0 })).toEqual({
-      start: 0, previousEnd: 0, end: 1,
+      start: 0,
+      previousEnd: 0,
+      end: 1,
     });
   });
 });

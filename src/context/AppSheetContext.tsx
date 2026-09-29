@@ -80,9 +80,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   const keyboardHideSubscriptionRef = useRef<ReturnType<
     typeof Keyboard.addListener
   > | null>(null);
-  const keyboardCloseTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+  const keyboardCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const closeCompletionTimeoutRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
@@ -309,7 +309,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                     <BatchCountSheet />
                   ) : route === "characterPosition" ? (
                     current.characterId ? (
-                      <CharacterPositionSheet characterId={current.characterId} />
+                      <CharacterPositionSheet
+                        characterId={current.characterId}
+                      />
                     ) : null
                   ) : null}
                 </Reanimated.View>

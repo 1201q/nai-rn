@@ -32,7 +32,8 @@ jest.mock("react-native-gesture-handler", () => {
           "onFinalize",
         ]) {
           gesture[method] = jest.fn((callback: (...args: any[]) => void) => {
-            if (method.startsWith("on")) mockGestureCallbacks[method] = callback;
+            if (method.startsWith("on"))
+              mockGestureCallbacks[method] = callback;
             return gesture;
           });
         }
@@ -61,7 +62,8 @@ jest.mock("../MetadataSheetContent", () => {
   const React = require("react") as typeof import("react");
   const { Text } = require("react-native") as typeof import("react-native");
   return {
-    MetadataSheetContent: () => React.createElement(Text, null, "metadata body"),
+    MetadataSheetContent: () =>
+      React.createElement(Text, null, "metadata body"),
   };
 });
 jest.mock("../MetadataImportContent", () => {
@@ -98,27 +100,30 @@ describe("MetadataSheetPager", () => {
   test("switches pages from tabs and horizontal swipes", async () => {
     const screen = await render(<TestMetadataSheetPager />);
 
-    expect(screen.getByRole("tab", { name: "Metadata" }).props.accessibilityState)
-      .toMatchObject({ selected: true });
-    expect(screen.getByTestId("metadata-page-import", {
-      includeHiddenElements: true,
-    }).props)
-      .toMatchObject({ accessibilityElementsHidden: true });
+    expect(
+      screen.getByRole("tab", { name: "Metadata" }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
+    expect(
+      screen.getByTestId("metadata-page-import", {
+        includeHiddenElements: true,
+      }).props,
+    ).toMatchObject({ accessibilityElementsHidden: true });
 
     await fireEvent.press(screen.getByRole("tab", { name: "Import" }));
-    expect(screen.getByRole("tab", { name: "Import" }).props.accessibilityState)
-      .toMatchObject({ selected: true });
+    expect(
+      screen.getByRole("tab", { name: "Import" }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
 
     await fireEvent.press(screen.getByRole("tab", { name: "Metadata" }));
     await act(() => {
       mockGestureCallbacks.onEnd({ translationX: -120, velocityX: 0 });
     });
-    expect(screen.getByRole("tab", { name: "Import" }).props.accessibilityState)
-      .toMatchObject({ selected: true });
-    expect(screen.getByTestId("metadata-page-import").props)
-      .toMatchObject({
-        accessibilityElementsHidden: false,
-        importantForAccessibility: "auto",
-      });
+    expect(
+      screen.getByRole("tab", { name: "Import" }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
+    expect(screen.getByTestId("metadata-page-import").props).toMatchObject({
+      accessibilityElementsHidden: false,
+      importantForAccessibility: "auto",
+    });
   });
 });

@@ -51,10 +51,7 @@ import {
   type MetadataImportSelection,
 } from "../lib/metadataImport";
 import type { ParsedNaiMetadata } from "../lib/naiMetadata";
-import {
-  isUcPresetIndex,
-  type UcPresetIndex,
-} from "../lib/naiPresets";
+import { isUcPresetIndex, type UcPresetIndex } from "../lib/naiPresets";
 import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
@@ -247,10 +244,7 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
 }
 
 export type GenerationStartRejectionReason =
-  | "busy"
-  | "validation"
-  | "preparation"
-  | "cancelled";
+  "busy" | "validation" | "preparation" | "cancelled";
 
 // started는 전처리 완료와 큐 handoff를 뜻하며 이미지 생성 완료를 뜻하지 않는다.
 export type GenerationStartResult =
@@ -350,9 +344,7 @@ type GenerationState = {
     referenceType: PreciseReferenceType,
   ) => void;
   i2iSourceImage: I2ISourceImage | null;
-  setI2ISourceImage: (
-    v: I2ISourceImageInput,
-  ) => Promise<I2ISourceImage | null>;
+  setI2ISourceImage: (v: I2ISourceImageInput) => Promise<I2ISourceImage | null>;
   i2iEnabled: boolean;
   setI2IEnabled: (v: boolean) => void;
   i2iStrength: number;
@@ -464,9 +456,7 @@ async function waitForNextBatchRequest(
 
   try {
     return await Promise.race([
-      waitForGenerationInterval(delayMs).then(
-        () => !signal.aborted,
-      ),
+      waitForGenerationInterval(delayMs).then(() => !signal.aborted),
       abortPromise,
     ]);
   } finally {
@@ -554,9 +544,7 @@ function loadPersistedOptions(): Partial<GenerationState> {
     const storedI2IImage = resolveStoredI2ISourceImage(parsed.i2iSourceImage);
     if (storedI2IImage) {
       next.i2iSourceImage = storedI2IImage;
-      next.i2iEnabled = isBoolean(parsed.i2iEnabled)
-        ? parsed.i2iEnabled
-        : true;
+      next.i2iEnabled = isBoolean(parsed.i2iEnabled) ? parsed.i2iEnabled : true;
     }
     if (isNumber(parsed.i2iStrength)) {
       next.i2iStrength = parsed.i2iStrength;
@@ -1109,9 +1097,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       return {
         generationHistory,
         currentGeneration,
-        generationHistoryIds: state.generationHistoryIds?.filter(
-          (id) => !deletedIds.has(id),
-        ) ?? null,
+        generationHistoryIds:
+          state.generationHistoryIds?.filter((id) => !deletedIds.has(id)) ??
+          null,
         generationHistoryRevision: state.generationHistoryRevision + 1,
       };
     });
@@ -1541,59 +1529,63 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         }
 
         let lastPreviewUpdateAt = 0;
-        const generation = await retryOnRateLimit(() => generateAndSaveImage(
-          {
-            token,
-            prompt,
-            negativePrompt,
-            characterPrompts,
-            seed: currentSeed,
-            ...opts,
-          },
-          (event) => {
-            if (event.type === "intermediate") {
-              // 알림 step % — 가벼움(정수 산술 + 네이티브 호출), fg/bg 모두, throttle.
-              const tNow = Date.now();
-              if (tNow - lastNotifAt > NOTIF_PROGRESS_THROTTLE_MS) {
-                lastNotifAt = tNow;
-                const doneSteps = (i - 1) * steps + (event.step ?? 0);
-                updateGenerationProgress(i, total, doneSteps, totalSteps);
-              }
+        const generation = await retryOnRateLimit(
+          () =>
+            generateAndSaveImage(
+              {
+                token,
+                prompt,
+                negativePrompt,
+                characterPrompts,
+                seed: currentSeed,
+                ...opts,
+              },
+              (event) => {
+                if (event.type === "intermediate") {
+                  // 알림 step % — 가벼움(정수 산술 + 네이티브 호출), fg/bg 모두, throttle.
+                  const tNow = Date.now();
+                  if (tNow - lastNotifAt > NOTIF_PROGRESS_THROTTLE_MS) {
+                    lastNotifAt = tNow;
+                    const doneSteps = (i - 1) * steps + (event.step ?? 0);
+                    updateGenerationProgress(i, total, doneSteps, totalSteps);
+                  }
 
-              // 프리뷰 파일이 없는 중간 이벤트도 진행률은 갱신한다.
-              if (AppState.currentState !== "active" || !event.imageUri) {
-                set({ streamingStep: event.step });
+                  // 프리뷰 파일이 없는 중간 이벤트도 진행률은 갱신한다.
+                  if (AppState.currentState !== "active" || !event.imageUri) {
+                    set({ streamingStep: event.step });
+                    return;
+                  }
+                  const now = Date.now();
+                  if (
+                    now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
+                    get().streamingPreviewUri
+                  ) {
+                    return;
+                  }
+
+                  lastPreviewUpdateAt = now;
+                  set({
+                    streamingPreviewUri: event.imageUri,
+                    streamingStep: event.step,
+                    streamingGenerationId: event.generationId,
+                  });
+                  return;
+                }
+
+                if (event.type === "final") {
+                  set({
+                    streamingPreviewUri: event.imageUri,
+                    streamingGenerationId: event.generationId,
+                  });
+                  return;
+                }
+
                 return;
-              }
-              const now = Date.now();
-              if (
-                now - lastPreviewUpdateAt < STREAMING_PREVIEW_THROTTLE_MS &&
-                get().streamingPreviewUri
-              ) {
-                return;
-              }
-
-              lastPreviewUpdateAt = now;
-              set({
-                streamingPreviewUri: event.imageUri,
-                streamingStep: event.step,
-                streamingGenerationId: event.generationId,
-              });
-              return;
-            }
-
-            if (event.type === "final") {
-              set({
-                streamingPreviewUri: event.imageUri,
-                streamingGenerationId: event.generationId,
-              });
-              return;
-            }
-
-            return;
-          },
+              },
+              abortController.signal,
+            ),
           abortController.signal,
-        ), abortController.signal);
+        );
 
         set((state) => ({
           currentGeneration: state.isViewingActiveGeneration
@@ -1603,7 +1595,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
           generationHistoryIds: state.generationHistoryIds
             ? [
                 generation.id,
-                ...state.generationHistoryIds.filter((id) => id !== generation.id),
+                ...state.generationHistoryIds.filter(
+                  (id) => id !== generation.id,
+                ),
               ]
             : null,
           generationHistoryRevision: state.generationHistoryRevision + 1,
@@ -1790,8 +1784,7 @@ export function useGenerationBootstrap() {
   // persist: 저장 대상 옵션 변경을 합쳐 마지막 상태만 write
   useEffect(() => {
     const persistence = createGenerationOptionsPersistence({
-      initialJson:
-        storage.getString(GENERATION_OPTIONS_STORAGE_KEY) ?? null,
+      initialJson: storage.getString(GENERATION_OPTIONS_STORAGE_KEY) ?? null,
       write: (json) => {
         storage.set(GENERATION_OPTIONS_STORAGE_KEY, json);
       },

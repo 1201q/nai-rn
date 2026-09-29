@@ -56,11 +56,7 @@ export const Toggle = memo(function Toggle({
       ]}
     >
       <Reanimated.View
-        style={[
-          styles.toggleThumb,
-          value && styles.toggleThumbOn,
-          thumbStyle,
-        ]}
+        style={[styles.toggleThumb, value && styles.toggleThumbOn, thumbStyle]}
       />
     </Pressable>
   );

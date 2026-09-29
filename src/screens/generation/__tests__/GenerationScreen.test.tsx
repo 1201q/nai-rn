@@ -68,7 +68,12 @@ jest.mock("react-native/Libraries/Components/Pressable/Pressable", () => {
     default: React.forwardRef(function MeasuredPressable(props, ref) {
       React.useImperativeHandle(ref, () => ({
         measureInWindow: (
-          callback: (x: number, y: number, width: number, height: number) => void,
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+          ) => void,
         ) => callback(24, 100, 200, 46),
       }));
       return React.createElement(Pressable, props);
@@ -120,16 +125,11 @@ jest.mock("react-native-keyboard-controller", () => {
 
 jest.mock("../../../components/common/Buttons", () => {
   const React = require("react") as typeof import("react");
-  const { Pressable } = require("react-native") as typeof import("react-native");
+  const { Pressable } =
+    require("react-native") as typeof import("react-native");
 
   return {
-    IconButton: ({
-      label,
-      onPress,
-    }: {
-      label: string;
-      onPress: () => void;
-    }) =>
+    IconButton: ({ label, onPress }: { label: string; onPress: () => void }) =>
       React.createElement(Pressable, {
         accessibilityLabel: label,
         onPress,
@@ -148,18 +148,17 @@ jest.mock("../../../context/SuggestionBarContext", () => ({
 
 jest.mock("../../../native/predictiveBack", () => ({
   PREDICTIVE_BACK_SUPPORTED: false,
-  usePredictiveBackHandler: (enabled: boolean, handlers: PredictiveBackHandlers) =>
-    mockBackHandlers(enabled, handlers),
+  usePredictiveBackHandler: (
+    enabled: boolean,
+    handlers: PredictiveBackHandlers,
+  ) => mockBackHandlers(enabled, handlers),
 }));
 
 jest.mock("../GenerationCanvas", () => ({
-  GenerationCanvas: ({
-    onOpenMetadata,
-  }: {
-    onOpenMetadata: () => void;
-  }) => {
+  GenerationCanvas: ({ onOpenMetadata }: { onOpenMetadata: () => void }) => {
     const React = require("react") as typeof import("react");
-    const { Pressable } = require("react-native") as typeof import("react-native");
+    const { Pressable } =
+      require("react-native") as typeof import("react-native");
     return React.createElement(Pressable, {
       accessibilityLabel: "Metadata 테스트 열기",
       onPress: onOpenMetadata,
@@ -171,8 +170,8 @@ jest.mock("../GenerationSheetScaffold", () => {
   const React = require("react") as typeof import("react");
   const { Pressable, Text, View } =
     require("react-native") as typeof import("react-native");
-  const { SheetSelect } = require("../../../components/forms/SheetSelect") as
-    typeof import("../../../components/forms/SheetSelect");
+  const { SheetSelect } =
+    require("../../../components/forms/SheetSelect") as typeof import("../../../components/forms/SheetSelect");
 
   return {
     PromptSheetHost: ({
@@ -185,11 +184,7 @@ jest.mock("../GenerationSheetScaffold", () => {
       React.createElement(
         View,
         null,
-        React.createElement(
-          Text,
-          { testID: "prompt-stage" },
-          promptStage,
-        ),
+        React.createElement(Text, { testID: "prompt-stage" }, promptStage),
         React.createElement(Pressable, {
           accessibilityLabel: "Prompt 테스트 열기",
           onPress: () => onPromptStageChange("full"),
@@ -260,7 +255,9 @@ describe("GenerationScreen generation acceptance", () => {
   test("predictive back commit preserves the released scale while cancel restores it", async () => {
     const screen = await render(<GenerationScreen />);
     await fireEvent.press(screen.getByLabelText("Settings 열기"));
-    const handlers = mockBackHandlers.mock.calls.filter(([enabled]) => enabled).at(-1)![1];
+    const handlers = mockBackHandlers.mock.calls
+      .filter(([enabled]) => enabled)
+      .at(-1)![1];
     const progress = mockUtilityProgress.mock.calls.at(-1)![0];
     const event = { progress: 0.6, swipeEdge: 0, touchX: 100, touchY: 500 };
     await act(() => handlers.onProgress!(event));
@@ -314,7 +311,9 @@ describe("GenerationScreen generation acceptance", () => {
 
       expect(await pressBack()).toBe(true);
       expect(screen.queryByLabelText("Model B")).toBeNull();
-      expect(screen.getByTestId("utility-sheet").props.children).toBe("settings");
+      expect(screen.getByTestId("utility-sheet").props.children).toBe(
+        "settings",
+      );
       expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
 
       expect(await pressBack()).toBe(true);
@@ -326,7 +325,9 @@ describe("GenerationScreen generation acceptance", () => {
       expect(await pressBack()).toBe(true);
       expect(screen.getByTestId("prompt-stage").props.children).toBe("half");
       expect(await pressBack()).toBe(true);
-      expect(screen.getByTestId("prompt-stage").props.children).toBe("collapsed");
+      expect(screen.getByTestId("prompt-stage").props.children).toBe(
+        "collapsed",
+      );
       expect(await pressBack()).toBe(false);
       await screen.unmount();
       expect(listeners).toHaveLength(0);
@@ -336,19 +337,22 @@ describe("GenerationScreen generation acceptance", () => {
     }
   });
 
-  test.each([0, 24, 34])("reserves %i bottom inset for the action bar and canvas", async (bottom) => {
-    mockInsets.mockReturnValue({ top: 59, right: 0, bottom, left: 0 });
-    const screen = await render(<GenerationScreen />);
+  test.each([0, 24, 34])(
+    "reserves %i bottom inset for the action bar and canvas",
+    async (bottom) => {
+      mockInsets.mockReturnValue({ top: 59, right: 0, bottom, left: 0 });
+      const screen = await render(<GenerationScreen />);
 
-    expect(screen.getByTestId("generation-action-bar")).toHaveStyle({
-      height: 72 + bottom,
-      paddingBottom: bottom,
-    });
-    expect(screen.getByTestId("generation-screen")).toHaveStyle({
-      paddingTop: 71,
-      paddingBottom: 128 + bottom,
-    });
-  });
+      expect(screen.getByTestId("generation-action-bar")).toHaveStyle({
+        height: 72 + bottom,
+        paddingBottom: bottom,
+      });
+      expect(screen.getByTestId("generation-screen")).toHaveStyle({
+        paddingTop: 71,
+        paddingBottom: 128 + bottom,
+      });
+    },
+  );
 
   test("updates the action bar after the bottom inset changes", async () => {
     const screen = await render(<GenerationScreen />);
@@ -359,7 +363,9 @@ describe("GenerationScreen generation acceptance", () => {
       height: 106,
       paddingBottom: 34,
     });
-    expect(screen.getByTestId("generation-screen")).toHaveStyle({ paddingBottom: 162 });
+    expect(screen.getByTestId("generation-screen")).toHaveStyle({
+      paddingBottom: 162,
+    });
   });
 
   test("keeps Prompt open when generation validation is rejected", async () => {
@@ -418,9 +424,7 @@ describe("GenerationScreen generation acceptance", () => {
     await fireEvent.press(screen.getByLabelText("생성"));
 
     expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
-    expect(screen.getByTestId("utility-sheet").props.children).toBe(
-      "settings",
-    );
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("settings");
 
     await act(async () => {
       result.resolve({ status: "started" });
@@ -431,9 +435,7 @@ describe("GenerationScreen generation acceptance", () => {
       expect(screen.getByTestId("prompt-stage").props.children).toBe(
         "collapsed",
       );
-      expect(screen.getByTestId("utility-sheet").props.children).toBe(
-        "closed",
-      );
+      expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
     });
     await screen.unmount();
   });

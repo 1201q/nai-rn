@@ -110,11 +110,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
       const current = useGenerationStore.getState().characterPrompts;
       const sourceIndex = current.findIndex((item) => item.id === id);
       const targetIndex = sourceIndex + direction;
-      if (
-        sourceIndex < 0 ||
-        targetIndex < 0 ||
-        targetIndex >= current.length
-      ) {
+      if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= current.length) {
         return;
       }
       const next = [...current];
@@ -175,11 +171,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
               pressed && styles.pressed,
             ]}
           >
-            <Ionicons
-              name="add"
-              size={20}
-              color={tokens.color.textPrimary}
-            />
+            <Ionicons name="add" size={20} color={tokens.color.textPrimary} />
           </Pressable>
         </View>
 

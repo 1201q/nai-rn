@@ -1,7 +1,4 @@
-import {
-  getNovelAiAnlasBalance,
-  NovelAiRequestError,
-} from "../novelai";
+import { getNovelAiAnlasBalance, NovelAiRequestError } from "../novelai";
 
 describe("getNovelAiAnlasBalance", () => {
   afterEach(() => {

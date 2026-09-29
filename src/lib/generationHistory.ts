@@ -195,10 +195,7 @@ export async function listGenerationPage(
   await initGenerationHistoryStorage();
   const db = await getDatabase();
   const query = buildGenerationHistoryPageQuery(cursor);
-  const rows = await db.getAllAsync<GenerationRow>(
-    query.sql,
-    query.params,
-  );
+  const rows = await db.getAllAsync<GenerationRow>(query.sql, query.params);
   return createGenerationHistoryPage(rows.map(rowToRecord));
 }
 
@@ -426,7 +423,10 @@ export async function prepareNativeGenerationFiles() {
   };
 }
 
-export function discardNativeGenerationFiles(files: { imagePath: string; thumbnailPath: string }) {
+export function discardNativeGenerationFiles(files: {
+  imagePath: string;
+  thumbnailPath: string;
+}) {
   deleteStoredFile(files.imagePath);
   deleteStoredFile(files.thumbnailPath);
 }
@@ -439,8 +439,11 @@ export async function savePreparedGeneration(
   const { metadata, ...recordInput } = input;
   try {
     return await insertGenerationRecord({
-      ...recordInput, id: files.id, createdAt: Date.now(),
-      imagePath: files.imagePath, thumbnailPath: hasThumbnail ? files.thumbnailPath : null,
+      ...recordInput,
+      id: files.id,
+      createdAt: Date.now(),
+      imagePath: files.imagePath,
+      thumbnailPath: hasThumbnail ? files.thumbnailPath : null,
       metadataJson: JSON.stringify(metadata),
     });
   } catch (error) {

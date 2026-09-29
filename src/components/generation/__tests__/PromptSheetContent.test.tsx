@@ -62,7 +62,8 @@ jest.mock("../../../store/generationStore", () => {
 
 jest.mock("../BottomSheetKeyboardAwareScrollView", () => {
   const React = require("react") as typeof import("react");
-  const { ScrollView } = require("react-native") as typeof import("react-native");
+  const { ScrollView } =
+    require("react-native") as typeof import("react-native");
 
   return {
     BottomSheetKeyboardAwareScrollView: (
@@ -73,7 +74,8 @@ jest.mock("../BottomSheetKeyboardAwareScrollView", () => {
 
 jest.mock("../../forms/PromptHighlightTextInput", () => {
   const React = require("react") as typeof import("react");
-  const { TextInput } = require("react-native") as typeof import("react-native");
+  const { TextInput } =
+    require("react-native") as typeof import("react-native");
 
   return {
     PromptHighlightTextInput: React.forwardRef(function MockPromptInput(
@@ -108,7 +110,8 @@ jest.mock("../../forms/PromptTokenCounter", () => {
 
 jest.mock("../../forms/SheetSelect", () => {
   const React = require("react") as typeof import("react");
-  const { Pressable, Text } = require("react-native") as typeof import("react-native");
+  const { Pressable, Text } =
+    require("react-native") as typeof import("react-native");
 
   return {
     SheetSelect: ({
@@ -158,17 +161,24 @@ describe("PromptComposerCard", () => {
     state.setUcPreset(0);
   });
 
-  test.each([0, 24, 34])("reserves %i bottom inset in the Prompt scroll content", async (bottom) => {
-    jest.mocked(useSafeAreaInsets).mockReturnValue({
-      top: 0, right: 0, bottom, left: 0,
-    });
-    const screen = await render(<PromptSheetContent active />);
+  test.each([0, 24, 34])(
+    "reserves %i bottom inset in the Prompt scroll content",
+    async (bottom) => {
+      jest.mocked(useSafeAreaInsets).mockReturnValue({
+        top: 0,
+        right: 0,
+        bottom,
+        left: 0,
+      });
+      const screen = await render(<PromptSheetContent active />);
 
-    const { contentContainerStyle } = screen.getByTestId("prompt-scroll").props;
-    expect(StyleSheet.flatten(contentContainerStyle)).toMatchObject({
-      paddingBottom: 200 + bottom,
-    });
-  });
+      const { contentContainerStyle } =
+        screen.getByTestId("prompt-scroll").props;
+      expect(StyleSheet.flatten(contentContainerStyle)).toMatchObject({
+        paddingBottom: 200 + bottom,
+      });
+    },
+  );
 
   it("starts merged and keeps the editor at the largest prompt height", async () => {
     const { getByLabelText, getByTestId, queryByLabelText } = await render(
@@ -231,14 +241,14 @@ describe("PromptComposerCard", () => {
   it("binds the usage bar to actual prompt token targets", async () => {
     const { getByLabelText } = await render(<PromptComposerCard active />);
 
-    expect(
-      getByLabelText("base-token-positive").props.accessibilityHint,
-    ).toBe("bar:base");
+    expect(getByLabelText("base-token-positive").props.accessibilityHint).toBe(
+      "bar:base",
+    );
 
     await fireEvent.press(getByLabelText("Undesired Content"));
-    expect(
-      getByLabelText("base-token-negative").props.accessibilityHint,
-    ).toBe("bar:negative");
+    expect(getByLabelText("base-token-negative").props.accessibilityHint).toBe(
+      "bar:negative",
+    );
 
     await fireEvent.press(getByLabelText("Split prompt로 전환"));
     expect(getByLabelText("base-token-positive")).toBeTruthy();

@@ -28,7 +28,8 @@ describe("generation chrome metrics", () => {
       utilitySheetTop: insets.utilitySheetTop,
     });
     expect(
-      hook.result.current.promptCollapsedHeight - hook.result.current.actionBarHeight,
+      hook.result.current.promptCollapsedHeight -
+        hook.result.current.actionBarHeight,
     ).toBe(56);
     expect(hook.result.current.promptFullTop).toBe(
       hook.result.current.utilitySheetTop,

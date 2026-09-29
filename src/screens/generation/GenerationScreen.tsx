@@ -108,9 +108,7 @@ function GenerateAction({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint={
-        showCost ? `예상 ${anlasCost} Anlas 소모` : undefined
-      }
+      accessibilityHint={showCost ? `예상 ${anlasCost} Anlas 소모` : undefined}
       onPress={() => {
         if (isLoading) {
           requestQueueCancel();
@@ -142,7 +140,10 @@ function GenerateAction({
       {showCost ? (
         <View
           testID="generation-anlas-cost"
-          style={[styles.costBadge, insufficient && styles.costBadgeInsufficient]}
+          style={[
+            styles.costBadge,
+            insufficient && styles.costBadgeInsufficient,
+          ]}
         >
           <Ionicons
             name="diamond-outline"
@@ -209,10 +210,11 @@ function GenerationScreenContent() {
   const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
-  const [extractedMetadata, setExtractedMetadata] = useState<{ metadataJson: string } | null>(null);
+  const [extractedMetadata, setExtractedMetadata] = useState<{
+    metadataJson: string;
+  } | null>(null);
   const [utilitySheetVisible, setUtilitySheetVisible] = useState(false);
-  const [promptStage, setPromptStage] =
-    useState<PromptSheetStage>("collapsed");
+  const [promptStage, setPromptStage] = useState<PromptSheetStage>("collapsed");
   const promptBackProgress = useSharedValue(0);
   const utilityBackProgress = useSharedValue(0);
   const { commitPendingInput } = useGenerationInputCommit();
@@ -236,9 +238,7 @@ function GenerationScreenContent() {
   const toggleUtilitySheet = useCallback(
     (nextSheet: UtilitySheet) => {
       finishInputEditing();
-      setUtilitySheet((current) =>
-        current === nextSheet ? null : nextSheet,
-      );
+      setUtilitySheet((current) => (current === nextSheet ? null : nextSheet));
     },
     [finishInputEditing],
   );
@@ -246,11 +246,14 @@ function GenerationScreenContent() {
     setExtractedMetadata(null);
     toggleUtilitySheet("metadata");
   }, [toggleUtilitySheet]);
-  const handleMetadataExtract = useCallback((metadataJson: string) => {
-    finishInputEditing();
-    setExtractedMetadata({ metadataJson });
-    setUtilitySheet("metadata");
-  }, [finishInputEditing]);
+  const handleMetadataExtract = useCallback(
+    (metadataJson: string) => {
+      finishInputEditing();
+      setExtractedMetadata({ metadataJson });
+      setUtilitySheet("metadata");
+    },
+    [finishInputEditing],
+  );
   const handleGenerationStarted = useCallback(() => {
     setUtilitySheet(null);
     setPromptStage("collapsed");
@@ -396,9 +399,7 @@ function GenerationScreenContent() {
         />
         <ActionIconButton
           icon="time-outline"
-          label={
-            utilitySheet === "history" ? "History 닫기" : "History 열기"
-          }
+          label={utilitySheet === "history" ? "History 닫기" : "History 열기"}
           active={utilitySheet === "history"}
           onPress={() => toggleUtilitySheet("history")}
         />

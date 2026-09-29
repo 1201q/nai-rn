@@ -26,10 +26,7 @@ import {
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
-  | "steps"
-  | "promptGuidance"
-  | "rescale"
-  | "variety";
+  "steps" | "promptGuidance" | "rescale" | "variety";
 
 const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
 const TOOLTIP_WIDTH = 280;
@@ -87,10 +84,13 @@ export function SettingsHelpButton({
   useEffect(() => {
     if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
 
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      closeHelp();
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        closeHelp();
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [closeHelp, open]);
 
@@ -101,10 +101,7 @@ export function SettingsHelpButton({
   const tooltipLeft = anchor
     ? Math.max(
         TOOLTIP_MARGIN,
-        Math.min(
-          anchor.x - 12,
-          windowWidth - tooltipWidth - TOOLTIP_MARGIN,
-        ),
+        Math.min(anchor.x - 12, windowWidth - tooltipWidth - TOOLTIP_MARGIN),
       )
     : 0;
   const belowTop = anchor ? anchor.y + anchor.height + TOOLTIP_GAP : 0;
@@ -128,11 +125,7 @@ export function SettingsHelpButton({
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons
-          name="information"
-          size={12}
-          color={tokens.color.textMuted}
-        />
+        <Ionicons name="information" size={12} color={tokens.color.textMuted} />
       </Pressable>
       {open && anchor ? (
         <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
@@ -192,7 +185,6 @@ export function SettingsSlider({
   onChange: (value: number) => void;
   trailing?: ReactNode;
 }) {
-
   return (
     <View style={styles.settingsSliderField}>
       <View style={styles.settingsSliderHeader}>

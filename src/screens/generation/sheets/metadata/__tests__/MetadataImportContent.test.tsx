@@ -8,7 +8,8 @@ const mockToastSuccess = jest.fn();
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("@gorhom/bottom-sheet", () => {
-  const { ScrollView } = require("react-native") as typeof import("react-native");
+  const { ScrollView } =
+    require("react-native") as typeof import("react-native");
   return { BottomSheetScrollView: ScrollView };
 });
 jest.mock("react-native-safe-area-context", () => ({
@@ -55,8 +56,19 @@ describe("MetadataImportContent", () => {
   beforeEach(() => jest.clearAllMocks());
 
   test("imports extracted fields without inventing missing generation settings", async () => {
-    const screen = await render(<MetadataImportContent generation={{ metadataJson: JSON.stringify({ Comment: JSON.stringify({ prompt: "external prompt" }) }) }} onImported={jest.fn()} />);
-    await fireEvent.press(screen.getByRole("button", { name: "선택 항목 가져오기" }));
+    const screen = await render(
+      <MetadataImportContent
+        generation={{
+          metadataJson: JSON.stringify({
+            Comment: JSON.stringify({ prompt: "external prompt" }),
+          }),
+        }}
+        onImported={jest.fn()}
+      />,
+    );
+    await fireEvent.press(
+      screen.getByRole("button", { name: "선택 항목 가져오기" }),
+    );
     const [parsed] = mockApplyMetadataImport.mock.calls[0];
     expect(parsed.prompt).toBe("external prompt");
     expect(parsed.model).toBeUndefined();
@@ -68,16 +80,15 @@ describe("MetadataImportContent", () => {
   test("applies the selected metadata with the chosen character mode", async () => {
     const onImported = jest.fn();
     const screen = await render(
-      <MetadataImportContent
-        generation={generation}
-        onImported={onImported}
-      />,
+      <MetadataImportContent generation={generation} onImported={onImported} />,
     );
 
-    expect(screen.getByRole("checkbox", { name: "Prompt" }).props.accessibilityState)
-      .toMatchObject({ checked: true });
-    expect(screen.getByRole("checkbox", { name: "Seed" }).props.accessibilityState)
-      .toMatchObject({ checked: false });
+    expect(
+      screen.getByRole("checkbox", { name: "Prompt" }).props.accessibilityState,
+    ).toMatchObject({ checked: true });
+    expect(
+      screen.getByRole("checkbox", { name: "Seed" }).props.accessibilityState,
+    ).toMatchObject({ checked: false });
 
     await fireEvent.press(screen.getByRole("radio", { name: "Append" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Seed" }));

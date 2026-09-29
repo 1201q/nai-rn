@@ -73,7 +73,9 @@ export const UC_PRESET_OPTIONS: ReadonlyArray<{
 ];
 
 export function isUcPresetIndex(value: unknown): value is UcPresetIndex {
-  return value === 0 || value === 1 || value === 2 || value === 3 || value === 4;
+  return (
+    value === 0 || value === 1 || value === 2 || value === 3 || value === 4
+  );
 }
 
 export function getUcPresetLabel(value: UcPresetIndex): string {
@@ -97,7 +99,9 @@ function getUcPresets(model: string) {
 // 선택한 모델이 지원하는 UC 프리셋만 선택지로 보여준다.
 export function getUcPresetOptions(model: string) {
   const presets = getUcPresets(model);
-  return UC_PRESET_OPTIONS.filter((option) => presets[option.value] !== undefined);
+  return UC_PRESET_OPTIONS.filter(
+    (option) => presets[option.value] !== undefined,
+  );
 }
 
 // 모델에 없는 프리셋은 요청에서 None으로 처리되므로 표시도 같게 맞춘다.
@@ -174,7 +178,8 @@ export function mergeUcPreset(
   let merged: string;
   if (negativePrompt) {
     const base = isNone ? "" : prefix;
-    merged = base === "" ? negativePrompt : `${base}${SEPARATOR}${negativePrompt}`;
+    merged =
+      base === "" ? negativePrompt : `${base}${SEPARATOR}${negativePrompt}`;
   } else {
     merged = prefix;
   }

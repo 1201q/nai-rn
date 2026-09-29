@@ -80,21 +80,15 @@ describe("image prompt captions", () => {
 
     expect(body.input).toBe(prepared.positiveBaseCaption);
     expect(parameters.negative_prompt).toBe(prepared.negativeBaseCaption);
-    expect(v4Prompt.caption.base_caption).toBe(
-      prepared.positiveBaseCaption,
-    );
+    expect(v4Prompt.caption.base_caption).toBe(prepared.positiveBaseCaption);
     expect(v4NegativePrompt.caption.base_caption).toBe(
       prepared.negativeBaseCaption,
     );
     expect(
-      v4Prompt.caption.char_captions.map(
-        (item) => item.char_caption,
-      ),
+      v4Prompt.caption.char_captions.map((item) => item.char_caption),
     ).toEqual(prepared.positiveCharacterCaptions);
     expect(
-      v4NegativePrompt.caption.char_captions.map(
-        (item) => item.char_caption,
-      ),
+      v4NegativePrompt.caption.char_captions.map((item) => item.char_caption),
     ).toEqual(prepared.negativeCharacterCaptions);
   });
 
@@ -154,15 +148,15 @@ describe("image prompt captions", () => {
         noiseSchedule,
       }).body.parameters as Record<string, unknown>;
 
-    expect(params("nai-diffusion-4-5-full", "ddim_v3", "karras")).not.toHaveProperty(
-      "noise_schedule",
-    );
-    expect(params("nai-diffusion-4-5-full", "k_euler", "native").noise_schedule).toBe(
-      "karras",
-    );
-    expect(params("nai-diffusion-4-5-full", "k_dpmpp_2m", "native").noise_schedule).toBe(
-      "exponential",
-    );
+    expect(
+      params("nai-diffusion-4-5-full", "ddim_v3", "karras"),
+    ).not.toHaveProperty("noise_schedule");
+    expect(
+      params("nai-diffusion-4-5-full", "k_euler", "native").noise_schedule,
+    ).toBe("karras");
+    expect(
+      params("nai-diffusion-4-5-full", "k_dpmpp_2m", "native").noise_schedule,
+    ).toBe("exponential");
     expect(params("nai-diffusion-3", "k_euler", "native").noise_schedule).toBe(
       "native",
     );

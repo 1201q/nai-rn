@@ -31,7 +31,9 @@ function optionLabel(
   options: ReadonlyArray<{ label: string; value: string }>,
   value: string | undefined,
 ) {
-  return options.find((option) => option.value === value)?.label ?? value ?? "-";
+  return (
+    options.find((option) => option.value === value)?.label ?? value ?? "-"
+  );
 }
 
 function formatCreatedAt(createdAt: number) {
@@ -148,9 +150,7 @@ const ReadonlyBasePrompt = memo(function ReadonlyBasePrompt({
         <PromptHighlightTextInput
           key={mode}
           accessibilityLabel={
-            mode === "base"
-              ? "Base prompt text"
-              : "Undesired Content text"
+            mode === "base" ? "Base prompt text" : "Undesired Content text"
           }
           caretHidden
           editable={false}
@@ -249,7 +249,10 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     { label: "MODEL", value: optionLabel(MODELS, model) },
     {
       label: "RESOLUTION",
-      value: resolution.width && resolution.height ? `${resolution.width} x ${resolution.height}` : "-",
+      value:
+        resolution.width && resolution.height
+          ? `${resolution.width} x ${resolution.height}`
+          : "-",
     },
     { label: "STEPS", value: String(parsed?.steps ?? generation.steps ?? "-") },
     {
@@ -258,7 +261,9 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     },
     {
       label: "CFG RESCALE",
-      value: String(parsed?.promptGuidanceRescale ?? generation.cfgRescale ?? "-"),
+      value: String(
+        parsed?.promptGuidanceRescale ?? generation.cfgRescale ?? "-",
+      ),
     },
     {
       label: "SAMPLER",
@@ -293,11 +298,14 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
           ? "-"
           : getUcPresetLabel(parsed.ucPreset),
     },
-    ...(generation.createdAt === undefined ? [] : [{ label: "CREATED", value: formatCreatedAt(generation.createdAt) }]),
+    ...(generation.createdAt === undefined
+      ? []
+      : [{ label: "CREATED", value: formatCreatedAt(generation.createdAt) }]),
   ];
   const characters = parsed?.characters ?? [];
   const prompt = parsed?.prompt ?? generation.prompt ?? "";
-  const negativePrompt = parsed?.negativePrompt ?? generation.negativePrompt ?? "";
+  const negativePrompt =
+    parsed?.negativePrompt ?? generation.negativePrompt ?? "";
 
   return (
     <BottomSheetScrollView
@@ -310,10 +318,7 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>PROMPTS</Text>
-        <ReadonlyBasePrompt
-          prompt={prompt}
-          negativePrompt={negativePrompt}
-        />
+        <ReadonlyBasePrompt prompt={prompt} negativePrompt={negativePrompt} />
         {characters.map((character, index) => (
           <ReadonlyCharacterPrompt
             key={character.id}
@@ -333,9 +338,9 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
         </View>
       </View>
 
-      {generation.id ? <Text style={styles.recordId}>
-        ID {generation.id}
-      </Text> : null}
+      {generation.id ? (
+        <Text style={styles.recordId}>ID {generation.id}</Text>
+      ) : null}
     </BottomSheetScrollView>
   );
 });

@@ -50,8 +50,7 @@ export type PersistableGenerationState = Omit<
   "i2iSourceImage"
 > & {
   i2iSourceImage:
-    | (StoredGenerationOptions["i2iSourceImage"] & { uri?: string })
-    | null;
+    (StoredGenerationOptions["i2iSourceImage"] & { uri?: string }) | null;
 };
 
 const PERSISTED_OPTION_KEYS = [
@@ -123,11 +122,7 @@ function hasPersistedOptionsChanged(
   state: PersistableGenerationState,
   previousState: PersistableGenerationState,
 ): boolean {
-  if (
-    PERSISTED_OPTION_KEYS.some(
-      (key) => state[key] !== previousState[key],
-    )
-  ) {
+  if (PERSISTED_OPTION_KEYS.some((key) => state[key] !== previousState[key])) {
     return true;
   }
 

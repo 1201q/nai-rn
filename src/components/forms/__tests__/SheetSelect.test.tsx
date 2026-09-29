@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { BackHandler, Platform, StyleSheet, useWindowDimensions } from "react-native";
+import {
+  BackHandler,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
 
 import { usePredictiveBackHandler } from "../../../native/predictiveBack";
 import { SheetSelect } from "../SheetSelect";
@@ -30,7 +35,9 @@ jest.mock("@gorhom/portal", () => ({
   Portal: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock("../../../native/predictiveBack", () => ({
-  get PREDICTIVE_BACK_SUPPORTED() { return mockPredictiveSupported; },
+  get PREDICTIVE_BACK_SUPPORTED() {
+    return mockPredictiveSupported;
+  },
   usePredictiveBackHandler: jest.fn(),
 }));
 jest.mock("react-native-reanimated", () => {
@@ -61,13 +68,24 @@ function setWindow(width: number, height = 844) {
 
 function ControlledSelect() {
   const [open, setOpen] = useState(false);
-  return <SheetSelect label="Model" value={options[0]} options={options}
-    onChange={mockChange} open={open} onOpenChange={setOpen} />;
+  return (
+    <SheetSelect
+      label="Model"
+      value={options[0]}
+      options={options}
+      onChange={mockChange}
+      open={open}
+      onOpenChange={setOpen}
+    />
+  );
 }
 
 function SheetWithSelect() {
   useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", mockOuterBack);
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      mockOuterBack,
+    );
     return () => subscription.remove();
   }, []);
   return <ControlledSelect />;
@@ -86,7 +104,8 @@ function menuLayout(screen: Awaited<ReturnType<typeof render>>) {
   let parent = option.parent;
   while (parent) {
     const style = StyleSheet.flatten(parent.props.style);
-    if (style?.position === "absolute" && typeof style.width === "number") return style;
+    if (style?.position === "absolute" && typeof style.width === "number")
+      return style;
     parent = parent.parent;
   }
   throw new Error("Options container not found");
@@ -100,14 +119,18 @@ describe("SheetSelect boundaries and back handling", () => {
     backListeners.length = 0;
     setWindow(390);
     mockMeasure.mockImplementation((callback) => callback(24, 100, 200, 46));
-    jest.spyOn(BackHandler, "addEventListener").mockImplementation((_event, handler) => {
-      const listener = handler as () => boolean | null | undefined;
-      backListeners.push(listener);
-      return { remove: () => {
-        const index = backListeners.indexOf(listener);
-        if (index !== -1) backListeners.splice(index, 1);
-      } };
-    });
+    jest
+      .spyOn(BackHandler, "addEventListener")
+      .mockImplementation((_event, handler) => {
+        const listener = handler as () => boolean | null | undefined;
+        backListeners.push(listener);
+        return {
+          remove: () => {
+            const index = backListeners.indexOf(listener);
+            if (index !== -1) backListeners.splice(index, 1);
+          },
+        };
+      });
   });
 
   afterEach(() => {
@@ -124,14 +147,19 @@ describe("SheetSelect boundaries and back handling", () => {
     [390, 24, 500, 12, 366],
     [160, 100, 40, 12, 136],
     [320, 228, 80, 160, 148],
-  ])("clamps width %i, anchor x %i / width %i to left %i / width %i",
+  ])(
+    "clamps width %i, anchor x %i / width %i to left %i / width %i",
     async (windowWidth, x, width, expectedLeft, expectedWidth) => {
       setWindow(windowWidth);
       mockMeasure.mockImplementation((callback) => callback(x, 100, width, 46));
       const screen = await render(<ControlledSelect />);
       await fireEvent.press(screen.getByLabelText("Model 선택"));
 
-      expect(menuLayout(screen)).toMatchObject({ left: expectedLeft, width: expectedWidth, top: 154 });
+      expect(menuLayout(screen)).toMatchObject({
+        left: expectedLeft,
+        width: expectedWidth,
+        top: 154,
+      });
     },
   );
 
@@ -158,15 +186,21 @@ describe("SheetSelect boundaries and back handling", () => {
     const screen = await render(<SheetWithSelect />);
     expect(backListeners).toHaveLength(1);
     await fireEvent.press(screen.getByLabelText("Model 선택"));
-    await act(() => { expect(pressBack()).toBe(true); });
+    await act(() => {
+      expect(pressBack()).toBe(true);
+    });
 
     expect(screen.queryByLabelText("Model B")).toBeNull();
-    expect(screen.getByLabelText("Model 선택").props.accessibilityState.expanded).toBe(false);
+    expect(
+      screen.getByLabelText("Model 선택").props.accessibilityState.expanded,
+    ).toBe(false);
     expect(mockOuterBack).not.toHaveBeenCalled();
     expect(mockChange).not.toHaveBeenCalled();
     expect(backListeners).toHaveLength(1);
 
-    await act(() => { pressBack(); });
+    await act(() => {
+      pressBack();
+    });
     expect(mockOuterBack).toHaveBeenCalledTimes(1);
   });
 
@@ -183,8 +217,15 @@ describe("SheetSelect boundaries and back handling", () => {
   });
 
   test("supports uncontrolled selection and releases its back handler", async () => {
-    const screen = await render(<SheetSelect label="Model" value={options[0]}
-      options={options} onChange={mockChange} variant="compact" />);
+    const screen = await render(
+      <SheetSelect
+        label="Model"
+        value={options[0]}
+        options={options}
+        onChange={mockChange}
+        variant="compact"
+      />,
+    );
     await fireEvent.press(screen.getByLabelText("Model 선택"));
     expect(backListeners).toHaveLength(1);
     await fireEvent.press(screen.getByLabelText("Model B"));
@@ -198,19 +239,28 @@ describe("SheetSelect boundaries and back handling", () => {
     const screen = await render(<ControlledSelect />);
     await fireEvent.press(screen.getByLabelText("Model 선택"));
     expect(backListeners).toHaveLength(0);
-    const [enabled, handlers] = jest.mocked(usePredictiveBackHandler).mock.calls.at(-1)!;
+    const [enabled, handlers] = jest
+      .mocked(usePredictiveBackHandler)
+      .mock.calls.at(-1)!;
     expect(enabled).toBe(true);
-    await act(() => { handlers.onCancel?.(); });
+    await act(() => {
+      handlers.onCancel?.();
+    });
     expect(screen.getByLabelText("Model B")).toBeTruthy();
-    await act(() => { handlers.onCommit?.(); });
+    await act(() => {
+      handlers.onCommit?.();
+    });
     expect(screen.queryByLabelText("Model B")).toBeNull();
     expect(mockChange).not.toHaveBeenCalled();
   });
 
-  test.each(["ios", "web"] as const)("does not install an Android fallback on %s", async (os) => {
-    Platform.OS = os;
-    const screen = await render(<ControlledSelect />);
-    await fireEvent.press(screen.getByLabelText("Model 선택"));
-    expect(backListeners).toHaveLength(0);
-  });
+  test.each(["ios", "web"] as const)(
+    "does not install an Android fallback on %s",
+    async (os) => {
+      Platform.OS = os;
+      const screen = await render(<ControlledSelect />);
+      await fireEvent.press(screen.getByLabelText("Model 선택"));
+      expect(backListeners).toHaveLength(0);
+    },
+  );
 });

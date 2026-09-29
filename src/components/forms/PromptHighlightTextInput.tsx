@@ -156,11 +156,7 @@ export const PromptHighlightTextInput = forwardRef<
   );
   const handleBlur = useCallback(
     (event: BlurEvent) => {
-      if (
-        bottomSheetAware &&
-        animatedKeyboardState &&
-        textInputNodesRef
-      ) {
+      if (bottomSheetAware && animatedKeyboardState && textInputNodesRef) {
         const keyboardState = animatedKeyboardState.get();
         const focusedInput = findNodeHandle(
           TextInput.State.currentlyFocusedInput() as unknown as Parameters<
@@ -185,11 +181,7 @@ export const PromptHighlightTextInput = forwardRef<
   );
 
   useEffect(() => {
-    if (
-      !bottomSheetAware ||
-      !animatedKeyboardState ||
-      !textInputNodesRef
-    ) {
+    if (!bottomSheetAware || !animatedKeyboardState || !textInputNodesRef) {
       return;
     }
 

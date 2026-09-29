@@ -1,4 +1,10 @@
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react-native";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react-native";
 import { Alert, StyleSheet } from "react-native";
 import { BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,7 +12,10 @@ import type { SharedValue } from "react-native-reanimated";
 import * as MediaLibrary from "expo-media-library";
 import { toast } from "sonner-native";
 
-import { iterateGenerationImageBatches, type GenerationRecord } from "../../../lib/generationHistory";
+import {
+  iterateGenerationImageBatches,
+  type GenerationRecord,
+} from "../../../lib/generationHistory";
 import { useGenerationStore } from "../../../store/generationStore";
 import {
   HistorySheetContent,
@@ -112,18 +121,26 @@ const mockDeleteGenerations =
 const mockAlert = jest.spyOn(Alert, "alert");
 const mockToastSuccess = jest.mocked(toast.success);
 const mockInsets = jest.mocked(useSafeAreaInsets);
-const mockLoadHistoryIds = initialState.loadGenerationHistoryIds as jest.Mock<Promise<string[]>, []>;
+const mockLoadHistoryIds = initialState.loadGenerationHistoryIds as jest.Mock<
+  Promise<string[]>,
+  []
+>;
 const mockImageBatches = jest.mocked(iterateGenerationImageBatches);
 
 beforeEach(() => {
   mockLoadHistoryIds.mockReset().mockImplementation(async () => {
-    const ids = useGenerationStore.getState().generationHistory.map((record) => record.id);
+    const ids = useGenerationStore
+      .getState()
+      .generationHistory.map((record) => record.id);
     useGenerationStore.setState({ generationHistoryIds: ids });
     return ids;
   });
   mockImageBatches.mockReset().mockImplementation(async function* (ids) {
     const records = useGenerationStore.getState().generationHistory;
-    yield ids.map((id) => ({ id, imagePath: records.find((record) => record.id === id)?.imagePath ?? null }));
+    yield ids.map((id) => ({
+      id,
+      imagePath: records.find((record) => record.id === id)?.imagePath ?? null,
+    }));
   });
 });
 
@@ -159,7 +176,9 @@ function deferred<T>() {
 }
 
 type SavedAsset = Awaited<ReturnType<typeof MediaLibrary.Asset.create>>;
-type SavePermission = Awaited<ReturnType<typeof MediaLibrary.requestPermissionsAsync>>;
+type SavePermission = Awaited<
+  ReturnType<typeof MediaLibrary.requestPermissionsAsync>
+>;
 const savedAsset = {} as SavedAsset;
 const grantedPermission = { granted: true } as SavePermission;
 const mockCreateAsset = jest.mocked(MediaLibrary.Asset.create);
@@ -244,7 +263,9 @@ describe("History database-wide selection", () => {
     mockImageBatches.mockImplementation(async function* (ids) {
       for (let offset = 0; offset < ids.length; offset += 300) {
         yield ids.slice(offset, offset + 300).map((id) => ({
-          id, imagePath: records.find((record) => record.id === id)?.imagePath ?? null,
+          id,
+          imagePath:
+            records.find((record) => record.id === id)?.imagePath ?? null,
         }));
       }
     });
@@ -259,19 +280,31 @@ describe("History database-wide selection", () => {
     expect(hook.result.current.generationHistory).toHaveLength(2);
     expect(initialState.loadMoreGenerationHistory).not.toHaveBeenCalled();
 
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(records.map((record) => record.imagePath));
-    expect(mockToastSuccess).toHaveBeenCalledWith("601개의 이미지를 저장했습니다.");
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+    expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(
+      records.map((record) => record.imagePath),
+    );
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      "601개의 이미지를 저장했습니다.",
+    );
   });
 
   test("does not mistake selecting every loaded item for selecting the entire database", async () => {
     const records = historyRecords(3);
     storedHistory(records);
     useGenerationStore.setState({ generationHistory: records.slice(0, 1) });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(records[0].id); });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await act(async () => {
+      hook.result.current.enterSelectionMode(records[0].id);
+    });
     expect(hook.result.current.allSelected).toBe(false);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.selectedCount).toBe(3);
   });
 
@@ -279,17 +312,29 @@ describe("History database-wide selection", () => {
     const records = historyRecords(5);
     storedHistory(records);
     const hook = await renderSelectedHistoryController(records.slice(0, 1));
-    await act(async () => { useGenerationStore.setState({ generationHistory: records }); });
-    expect(hook.result.current.selectedIds).toEqual(new Set(records.map((record) => record.id)));
-    await act(async () => { hook.result.current.handleTilePress(records[3]); });
+    await act(async () => {
+      useGenerationStore.setState({ generationHistory: records });
+    });
+    expect(hook.result.current.selectedIds).toEqual(
+      new Set(records.map((record) => record.id)),
+    );
+    await act(async () => {
+      hook.result.current.handleTilePress(records[3]);
+    });
     expect(hook.result.current.selectedCount).toBe(4);
     expect(hook.result.current.allSelected).toBe(false);
-    await act(async () => { hook.result.current.handleTilePress(records[3]); });
+    await act(async () => {
+      hook.result.current.handleTilePress(records[3]);
+    });
     expect(hook.result.current.allSelected).toBe(true);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.selectedCount).toBe(0);
     expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.selectedCount).toBe(5);
   });
 
@@ -297,20 +342,31 @@ describe("History database-wide selection", () => {
     const records = historyRecords(5);
     storedHistory(records);
     const hook = await renderSelectedHistoryController(records.slice(0, 2));
-    await act(async () => { hook.result.current.handleTilePress(records[1]); });
-    await act(async () => { hook.result.current.deleteSelected(); });
+    await act(async () => {
+      hook.result.current.handleTilePress(records[1]);
+    });
+    await act(async () => {
+      hook.result.current.deleteSelected();
+    });
     expect(mockAlert.mock.calls[0][1]).toContain("4개의 이미지를 영구 삭제");
     const newest = { ...generation, id: "new" };
     await act(async () => {
       useGenerationStore.setState({
         generationHistory: [newest, ...records.slice(0, 2)],
-        generationHistoryIds: [newest.id, ...records.map((record) => record.id)],
+        generationHistoryIds: [
+          newest.id,
+          ...records.map((record) => record.id),
+        ],
       });
     });
     expect(hook.result.current.selectedIds.has(newest.id)).toBe(false);
     expect(hook.result.current.selectedCount).toBe(4);
-    await act(async () => { getAlertButton(0, 1).onPress?.(); });
-    expect(mockDeleteGenerations).toHaveBeenCalledWith(records.filter((_, index) => index !== 1).map((record) => record.id));
+    await act(async () => {
+      getAlertButton(0, 1).onPress?.();
+    });
+    expect(mockDeleteGenerations).toHaveBeenCalledWith(
+      records.filter((_, index) => index !== 1).map((record) => record.id),
+    );
   });
 
   test("new generations require an explicit new selection", async () => {
@@ -328,7 +384,9 @@ describe("History database-wide selection", () => {
     expect(hook.result.current.selectedCount).toBe(3);
     expect(hook.result.current.allSelected).toBe(false);
     expect(hook.result.current.selectedIds.has(newest.id)).toBe(false);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.selectedCount).toBe(4);
   });
 
@@ -337,14 +395,25 @@ describe("History database-wide selection", () => {
     storedHistory(records);
     const hook = await renderSelectedHistoryController(records.slice(0, 1));
     await act(async () => {
-      useGenerationStore.setState({ generationHistoryIds: records.slice(0, 4).map((record) => record.id) });
+      useGenerationStore.setState({
+        generationHistoryIds: records.slice(0, 4).map((record) => record.id),
+      });
     });
     expect(hook.result.current.selectedCount).toBe(4);
     expect(hook.result.current.selectedIds.has(records[3].id)).toBe(true);
     expect(hook.result.current.selectedIds.has(records[4].id)).toBe(false);
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockImageBatches).toHaveBeenCalledWith(records.slice(0, 4).map((record) => record.id));
-    await act(async () => { useGenerationStore.setState({ generationHistory: [], generationHistoryIds: [] }); });
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+    expect(mockImageBatches).toHaveBeenCalledWith(
+      records.slice(0, 4).map((record) => record.id),
+    );
+    await act(async () => {
+      useGenerationStore.setState({
+        generationHistory: [],
+        generationHistoryIds: [],
+      });
+    });
     expect(hook.result.current.selectedCount).toBe(0);
     expect(hook.result.current.allSelected).toBe(false);
   });
@@ -353,8 +422,12 @@ describe("History database-wide selection", () => {
     const pending = deferred<string[]>();
     mockLoadHistoryIds.mockReturnValue(pending.promise);
     useGenerationStore.setState({ generationHistory: [generation] });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(generation.id); });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await act(async () => {
+      hook.result.current.enterSelectionMode(generation.id);
+    });
     let selecting!: Promise<void>;
     await act(async () => {
       selecting = hook.result.current.toggleSelectAll();
@@ -369,7 +442,10 @@ describe("History database-wide selection", () => {
     expect(hook.result.current.selectingAll).toBe(true);
     expect(hook.result.current.busy).toBe(true);
     expect(hook.result.current.selectedCount).toBe(1);
-    await act(async () => { pending.resolve([generation.id]); await selecting; });
+    await act(async () => {
+      pending.resolve([generation.id]);
+      await selecting;
+    });
     expect(hook.result.current.busy).toBe(false);
   });
 
@@ -377,20 +453,36 @@ describe("History database-wide selection", () => {
     const pending = deferred<string[]>();
     mockLoadHistoryIds.mockReturnValue(pending.promise);
     useGenerationStore.setState({ generationHistory: [generation] });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(generation.id); });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await act(async () => {
+      hook.result.current.enterSelectionMode(generation.id);
+    });
     let selecting!: Promise<void>;
-    await act(async () => { selecting = hook.result.current.toggleSelectAll(); });
-    const view = await render(<HistorySheetHandle controller={hook.result.current} />);
+    await act(async () => {
+      selecting = hook.result.current.toggleSelectAll();
+    });
+    const view = await render(
+      <HistorySheetHandle controller={hook.result.current} />,
+    );
     expect(view.getByText("선택 중...")).toBeTruthy();
     const selectAll = view.getByRole("button", { name: "전체 선택" });
-    expect(selectAll.props.accessibilityState).toEqual({ disabled: true, busy: true });
-    expect(selectAll.props.accessibilityHint).toContain("화면에 불러오지 않은 항목도 포함");
+    expect(selectAll.props.accessibilityState).toEqual({
+      disabled: true,
+      busy: true,
+    });
+    expect(selectAll.props.accessibilityHint).toContain(
+      "화면에 불러오지 않은 항목도 포함",
+    );
     await fireEvent.press(selectAll);
     expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
     await fireEvent.press(view.getByRole("button", { name: "선택 취소" }));
     expect(hook.result.current.selectionMode).toBe(false);
-    await act(async () => { pending.resolve([generation.id]); await selecting; });
+    await act(async () => {
+      pending.resolve([generation.id]);
+      await selecting;
+    });
     expect(hook.result.current.selectedCount).toBe(0);
   });
 
@@ -398,12 +490,21 @@ describe("History database-wide selection", () => {
     const pending = deferred<string[]>();
     mockLoadHistoryIds.mockReturnValue(pending.promise);
     useGenerationStore.setState({ generationHistory: [generation] });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(generation.id); });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await act(async () => {
+      hook.result.current.enterSelectionMode(generation.id);
+    });
     let selecting!: Promise<void>;
-    await act(async () => { selecting = hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      selecting = hook.result.current.toggleSelectAll();
+    });
     await hook.unmount();
-    await act(async () => { pending.reject(new Error("query failed")); await selecting; });
+    await act(async () => {
+      pending.reject(new Error("query failed"));
+      await selecting;
+    });
     expect(mockAlert).not.toHaveBeenCalled();
   });
 
@@ -421,50 +522,80 @@ describe("History database-wide selection", () => {
     });
     expect(hook.result.current.selectedCount).toBe(3);
     expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
-    await act(async () => { pending.resolve(grantedPermission); await saving; });
+    await act(async () => {
+      pending.resolve(grantedPermission);
+      await saving;
+    });
     expect(mockCreateAsset).toHaveBeenCalledTimes(3);
   });
 
-  test.each(["resolve", "reject"])("ignores a cancelled query that later %ss", async (outcome) => {
-    const pending = deferred<string[]>();
-    mockLoadHistoryIds.mockReturnValueOnce(pending.promise);
-    useGenerationStore.setState({ generationHistory: [generation] });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(generation.id); });
-    let selecting!: Promise<void>;
-    await act(async () => { selecting = hook.result.current.toggleSelectAll(); });
-    await act(async () => { hook.result.current.exitSelectionMode(); });
-    expect(hook.result.current.busy).toBe(false);
-    await act(async () => {
-      if (outcome === "resolve") pending.resolve([generation.id]);
-      else pending.reject(new Error("query failed"));
-      await selecting;
-    });
-    expect(hook.result.current.selectionMode).toBe(false);
-    expect(hook.result.current.selectedCount).toBe(0);
-    expect(mockAlert).not.toHaveBeenCalled();
-  });
+  test.each(["resolve", "reject"])(
+    "ignores a cancelled query that later %ss",
+    async (outcome) => {
+      const pending = deferred<string[]>();
+      mockLoadHistoryIds.mockReturnValueOnce(pending.promise);
+      useGenerationStore.setState({ generationHistory: [generation] });
+      const hook = await renderHook(() =>
+        useHistorySheetController({ onClose: jest.fn() }),
+      );
+      await act(async () => {
+        hook.result.current.enterSelectionMode(generation.id);
+      });
+      let selecting!: Promise<void>;
+      await act(async () => {
+        selecting = hook.result.current.toggleSelectAll();
+      });
+      await act(async () => {
+        hook.result.current.exitSelectionMode();
+      });
+      expect(hook.result.current.busy).toBe(false);
+      await act(async () => {
+        if (outcome === "resolve") pending.resolve([generation.id]);
+        else pending.reject(new Error("query failed"));
+        await selecting;
+      });
+      expect(hook.result.current.selectionMode).toBe(false);
+      expect(hook.result.current.selectedCount).toBe(0);
+      expect(mockAlert).not.toHaveBeenCalled();
+    },
+  );
 
   test("a cancelled response cannot replace a newer selection or release its lock", async () => {
     const oldRequest = deferred<string[]>();
     const newRequest = deferred<string[]>();
-    mockLoadHistoryIds.mockReturnValueOnce(oldRequest.promise).mockReturnValueOnce(newRequest.promise);
+    mockLoadHistoryIds
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(newRequest.promise);
     const records = historyRecords(2);
     useGenerationStore.setState({ generationHistory: records });
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
-    await act(async () => { hook.result.current.enterSelectionMode(records[0].id); });
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
+    await act(async () => {
+      hook.result.current.enterSelectionMode(records[0].id);
+    });
     let oldSelecting!: Promise<void>;
     let newSelecting!: Promise<void>;
-    await act(async () => { oldSelecting = hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      oldSelecting = hook.result.current.toggleSelectAll();
+    });
     await act(async () => {
       hook.result.current.exitSelectionMode();
       hook.result.current.enterSelectionMode(records[1].id);
     });
-    await act(async () => { newSelecting = hook.result.current.toggleSelectAll(); });
-    await act(async () => { oldRequest.resolve([records[0].id]); await oldSelecting; });
+    await act(async () => {
+      newSelecting = hook.result.current.toggleSelectAll();
+    });
+    await act(async () => {
+      oldRequest.resolve([records[0].id]);
+      await oldSelecting;
+    });
     expect(hook.result.current.selectedIds).toEqual(new Set([records[1].id]));
     expect(hook.result.current.selectingAll).toBe(true);
-    await act(async () => { newRequest.resolve(records.map((record) => record.id)); await newSelecting; });
+    await act(async () => {
+      newRequest.resolve(records.map((record) => record.id));
+      await newSelecting;
+    });
     expect(hook.result.current.selectedCount).toBe(2);
     expect(hook.result.current.busy).toBe(false);
   });
@@ -475,11 +606,17 @@ describe("History database-wide selection", () => {
     expect(hook.result.current.selectedCount).toBe(1);
     expect(hook.result.current.busy).toBe(false);
     expect(mockAlert.mock.calls[0][0]).toBe("전체 선택 실패");
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.allSelected).toBe(true);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     storedHistory([]);
-    await act(async () => { await hook.result.current.toggleSelectAll(); });
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
     expect(hook.result.current.selectedCount).toBe(0);
     expect(hook.result.current.allSelected).toBe(false);
   });
@@ -487,12 +624,20 @@ describe("History database-wide selection", () => {
   test("counts missing DB paths as failures and continues saving", async () => {
     const hook = await renderSelectedHistoryController(historyRecords(3));
     mockImageBatches.mockImplementationOnce(async function* () {
-      yield [{ id: "0", imagePath: null }, { id: "1", imagePath: "1.png" }];
+      yield [
+        { id: "0", imagePath: null },
+        { id: "1", imagePath: "1.png" },
+      ];
       yield [{ id: "2", imagePath: "2.png" }];
     });
-    await act(async () => { await hook.result.current.saveSelected(); });
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
     expect(mockCreateAsset).toHaveBeenCalledTimes(2);
-    expect(mockAlert).toHaveBeenCalledWith("일부 이미지 저장 실패", "저장 성공: 2개\n저장 실패: 1개");
+    expect(mockAlert).toHaveBeenCalledWith(
+      "일부 이미지 저장 실패",
+      "저장 성공: 2개\n저장 실패: 1개",
+    );
   });
 
   test("reports completed saves when a later path query fails and releases the lock for retry", async () => {
@@ -501,11 +646,20 @@ describe("History database-wide selection", () => {
       yield [{ id: "0", imagePath: "0.png" }];
       throw new Error("next query failed");
     });
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockAlert).toHaveBeenCalledWith("일부 이미지 저장 실패", "저장 성공: 1개\n저장 실패: 3개");
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+    expect(mockAlert).toHaveBeenCalledWith(
+      "일부 이미지 저장 실패",
+      "저장 성공: 1개\n저장 실패: 3개",
+    );
     expect(hook.result.current.busy).toBe(false);
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockToastSuccess).toHaveBeenCalledWith("4개의 이미지를 저장했습니다.");
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      "4개의 이미지를 저장했습니다.",
+    );
   });
 });
 
@@ -518,7 +672,9 @@ describe("History bulk saving", () => {
   });
 
   test("does not request permission without selected records", async () => {
-    const hook = await renderHook(() => useHistorySheetController({ onClose: jest.fn() }));
+    const hook = await renderHook(() =>
+      useHistorySheetController({ onClose: jest.fn() }),
+    );
     await act(async () => {
       await hook.result.current.saveSelected();
     });
@@ -526,21 +682,26 @@ describe("History bulk saving", () => {
     expect(mockCreateAsset).not.toHaveBeenCalled();
   });
 
-  test.each([1, 2, 3])("saves %i selected images and keeps the selection", async (count) => {
-    const records = historyRecords(count);
-    const hook = await renderSelectedHistoryController(records);
-    await act(async () => {
-      await hook.result.current.saveSelected();
-    });
+  test.each([1, 2, 3])(
+    "saves %i selected images and keeps the selection",
+    async (count) => {
+      const records = historyRecords(count);
+      const hook = await renderSelectedHistoryController(records);
+      await act(async () => {
+        await hook.result.current.saveSelected();
+      });
 
-    expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(
-      records.map((record) => record.imagePath),
-    );
-    expect(mockToastSuccess).toHaveBeenCalledWith(`${count}개의 이미지를 저장했습니다.`);
-    expect(mockAlert).not.toHaveBeenCalled();
-    expect(hook.result.current.selectedCount).toBe(count);
-    expect(hook.result.current.busy).toBe(false);
-  });
+      expect(mockCreateAsset.mock.calls.map(([uri]) => uri)).toEqual(
+        records.map((record) => record.imagePath),
+      );
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        `${count}개의 이미지를 저장했습니다.`,
+      );
+      expect(mockAlert).not.toHaveBeenCalled();
+      expect(hook.result.current.selectedCount).toBe(count);
+      expect(hook.result.current.busy).toBe(false);
+    },
+  );
 
   test("limits saves to three and waits for every result after a failure", async () => {
     const records = historyRecords(7);
@@ -551,7 +712,9 @@ describe("History bulk saving", () => {
     mockCreateAsset.mockImplementation(() => {
       active += 1;
       peakActive = Math.max(peakActive, active);
-      return pending[next++].promise.finally(() => { active -= 1; });
+      return pending[next++].promise.finally(() => {
+        active -= 1;
+      });
     });
     const hook = await renderSelectedHistoryController(records);
     let saving!: Promise<void>;
@@ -561,15 +724,21 @@ describe("History bulk saving", () => {
     expect(mockCreateAsset).toHaveBeenCalledTimes(3);
     expect(hook.result.current.busy).toBe(true);
 
-    await act(async () => { pending[1].resolve(savedAsset); });
+    await act(async () => {
+      pending[1].resolve(savedAsset);
+    });
     expect(mockCreateAsset).toHaveBeenCalledTimes(4);
-    await act(async () => { pending[0].reject(new Error("save failed")); });
+    await act(async () => {
+      pending[0].reject(new Error("save failed"));
+    });
     expect(mockCreateAsset).toHaveBeenCalledTimes(5);
     expect(hook.result.current.busy).toBe(true);
     expect(mockAlert).not.toHaveBeenCalled();
     expect(mockToastSuccess).not.toHaveBeenCalled();
 
-    await act(async () => { await hook.result.current.saveSelected(); });
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
     expect(mockRequestPermission).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -582,7 +751,8 @@ describe("History bulk saving", () => {
       records.map((record) => record.imagePath),
     );
     expect(mockAlert).toHaveBeenCalledWith(
-      "일부 이미지 저장 실패", "저장 성공: 6개\n저장 실패: 1개",
+      "일부 이미지 저장 실패",
+      "저장 성공: 6개\n저장 실패: 1개",
     );
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(hook.result.current.busy).toBe(false);
@@ -619,46 +789,76 @@ describe("History bulk saving", () => {
       await hook.result.current.saveSelected();
     });
     expect(mockRequestPermission).not.toHaveBeenCalled();
-    await act(async () => { getAlertButton(0, 0).onPress?.(); });
-    await act(async () => { await hook.result.current.saveSelected(); });
+    await act(async () => {
+      getAlertButton(0, 0).onPress?.();
+    });
+    await act(async () => {
+      await hook.result.current.saveSelected();
+    });
     expect(mockCreateAsset).toHaveBeenCalledTimes(1);
   });
 
-  test.each(["denied", "error"])("releases the save lock after permission is %s", async (result) => {
-    if (result === "denied") {
-      mockRequestPermission.mockResolvedValueOnce({ ...grantedPermission, granted: false });
-    } else {
-      mockRequestPermission.mockRejectedValueOnce(new Error("permission failed"));
-    }
-    const hook = await renderSelectedHistoryController();
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockCreateAsset).not.toHaveBeenCalled();
-    expect(mockAlert).toHaveBeenCalledTimes(1);
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-    expect(hook.result.current.busy).toBe(false);
+  test.each(["denied", "error"])(
+    "releases the save lock after permission is %s",
+    async (result) => {
+      if (result === "denied") {
+        mockRequestPermission.mockResolvedValueOnce({
+          ...grantedPermission,
+          granted: false,
+        });
+      } else {
+        mockRequestPermission.mockRejectedValueOnce(
+          new Error("permission failed"),
+        );
+      }
+      const hook = await renderSelectedHistoryController();
+      await act(async () => {
+        await hook.result.current.saveSelected();
+      });
+      expect(mockCreateAsset).not.toHaveBeenCalled();
+      expect(mockAlert).toHaveBeenCalledTimes(1);
+      expect(mockToastSuccess).not.toHaveBeenCalled();
+      expect(hook.result.current.busy).toBe(false);
 
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockCreateAsset).toHaveBeenCalledTimes(1);
-    expect(mockToastSuccess).toHaveBeenCalledTimes(1);
-  });
+      await act(async () => {
+        await hook.result.current.saveSelected();
+      });
+      expect(mockCreateAsset).toHaveBeenCalledTimes(1);
+      expect(mockToastSuccess).toHaveBeenCalledTimes(1);
+    },
+  );
 
-  test.each(["rejection", "throw"])("counts every failure after an asset %s and permits retry", async (failure) => {
-    if (failure === "rejection") {
-      mockCreateAsset.mockRejectedValue(new Error("save failed"));
-    } else {
-      mockCreateAsset.mockImplementation(() => { throw new Error("save failed"); });
-    }
-    const hook = await renderSelectedHistoryController(historyRecords(4));
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockCreateAsset).toHaveBeenCalledTimes(4);
-    expect(mockAlert).toHaveBeenCalledWith("저장 실패", "저장 성공: 0개\n저장 실패: 4개");
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-    expect(hook.result.current.busy).toBe(false);
+  test.each(["rejection", "throw"])(
+    "counts every failure after an asset %s and permits retry",
+    async (failure) => {
+      if (failure === "rejection") {
+        mockCreateAsset.mockRejectedValue(new Error("save failed"));
+      } else {
+        mockCreateAsset.mockImplementation(() => {
+          throw new Error("save failed");
+        });
+      }
+      const hook = await renderSelectedHistoryController(historyRecords(4));
+      await act(async () => {
+        await hook.result.current.saveSelected();
+      });
+      expect(mockCreateAsset).toHaveBeenCalledTimes(4);
+      expect(mockAlert).toHaveBeenCalledWith(
+        "저장 실패",
+        "저장 성공: 0개\n저장 실패: 4개",
+      );
+      expect(mockToastSuccess).not.toHaveBeenCalled();
+      expect(hook.result.current.busy).toBe(false);
 
-    mockCreateAsset.mockResolvedValue(savedAsset);
-    await act(async () => { await hook.result.current.saveSelected(); });
-    expect(mockToastSuccess).toHaveBeenCalledWith("4개의 이미지를 저장했습니다.");
-  });
+      mockCreateAsset.mockResolvedValue(savedAsset);
+      await act(async () => {
+        await hook.result.current.saveSelected();
+      });
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        "4개의 이미지를 저장했습니다.",
+      );
+    },
+  );
 });
 
 describe("History deletion confirmation", () => {
@@ -668,26 +868,31 @@ describe("History deletion confirmation", () => {
     useGenerationStore.setState(initialState, true);
   });
 
-  test.each([0, 24, 34])("keeps the History footer and list above %i bottom inset", async (bottom) => {
-    mockInsets.mockReturnValue({ top: 0, right: 0, bottom, left: 0 });
-    const hook = await renderSelectedHistoryController();
-    await render(
-      <>
-        <HistorySheetContent controller={hook.result.current} />
-        <HistorySheetFooter
-          controller={hook.result.current}
-          animatedFooterPosition={{ value: 0 } as SharedValue<number>}
-        />
-      </>,
-    );
+  test.each([0, 24, 34])(
+    "keeps the History footer and list above %i bottom inset",
+    async (bottom) => {
+      mockInsets.mockReturnValue({ top: 0, right: 0, bottom, left: 0 });
+      const hook = await renderSelectedHistoryController();
+      await render(
+        <>
+          <HistorySheetContent controller={hook.result.current} />
+          <HistorySheetFooter
+            controller={hook.result.current}
+            animatedFooterPosition={{ value: 0 } as SharedValue<number>}
+          />
+        </>,
+      );
 
-    const footerProps = jest.mocked(BottomSheetFooter).mock.calls[0][0];
-    const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
-    expect(footerProps.bottomInset).toBe(71 + bottom);
-    expect(StyleSheet.flatten(listProps.contentContainerStyle)).toMatchObject({
-      paddingBottom: 156 + bottom,
-    });
-  });
+      const footerProps = jest.mocked(BottomSheetFooter).mock.calls[0][0];
+      const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
+      expect(footerProps.bottomInset).toBe(71 + bottom);
+      expect(StyleSheet.flatten(listProps.contentContainerStyle)).toMatchObject(
+        {
+          paddingBottom: 156 + bottom,
+        },
+      );
+    },
+  );
 
   test("keeps the selection and does not delete when cancelled", async () => {
     const hook = await renderSelectedHistoryController();

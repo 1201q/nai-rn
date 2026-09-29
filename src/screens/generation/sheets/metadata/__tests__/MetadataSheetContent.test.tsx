@@ -6,12 +6,14 @@ import { MetadataSheetContent } from "../MetadataSheetContent";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("@gorhom/bottom-sheet", () => {
-  const { ScrollView } = require("react-native") as typeof import("react-native");
+  const { ScrollView } =
+    require("react-native") as typeof import("react-native");
   return { BottomSheetScrollView: ScrollView };
 });
 jest.mock("../../../../../components/forms/PromptHighlightTextInput", () => {
   const React = require("react") as typeof import("react");
-  const { TextInput } = require("react-native") as typeof import("react-native");
+  const { TextInput } =
+    require("react-native") as typeof import("react-native");
   return {
     PromptHighlightTextInput: React.forwardRef(function MockPromptInput(
       props: import("react-native").TextInputProps,
@@ -72,7 +74,15 @@ const generation: GenerationRecord = {
 
 describe("MetadataSheetContent", () => {
   test("displays extracted metadata without a generated record", async () => {
-    const screen = await render(<MetadataSheetContent generation={{ metadataJson: JSON.stringify({ Comment: JSON.stringify({ prompt: "external prompt", seed: 42 }) }) }} />);
+    const screen = await render(
+      <MetadataSheetContent
+        generation={{
+          metadataJson: JSON.stringify({
+            Comment: JSON.stringify({ prompt: "external prompt", seed: 42 }),
+          }),
+        }}
+      />,
+    );
     expect(screen.getByDisplayValue("external prompt")).toBeTruthy();
     expect(screen.getByText("42")).toBeTruthy();
     expect(screen.queryByText("CREATED")).toBeNull();
@@ -100,9 +110,7 @@ describe("MetadataSheetContent", () => {
         name: "Character 1 Undesired Content",
       }),
     );
-    expect(
-      screen.getByDisplayValue("character negative prompt"),
-    ).toBeTruthy();
+    expect(screen.getByDisplayValue("character negative prompt")).toBeTruthy();
     expect(screen.getByText("123456")).toBeTruthy();
     expect(screen.getByText("QUALITY TAGS")).toBeTruthy();
     expect(screen.getByText("UC PRESET")).toBeTruthy();
@@ -129,9 +137,10 @@ describe("MetadataSheetContent", () => {
     });
 
     const scroll = screen.getByTestId("metadata-scroll");
-    expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({
+    expect(
+      StyleSheet.flatten(scroll.props.contentContainerStyle),
+    ).toMatchObject({
       paddingBottom: 200,
     });
   });
-
 });

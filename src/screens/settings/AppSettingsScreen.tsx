@@ -102,7 +102,9 @@ export function AppSettingsScreen() {
               paddingBottom: insets.bottom + 32,
             },
           ]}
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           keyboardShouldPersistTaps="handled"
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -206,10 +208,7 @@ export function AppSettingsScreen() {
             </View>
 
             {feedback ? (
-              <View
-                accessibilityLiveRegion="polite"
-                style={styles.feedbackRow}
-              >
+              <View accessibilityLiveRegion="polite" style={styles.feedbackRow}>
                 <Ionicons
                   name={
                     feedback.tone === "success"

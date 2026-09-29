@@ -92,7 +92,10 @@ export function parsePromptHighlights(
 
     if (ch === "|") {
       flush();
-      spans.push({ text: "|", kind: inRandomizer ? "randomizer" : "separator" });
+      spans.push({
+        text: "|",
+        kind: inRandomizer ? "randomizer" : "separator",
+      });
       i += 1;
       continue;
     }

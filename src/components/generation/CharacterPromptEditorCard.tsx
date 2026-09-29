@@ -47,10 +47,7 @@ function IconAction({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.actionButton,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
     >
       <View style={disabled ? styles.actionIconDisabled : undefined}>
         <Ionicons
@@ -336,9 +333,7 @@ export const CharacterPromptEditorCard = memo(
               name="checkmark"
               size={17}
               color={
-                item.enabled
-                  ? tokens.color.textPrimary
-                  : tokens.color.textMuted
+                item.enabled ? tokens.color.textPrimary : tokens.color.textMuted
               }
             />
           </Pressable>
@@ -378,134 +373,134 @@ export const CharacterPromptEditorCard = memo(
           testID={`character-${item.id}-content`}
           style={!item.enabled ? styles.cardDisabled : undefined}
         >
-        {expanded ? (
-          <View style={styles.editorBody}>
-            <View pointerEvents="none" style={styles.measureLayer}>
-              <Text
-                testID={`character-${item.id}-base-measure`}
-                onTextLayout={(event) => handleTextLayout("base", event)}
-                style={styles.measureText}
-              >
-                {promptText || " "}
-              </Text>
-              <Text
-                testID={`character-${item.id}-negative-measure`}
-                onTextLayout={(event) => handleTextLayout("negative", event)}
-                style={styles.measureText}
-              >
-                {negativeText || " "}
-              </Text>
-            </View>
-
-            <View style={styles.modeTabs}>
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityLabel={`${displayName} Prompt`}
-                accessibilityState={{ selected: mode === "base" }}
-                onPress={() => selectMode("base")}
-                style={({ pressed }) => [
-                  styles.modeTab,
-                  mode === "base" && styles.modeTabActive,
-                  pressed && styles.pressed,
-                ]}
-              >
+          {expanded ? (
+            <View style={styles.editorBody}>
+              <View pointerEvents="none" style={styles.measureLayer}>
                 <Text
-                  style={[
-                    styles.modeLabel,
-                    mode === "base" && styles.modeLabelActive,
+                  testID={`character-${item.id}-base-measure`}
+                  onTextLayout={(event) => handleTextLayout("base", event)}
+                  style={styles.measureText}
+                >
+                  {promptText || " "}
+                </Text>
+                <Text
+                  testID={`character-${item.id}-negative-measure`}
+                  onTextLayout={(event) => handleTextLayout("negative", event)}
+                  style={styles.measureText}
+                >
+                  {negativeText || " "}
+                </Text>
+              </View>
+
+              <View style={styles.modeTabs}>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${displayName} Prompt`}
+                  accessibilityState={{ selected: mode === "base" }}
+                  onPress={() => selectMode("base")}
+                  style={({ pressed }) => [
+                    styles.modeTab,
+                    mode === "base" && styles.modeTabActive,
+                    pressed && styles.pressed,
                   ]}
                 >
-                  Prompt
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityLabel={`${displayName} Undesired Content`}
-                accessibilityState={{ selected: mode === "negative" }}
-                onPress={() => selectMode("negative")}
-                style={({ pressed }) => [
-                  styles.modeTab,
-                  mode === "negative" && styles.modeTabActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modeLabel,
-                    mode === "negative" && styles.negativeModeLabelActive,
+                  <Text
+                    style={[
+                      styles.modeLabel,
+                      mode === "base" && styles.modeLabelActive,
+                    ]}
+                  >
+                    Prompt
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${displayName} Undesired Content`}
+                  accessibilityState={{ selected: mode === "negative" }}
+                  onPress={() => selectMode("negative")}
+                  style={({ pressed }) => [
+                    styles.modeTab,
+                    mode === "negative" && styles.modeTabActive,
+                    pressed && styles.pressed,
                   ]}
                 >
-                  Undesired Content
-                </Text>
-              </Pressable>
-            </View>
+                  <Text
+                    style={[
+                      styles.modeLabel,
+                      mode === "negative" && styles.negativeModeLabelActive,
+                    ]}
+                  >
+                    Undesired Content
+                  </Text>
+                </Pressable>
+              </View>
 
-            <View
-              testID={`character-${item.id}-input-frame`}
-              style={[styles.promptInputFrame, { height: editorHeight }]}
+              <View
+                testID={`character-${item.id}-input-frame`}
+                style={[styles.promptInputFrame, { height: editorHeight }]}
+              >
+                <PromptHighlightTextInput
+                  ref={promptInputRef}
+                  bottomSheetAware
+                  accessibilityLabel={`${displayName} ${
+                    mode === "base" ? "prompt" : "undesired content"
+                  }`}
+                  multiline
+                  scrollEnabled={false}
+                  textAlignVertical="top"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholder={mode === "base" ? "1girl, ..." : "lowres, ..."}
+                  placeholderTextColor={tokens.color.textMuted}
+                  value={activeText}
+                  onFocus={() => {
+                    onBeginEditing(item.id);
+                    promptFocusedRef.current = true;
+                    promptCommit.activate();
+                    autocomplete.activateSuggestions();
+                  }}
+                  onBlur={() => {
+                    promptFocusedRef.current = false;
+                    promptCommit.commitAndDeactivate();
+                    autocomplete.deactivateSuggestions();
+                  }}
+                  onChangeText={autocomplete.handleChangeText}
+                  onSelectionChange={autocomplete.handleSelectionChange}
+                  selection={autocomplete.selection}
+                  style={[
+                    styles.promptInput,
+                    mode === "negative" && styles.negativePromptInput,
+                  ]}
+                />
+              </View>
+
+              <View style={styles.editorFooter}>
+                <PromptTokenCounter
+                  target={{
+                    scope: "character",
+                    characterId: item.id,
+                    channel: mode === "base" ? "positive" : "negative",
+                  }}
+                  draftText={activeText}
+                  variant="bar"
+                />
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${displayName} 편집`}
+              onPress={() => {
+                Keyboard.dismiss();
+                onBeginEditing(item.id);
+              }}
+              style={({ pressed }) => pressed && styles.pressed}
             >
-              <PromptHighlightTextInput
-                ref={promptInputRef}
-                bottomSheetAware
-                accessibilityLabel={`${displayName} ${
-                  mode === "base" ? "prompt" : "undesired content"
-                }`}
-                multiline
-                scrollEnabled={false}
-                textAlignVertical="top"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder={mode === "base" ? "1girl, ..." : "lowres, ..."}
-                placeholderTextColor={tokens.color.textMuted}
-                value={activeText}
-                onFocus={() => {
-                  onBeginEditing(item.id);
-                  promptFocusedRef.current = true;
-                  promptCommit.activate();
-                  autocomplete.activateSuggestions();
-                }}
-                onBlur={() => {
-                  promptFocusedRef.current = false;
-                  promptCommit.commitAndDeactivate();
-                  autocomplete.deactivateSuggestions();
-                }}
-                onChangeText={autocomplete.handleChangeText}
-                onSelectionChange={autocomplete.handleSelectionChange}
-                selection={autocomplete.selection}
-                style={[
-                  styles.promptInput,
-                  mode === "negative" && styles.negativePromptInput,
-                ]}
-              />
-            </View>
-
-            <View style={styles.editorFooter}>
-              <PromptTokenCounter
-                target={{
-                  scope: "character",
-                  characterId: item.id,
-                  channel: mode === "base" ? "positive" : "negative",
-                }}
-                draftText={activeText}
-                variant="bar"
-              />
-            </View>
-          </View>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${displayName} 편집`}
-            onPress={() => {
-              Keyboard.dismiss();
-              onBeginEditing(item.id);
-            }}
-            style={({ pressed }) => pressed && styles.pressed}
-          >
-            <Text style={styles.preview} numberOfLines={1}>
-              {item.prompt.trim() || "프롬프트가 비어 있습니다"}
-            </Text>
-          </Pressable>
-        )}
+              <Text style={styles.preview} numberOfLines={1}>
+                {item.prompt.trim() || "프롬프트가 비어 있습니다"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );

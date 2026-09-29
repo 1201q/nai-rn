@@ -1,12 +1,21 @@
 import { AppState, Platform } from "react-native";
-import { generationImagePipeline, type NativeImageEvent } from "../../modules/generation-image-pipeline";
 import {
-  createImageGenerationBody, describeNovelAiHttpError, generateNovelAiImageStream,
-  normalizeBearerToken, NovelAiRequestError, resolveNoiseSchedule,
+  generationImagePipeline,
+  type NativeImageEvent,
+} from "../../modules/generation-image-pipeline";
+import {
+  createImageGenerationBody,
+  describeNovelAiHttpError,
+  generateNovelAiImageStream,
+  normalizeBearerToken,
+  NovelAiRequestError,
+  resolveNoiseSchedule,
   type GenerateNovelAiImageInput,
 } from "./novelai";
 import {
-  discardNativeGenerationFiles, prepareNativeGenerationFiles, saveGenerationImageBase64,
+  discardNativeGenerationFiles,
+  prepareNativeGenerationFiles,
+  saveGenerationImageBase64,
   savePreparedGeneration,
 } from "./generationHistory";
 
@@ -18,35 +27,52 @@ export async function generateAndSaveImage(
   signal: AbortSignal,
 ) {
   const recordInput = {
-    prompt: input.prompt, negativePrompt: input.negativePrompt, model: input.model,
-    width: input.width, height: input.height, steps: input.steps,
-    scale: input.promptGuidance, cfgRescale: input.promptGuidanceRescale,
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt,
+    model: input.model,
+    width: input.width,
+    height: input.height,
+    steps: input.steps,
+    scale: input.promptGuidance,
+    cfgRescale: input.promptGuidanceRescale,
     // 실제 전송값을 기록한다 (V4+ native -> 샘플러 기본값). 스케줄을 보내지 않는 샘플러는 설정값 유지.
-    noiseSchedule: resolveNoiseSchedule(input.model, input.sampler, input.noiseSchedule)
-      ?? input.noiseSchedule,
+    noiseSchedule:
+      resolveNoiseSchedule(input.model, input.sampler, input.noiseSchedule) ??
+      input.noiseSchedule,
     sampler: input.sampler,
   };
   if (Platform.OS !== "android") {
-    const result = await generateNovelAiImageStream(input, (event) => {
-      if (event.type === "error") return;
-      onEvent({
-        type: event.type, step: event.type === "intermediate" ? event.step : null,
-        generationId: event.generationId,
-        imageUri: `data:image/${event.type === "final" ? "png" : "jpeg"};base64,${event.imageBase64}`,
-      });
-    }, signal);
+    const result = await generateNovelAiImageStream(
+      input,
+      (event) => {
+        if (event.type === "error") return;
+        onEvent({
+          type: event.type,
+          step: event.type === "intermediate" ? event.step : null,
+          generationId: event.generationId,
+          imageUri: `data:image/${event.type === "final" ? "png" : "jpeg"};base64,${event.imageBase64}`,
+        });
+      },
+      signal,
+    );
     return saveGenerationImageBase64({
-      ...recordInput, imageBase64: result.imageBase64, seed: result.seed,
+      ...recordInput,
+      imageBase64: result.imageBase64,
+      seed: result.seed,
     });
   }
   const native = generationImagePipeline;
-  if (!native) throw new Error("Android 이미지 처리 모듈이 없습니다. 새 APK를 빌드해 설치해 주세요.");
+  if (!native)
+    throw new Error(
+      "Android 이미지 처리 모듈이 없습니다. 새 APK를 빌드해 설치해 주세요.",
+    );
   if (signal.aborted) throw cancelled();
   const files = await prepareNativeGenerationFiles();
   const { token, ...requestInput } = input;
   const { seed, body } = createImageGenerationBody(requestInput);
   const json = JSON.stringify({
-    ...body, parameters: { ...body.parameters, stream: "sse" },
+    ...body,
+    parameters: { ...body.parameters, stream: "sse" },
   });
   native.prepare(files.id, AppState.currentState === "active");
   let listening = true;
@@ -61,10 +87,16 @@ export async function generateAndSaveImage(
   if (signal.aborted) abort();
   try {
     const result = await native.generate(
-      files.id, normalizeBearerToken(token), json, files.originalUri, files.thumbnailUri,
+      files.id,
+      normalizeBearerToken(token),
+      json,
+      files.originalUri,
+      files.thumbnailUri,
     );
     return await savePreparedGeneration(
-      files, { ...recordInput, seed, metadata: result.metadata }, result.thumbnailUri !== null,
+      files,
+      { ...recordInput, seed, metadata: result.metadata },
+      result.thumbnailUri !== null,
     );
   } catch (error) {
     discardNativeGenerationFiles(files);
@@ -75,9 +107,10 @@ export async function generateAndSaveImage(
     const httpError = message.match(/NAI_HTTP_(\d+)(?::([^\n]*))?/);
     if (httpError) {
       const status = Number(httpError[1]);
-      throw new NovelAiRequestError(status, describeNovelAiHttpError(
-        status, httpError[2]?.trim() || undefined,
-      ));
+      throw new NovelAiRequestError(
+        status,
+        describeNovelAiHttpError(status, httpError[2]?.trim() || undefined),
+      );
     }
     throw error instanceof Error ? error : new Error(message);
   } finally {

@@ -112,10 +112,7 @@ export function SheetSelect({
     [predictiveBackProgress],
   );
   const cancelPredictiveBack = useCallback(() => {
-    predictiveBackProgress.value = withSpring(
-      0,
-      PREDICTIVE_BACK_CANCEL_SPRING,
-    );
+    predictiveBackProgress.value = withSpring(0, PREDICTIVE_BACK_CANCEL_SPRING);
   }, [predictiveBackProgress]);
   const predictiveOptionsStyle = useAnimatedStyle(() => ({
     transform: [
@@ -140,10 +137,13 @@ export function SheetSelect({
   useEffect(() => {
     if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
 
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      closeSelect();
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        closeSelect();
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [closeSelect, open]);
 
@@ -172,7 +172,9 @@ export function SheetSelect({
     : 0;
 
   return (
-    <View style={[variant === "field" ? styles.field : styles.compactField, style]}>
+    <View
+      style={[variant === "field" ? styles.field : styles.compactField, style]}
+    >
       {variant === "field" && label ? (
         <Text style={styles.label}>{label}</Text>
       ) : null}

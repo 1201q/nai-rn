@@ -51,7 +51,9 @@ describe("estimateAnlasCost", () => {
       estimateAnlasCost(input({ tier: 3, width: 1024, height: 1536 })),
     ).toBe(30);
     expect(
-      estimateAnlasCost(input({ tier: 3, width: 1024, height: 1024, steps: 29 })),
+      estimateAnlasCost(
+        input({ tier: 3, width: 1024, height: 1024, steps: 29 }),
+      ),
     ).toBe(21);
   });
 

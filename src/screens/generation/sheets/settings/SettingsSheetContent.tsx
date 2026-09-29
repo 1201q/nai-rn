@@ -1,6 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { BottomSheetTextInput, type BottomSheetScrollViewMethods } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetTextInput,
+  type BottomSheetScrollViewMethods,
+} from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Toggle } from "../../../../components/forms/FormControls";
@@ -64,7 +67,8 @@ function resolutionPreset(resolution: NaiResolution) {
   const group = NAI_RESOLUTIONS.find((candidate) =>
     candidate.options.some(
       (option) =>
-        option.width === resolution.width && option.height === resolution.height,
+        option.width === resolution.width &&
+        option.height === resolution.height,
     ),
   );
   return group?.group ?? "Custom";
@@ -80,7 +84,10 @@ function presetResolution(
   );
 }
 
-function resolutionFromDimensions(width: number, height: number): NaiResolution {
+function resolutionFromDimensions(
+  width: number,
+  height: number,
+): NaiResolution {
   for (const group of NAI_RESOLUTIONS) {
     const preset = group.options.find(
       (option) => option.width === width && option.height === height,
@@ -141,8 +148,14 @@ function ResolutionDimensionInputs({
     setHeightText(nextHeight);
     onChange(resolutionFromDimensions(width, height));
   }, [onChange]);
-  const widthCommit = useGenerationInputCommitRegistration(commitDimensions, active);
-  const heightCommit = useGenerationInputCommitRegistration(commitDimensions, active);
+  const widthCommit = useGenerationInputCommitRegistration(
+    commitDimensions,
+    active,
+  );
+  const heightCommit = useGenerationInputCommitRegistration(
+    commitDimensions,
+    active,
+  );
 
   function swapDimensions() {
     const width = snapResolutionDimension(heightTextRef.current);
@@ -190,11 +203,7 @@ function ResolutionDimensionInputs({
           pressed && styles.pressed,
         ]}
       >
-        <Ionicons
-          name="close"
-          size={14}
-          color={tokens.color.textMuted}
-        />
+        <Ionicons name="close" size={14} color={tokens.color.textMuted} />
       </Pressable>
       <BottomSheetTextInput
         accessibilityLabel="Resolution height"
@@ -223,7 +232,11 @@ function ResolutionDimensionInputs({
   );
 }
 
-export const SettingsSheetContent = memo(function SettingsSheetContent({ active = true }: { active?: boolean }) {
+export const SettingsSheetContent = memo(function SettingsSheetContent({
+  active = true,
+}: {
+  active?: boolean;
+}) {
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const model = useGenerationStore((state) => state.model);
@@ -329,7 +342,9 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
   }
 
   function changeSchedule(label: string) {
-    const option = NOISE_SCHEDULES.find((candidate) => candidate.label === label);
+    const option = NOISE_SCHEDULES.find(
+      (candidate) => candidate.label === label,
+    );
     if (option) setSchedule(option.value);
   }
 
@@ -368,7 +383,10 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
     setSeed(next);
     setSeedLocked(true);
   }, [setSeed, setSeedLocked]);
-  const seedCommit = useGenerationInputCommitRegistration(commitSeedDraft, active);
+  const seedCommit = useGenerationInputCommitRegistration(
+    commitSeedDraft,
+    active,
+  );
 
   function handleSeedAction() {
     if (seedDraft !== "") {
@@ -538,9 +556,7 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({ active 
               />
               <PressableSurface
                 accessibilityLabel={
-                  seedDraft === ""
-                    ? "현재 이미지 Seed 가져오기"
-                    : "Seed 지우기"
+                  seedDraft === "" ? "현재 이미지 Seed 가져오기" : "Seed 지우기"
                 }
                 disabled={seedDraft === "" && !canUseCurrentImageSeed}
                 onPress={handleSeedAction}

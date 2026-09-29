@@ -59,7 +59,9 @@ jest.mock("expo-file-system", () => {
     path: string;
     constructor(parentOrUri: { path: string } | string, name?: string) {
       this.path =
-        typeof parentOrUri === "string" ? parentOrUri : `${parentOrUri.path}/${name}`;
+        typeof parentOrUri === "string"
+          ? parentOrUri
+          : `${parentOrUri.path}/${name}`;
     }
     get uri() {
       return `file://${this.path}`;
@@ -163,12 +165,16 @@ test("moves the legacy single cache into the per-model table", async () => {
   expect(canUseCachedVibeEncoding(legacy, "nai-diffusion-4-5-full")).toBe(true);
   expect(references.find((item) => item.id === "plain")!.encodings).toEqual([]);
   expect(
-    db.prepare("SELECT encoded_path FROM vibe_references WHERE id = 'legacy'").get(),
+    db
+      .prepare("SELECT encoded_path FROM vibe_references WHERE id = 'legacy'")
+      .get(),
   ).toEqual(expect.objectContaining({ encoded_path: null }));
 
   // 두 번째 실행에서도 중복 이전되지 않는다
   const reloaded = await loadModule().listVibeReferences();
-  expect(reloaded.find((item) => item.id === "legacy")!.encodings).toHaveLength(1);
+  expect(reloaded.find((item) => item.id === "legacy")!.encodings).toHaveLength(
+    1,
+  );
 });
 
 test("adds a new reference without encodings", async () => {
@@ -184,7 +190,11 @@ test("adds a new reference without encodings", async () => {
 
   expect(added.encodings).toEqual([]);
   const [listed] = await module.listVibeReferences();
-  expect(listed).toMatchObject({ id: added.id, encodings: [], informationExtracted: 0.7 });
+  expect(listed).toMatchObject({
+    id: added.id,
+    encodings: [],
+    informationExtracted: 0.7,
+  });
 });
 
 test("keeps other models' caches and replaces only the same model", async () => {
@@ -192,10 +202,23 @@ test("keeps other models' caches and replaces only the same model", async () => 
   await module.initVibeReferenceStorage();
   insertReference(testGlobals.__vibeTestDb!, "vibe");
 
-  await module.saveEncodedVibeReference("vibe", "full-v1", 0.7, "nai-diffusion-4-5-full");
-  await module.saveEncodedVibeReference("vibe", "curated", 0.7, "nai-diffusion-4-5-curated");
+  await module.saveEncodedVibeReference(
+    "vibe",
+    "full-v1",
+    0.7,
+    "nai-diffusion-4-5-full",
+  );
+  await module.saveEncodedVibeReference(
+    "vibe",
+    "curated",
+    0.7,
+    "nai-diffusion-4-5-curated",
+  );
   const saved = await module.saveEncodedVibeReference(
-    "vibe", "full-v2", 0.7, "nai-diffusion-4-5-full",
+    "vibe",
+    "full-v2",
+    0.7,
+    "nai-diffusion-4-5-full",
   );
 
   expect(saved!.encodings.map((item) => item.model).sort()).toEqual([
@@ -207,7 +230,10 @@ test("keeps other models' caches and replaces only the same model", async () => 
     module.readEncodedVibeReferenceBase64(reference, "nai-diffusion-4-5-full"),
   ).resolves.toBe("full-v2");
   await expect(
-    module.readEncodedVibeReferenceBase64(reference, "nai-diffusion-4-5-curated"),
+    module.readEncodedVibeReferenceBase64(
+      reference,
+      "nai-diffusion-4-5-curated",
+    ),
   ).resolves.toBe("curated");
   // 교체된 full-v1 파일은 지워지고 두 파일만 남는다
   const encodedFiles = [...testGlobals.__vibeTestFiles!.keys()].filter((path) =>
@@ -220,8 +246,18 @@ test("clears every model's cache when Information Extracted changes", async () =
   const module = loadModule();
   await module.initVibeReferenceStorage();
   insertReference(testGlobals.__vibeTestDb!, "vibe");
-  await module.saveEncodedVibeReference("vibe", "full", 0.7, "nai-diffusion-4-5-full");
-  await module.saveEncodedVibeReference("vibe", "curated", 0.7, "nai-diffusion-4-5-curated");
+  await module.saveEncodedVibeReference(
+    "vibe",
+    "full",
+    0.7,
+    "nai-diffusion-4-5-full",
+  );
+  await module.saveEncodedVibeReference(
+    "vibe",
+    "curated",
+    0.7,
+    "nai-diffusion-4-5-curated",
+  );
 
   const updated = await module.updateVibeReferenceSettings("vibe", {
     informationExtracted: 0.5,
@@ -229,7 +265,9 @@ test("clears every model's cache when Information Extracted changes", async () =
 
   expect(updated!.encodings).toEqual([]);
   expect(
-    [...testGlobals.__vibeTestFiles!.keys()].filter((path) => path.startsWith(ENCODED_DIR)),
+    [...testGlobals.__vibeTestFiles!.keys()].filter((path) =>
+      path.startsWith(ENCODED_DIR),
+    ),
   ).toEqual([]);
 });
 
@@ -237,16 +275,25 @@ test("removes cache rows and files when a reference is deleted", async () => {
   const module = loadModule();
   await module.initVibeReferenceStorage();
   insertReference(testGlobals.__vibeTestDb!, "vibe");
-  await module.saveEncodedVibeReference("vibe", "full", 0.7, "nai-diffusion-4-5-full");
+  await module.saveEncodedVibeReference(
+    "vibe",
+    "full",
+    0.7,
+    "nai-diffusion-4-5-full",
+  );
 
   await module.deleteVibeReference("vibe");
 
   expect(
-    testGlobals.__vibeTestDb!
-      .prepare("SELECT COUNT(*) AS count FROM vibe_reference_encodings")
+    testGlobals
+      .__vibeTestDb!.prepare(
+        "SELECT COUNT(*) AS count FROM vibe_reference_encodings",
+      )
       .get(),
   ).toEqual(expect.objectContaining({ count: 0 }));
   expect(
-    [...testGlobals.__vibeTestFiles!.keys()].filter((path) => path.startsWith(ENCODED_DIR)),
+    [...testGlobals.__vibeTestFiles!.keys()].filter((path) =>
+      path.startsWith(ENCODED_DIR),
+    ),
   ).toEqual([]);
 });

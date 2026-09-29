@@ -62,7 +62,10 @@ export function useGenerationInputCommit() {
   return useContext(GenerationInputCommitContext);
 }
 
-export function useGenerationInputCommitRegistration(commit: () => void, active = true) {
+export function useGenerationInputCommitRegistration(
+  commit: () => void,
+  active = true,
+) {
   const { registerPendingCommit } = useGenerationInputCommit();
   const commitRef = useRef(commit);
   const unregisterRef = useRef<(() => void) | null>(null);

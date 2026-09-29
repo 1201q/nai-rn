@@ -8,10 +8,7 @@ const { inflateRawSync } = require("zlib") as {
   inflateRawSync: (data: Uint8Array) => { toString: () => string };
 };
 
-import {
-  NovelAiClipTokenizer,
-  NovelAiT5Tokenizer,
-} from "../tokenizers";
+import { NovelAiClipTokenizer, NovelAiT5Tokenizer } from "../tokenizers";
 
 function readCompressedDefinition(fileName: string): string {
   return inflateRawSync(

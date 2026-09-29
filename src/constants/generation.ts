@@ -1,8 +1,5 @@
 export type NoiseSchedule =
-  | "native"
-  | "karras"
-  | "exponential"
-  | "polyexponential";
+  "native" | "karras" | "exponential" | "polyexponential";
 
 export type ImagePromptTokenizerType = "t5" | "clip";
 

@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import {
-  AppState,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { AppState, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useFocusEffect, useNavigation } from "expo-router";
 import Animated, {
   cancelAnimation,
@@ -231,8 +226,7 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
     // Idle screens stay at identity even if an earlier native event was lost.
     const interactionActive = phase.value !== PHASE_IDLE;
     const progress = interactionActive ? peek.value : 0;
-    const exitProgress =
-      phase.value === PHASE_COMMITTING ? exit.value : 0;
+    const exitProgress = phase.value === PHASE_COMMITTING ? exit.value : 0;
     const underlayProgress = underlay.value;
     return {
       transform: [
@@ -260,8 +254,7 @@ export function PredictiveBackScreen({ children }: { children: ReactNode }) {
 
   const backdropStyle = useAnimatedStyle(() => {
     const progress = phase.value === PHASE_IDLE ? 0 : peek.value;
-    const exitProgress =
-      phase.value === PHASE_COMMITTING ? exit.value : 0;
+    const exitProgress = phase.value === PHASE_COMMITTING ? exit.value : 0;
     const revealed = Math.max(progress, exitProgress);
     return {
       opacity: interpolate(revealed, [0, 1], [MAX_DIM, 0], Extrapolation.CLAMP),

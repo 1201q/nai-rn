@@ -25,7 +25,8 @@ export const BottomSheetKeyboardAwareScrollView = memo(
   function BottomSheetKeyboardAwareScrollView({
     active = true,
     ...props
-  }: BottomSheetScrollViewProps & KeyboardAwareScrollViewProps & { active?: boolean }) {
+  }: BottomSheetScrollViewProps &
+    KeyboardAwareScrollViewProps & { active?: boolean }) {
     function useActiveFocusEffect(effect: EffectCallback) {
       useEffect(() => {
         if (active) return effect();

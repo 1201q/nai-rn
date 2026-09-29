@@ -7,7 +7,11 @@ import {
 
 export type { CharacterPrompt };
 
-export function GenerationOptionsProvider({ children }: { children: ReactNode }) {
+export function GenerationOptionsProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   useGenerationBootstrap();
   return <>{children}</>;
 }

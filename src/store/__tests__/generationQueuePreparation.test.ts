@@ -133,27 +133,19 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 const initialState = useGenerationStore.getInitialState();
-const mockRenderI2IRequestImageBase64 = jest.mocked(renderI2IRequestImageBase64);
+const mockRenderI2IRequestImageBase64 = jest.mocked(
+  renderI2IRequestImageBase64,
+);
 const mockStartGenerationService = jest.mocked(startGenerationService);
 const mockStopGenerationService = jest.mocked(stopGenerationService);
-const mockSaveGenerationImageBase64 = jest.mocked(
-  saveGenerationImageBase64,
-);
+const mockSaveGenerationImageBase64 = jest.mocked(saveGenerationImageBase64);
 const mockEncodeNovelAiVibe = jest.mocked(encodeNovelAiVibe);
-const mockGenerateNovelAiImageStream = jest.mocked(
-  generateNovelAiImageStream,
-);
+const mockGenerateNovelAiImageStream = jest.mocked(generateNovelAiImageStream);
 const mockGetNovelAiAnlasBalance = jest.mocked(getNovelAiAnlasBalance);
 const mockSaveNovelAiToken = jest.mocked(saveNovelAiToken);
-const mockAcquireGenerationWakeLock = jest.mocked(
-  acquireGenerationWakeLock,
-);
-const mockReleaseGenerationWakeLock = jest.mocked(
-  releaseGenerationWakeLock,
-);
-const mockWaitForGenerationInterval = jest.mocked(
-  waitForGenerationInterval,
-);
+const mockAcquireGenerationWakeLock = jest.mocked(acquireGenerationWakeLock);
+const mockReleaseGenerationWakeLock = jest.mocked(releaseGenerationWakeLock);
+const mockWaitForGenerationInterval = jest.mocked(waitForGenerationInterval);
 const mockCanUseCachedVibeEncoding = jest.mocked(canUseCachedVibeEncoding);
 const mockReadVibeReferenceImageBase64 = jest.mocked(
   readVibeReferenceImageBase64,
@@ -200,7 +192,13 @@ describe("ANLAS balance refresh", () => {
 
   test("clears the previous balance when replacing the token", async () => {
     useGenerationStore.setState({
-      anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
+      anlasBalance: {
+        fixed: 10,
+        purchased: 5,
+        total: 15,
+        tier: 1,
+        expiresAt: 0,
+      },
     });
 
     await useGenerationStore.getState().saveToken("new-token");
@@ -213,7 +211,13 @@ describe("ANLAS balance refresh", () => {
   });
 
   test("returns the verified balance after a successful refresh", async () => {
-    const balance = { fixed: 20, purchased: 7, total: 27, tier: 1, expiresAt: 0 };
+    const balance = {
+      fixed: 20,
+      purchased: 7,
+      total: 27,
+      tier: 1,
+      expiresAt: 0,
+    };
     mockGetNovelAiAnlasBalance.mockResolvedValue(balance);
 
     const result = await useGenerationStore.getState().refreshAnlas();
@@ -226,7 +230,13 @@ describe("ANLAS balance refresh", () => {
     "reports HTTP %s as an invalid token and clears the balance",
     async (status) => {
       useGenerationStore.setState({
-        anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
+        anlasBalance: {
+          fixed: 10,
+          purchased: 5,
+          total: 15,
+          tier: 1,
+          expiresAt: 0,
+        },
       });
       mockGetNovelAiAnlasBalance.mockRejectedValue(
         new NovelAiRequestError(status, "invalid token"),
@@ -241,7 +251,13 @@ describe("ANLAS balance refresh", () => {
 
   test("reports a network failure without restoring a replaced token balance", async () => {
     useGenerationStore.setState({
-      anlasBalance: { fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 },
+      anlasBalance: {
+        fixed: 10,
+        purchased: 5,
+        total: 15,
+        tier: 1,
+        expiresAt: 0,
+      },
     });
     await useGenerationStore.getState().saveToken("new-token");
     mockGetNovelAiAnlasBalance.mockRejectedValue(new Error("Network failed"));
@@ -259,7 +275,13 @@ describe("ANLAS balance refresh", () => {
 
     const pendingRefresh = useGenerationStore.getState().refreshAnlas();
     await useGenerationStore.getState().saveToken("new-token");
-    refresh.resolve({ fixed: 10, purchased: 5, total: 15, tier: 1, expiresAt: 0 });
+    refresh.resolve({
+      fixed: 10,
+      purchased: 5,
+      total: 15,
+      tier: 1,
+      expiresAt: 0,
+    });
 
     await expect(pendingRefresh).resolves.toEqual({
       status: "skipped",
@@ -299,8 +321,7 @@ describe("generation queue preparation", () => {
 
     const firstRequest = useGenerationStore.getState().generateImage();
     const secondRequest = useGenerationStore.getState().generateImage();
-    const loadingDuringPreparation =
-      useGenerationStore.getState().isLoading;
+    const loadingDuringPreparation = useGenerationStore.getState().isLoading;
 
     rendering.resolve("i2i-base64");
     const [firstResult, secondResult] = await Promise.all([
@@ -352,7 +373,9 @@ describe("generation queue preparation", () => {
   });
 
   test("releases the preparation lock after an I2I failure", async () => {
-    mockRenderI2IRequestImageBase64.mockRejectedValueOnce(new Error("render failed"));
+    mockRenderI2IRequestImageBase64.mockRejectedValueOnce(
+      new Error("render failed"),
+    );
     useGenerationStore.setState({
       i2iEnabled: true,
       i2iSourceImage: {
@@ -467,12 +490,14 @@ describe("generation queue execution", () => {
 
   test("rejects invalid requests without starting a queue", async () => {
     useGenerationStore.setState({ storedToken: null });
-    const missingTokenResult =
-      await useGenerationStore.getState().generateImage();
+    const missingTokenResult = await useGenerationStore
+      .getState()
+      .generateImage();
 
     useGenerationStore.setState({ storedToken: "token", prompt: "   " });
-    const emptyPromptResult =
-      await useGenerationStore.getState().generateImage();
+    const emptyPromptResult = await useGenerationStore
+      .getState()
+      .generateImage();
 
     expect(missingTokenResult).toEqual({
       status: "rejected",
@@ -514,7 +539,10 @@ describe("generation queue execution", () => {
     useGenerationStore.setState({ generationHistoryIds: ["older"] });
     await useGenerationStore.getState().generateImage();
     await useGenerationStore.getState().runQueueTask();
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual([generation.id, "older"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      generation.id,
+      "older",
+    ]);
     expect(useGenerationStore.getState().generationHistoryRevision).toBe(1);
   });
 
@@ -647,49 +675,77 @@ describe("History ID catalog and pagination mutations", () => {
 
   test("loads all IDs without replacing or fetching the grid's records", async () => {
     mockListIds.mockResolvedValue(["new", "old"]);
-    expect(await useGenerationStore.getState().loadGenerationHistoryIds()).toEqual(["new", "old"]);
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["new", "old"]);
+    expect(
+      await useGenerationStore.getState().loadGenerationHistoryIds(),
+    ).toEqual(["new", "old"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      "new",
+      "old",
+    ]);
     expect(useGenerationStore.getState().generationHistory).toEqual([]);
     expect(mockListPage).not.toHaveBeenCalled();
   });
 
   test("revalidates an overtaken query, pruning deletions without selecting new arrivals", async () => {
     const pending = createDeferred<string[]>();
-    mockListIds.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(["new", "keep"]);
+    mockListIds
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(["new", "keep"]);
     const selecting = useGenerationStore.getState().loadGenerationHistoryIds();
     useGenerationStore.setState({ generationHistoryRevision: 1 });
     pending.resolve(["keep", "deleted"]);
     expect(await selecting).toEqual(["keep"]);
     expect(mockListIds).toHaveBeenCalledTimes(2);
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["new", "keep"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      "new",
+      "keep",
+    ]);
   });
 
   test("preserves the catalog on lookup failure and permits a retry", async () => {
     useGenerationStore.setState({ generationHistoryIds: ["keep"] });
-    mockListIds.mockRejectedValueOnce(new Error("query failed")).mockResolvedValueOnce([]);
-    await expect(useGenerationStore.getState().loadGenerationHistoryIds()).rejects.toThrow("query failed");
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep"]);
-    await expect(useGenerationStore.getState().loadGenerationHistoryIds()).resolves.toEqual([]);
+    mockListIds
+      .mockRejectedValueOnce(new Error("query failed"))
+      .mockResolvedValueOnce([]);
+    await expect(
+      useGenerationStore.getState().loadGenerationHistoryIds(),
+    ).rejects.toThrow("query failed");
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      "keep",
+    ]);
+    await expect(
+      useGenerationStore.getState().loadGenerationHistoryIds(),
+    ).resolves.toEqual([]);
     expect(useGenerationStore.getState().generationHistoryIds).toEqual([]);
   });
 
   test("updates the catalog only after a successful deletion, including unloaded IDs", async () => {
     useGenerationStore.setState({ generationHistoryIds: ["keep", "unloaded"] });
     mockDelete.mockRejectedValueOnce(new Error("delete failed"));
-    await expect(useGenerationStore.getState().deleteGenerations(["unloaded"])).rejects.toThrow("delete failed");
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep", "unloaded"]);
+    await expect(
+      useGenerationStore.getState().deleteGenerations(["unloaded"]),
+    ).rejects.toThrow("delete failed");
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      "keep",
+      "unloaded",
+    ]);
     expect(useGenerationStore.getState().generationHistoryRevision).toBe(0);
     await useGenerationStore.getState().deleteGenerations(["unloaded"]);
-    expect(useGenerationStore.getState().generationHistoryIds).toEqual(["keep"]);
+    expect(useGenerationStore.getState().generationHistoryIds).toEqual([
+      "keep",
+    ]);
     expect(useGenerationStore.getState().generationHistoryRevision).toBe(1);
   });
 
   test("does not resurrect deleted rows from an in-flight page response", async () => {
     const removed = { id: "removed" } as GenerationRecord;
     const kept = { id: "kept" } as GenerationRecord;
-    const pending = createDeferred<Awaited<ReturnType<typeof listGenerationPage>>>();
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof listGenerationPage>>>();
     mockListPage.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({
-      records: [kept], nextCursor: null, hasMore: false,
+      records: [kept],
+      nextCursor: null,
+      hasMore: false,
     });
     useGenerationStore.setState({
       generationHistoryIds: [removed.id, kept.id],
@@ -699,31 +755,41 @@ describe("History ID catalog and pagination mutations", () => {
     });
     const loading = useGenerationStore.getState().loadMoreGenerationHistory();
     await useGenerationStore.getState().deleteGenerations([removed.id]);
-    pending.resolve({ records: [removed, kept], nextCursor: null, hasMore: false });
+    pending.resolve({
+      records: [removed, kept],
+      nextCursor: null,
+      hasMore: false,
+    });
     await loading;
     expect(mockListPage).toHaveBeenCalledTimes(2);
     expect(useGenerationStore.getState().generationHistory).toEqual([kept]);
     expect(useGenerationStore.getState().currentGeneration).toEqual(kept);
     expect(useGenerationStore.getState().generationHistoryHasMore).toBe(false);
-    expect(useGenerationStore.getState().generationHistoryLoadingMore).toBe(false);
+    expect(useGenerationStore.getState().generationHistoryLoadingMore).toBe(
+      false,
+    );
   });
 });
 
-
 test("restores current options while ignoring removed legacy settings", () => {
   jest.isolateModules(() => {
-    const { storage } = require("../../lib/storage") as typeof import("../../lib/storage");
+    const { storage } =
+      require("../../lib/storage") as typeof import("../../lib/storage");
     const resolution = { label: "Custom 960x1280", width: 960, height: 1280 };
-    jest.mocked(storage.getString).mockReturnValueOnce(JSON.stringify({
-      resolution,
-      batchCount: 4,
-      prompt: "retained prompt",
-      customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
-      vibeReferenceExpandedIds: ["old-vibe"],
-      preciseReferenceExpandedIds: ["old-precise"],
-    }));
-    const { useGenerationStore: restoredStore } = require("../generationStore") as typeof import("../generationStore");
-    const { selectPersistedOptions } = require("../generationOptionsPersistence") as typeof import("../generationOptionsPersistence");
+    jest.mocked(storage.getString).mockReturnValueOnce(
+      JSON.stringify({
+        resolution,
+        batchCount: 4,
+        prompt: "retained prompt",
+        customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
+        vibeReferenceExpandedIds: ["old-vibe"],
+        preciseReferenceExpandedIds: ["old-precise"],
+      }),
+    );
+    const { useGenerationStore: restoredStore } =
+      require("../generationStore") as typeof import("../generationStore");
+    const { selectPersistedOptions } =
+      require("../generationOptionsPersistence") as typeof import("../generationOptionsPersistence");
     const state = restoredStore.getState();
 
     expect(state.resolution).toEqual(resolution);

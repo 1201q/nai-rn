@@ -1,19 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
-import Reanimated, { useAnimatedProps, useSharedValue } from "react-native-reanimated";
+import Reanimated, {
+  useAnimatedProps,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import { Slider } from "./Slider";
-import { useGenerationInputCommit, useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
+import {
+  useGenerationInputCommit,
+  useGenerationInputCommitRegistration,
+} from "../../context/GenerationInputCommitContext";
 import { tokens } from "../../styles/tokens";
 
-const AnimatedBottomSheetTextInput = Reanimated.createAnimatedComponent(BottomSheetTextInput);
+const AnimatedBottomSheetTextInput =
+  Reanimated.createAnimatedComponent(BottomSheetTextInput);
 
 function formatSliderValue(value: number, precision: number) {
   return Number(value.toFixed(precision)).toString();
 }
 
-export function SheetSliderControls({ label, value, min, max, step, precision, onChange, active = true }: {
+export function SheetSliderControls({
+  label,
+  value,
+  min,
+  max,
+  step,
+  precision,
+  onChange,
+  active = true,
+}: {
   active?: boolean;
   label: string;
   value: number;
@@ -83,7 +99,6 @@ export function SheetSliderControls({ label, value, min, max, step, precision, o
     draftValueRef.current = formatted;
     inputCommit.commitAndDeactivate();
   }
-
 
   return (
     <View style={styles.settingsSliderControls}>

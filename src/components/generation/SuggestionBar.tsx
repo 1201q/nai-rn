@@ -33,7 +33,10 @@ const SuggestionChip = memo(function SuggestionChip({
       style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
     >
       <View
-        style={[styles.typeDot, { backgroundColor: TAG_TYPE_COLORS[item.type] }]}
+        style={[
+          styles.typeDot,
+          { backgroundColor: TAG_TYPE_COLORS[item.type] },
+        ]}
       />
       <Text style={styles.chipText} numberOfLines={1}>
         {item.label}

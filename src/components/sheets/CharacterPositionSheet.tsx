@@ -22,10 +22,7 @@ function coordinateFor(index: number) {
 }
 
 function gridIndexFor(value: number) {
-  return Math.max(
-    0,
-    Math.min(GRID_SIZE - 1, Math.floor(value * GRID_SIZE)),
-  );
+  return Math.max(0, Math.min(GRID_SIZE - 1, Math.floor(value * GRID_SIZE)));
 }
 
 function cellIndexFor(position: CharacterPrompt["position"]) {
@@ -33,9 +30,7 @@ function cellIndexFor(position: CharacterPrompt["position"]) {
 }
 
 function badgeColorFor(index: number) {
-  return CHARACTER_BADGE_COLORS[
-    index % CHARACTER_BADGE_COLORS.length
-  ];
+  return CHARACTER_BADGE_COLORS[index % CHARACTER_BADGE_COLORS.length];
 }
 
 export function CharacterPositionSheet({
@@ -43,7 +38,9 @@ export function CharacterPositionSheet({
 }: {
   characterId: string;
 }) {
-  const characterPrompts = useGenerationStore((state) => state.characterPrompts);
+  const characterPrompts = useGenerationStore(
+    (state) => state.characterPrompts,
+  );
   const setCharacterPromptPosition = useGenerationStore(
     (state) => state.setCharacterPromptPosition,
   );
@@ -70,7 +67,8 @@ export function CharacterPositionSheet({
 
   const activeCellIndex = cellIndexFor(activeCharacter.position);
   const activeColor = badgeColorFor(activeIndex);
-  const activeName = activeCharacter.name?.trim() || `Character ${activeIndex + 1}`;
+  const activeName =
+    activeCharacter.name?.trim() || `Character ${activeIndex + 1}`;
   const charactersByCell: CellCharacter[][] = Array.from(
     { length: GRID_SIZE * GRID_SIZE },
     () => [],
