@@ -1,9 +1,10 @@
 const variant = process.env.APP_VARIANT ?? "production";
 
 const config = {
-  production: { id: "com.q1201.nairn", name: "NovelAI - Image Generator" },
-  preview: { id: "com.q1201.nairn.preview", name: "NovelAI (Preview)" },
-  development: { id: "com.q1201.nairn.dev", name: "NovelAI (Dev)" },
+  // 공식 NovelAI 앱으로 오인되지 않도록 브랜드명을 앱 이름 앞에 쓰지 않는다 (One UI 9 위험 앱 판정 대응).
+  production: { id: "com.q1201.nairn", name: "NAI Studio" },
+  preview: { id: "com.q1201.nairn.preview", name: "NAI Studio (Preview)" },
+  development: { id: "com.q1201.nairn.dev", name: "NAI Studio (Dev)" },
 }[variant];
 
 export default {
@@ -34,6 +35,8 @@ export default {
       predictiveBackGestureEnabled: true,
       softwareKeyboardLayoutMode: "resize",
       package: config.id,
+      // API 토큰과 로컬 DB를 백업·기기 이전 대상에서 제외한다.
+      allowBackup: false,
       // READ/WRITE_EXTERNAL_STORAGE는 Expo 템플릿이 maxSdkVersion 32로 추가하므로 따로 적지 않는다.
       permissions: [
         "android.permission.POST_NOTIFICATIONS",
@@ -56,7 +59,8 @@ export default {
     },
     plugins: [
       "expo-router",
-      "expo-secure-store",
+      // allowBackup: false라 백업 규칙 파일을 매니페스트에 넣지 않는다.
+      ["expo-secure-store", { configureAndroidBackup: false }],
       "expo-sqlite",
       "expo-image",
       [
