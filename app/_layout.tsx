@@ -1,7 +1,6 @@
 import "react-native-gesture-handler";
 
 import { useEffect } from "react";
-import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { LogBox, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -19,14 +18,6 @@ import { useGenerationStore } from "../src/store/generationStore";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
 import { tokens } from "../src/styles/tokens";
 
-const PRETENDARD_FONTS = {
-  [tokens.font.regular]: require("../assets/fonts/Pretendard-Regular.otf"),
-  [tokens.font.medium]: require("../assets/fonts/Pretendard-Medium.otf"),
-  [tokens.font.semibold]: require("../assets/fonts/Pretendard-SemiBold.otf"),
-  [tokens.font.bold]: require("../assets/fonts/Pretendard-Bold.otf"),
-  [tokens.font.extrabold]: require("../assets/fonts/Pretendard-ExtraBold.otf"),
-};
-
 // Pretendard 를 앱 전역 기본 폰트로 적용
 applyGlobalFont();
 
@@ -35,7 +26,6 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts(PRETENDARD_FONTS);
   const message = useGenerationStore((state) => state.message);
   const setMessage = useGenerationStore((state) => state.setMessage);
 
@@ -48,9 +38,6 @@ export default function RootLayout() {
   useEffect(() => {
     initializePredictiveBack();
   }, []);
-
-  if (fontError) throw fontError;
-  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView
