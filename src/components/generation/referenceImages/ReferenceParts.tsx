@@ -60,7 +60,7 @@ export function ReferenceSlider({
   );
 }
 
-export function IconButton({
+function ReferenceIconButton({
   label,
   icon,
   onPress,
@@ -196,7 +196,7 @@ export function ReferenceSection({
                 <Text style={styles.description}>{description}</Text>
               ) : null}
             </View>
-            <IconButton
+            <ReferenceIconButton
               label={
                 filled && onReplace ? "I2I 이미지 교체" : `${title} 이미지 추가`
               }
@@ -253,7 +253,7 @@ export function ReferenceSection({
             <Text style={styles.description}>{description}</Text>
           ) : null}
         </View>
-        <IconButton
+        <ReferenceIconButton
           label={`${title} 이미지 추가`}
           icon={count ? "add" : "cloud-upload-outline"}
           busy={busy}
@@ -299,7 +299,7 @@ export function ReferenceItem({
             style={[styles.thumbnail, !enabled && styles.dimmed]}
           />
           <View style={styles.imageActions}>
-            <IconButton
+            <ReferenceIconButton
               label={`${name} 삭제`}
               icon="trash-outline"
               destructive
