@@ -142,3 +142,20 @@ test("opens the requested character, saves its position, and closes on backdrop 
   expect(screen.queryByText("Character Position")).toBeNull();
   await screen.unmount();
 });
+
+test.each([
+  ["Open batch", ["44%"], false],
+  ["Open position", ["68%"], true],
+] as const)(
+  "%s uses the route's snap point and content panning",
+  async (label, snapPoints, contentPanning) => {
+    const screen = await renderSheets();
+    await fireEvent.press(screen.getByLabelText(label));
+
+    expect(mockSheetProps.mock.calls.at(-1)![0]).toMatchObject({
+      snapPoints,
+      enableContentPanningGesture: contentPanning,
+    });
+    await screen.unmount();
+  },
+);

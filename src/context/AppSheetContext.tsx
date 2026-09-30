@@ -54,18 +54,36 @@ export function useAppSheet() {
   return ctx;
 }
 
-const SNAP_POINTS: Record<SheetRoute, string[]> = {
-  [IDLE_ROUTE]: ["1%"],
-  batchCount: ["44%"],
-  characterPosition: ["68%"],
+type AppSheetRouteConfig = {
+  title: string;
+  snapPoint: string;
+  contentPanning: boolean;
+  closeOnBackdrop: boolean;
+  render: (entry: SheetEntry) => ReactNode;
 };
+
+const APP_SHEET_ROUTES: Record<AppSheetRoute, AppSheetRouteConfig> = {
+  batchCount: {
+    title: "Batch Count",
+    snapPoint: "44%",
+    contentPanning: false,
+    closeOnBackdrop: false,
+    render: () => <BatchCountSheet />,
+  },
+  characterPosition: {
+    title: "Character Position",
+    snapPoint: "68%",
+    contentPanning: true,
+    closeOnBackdrop: true,
+    render: (entry) =>
+      entry.characterId ? (
+        <CharacterPositionSheet characterId={entry.characterId} />
+      ) : null,
+  },
+};
+const IDLE_SNAP_POINT = "1%";
 const ROUTE_FADE_IN = FadeIn.duration(100);
 const SHEET_HANDLE_HEIGHT = 25;
-
-function titleFor(route: SheetRoute) {
-  if (route === "batchCount") return "Batch Count";
-  if (route === "characterPosition") return "Character Position";
-}
 
 export function AppSheetProvider({ children }: { children: ReactNode }) {
   const { height: windowHeight } = useWindowDimensions();
@@ -202,7 +220,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     finalizeClose();
   }, [finalizeClose]);
 
-  const backdropCloseDisabled = current.route === "batchCount";
+  const route = current.route;
+  const routeConfig = route === IDLE_ROUTE ? null : APP_SHEET_ROUTES[route];
+  const backdropCloseDisabled = routeConfig?.closeOnBackdrop === false;
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -222,10 +242,9 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [open, openCharacterPosition, close],
   );
 
-  const route = current.route;
-  const snapPoints = SNAP_POINTS[route];
-  const sheetHeight =
-    windowHeight * (Number.parseFloat(snapPoints[0] ?? "0") / 100);
+  const snapPoint = routeConfig?.snapPoint ?? IDLE_SNAP_POINT;
+  const snapPoints = useMemo(() => [snapPoint], [snapPoint]);
+  const sheetHeight = windowHeight * (Number.parseFloat(snapPoint) / 100);
   const sheetLayoutStyle = useMemo(
     () => [
       sheetStyles.layout,
@@ -237,12 +256,12 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   return (
     <AppSheetContext.Provider value={value}>
       {children}
-      {route !== IDLE_ROUTE ? (
+      {routeConfig ? (
         <BottomSheet
           ref={sheetRef}
           index={0}
           snapPoints={snapPoints}
-          enableContentPanningGesture={route !== "batchCount"}
+          enableContentPanningGesture={routeConfig.contentPanning}
           enableHandlePanningGesture
           enablePanDownToClose
           enableBlurKeyboardOnGesture
@@ -273,7 +292,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   style={[sheetStyles.titleBase, sheetStyles.title]}
                   numberOfLines={1}
                 >
-                  {titleFor(route)}
+                  {routeConfig.title}
                 </Text>
               </Reanimated.View>
             </Reanimated.View>
@@ -295,15 +314,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   entering={ROUTE_FADE_IN}
                   style={sheetStyles.routeContent}
                 >
-                  {route === "batchCount" ? (
-                    <BatchCountSheet />
-                  ) : route === "characterPosition" ? (
-                    current.characterId ? (
-                      <CharacterPositionSheet
-                        characterId={current.characterId}
-                      />
-                    ) : null
-                  ) : null}
+                  {routeConfig.render(current)}
                 </Reanimated.View>
               </Reanimated.View>
             </BottomSheetScrollView>
