@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -320,13 +319,13 @@ export function GenerationCanvas({
     setIsSaving(true);
     try {
       if (!(await requestGallerySavePermission())) {
-        Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+        toast.error("사진 저장 권한이 필요합니다.");
         return;
       }
       await saveImageToGallery(currentImageUri);
       toast.success("이미지를 저장했습니다.");
     } catch {
-      Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+      toast.error("이미지를 휴대폰 저장소에 저장하지 못했습니다.");
     } finally {
       setIsSaving(false);
     }
@@ -339,7 +338,7 @@ export function GenerationCanvas({
       const base64Image = await new File(currentImageUri).base64();
       await Clipboard.setImageAsync(base64Image);
     } catch {
-      Alert.alert("복사 실패", "이미지를 클립보드에 복사하지 못했습니다.");
+      toast.error("이미지를 클립보드에 복사하지 못했습니다.");
     } finally {
       setIsCopying(false);
     }

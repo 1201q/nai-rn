@@ -185,10 +185,7 @@ export function useHistorySheetController({
       }
     } catch {
       if (selectionRequestRef.current === request) {
-        Alert.alert(
-          "전체 선택 실패",
-          "History 목록을 불러오지 못했습니다. 다시 시도해 주세요.",
-        );
+        toast.error("History 목록을 불러오지 못했습니다. 다시 시도해 주세요.");
       }
     } finally {
       if (selectionRequestRef.current === request) {
@@ -215,7 +212,7 @@ export function useHistorySheetController({
     try {
       setSaving(true);
       if (!(await requestGallerySavePermission())) {
-        Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
+        toast.error("사진 저장 권한이 필요합니다.");
         return;
       }
 
@@ -255,12 +252,14 @@ export function useHistorySheetController({
         toast.success(`${savedCount}개의 이미지를 저장했습니다.`);
       }
     } catch {
-      Alert.alert(
-        savedCount > 0 ? "일부 이미지 저장 실패" : "저장 실패",
-        savedCount > 0
-          ? `저장 성공: ${savedCount}개\n저장 실패: ${ids.length - savedCount}개`
-          : "선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.",
-      );
+      if (savedCount > 0) {
+        Alert.alert(
+          "일부 이미지 저장 실패",
+          `저장 성공: ${savedCount}개\n저장 실패: ${ids.length - savedCount}개`,
+        );
+      } else {
+        toast.error("선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.");
+      }
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -311,10 +310,7 @@ export function useHistorySheetController({
                 toast.success(`${ids.length}개의 이미지를 삭제했습니다.`);
               })
               .catch(() => {
-                Alert.alert(
-                  "삭제 실패",
-                  "선택한 이미지를 history에서 삭제하지 못했습니다.",
-                );
+                toast.error("선택한 이미지를 history에서 삭제하지 못했습니다.");
               })
               .finally(() => {
                 deletePhaseRef.current = "idle";

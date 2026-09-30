@@ -1,8 +1,14 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Alert, StyleSheet } from "react-native";
+import { File } from "expo-file-system";
+import { toast } from "sonner-native";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import { cancelAnimation } from "react-native-reanimated";
 
+import {
+  requestGallerySavePermission,
+  saveImageToGallery,
+} from "../../../lib/gallery";
 import { GenerationCanvas } from "../GenerationCanvas";
 import {
   generationImagePipeline,
@@ -30,7 +36,13 @@ jest.mock("expo-media-library", () => ({
   Asset: { create: jest.fn() },
   requestPermissionsAsync: jest.fn(),
 }));
-jest.mock("sonner-native", () => ({ toast: { success: jest.fn() } }));
+jest.mock("sonner-native", () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
+}));
+jest.mock("../../../lib/gallery", () => ({
+  requestGallerySavePermission: jest.fn(),
+  saveImageToGallery: jest.fn(),
+}));
 jest.mock("react-native-gesture-handler", () => {
   function gesture() {
     return {
@@ -301,5 +313,60 @@ describe("generation canvas image loading", () => {
     await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
 
     expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls + 3);
+  });
+});
+
+describe("generation canvas image actions", () => {
+  beforeEach(() => {
+    mockGenerationState.currentGeneration = {
+      imagePath: "originals/a.png",
+      width: 832,
+      height: 1216,
+    };
+    jest.spyOn(Alert, "alert");
+  });
+
+  async function press(name: string) {
+    const screen = await render(
+      <GenerationCanvas onOpenMetadata={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name }));
+    });
+  }
+
+  test.each([
+    ["permission is denied", false, null, "사진 저장 권한이 필요합니다."],
+    [
+      "saving fails",
+      true,
+      new Error("save failed"),
+      "이미지를 휴대폰 저장소에 저장하지 못했습니다.",
+    ],
+  ])("shows a toast when %s", async (_label, granted, saveError, message) => {
+    jest.mocked(requestGallerySavePermission).mockResolvedValue(granted);
+    if (saveError) jest.mocked(saveImageToGallery).mockRejectedValue(saveError);
+
+    await press("이미지 다운로드");
+
+    expect(toast.error).toHaveBeenCalledWith(message);
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  test("shows a toast when copying fails", async () => {
+    jest.mocked(File).mockImplementation(
+      () =>
+        ({
+          base64: () => Promise.reject(new Error("read failed")),
+        }) as never,
+    );
+
+    await press("이미지 복사");
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "이미지를 클립보드에 복사하지 못했습니다.",
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 });

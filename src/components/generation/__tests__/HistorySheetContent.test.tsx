@@ -100,7 +100,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 jest.mock("sonner-native", () => ({
-  toast: { success: jest.fn() },
+  toast: { success: jest.fn(), error: jest.fn() },
 }));
 
 const generation: GenerationRecord = {
@@ -127,6 +127,7 @@ const mockDeleteGenerations =
   initialState.deleteGenerations as MockHistoryState["deleteGenerations"];
 const mockAlert = jest.spyOn(Alert, "alert");
 const mockToastSuccess = jest.mocked(toast.success);
+const mockToastError = jest.mocked(toast.error);
 const mockInsets = jest.mocked(useSafeAreaInsets);
 const mockLoadHistoryIds = initialState.loadGenerationHistoryIds as jest.Mock<
   Promise<string[]>,
@@ -612,7 +613,10 @@ describe("History database-wide selection", () => {
     const hook = await renderSelectedHistoryController();
     expect(hook.result.current.selectedCount).toBe(1);
     expect(hook.result.current.busy).toBe(false);
-    expect(mockAlert.mock.calls[0][0]).toBe("전체 선택 실패");
+    expect(mockToastError).toHaveBeenCalledWith(
+      "History 목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+    );
+    expect(mockAlert).not.toHaveBeenCalled();
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
@@ -823,7 +827,12 @@ describe("History bulk saving", () => {
         await hook.result.current.saveSelected();
       });
       expect(mockCreateAsset).not.toHaveBeenCalled();
-      expect(mockAlert).toHaveBeenCalledTimes(1);
+      expect(mockToastError).toHaveBeenCalledWith(
+        result === "denied"
+          ? "사진 저장 권한이 필요합니다."
+          : "선택한 이미지를 휴대폰 저장소에 저장하지 못했습니다.",
+      );
+      expect(mockAlert).not.toHaveBeenCalled();
       expect(mockToastSuccess).not.toHaveBeenCalled();
       expect(hook.result.current.busy).toBe(false);
 
@@ -970,13 +979,13 @@ describe("History deletion confirmation", () => {
     });
 
     await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledTimes(2);
+      expect(mockToastError).toHaveBeenCalledWith(
+        "선택한 이미지를 history에서 삭제하지 못했습니다.",
+      );
       expect(hook.result.current.busy).toBe(false);
     });
-    expect(mockAlert).toHaveBeenLastCalledWith(
-      "삭제 실패",
-      "선택한 이미지를 history에서 삭제하지 못했습니다.",
-    );
+    // Only the confirmation uses an alert.
+    expect(mockAlert).toHaveBeenCalledTimes(1);
     expect(hook.result.current.selectionMode).toBe(true);
     expect(hook.result.current.selectedIds.has(generation.id)).toBe(true);
   });
