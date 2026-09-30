@@ -1,13 +1,5 @@
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import {
-  BackHandler,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -19,10 +11,7 @@ import { Portal } from "@gorhom/portal";
 
 import { SHEET_SELECT_PORTAL_HOST } from "../../../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../../../components/forms/SheetSliderControls";
-import {
-  PREDICTIVE_BACK_SUPPORTED,
-  usePredictiveBackHandler,
-} from "../../../../native/predictiveBack";
+import { useBackHandler } from "../../../../native/useBackHandler";
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
@@ -79,20 +68,7 @@ export function SettingsHelpButton({
     });
   }, [onToggle, open]);
 
-  usePredictiveBackHandler(open, { onCommit: closeHelp });
-
-  useEffect(() => {
-    if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
-
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        closeHelp();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [closeHelp, open]);
+  useBackHandler(open, { onBack: closeHelp });
 
   const tooltipWidth = Math.min(
     TOOLTIP_WIDTH,

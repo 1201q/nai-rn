@@ -12,8 +12,10 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-const PREDICTIVE_BACK_SCALE_STOP = 0.6;
-const PREDICTIVE_BACK_MIN_SCALE = 0.94;
+import {
+  PREDICTIVE_BACK_MIN_SCALE,
+  PREDICTIVE_BACK_SCALE_STOP,
+} from "../../../native/predictiveBackStyle";
 
 export function PredictiveBackSheetLayer({
   active = true,

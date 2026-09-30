@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  BackHandler,
   Keyboard,
   StyleSheet,
   Text,
@@ -26,7 +25,7 @@ import Reanimated, { FadeIn } from "react-native-reanimated";
 
 import { CharacterPositionSheet } from "../components/sheets/CharacterPositionSheet";
 import { BatchCountSheet } from "../components/sheets/BatchCountSheet";
-import { usePredictiveBackHandler } from "../native/predictiveBack";
+import { useBackHandler } from "../native/useBackHandler";
 import { tokens } from "../styles/tokens";
 
 type AppSheetRoute = "batchCount" | "characterPosition";
@@ -136,7 +135,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => clearPendingKeyboardClose, [clearPendingKeyboardClose]);
 
-  usePredictiveBackHandler(isOpen, { onCommit: close });
+  useBackHandler(isOpen, { onBack: close });
 
   const openEntry = useCallback(
     (entry: OpenSheetEntry) => {
@@ -202,15 +201,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     if (!openRef.current && !closingRef.current) return;
     finalizeClose();
   }, [finalizeClose]);
-
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!openRef.current) return false;
-      close();
-      return true;
-    });
-    return () => sub.remove();
-  }, [close]);
 
   const backdropCloseDisabled = current.route === "batchCount";
   const renderBackdrop = useCallback(

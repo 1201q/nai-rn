@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
-  BackHandler,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -21,20 +19,15 @@ import Reanimated, {
   withSpring,
 } from "react-native-reanimated";
 
+import type { PredictiveBackEvent } from "../../native/predictiveBack";
 import {
-  PREDICTIVE_BACK_SUPPORTED,
-  usePredictiveBackHandler,
-  type PredictiveBackEvent,
-} from "../../native/predictiveBack";
+  PREDICTIVE_BACK_CANCEL_SPRING,
+  PREDICTIVE_BACK_MIN_SCALE,
+  PREDICTIVE_BACK_SCALE_STOP,
+} from "../../native/predictiveBackStyle";
+import { useBackHandler } from "../../native/useBackHandler";
 import { tokens } from "../../styles/tokens";
 
-const PREDICTIVE_BACK_SCALE_STOP = 0.6;
-const PREDICTIVE_BACK_MIN_SCALE = 0.94;
-const PREDICTIVE_BACK_CANCEL_SPRING = {
-  damping: 30,
-  stiffness: 320,
-  mass: 0.75,
-};
 const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
 const OPTIONS_MARGIN = 12;
 const OPTIONS_MIN_WIDTH = 148;
@@ -127,25 +120,12 @@ export function SheetSelect({
     ],
   }));
 
-  usePredictiveBackHandler(open, {
+  useBackHandler(open, {
+    onBack: closeSelect,
     onStart: trackPredictiveBack,
     onProgress: trackPredictiveBack,
     onCancel: cancelPredictiveBack,
-    onCommit: closeSelect,
   });
-
-  useEffect(() => {
-    if (!open || Platform.OS !== "android" || PREDICTIVE_BACK_SUPPORTED) return;
-
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        closeSelect();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [closeSelect, open]);
 
   const optionsWidth = Math.min(
     Math.max(anchor?.width ?? 0, OPTIONS_MIN_WIDTH),

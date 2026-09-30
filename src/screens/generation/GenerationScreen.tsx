@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BackHandler,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
 import { StatusBar } from "expo-status-bar";
@@ -30,10 +23,9 @@ import {
   useGenerationInputCommit,
 } from "../../context/GenerationInputCommitContext";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
-import {
-  usePredictiveBackHandler,
-  type PredictiveBackEvent,
-} from "../../native/predictiveBack";
+import type { PredictiveBackEvent } from "../../native/predictiveBack";
+import { PREDICTIVE_BACK_CANCEL_SPRING } from "../../native/predictiveBackStyle";
+import { useBackHandler } from "../../native/useBackHandler";
 import {
   selectAnlasCost,
   selectOverallPercent,
@@ -47,12 +39,6 @@ import {
   type PromptSheetStage,
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
-
-const SHEET_BACK_CANCEL_SPRING = {
-  damping: 30,
-  stiffness: 320,
-  mass: 0.75,
-};
 
 function GenerateAction({
   onBeforeGenerate,
@@ -290,32 +276,20 @@ function GenerationScreenContent() {
     [hasUtilitySheet, promptBackProgress, utilityBackProgress],
   );
   const cancelPredictiveBack = useCallback(() => {
-    promptBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
-    utilityBackProgress.value = withSpring(0, SHEET_BACK_CANCEL_SPRING);
+    promptBackProgress.value = withSpring(0, PREDICTIVE_BACK_CANCEL_SPRING);
+    utilityBackProgress.value = withSpring(0, PREDICTIVE_BACK_CANCEL_SPRING);
   }, [promptBackProgress, utilityBackProgress]);
   const commitPredictiveBack = useCallback(() => {
     // Keep the released scale until the sheet finishes moving.
     handleBack();
   }, [handleBack]);
 
-  usePredictiveBackHandler(hasOpenSheet, {
+  useBackHandler(hasOpenSheet, {
+    onBack: commitPredictiveBack,
     onStart: trackPredictiveBack,
     onProgress: trackPredictiveBack,
     onCancel: cancelPredictiveBack,
-    onCommit: commitPredictiveBack,
   });
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (!hasOpenSheet) return false;
-        handleBack();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [handleBack, hasOpenSheet]);
 
   return (
     <View

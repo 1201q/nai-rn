@@ -1,11 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  BackHandler,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import BottomSheet, {
   type BottomSheetFooterProps,
   type BottomSheetHandleProps,
@@ -31,7 +25,7 @@ import {
   GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
 } from "../../../hooks/useGenerationChromeMetrics";
-import { usePredictiveBackHandler } from "../../../native/predictiveBack";
+import { useBackHandler } from "../../../native/useBackHandler";
 import { tokens } from "../../../styles/tokens";
 import {
   FixedSheetBackdrop,
@@ -191,7 +185,11 @@ export function UtilitySheetHost({
   const historySelectionBackActive =
     renderedSheet === "history" && historyController.selectionMode;
 
-  usePredictiveBackHandler(historySelectionBackActive, {
+  useBackHandler(historySelectionBackActive, {
+    onBack: () => {
+      predictiveBackProgress.value = 0;
+      historyController.exitSelectionMode();
+    },
     onStart: () => {
       cancelAnimation(predictiveBackProgress);
       predictiveBackProgress.value = 0;
@@ -201,10 +199,6 @@ export function UtilitySheetHost({
     },
     onCancel: () => {
       predictiveBackProgress.value = 0;
-    },
-    onCommit: () => {
-      predictiveBackProgress.value = 0;
-      historyController.exitSelectionMode();
     },
   });
 
@@ -226,19 +220,6 @@ export function UtilitySheetHost({
   useEffect(() => {
     if (sheet !== "history") historyController.exitSelectionMode();
   }, [historyController.exitSelectionMode, sheet]);
-
-  useEffect(() => {
-    if (!historySelectionBackActive) return;
-
-    const subscription = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        historyController.exitSelectionMode();
-        return true;
-      },
-    );
-    return () => subscription.remove();
-  }, [historyController.exitSelectionMode, historySelectionBackActive]);
 
   return (
     <>
