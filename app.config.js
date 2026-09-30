@@ -1,9 +1,9 @@
 const variant = process.env.APP_VARIANT ?? "production";
 
 const config = {
-  production: { id: "com.q1201.nairn", name: "NovelAI - Image Generator" },
-  preview: { id: "com.q1201.nairn.preview", name: "NovelAI (Preview)" },
-  development: { id: "com.q1201.nairn.dev", name: "NovelAI (Dev)" },
+  production: { id: "com.q1201.nairn", name: "Nai Studio (Production)" },
+  preview: { id: "com.q1201.nairn.preview", name: "Nai Studio (Preview)" },
+  development: { id: "com.q1201.nairn.dev", name: "Nai Studio (Development)" },
 }[variant];
 
 export default {
