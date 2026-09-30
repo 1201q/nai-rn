@@ -102,7 +102,7 @@ class GenerationImagePipelineModule : Module() {
         }
       }
       val originalOutput = outputFile(originalUri, id, "originals", "png")
-      val thumbnailOutput = outputFile(thumbnailUri, id, "thumbnails", "jpg")
+      val thumbnailOutput = outputFile(thumbnailUri, id, "grid-thumbnails", "jpg")
       require(!originalOutput.exists() && !thumbnailOutput.exists()) { "Output already exists" }
       original = originalOutput
       thumbnail = thumbnailOutput
@@ -183,22 +183,20 @@ class GenerationImagePipelineModule : Module() {
   private fun createThumbnail(original: File, target: File): Boolean {
     var source: Bitmap? = null
     var scaled: Bitmap? = null
-    var cropped: Bitmap? = null
     return try {
       source = BitmapFactory.decodeFile(original.path) ?: return false
-      val factor = 512.0 / minOf(source.width, source.height)
+      // Aspect-fit: the long side becomes 512px and nothing is cropped.
+      val factor = 512.0 / maxOf(source.width, source.height)
       scaled = Bitmap.createScaledBitmap(source, Math.round(source.width * factor).toInt(), Math.round(source.height * factor).toInt(), true)
-      cropped = Bitmap.createBitmap(scaled, (scaled.width - 512) / 2, (scaled.height - 512) / 2, 512, 512)
       target.parentFile?.mkdirs()
-      target.outputStream().use { check(cropped.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
+      target.outputStream().use { check(scaled.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
       true
     } catch (_: Exception) {
       target.delete()
       false
     } finally {
-      cropped?.recycle()
-      if (scaled !== cropped) scaled?.recycle()
-      if (source !== scaled && source !== cropped) source?.recycle()
+      scaled?.recycle()
+      if (source !== scaled) source?.recycle()
     }
   }
 }

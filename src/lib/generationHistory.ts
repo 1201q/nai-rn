@@ -20,7 +20,9 @@ import { extractPngTextMetadata } from "./pngMetadata";
 const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
 const ORIGINALS_DIR = "originals";
-const THUMBNAILS_DIR = "thumbnails";
+// Aspect-fit thumbnails (long side THUMBNAIL_SIZE). Older records keep
+// center-cropped squares in "thumbnails/", which the grid does not use.
+const THUMBNAILS_DIR = "grid-thumbnails";
 const THUMBNAIL_SIZE = 512;
 const DELETE_QUERY_BATCH_SIZE = 300;
 const IMAGE_QUERY_BATCH_SIZE = 300;
@@ -256,28 +258,14 @@ async function saveGenerationRecord({
   let thumbnailPath: string | null = `${THUMBNAILS_DIR}/${thumbnailFileName}`;
 
   try {
-    const isLandscape = width >= height;
-    const resizedWidth = isLandscape
-      ? Math.round((width / height) * THUMBNAIL_SIZE)
-      : THUMBNAIL_SIZE;
-    const resizedHeight = isLandscape
-      ? THUMBNAIL_SIZE
-      : Math.round((height / width) * THUMBNAIL_SIZE);
     const thumbnail = await ImageManipulator.manipulateAsync(
       originalFile.uri,
       [
         {
-          resize: isLandscape
-            ? { height: THUMBNAIL_SIZE }
-            : { width: THUMBNAIL_SIZE },
-        },
-        {
-          crop: {
-            originX: Math.floor((resizedWidth - THUMBNAIL_SIZE) / 2),
-            originY: Math.floor((resizedHeight - THUMBNAIL_SIZE) / 2),
-            width: THUMBNAIL_SIZE,
-            height: THUMBNAIL_SIZE,
-          },
+          resize:
+            width >= height
+              ? { width: THUMBNAIL_SIZE }
+              : { height: THUMBNAIL_SIZE },
         },
       ],
       {
@@ -444,4 +432,12 @@ export function resolveGenerationImageUri(
   record: Pick<GenerationRecord, "imagePath">,
 ) {
   return imageFiles.file(record.imagePath).uri;
+}
+
+export function resolveGenerationThumbnailUri(
+  record: Pick<GenerationRecord, "imagePath" | "thumbnailPath">,
+) {
+  return record.thumbnailPath?.startsWith(`${THUMBNAILS_DIR}/`)
+    ? imageFiles.file(record.thumbnailPath).uri
+    : resolveGenerationImageUri(record);
 }

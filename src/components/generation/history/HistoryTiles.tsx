@@ -5,7 +5,7 @@ import { Image as ExpoImage } from "expo-image";
 
 import {
   type GenerationRecord,
-  resolveGenerationImageUri,
+  resolveGenerationThumbnailUri,
 } from "../../../lib/generationHistory";
 import { tokens } from "../../../styles/tokens";
 
@@ -124,7 +124,7 @@ export const HistorySheetTile = memo(function HistorySheetTile({
       >
         <ExpoImage
           source={{
-            uri: resolveGenerationImageUri(item),
+            uri: resolveGenerationThumbnailUri(item),
           }}
           contentFit="contain"
           recyclingKey={item.id}
