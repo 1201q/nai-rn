@@ -367,3 +367,24 @@ it("allows disabling references regardless of conflicts", () => {
   expect(current("vibeReferences").enabled).toBe(false);
   expect(current("preciseReferences").enabled).toBe(false);
 });
+
+describe("history selection actions", () => {
+  test("selectGeneration shows a history record instead of the active one", () => {
+    const record = { id: "g1" } as Parameters<
+      ReturnType<typeof useGenerationStore.getState>["selectGeneration"]
+    >[0];
+    useGenerationStore.setState({ isViewingActiveGeneration: true });
+
+    useGenerationStore.getState().selectGeneration(record);
+    expect(useGenerationStore.getState()).toMatchObject({
+      currentGeneration: record,
+      isViewingActiveGeneration: false,
+    });
+
+    useGenerationStore.getState().viewActiveGeneration();
+    expect(useGenerationStore.getState()).toMatchObject({
+      currentGeneration: record,
+      isViewingActiveGeneration: true,
+    });
+  });
+});

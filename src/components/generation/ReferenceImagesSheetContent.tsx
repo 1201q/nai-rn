@@ -19,8 +19,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
-import { extractPngTextMetadata } from "../../lib/pngMetadata";
-import { extractStealthMetadata } from "../../lib/stealthMetadata";
+import { extractImageMetadata } from "../../lib/imageMetadata";
 import Reanimated, {
   Easing,
   ReduceMotion,
@@ -31,6 +30,7 @@ import Reanimated, {
 
 import { getModelCapabilities } from "../../constants/models";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
+import { PRECISE_REFERENCE_COST, VIBE_ENCODE_COST } from "../../lib/anlasCost";
 import {
   MAX_PRECISE_REFERENCES,
   resolvePreciseReferenceThumbnailUri,
@@ -551,7 +551,13 @@ export const VibeReferenceCard = memo(function VibeReferenceCard() {
               resolveVibeReferenceImageUri(reference)
             }
             enabled={reference.enabled}
-            cost={!reference.enabled ? "Off" : cached ? "Cached" : "2 Anlas"}
+            cost={
+              !reference.enabled
+                ? "Off"
+                : cached
+                  ? "Cached"
+                  : `${VIBE_ENCODE_COST} Anlas`
+            }
             onToggle={(value) =>
               state().setVibeReferenceEnabled(reference.id, value)
             }
@@ -560,8 +566,8 @@ export const VibeReferenceCard = memo(function VibeReferenceCard() {
               cached
                 ? "현재 모델과 Information Extracted 값의 인코딩 캐시를 사용합니다."
                 : reference.enabled
-                  ? "인코딩이 필요합니다. 다음 생성에서 2 Anlas가 사용됩니다."
-                  : "활성화한 다음 생성에서 Vibe 인코딩에 2 Anlas가 사용됩니다."
+                  ? `인코딩이 필요합니다. 다음 생성에서 ${VIBE_ENCODE_COST} Anlas가 사용됩니다.`
+                  : `활성화한 다음 생성에서 Vibe 인코딩에 ${VIBE_ENCODE_COST} Anlas가 사용됩니다.`
             }
           >
             <ReferenceSlider
@@ -630,7 +636,7 @@ export const PreciseReferenceCard = memo(function PreciseReferenceCard({
             resolvePreciseReferenceImageUri(reference)
           }
           enabled={reference.enabled}
-          cost={reference.enabled ? "5 Anlas" : "Off"}
+          cost={reference.enabled ? `${PRECISE_REFERENCE_COST} Anlas` : "Off"}
           onToggle={(value) =>
             state().setPreciseReferenceEnabled(reference.id, value)
           }
@@ -705,13 +711,8 @@ export function MetadataExtractCard({
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) return;
       const bytes = await new File(asset.uri).bytes();
-      const hasValue = (entries: Record<string, string>) =>
-        Object.values(entries).some((value) => value.trim());
-      const textMetadata = extractPngTextMetadata(bytes);
-      const metadata = hasValue(textMetadata)
-        ? textMetadata
-        : extractStealthMetadata(bytes);
-      if (!hasValue(metadata)) {
+      const metadata = extractImageMetadata(bytes);
+      if (!metadata) {
         toast.info("이미지에 메타데이터가 없습니다.");
         return;
       }

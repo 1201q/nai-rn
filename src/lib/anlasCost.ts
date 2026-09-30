@@ -6,10 +6,10 @@ import { getModelCapabilities } from "../constants/models";
 const OPUS_TIER = 3;
 const OPUS_FREE_MAX_PIXELS = 1_048_576;
 const OPUS_FREE_MAX_STEPS = 28;
-const VIBE_ENCODE_COST = 2;
+export const VIBE_ENCODE_COST = 2;
 const VIBE_FREE_COUNT = 4;
 const VIBE_EXTRA_COST = 2;
-const PRECISE_REFERENCE_COST = 5;
+export const PRECISE_REFERENCE_COST = 5;
 const SMEA_MULTIPLIER = 1.2;
 
 export type AnlasCostInput = {

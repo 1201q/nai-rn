@@ -351,6 +351,8 @@ type GenerationState = {
   streamingStep: number | null;
   streamingGenerationId: number | null;
   isViewingActiveGeneration: boolean;
+  selectGeneration: (record: GenerationRecord) => void;
+  viewActiveGeneration: () => void;
 
   // 생성 상태
   isLoading: boolean;
@@ -981,6 +983,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   streamingStep: null,
   streamingGenerationId: null,
   isViewingActiveGeneration: false,
+  selectGeneration: (record) =>
+    set({ currentGeneration: record, isViewingActiveGeneration: false }),
+  viewActiveGeneration: () => set({ isViewingActiveGeneration: true }),
 
   isLoading: false,
   message: null,

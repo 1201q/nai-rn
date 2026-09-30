@@ -37,13 +37,15 @@ type MockHistoryState = {
   isLoading: boolean;
   streamingPreviewUri: string | null;
   isViewingActiveGeneration: boolean;
+  selectGeneration: (record: GenerationRecord) => void;
+  viewActiveGeneration: () => void;
 };
 
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
 
   return {
-    useGenerationStore: create<MockHistoryState>(() => ({
+    useGenerationStore: create<MockHistoryState>((set) => ({
       generationHistory: [],
       generationHistoryIds: null,
       generationHistoryHasMore: true,
@@ -56,6 +58,9 @@ jest.mock("../../../store/generationStore", () => {
       isLoading: false,
       streamingPreviewUri: null,
       isViewingActiveGeneration: false,
+      selectGeneration: (record) =>
+        set({ currentGeneration: record, isViewingActiveGeneration: false }),
+      viewActiveGeneration: () => set({ isViewingActiveGeneration: true }),
     })),
   };
 });

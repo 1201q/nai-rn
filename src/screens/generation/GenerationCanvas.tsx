@@ -19,7 +19,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
-import * as MediaLibrary from "expo-media-library";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   cancelAnimation,
@@ -33,6 +32,10 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { toast } from "sonner-native";
 
+import {
+  requestGallerySavePermission,
+  saveImageToGallery,
+} from "../../lib/gallery";
 import { resolveGenerationImageUri } from "../../lib/generationHistory";
 import {
   generationImagePipeline,
@@ -316,14 +319,11 @@ export function GenerationCanvas({
     if (!currentImageUri || isSaving) return;
     setIsSaving(true);
     try {
-      const permission = await MediaLibrary.requestPermissionsAsync(true, [
-        "photo",
-      ]);
-      if (!permission.granted) {
+      if (!(await requestGallerySavePermission())) {
         Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
         return;
       }
-      await MediaLibrary.Asset.create(currentImageUri);
+      await saveImageToGallery(currentImageUri);
       toast.success("이미지를 저장했습니다.");
     } catch {
       Alert.alert("저장 실패", "이미지를 휴대폰 저장소에 저장하지 못했습니다.");

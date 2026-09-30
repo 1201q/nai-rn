@@ -17,7 +17,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
-import * as MediaLibrary from "expo-media-library";
 import { toast } from "sonner-native";
 
 import {
@@ -25,6 +24,10 @@ import {
   GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
 } from "../../hooks/useGenerationChromeMetrics";
+import {
+  requestGallerySavePermission,
+  saveImageToGallery,
+} from "../../lib/gallery";
 import {
   type GenerationRecord,
   iterateGenerationImageBatches,
@@ -323,10 +326,7 @@ export function useHistorySheetController({
         return;
       }
 
-      useGenerationStore.setState({
-        currentGeneration: item,
-        isViewingActiveGeneration: false,
-      });
+      useGenerationStore.getState().selectGeneration(item);
       onClose();
     },
     [onClose, selectionMode, toggleSelection],
@@ -334,7 +334,7 @@ export function useHistorySheetController({
 
   const handleActiveGenerationPress = useCallback(() => {
     if (busy || selectionMode || !isLoading) return;
-    useGenerationStore.setState({ isViewingActiveGeneration: true });
+    useGenerationStore.getState().viewActiveGeneration();
     onClose();
   }, [busy, isLoading, onClose, selectionMode]);
 
@@ -391,10 +391,7 @@ export function useHistorySheetController({
     let savedCount = 0;
     try {
       setSaving(true);
-      const permission = await MediaLibrary.requestPermissionsAsync(true, [
-        "photo",
-      ]);
-      if (!permission.granted) {
+      if (!(await requestGallerySavePermission())) {
         Alert.alert("저장 실패", "사진 저장 권한이 필요합니다.");
         return;
       }
@@ -410,7 +407,7 @@ export function useHistorySheetController({
                 failedCount += 1;
                 continue;
               }
-              await MediaLibrary.Asset.create(
+              await saveImageToGallery(
                 resolveGenerationImageUri({ imagePath }),
               );
               savedCount += 1;
