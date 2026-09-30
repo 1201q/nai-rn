@@ -3,7 +3,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type EffectCallback,
 } from "react";
 import {
@@ -19,12 +18,10 @@ import BottomSheet, {
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
-  cancelAnimation,
   Extrapolation,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -46,19 +43,17 @@ import {
   PressableSurface,
 } from "./SheetLayers";
 import { SHEET_EASING, sheetChromeStyles } from "./sheetChrome";
+import { useHorizontalPager } from "./useHorizontalPager";
 
 export type PromptSheetStage = "collapsed" | "half" | "full";
 
 type PromptTab = "prompt" | "reference" | "chunks";
 
 const PROMPT_HALF_TOP = 400;
-const PROMPT_PAGE_SWIPE_THRESHOLD = 0.18;
-const PROMPT_PAGE_VELOCITY_THRESHOLD = 650;
-const PROMPT_PAGE_ANIMATION_DURATION = 260;
 const PROMPT_BACKDROP_Z_INDEX = 70;
 const PROMPT_SHEET_Z_INDEX = 80;
 
-const PROMPT_TABS: Array<{ key: PromptTab; label: string }> = [
+const PROMPT_TABS: ReadonlyArray<{ key: PromptTab; label: string }> = [
   { key: "prompt", label: "Prompt" },
   { key: "reference", label: "Reference Images" },
   { key: "chunks", label: "Chunks" },
@@ -230,7 +225,20 @@ export function PromptSheetHost({
   const { commitPendingInput } = useGenerationInputCommit();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { promptCollapsedHeight, promptFullTop } = useGenerationChromeMetrics();
-  const [promptTab, setPromptTab] = useState<PromptTab>("prompt");
+  const commitBeforePageChange = useCallback(() => {
+    commitPendingInput();
+    Keyboard.dismiss();
+  }, [commitPendingInput]);
+  const {
+    tab: promptTab,
+    changeTab: changePromptTab,
+    pageGesture: promptPageGesture,
+    pageTrackStyle: promptPageTrackStyle,
+  } = useHorizontalPager(PROMPT_TABS, {
+    enabled: promptStage !== "collapsed",
+    onPageChange: commitBeforePageChange,
+  });
+
   function useStaticPageFocus(effect: EffectCallback) {
     useEffect(() => {
       // Scrollable pages register themselves; only the empty page is a View.
@@ -245,9 +253,6 @@ export function PromptSheetHost({
       state.preciseReferences.filter((reference) => reference.enabled).length,
   );
   const animatedIndex = useSharedValue(0);
-  const promptPageIndex = useSharedValue(0);
-  const promptPageTranslateX = useSharedValue(0);
-  const promptPageDragStartX = useSharedValue(0);
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
     easing: SHEET_EASING,
@@ -300,107 +305,6 @@ export function PromptSheetHost({
     Keyboard.dismiss();
     sheetRef.current?.snapToIndex(0);
   }, [commitPendingInput]);
-  const selectPromptPage = useCallback(
-    (index: number) => {
-      const nextTab = PROMPT_TABS[index]?.key;
-      if (!nextTab) return;
-      commitPendingInput();
-      Keyboard.dismiss();
-      setPromptTab(nextTab);
-    },
-    [commitPendingInput],
-  );
-  const changePromptTab = useCallback(
-    (tab: PromptTab) => {
-      const nextIndex = PROMPT_TABS.findIndex((item) => item.key === tab);
-      if (nextIndex < 0) return;
-
-      commitPendingInput();
-      Keyboard.dismiss();
-      setPromptTab(tab);
-      promptPageIndex.value = nextIndex;
-      promptPageTranslateX.value = withTiming(-nextIndex * windowWidth, {
-        duration: PROMPT_PAGE_ANIMATION_DURATION,
-        easing: SHEET_EASING,
-      });
-    },
-    [commitPendingInput, promptPageIndex, promptPageTranslateX, windowWidth],
-  );
-  const promptPageGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .enabled(promptStage !== "collapsed")
-        .activeOffsetX([-18, 18])
-        .failOffsetY([-10, 10])
-        .shouldCancelWhenOutside(false)
-        .onStart(() => {
-          cancelAnimation(promptPageTranslateX);
-          promptPageDragStartX.value = promptPageTranslateX.value;
-        })
-        .onUpdate((event) => {
-          const minimumTranslateX = -windowWidth * (PROMPT_TABS.length - 1);
-          const nextTranslateX =
-            promptPageDragStartX.value + event.translationX;
-
-          if (nextTranslateX > 0) {
-            promptPageTranslateX.value = nextTranslateX * 0.2;
-          } else if (nextTranslateX < minimumTranslateX) {
-            promptPageTranslateX.value =
-              minimumTranslateX + (nextTranslateX - minimumTranslateX) * 0.2;
-          } else {
-            promptPageTranslateX.value = nextTranslateX;
-          }
-        })
-        .onEnd((event) => {
-          const currentIndex = promptPageIndex.value;
-          const movedToNext =
-            event.translationX < -windowWidth * PROMPT_PAGE_SWIPE_THRESHOLD ||
-            event.velocityX < -PROMPT_PAGE_VELOCITY_THRESHOLD;
-          const movedToPrevious =
-            event.translationX > windowWidth * PROMPT_PAGE_SWIPE_THRESHOLD ||
-            event.velocityX > PROMPT_PAGE_VELOCITY_THRESHOLD;
-          const nextIndex = Math.min(
-            PROMPT_TABS.length - 1,
-            Math.max(
-              0,
-              currentIndex + (movedToNext ? 1 : movedToPrevious ? -1 : 0),
-            ),
-          );
-
-          promptPageIndex.value = nextIndex;
-          promptPageTranslateX.value = withTiming(-nextIndex * windowWidth, {
-            duration: PROMPT_PAGE_ANIMATION_DURATION,
-            easing: SHEET_EASING,
-          });
-          runOnJS(selectPromptPage)(nextIndex);
-        })
-        .onFinalize((_event, success) => {
-          if (success) return;
-          promptPageTranslateX.value = withTiming(
-            -promptPageIndex.value * windowWidth,
-            {
-              duration: PROMPT_PAGE_ANIMATION_DURATION,
-              easing: SHEET_EASING,
-            },
-          );
-        }),
-    [
-      promptPageDragStartX,
-      promptPageIndex,
-      promptPageTranslateX,
-      promptStage,
-      selectPromptPage,
-      windowWidth,
-    ],
-  );
-  const promptPageTrackStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: promptPageTranslateX.value }],
-  }));
-
-  useEffect(() => {
-    promptPageTranslateX.value = -promptPageIndex.value * windowWidth;
-  }, [promptPageIndex, promptPageTranslateX, windowWidth]);
-
   return (
     <>
       <FixedSheetBackdrop

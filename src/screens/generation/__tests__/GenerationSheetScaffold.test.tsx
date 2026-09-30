@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import type { BottomSheetProps } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SharedValue } from "react-native-reanimated";
-import type { ComponentProps } from "react";
+import { useEffect, type ComponentProps } from "react";
 import type { Slider } from "../../../components/forms/Slider";
 import {
   GenerationInputCommitProvider,
@@ -19,6 +19,7 @@ import {
 } from "../GenerationSheetScaffold";
 
 const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
+const mockPanCallbacks: Record<string, (...args: any[]) => void> = {};
 const mockPromptMounted = jest.fn();
 const mockScrollableRegistration = jest.fn();
 const mockSliderProps = jest.fn<void, [ComponentProps<typeof Slider>]>();
@@ -226,7 +227,10 @@ jest.mock("react-native-gesture-handler", () => ({
         "onEnd",
         "onFinalize",
       ]) {
-        gesture[method] = jest.fn(() => gesture);
+        gesture[method] = jest.fn((callback: (...args: any[]) => void) => {
+          if (method.startsWith("on")) mockPanCallbacks[method] = callback;
+          return gesture;
+        });
       }
       return gesture;
     },
@@ -248,6 +252,7 @@ jest.mock("react-native-reanimated", () => {
     useAnimatedStyle: (factory: () => object) => factory(),
     useAnimatedProps: (factory: () => object) => ({ read: factory }),
     cancelAnimation: jest.fn(),
+    runOnJS: (callback: (...args: any[]) => void) => callback,
     withTiming: <T,>(value: T) => value,
   };
 });
@@ -765,6 +770,15 @@ describe("Settings slider input and UI-thread display", () => {
   });
 });
 
+function RegisterPendingCommit({ commit }: { commit: () => void }) {
+  const { registerPendingCommit } = useGenerationInputCommit();
+  useEffect(
+    () => registerPendingCommit(commit),
+    [commit, registerPendingCommit],
+  );
+  return null;
+}
+
 function renderPromptStage(stage: PromptSheetStage) {
   return (
     <PromptSheetHost
@@ -775,6 +789,45 @@ function renderPromptStage(stage: PromptSheetStage) {
     />
   );
 }
+
+describe("Prompt pager", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest
+      .mocked(useSafeAreaInsets)
+      .mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  });
+
+  test("commits pending input before changing pages by tab or swipe", async () => {
+    const commit = jest.fn();
+    const screen = await render(
+      <GenerationInputCommitProvider>
+        <RegisterPendingCommit commit={commit} />
+        {renderPromptStage("full")}
+      </GenerationInputCommitProvider>,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("tab", { name: "Reference Images" }),
+    );
+    expect(commit).toHaveBeenCalledTimes(1);
+
+    await act(() => {
+      mockPanCallbacks.onEnd({ translationX: -200, velocityX: 0 });
+    });
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("tab", { name: "Chunks" }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
+
+    await act(() => {
+      mockPanCallbacks.onEnd({ translationX: -200, velocityX: 0 });
+    });
+    expect(
+      screen.getByRole("tab", { name: "Chunks" }).props.accessibilityState,
+    ).toMatchObject({ selected: true });
+  });
+});
 
 describe("generation sheet accessibility visibility", () => {
   beforeEach(() => {

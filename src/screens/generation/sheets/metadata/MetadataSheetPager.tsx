@@ -1,20 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { memo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Reanimated, {
-  cancelAnimation,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { GestureDetector } from "react-native-gesture-handler";
+import Reanimated from "react-native-reanimated";
 
 import { GENERATION_SHEET_HEADER_HEIGHT } from "../../../../hooks/useGenerationChromeMetrics";
 import type { MetadataSheetSource } from "./MetadataSheetContent";
@@ -22,14 +10,11 @@ import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
 import { MetadataImportContent } from "./MetadataImportContent";
 import { MetadataSheetContent } from "./MetadataSheetContent";
-import { SHEET_EASING } from "../sheetChrome";
+import { useHorizontalPager } from "../useHorizontalPager";
 
 type MetadataTab = "metadata" | "import";
 
-const PAGE_SWIPE_THRESHOLD = 0.18;
-const PAGE_VELOCITY_THRESHOLD = 650;
-const PAGE_ANIMATION_DURATION = 260;
-const TABS: Array<{ key: MetadataTab; label: string }> = [
+const TABS: ReadonlyArray<{ key: MetadataTab; label: string }> = [
   { key: "metadata", label: "Metadata" },
   { key: "import", label: "Import" },
 ];
@@ -125,93 +110,7 @@ export const MetadataSheetPager = memo(function MetadataSheetPager({
 });
 
 export function useMetadataSheetPagerController() {
-  const { width: windowWidth } = useWindowDimensions();
-  const [tab, setTab] = useState<MetadataTab>("metadata");
-  const pageIndex = useSharedValue(0);
-  const pageTranslateX = useSharedValue(0);
-  const pageDragStartX = useSharedValue(0);
-
-  const selectPage = useCallback((index: number) => {
-    const nextTab = TABS[index]?.key;
-    if (nextTab) setTab(nextTab);
-  }, []);
-  const changeTab = useCallback(
-    (nextTab: MetadataTab) => {
-      const nextIndex = TABS.findIndex((item) => item.key === nextTab);
-      if (nextIndex < 0) return;
-      setTab(nextTab);
-      pageIndex.value = nextIndex;
-      pageTranslateX.value = withTiming(-nextIndex * windowWidth, {
-        duration: PAGE_ANIMATION_DURATION,
-        easing: SHEET_EASING,
-      });
-    },
-    [pageIndex, pageTranslateX, windowWidth],
-  );
-  const pageGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX([-18, 18])
-        .failOffsetY([-10, 10])
-        .shouldCancelWhenOutside(false)
-        .onStart(() => {
-          cancelAnimation(pageTranslateX);
-          pageDragStartX.value = pageTranslateX.value;
-        })
-        .onUpdate((event) => {
-          const minimumTranslateX = -windowWidth * (TABS.length - 1);
-          const nextTranslateX = pageDragStartX.value + event.translationX;
-
-          if (nextTranslateX > 0) {
-            pageTranslateX.value = nextTranslateX * 0.2;
-          } else if (nextTranslateX < minimumTranslateX) {
-            pageTranslateX.value =
-              minimumTranslateX + (nextTranslateX - minimumTranslateX) * 0.2;
-          } else {
-            pageTranslateX.value = nextTranslateX;
-          }
-        })
-        .onEnd((event) => {
-          const currentIndex = pageIndex.value;
-          const movedToNext =
-            event.translationX < -windowWidth * PAGE_SWIPE_THRESHOLD ||
-            event.velocityX < -PAGE_VELOCITY_THRESHOLD;
-          const movedToPrevious =
-            event.translationX > windowWidth * PAGE_SWIPE_THRESHOLD ||
-            event.velocityX > PAGE_VELOCITY_THRESHOLD;
-          const nextIndex = Math.min(
-            TABS.length - 1,
-            Math.max(
-              0,
-              currentIndex + (movedToNext ? 1 : movedToPrevious ? -1 : 0),
-            ),
-          );
-
-          pageIndex.value = nextIndex;
-          pageTranslateX.value = withTiming(-nextIndex * windowWidth, {
-            duration: PAGE_ANIMATION_DURATION,
-            easing: SHEET_EASING,
-          });
-          runOnJS(selectPage)(nextIndex);
-        })
-        .onFinalize((_event, success) => {
-          if (success) return;
-          pageTranslateX.value = withTiming(-pageIndex.value * windowWidth, {
-            duration: PAGE_ANIMATION_DURATION,
-            easing: SHEET_EASING,
-          });
-        }),
-    [pageDragStartX, pageIndex, pageTranslateX, selectPage, windowWidth],
-  );
-  const pageTrackStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pageTranslateX.value }],
-  }));
-
-  useEffect(() => {
-    pageTranslateX.value = -pageIndex.value * windowWidth;
-  }, [pageIndex, pageTranslateX, windowWidth]);
-
-  return { tab, changeTab, pageGesture, pageTrackStyle, windowWidth };
+  return useHorizontalPager(TABS);
 }
 
 export type MetadataSheetPagerController = ReturnType<

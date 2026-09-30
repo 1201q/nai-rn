@@ -23,6 +23,7 @@ jest.mock("react-native-gesture-handler", () => {
       Pan: () => {
         const gesture: Record<string, jest.Mock> = {};
         for (const method of [
+          "enabled",
           "activeOffsetX",
           "failOffsetY",
           "shouldCancelWhenOutside",
@@ -125,5 +126,64 @@ describe("MetadataSheetPager", () => {
       accessibilityElementsHidden: false,
       importantForAccessibility: "auto",
     });
+  });
+
+  test("applies rubber-band resistance past the first and last pages", async () => {
+    const screen = await render(<TestMetadataSheetPager />);
+    const trackStyle = () =>
+      screen.getByTestId("metadata-page-metadata", {
+        includeHiddenElements: true,
+      }).parent!.props.style;
+    const translateX = () =>
+      (
+        [trackStyle()].flat(3).find((style) => style?.transform) as {
+          transform: [{ translateX: number }];
+        }
+      ).transform[0].translateX;
+
+    await act(() => {
+      mockGestureCallbacks.onStart();
+      mockGestureCallbacks.onUpdate({ translationX: 100 });
+    });
+    await screen.rerender(<TestMetadataSheetPager />);
+    expect(translateX()).toBe(20);
+
+    await act(() => {
+      mockGestureCallbacks.onUpdate({ translationX: -490 });
+    });
+    await screen.rerender(<TestMetadataSheetPager />);
+    expect(translateX()).toBe(-410);
+
+    await act(() => {
+      mockGestureCallbacks.onUpdate({ translationX: -200 });
+    });
+    await screen.rerender(<TestMetadataSheetPager />);
+    expect(translateX()).toBe(-200);
+  });
+
+  test("changes pages by distance or velocity and clamps at the ends", async () => {
+    const screen = await render(<TestMetadataSheetPager />);
+    const selected = (name: string) =>
+      screen.getByRole("tab", { name }).props.accessibilityState.selected;
+
+    await act(() => {
+      mockGestureCallbacks.onEnd({ translationX: -60, velocityX: 0 });
+    });
+    expect(selected("Metadata")).toBe(true);
+
+    await act(() => {
+      mockGestureCallbacks.onEnd({ translationX: -10, velocityX: -700 });
+    });
+    expect(selected("Import")).toBe(true);
+
+    await act(() => {
+      mockGestureCallbacks.onEnd({ translationX: -200, velocityX: -900 });
+    });
+    expect(selected("Import")).toBe(true);
+
+    await act(() => {
+      mockGestureCallbacks.onEnd({ translationX: 80, velocityX: 0 });
+    });
+    expect(selected("Metadata")).toBe(true);
   });
 });
