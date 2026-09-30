@@ -114,3 +114,40 @@ export const NOISE_SCHEDULES: Array<{
 ];
 
 export const MAX_CHARACTER_PROMPTS = 6;
+
+export const MAX_SEED = 4_294_967_295;
+
+export function generateRandomSeed(): number {
+  return Math.floor(Math.random() * (MAX_SEED + 1));
+}
+
+export function isNoiseSchedule(value: unknown): value is NoiseSchedule {
+  return NOISE_SCHEDULES.some((item) => item.value === value);
+}
+
+export function findResolutionPreset(
+  width: number,
+  height: number,
+): NaiResolution | undefined {
+  for (const group of NAI_RESOLUTIONS) {
+    const preset = group.options.find(
+      (option) => option.width === width && option.height === height,
+    );
+    if (preset) return preset;
+  }
+  return undefined;
+}
+
+// preset에 없는 크기는 Custom 해상도로 만든다.
+export function resolutionFromDimensions(
+  width: number,
+  height: number,
+): NaiResolution {
+  return (
+    findResolutionPreset(width, height) ?? {
+      label: `Custom ${width}x${height}`,
+      width,
+      height,
+    }
+  );
+}

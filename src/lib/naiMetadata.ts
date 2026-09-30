@@ -1,7 +1,7 @@
 import {
   MAX_CHARACTER_PROMPTS,
-  NAI_RESOLUTIONS,
-  NOISE_SCHEDULES,
+  isNoiseSchedule,
+  resolutionFromDimensions,
   SAMPLERS,
   type NaiResolution,
   type NoiseSchedule,
@@ -36,24 +36,8 @@ export type ParsedNaiMetadata = {
   hasSettings: boolean;
 };
 
-function isNoiseSchedule(value: unknown): value is NoiseSchedule {
-  return NOISE_SCHEDULES.some((item) => item.value === value);
-}
-
 function isSampler(value: unknown): value is string {
   return SAMPLERS.some((item) => item.value === value);
-}
-
-function findResolutionPreset(width: number, height: number): NaiResolution {
-  for (const group of NAI_RESOLUTIONS) {
-    const preset = group.options.find(
-      (item) => item.width === width && item.height === height,
-    );
-    if (preset) {
-      return preset;
-    }
-  }
-  return { label: "Custom Resolution", width, height };
 }
 
 // 메타데이터엔 API model id 가 없어 'Source'/'Software' 서명으로 best-effort 추정.
@@ -216,7 +200,10 @@ export function parseNaiMetadata(
   // Settings
   if (comment) {
     if (isNumber(comment.width) && isNumber(comment.height)) {
-      result.resolution = findResolutionPreset(comment.width, comment.height);
+      result.resolution = resolutionFromDimensions(
+        comment.width,
+        comment.height,
+      );
     }
     if (isNumber(comment.steps)) result.steps = comment.steps;
     if (isNumber(comment.scale)) result.promptGuidance = comment.scale;

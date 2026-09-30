@@ -1,4 +1,7 @@
-import type { NoiseSchedule } from "../../constants/generation";
+import {
+  generateRandomSeed,
+  type NoiseSchedule,
+} from "../../constants/generation";
 import { getModelCapabilities } from "../../constants/models";
 import { prepareImagePromptCaptions } from "../imagePromptCaptions";
 import { type UcPresetIndex } from "../naiPresets";
@@ -166,7 +169,7 @@ export function createImageGenerationBody({
   preciseReferenceFidelities = [],
   preciseReferenceTypes = [],
 }: Omit<GenerateNovelAiImageInput, "token">) {
-  const seed = inputSeed ?? Math.floor(Math.random() * 4_294_967_296);
+  const seed = inputSeed ?? generateRandomSeed();
   const captions = prepareImagePromptCaptions({
     model,
     prompt,

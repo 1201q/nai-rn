@@ -11,10 +11,12 @@ import { SheetSelect } from "../../../../components/forms/SheetSelect";
 import { BottomSheetKeyboardAwareScrollView } from "../../../../components/generation/BottomSheetKeyboardAwareScrollView";
 import { useGenerationInputCommitRegistration } from "../../../../context/GenerationInputCommitContext";
 import {
+  MAX_SEED,
   NAI_RESOLUTIONS,
   NOISE_SCHEDULES,
   SAMPLERS,
   type NaiResolution,
+  resolutionFromDimensions,
 } from "../../../../constants/generation";
 import { getModelCapabilities, MODELS } from "../../../../constants/models";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
@@ -33,7 +35,6 @@ const SETTINGS_KEYBOARD_GAP = 12;
 const SETTINGS_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 const RESOLUTION_STEP = 64;
-const MAX_SEED = 4_294_967_295;
 
 const MODEL_OPTIONS = MODELS.map((option) => option.label);
 const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
@@ -82,24 +83,6 @@ function presetResolution(
   return group?.options.find(
     (option) => resolutionOrientation(option) === orientation,
   );
-}
-
-function resolutionFromDimensions(
-  width: number,
-  height: number,
-): NaiResolution {
-  for (const group of NAI_RESOLUTIONS) {
-    const preset = group.options.find(
-      (option) => option.width === width && option.height === height,
-    );
-    if (preset) return preset;
-  }
-
-  return {
-    label: `Custom ${width}x${height}`,
-    width,
-    height,
-  };
 }
 
 function snapResolutionDimension(value: string) {

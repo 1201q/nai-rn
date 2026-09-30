@@ -85,9 +85,11 @@ import {
 } from "../lib/preciseReferences";
 import {
   DEFAULT_NAI_RESOLUTION,
+  generateRandomSeed,
+  isNoiseSchedule,
   MAX_CHARACTER_PROMPTS,
   MAX_GENERATION_PIXELS,
-  NAI_RESOLUTIONS,
+  resolutionFromDimensions,
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
@@ -115,19 +117,6 @@ function toErrorMessage(error: unknown, fallback?: string): string {
 
 type I2ISourceImageInput = Omit<I2ISourceImage, "storagePath"> &
   Pick<I2IReferenceImageInput, "fileName" | "mimeType">;
-
-function generateRandomSeed(): number {
-  return Math.floor(Math.random() * 4_294_967_295);
-}
-
-function isNoiseSchedule(value: unknown): value is NoiseSchedule {
-  return (
-    value === "native" ||
-    value === "karras" ||
-    value === "exponential" ||
-    value === "polyexponential"
-  );
-}
 
 function resolveStoredI2ISourceImage(value: unknown): I2ISourceImage | null {
   if (!value || typeof value !== "object") return null;
@@ -163,21 +152,7 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
     return null;
   }
 
-  for (const group of NAI_RESOLUTIONS) {
-    const preset = group.options.find(
-      (item) =>
-        item.width === candidate.width && item.height === candidate.height,
-    );
-    if (preset) {
-      return preset;
-    }
-  }
-
-  return {
-    label: isString(candidate.label) ? candidate.label : "Custom Resolution",
-    width: candidate.width,
-    height: candidate.height,
-  };
+  return resolutionFromDimensions(candidate.width, candidate.height);
 }
 
 function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
