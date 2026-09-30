@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   counterPressed: {
-    opacity: 0.6,
+    opacity: tokens.opacity.pressed,
   },
   barCounter: {
     minWidth: 0,

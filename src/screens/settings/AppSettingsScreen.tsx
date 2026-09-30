@@ -444,6 +444,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   pressed: {
-    opacity: 0.68,
+    opacity: tokens.opacity.pressed,
   },
 });

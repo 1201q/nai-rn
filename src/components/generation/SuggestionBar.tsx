@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.raised,
   },
   chipPressed: {
-    opacity: 0.68,
+    opacity: tokens.opacity.pressed,
     transform: [{ scale: 0.98 }],
   },
   typeDot: {

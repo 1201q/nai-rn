@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     opacity: 0.38,
   },
   pressed: {
-    opacity: 0.72,
+    opacity: tokens.opacity.pressed,
   },
   primaryButton: {
     flex: 1,
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     ...tokens.shadow.floatMd,
   },
   primaryPressed: {
-    opacity: 0.78,
+    opacity: tokens.opacity.pressed,
   },
   primaryDisabled: {
     backgroundColor: tokens.color.raised,

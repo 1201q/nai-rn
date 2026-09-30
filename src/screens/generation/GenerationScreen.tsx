@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.sm,
   },
   balancePillPressed: {
-    opacity: 0.68,
+    opacity: tokens.opacity.pressed,
   },
   moreButton: {
     borderWidth: 0,

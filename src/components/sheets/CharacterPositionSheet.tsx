@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.raised,
   },
   cellPressed: {
-    opacity: 0.72,
+    opacity: tokens.opacity.pressed,
     transform: [{ scale: 0.97 }],
   },
   cellCharacters: {
