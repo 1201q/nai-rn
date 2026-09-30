@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
-import { extractPngTextMetadata } from "../../../lib/novelai";
+import { extractPngTextMetadata } from "../../../lib/pngMetadata";
 import { extractStealthMetadata } from "../../../lib/stealthMetadata";
 
 import { useGenerationStore } from "../../../store/generationStore";
@@ -18,7 +18,7 @@ jest.mock("expo-file-system", () => ({ File: jest.fn() }));
 jest.mock("sonner-native", () => ({
   toast: { info: jest.fn(), error: jest.fn() },
 }));
-jest.mock("../../../lib/novelai", () => ({
+jest.mock("../../../lib/pngMetadata", () => ({
   extractPngTextMetadata: jest.fn(),
 }));
 jest.mock("../../../lib/stealthMetadata", () => ({

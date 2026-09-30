@@ -1,0 +1,133 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`V3 body 1`] = `
+{
+  "action": "generate",
+  "input": "1girl, best quality, amazing quality, very aesthetic, absurdres",
+  "model": "nai-diffusion-3",
+  "parameters": {
+    "add_original_image": true,
+    "cfg_rescale": 0,
+    "height": 1216,
+    "image_format": "png",
+    "legacy": false,
+    "legacy_uc": false,
+    "n_samples": 1,
+    "negative_prompt": "nsfw, lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract], lowres",
+    "noise_schedule": "karras",
+    "params_version": 3,
+    "qualityToggle": true,
+    "sampler": "k_euler",
+    "scale": 5,
+    "seed": 1234,
+    "skip_cfg_above_sigma": null,
+    "sm": false,
+    "sm_dyn": false,
+    "steps": 28,
+    "uc": "nsfw, lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract], lowres",
+    "ucPreset": 0,
+    "use_coords": false,
+    "width": 832,
+  },
+}
+`;
+
+exports[`V4.5 body with characters, Vibe and Precise references 1`] = `
+{
+  "action": "generate",
+  "input": "1girl, very aesthetic, masterpiece, no text",
+  "model": "nai-diffusion-4-5-full",
+  "parameters": {
+    "add_original_image": true,
+    "cfg_rescale": 0,
+    "director_reference_descriptions": [
+      {
+        "caption": {
+          "base_caption": "style",
+          "char_captions": [],
+        },
+        "legacy_uc": false,
+      },
+    ],
+    "director_reference_images": [
+      "PRECISE",
+    ],
+    "director_reference_information_extracted": [
+      1,
+    ],
+    "director_reference_secondary_strength_values": [
+      0.75,
+    ],
+    "director_reference_strength_values": [
+      0.9,
+    ],
+    "height": 1216,
+    "image_format": "png",
+    "legacy": false,
+    "legacy_uc": false,
+    "legacy_v3_extend": false,
+    "n_samples": 1,
+    "negative_prompt": "nsfw, lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, lowres",
+    "noise_schedule": "karras",
+    "normalize_reference_strength_multiple": false,
+    "params_version": 3,
+    "qualityToggle": true,
+    "reference_image_multiple": [
+      "VIBE",
+    ],
+    "reference_information_extracted_multiple": [
+      0.8,
+    ],
+    "reference_strength_multiple": [
+      0.5,
+    ],
+    "sampler": "k_euler",
+    "scale": 5,
+    "seed": 1234,
+    "skip_cfg_above_sigma": 58,
+    "steps": 28,
+    "uc": "nsfw, lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, lowres",
+    "ucPreset": 0,
+    "use_coords": true,
+    "v4_negative_prompt": {
+      "caption": {
+        "base_caption": "nsfw, lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page, lowres",
+        "char_captions": [
+          {
+            "centers": [
+              {
+                "x": 0.3,
+                "y": 0.7,
+              },
+            ],
+            "char_caption": "bad hands",
+          },
+        ],
+      },
+      "legacy_uc": false,
+      "use_coords": false,
+      "use_order": false,
+    },
+    "v4_prompt": {
+      "caption": {
+        "base_caption": "1girl, very aesthetic, masterpiece, no text",
+        "char_captions": [
+          {
+            "centers": [
+              {
+                "x": 0.3,
+                "y": 0.7,
+              },
+            ],
+            "char_caption": "girl, red hair",
+          },
+        ],
+      },
+      "legacy_uc": false,
+      "use_coords": true,
+      "use_order": true,
+    },
+    "width": 832,
+  },
+}
+`;

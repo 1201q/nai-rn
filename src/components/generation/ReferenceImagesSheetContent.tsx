@@ -19,7 +19,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { File } from "expo-file-system";
 import { toast } from "sonner-native";
-import { extractPngTextMetadata } from "../../lib/novelai";
+import { extractPngTextMetadata } from "../../lib/pngMetadata";
 import { extractStealthMetadata } from "../../lib/stealthMetadata";
 import Reanimated, {
   Easing,

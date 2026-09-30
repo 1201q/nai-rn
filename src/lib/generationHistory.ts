@@ -15,7 +15,7 @@ import {
   createStorageId,
 } from "./localData/managedFiles";
 import { createDatabaseOpener } from "./localData/sqlite";
-import { extractPngTextMetadata } from "./novelai";
+import { extractPngTextMetadata } from "./pngMetadata";
 
 const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
