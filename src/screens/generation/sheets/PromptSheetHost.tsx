@@ -22,7 +22,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   cancelAnimation,
-  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -46,6 +45,7 @@ import {
   PredictiveBackSheetLayer,
   PressableSurface,
 } from "./SheetLayers";
+import { SHEET_EASING, sheetChromeStyles } from "./sheetChrome";
 
 export type PromptSheetStage = "collapsed" | "half" | "full";
 
@@ -250,7 +250,7 @@ export function PromptSheetHost({
   const promptPageDragStartX = useSharedValue(0);
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
-    easing: Easing.bezier(0.32, 0.72, 0, 1),
+    easing: SHEET_EASING,
   });
   const snapPoints = useMemo(
     () => [
@@ -287,7 +287,7 @@ export function PromptSheetHost({
       handleSheetChange(index);
       predictiveBackProgress.value = withTiming(0, {
         duration: 300,
-        easing: Easing.bezier(0.32, 0.72, 0, 1),
+        easing: SHEET_EASING,
       });
     },
     [handleSheetChange, predictiveBackProgress],
@@ -321,7 +321,7 @@ export function PromptSheetHost({
       promptPageIndex.value = nextIndex;
       promptPageTranslateX.value = withTiming(-nextIndex * windowWidth, {
         duration: PROMPT_PAGE_ANIMATION_DURATION,
-        easing: Easing.bezier(0.32, 0.72, 0, 1),
+        easing: SHEET_EASING,
       });
     },
     [commitPendingInput, promptPageIndex, promptPageTranslateX, windowWidth],
@@ -370,7 +370,7 @@ export function PromptSheetHost({
           promptPageIndex.value = nextIndex;
           promptPageTranslateX.value = withTiming(-nextIndex * windowWidth, {
             duration: PROMPT_PAGE_ANIMATION_DURATION,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            easing: SHEET_EASING,
           });
           runOnJS(selectPromptPage)(nextIndex);
         })
@@ -380,7 +380,7 @@ export function PromptSheetHost({
             -promptPageIndex.value * windowWidth,
             {
               duration: PROMPT_PAGE_ANIMATION_DURATION,
-              easing: Easing.bezier(0.32, 0.72, 0, 1),
+              easing: SHEET_EASING,
             },
           );
         }),
@@ -436,15 +436,15 @@ export function PromptSheetHost({
           activeOffsetY={[-10, 10]}
           failOffsetX={[-18, 18]}
           waitFor={promptPageGesture}
-          handleStyle={styles.handleArea}
-          handleIndicatorStyle={styles.handleIndicator}
+          handleStyle={sheetChromeStyles.handleArea}
+          handleIndicatorStyle={sheetChromeStyles.handleIndicator}
           containerStyle={styles.promptSheetContainer}
-          backgroundStyle={styles.sheetBackground}
+          backgroundStyle={sheetChromeStyles.sheetBackground}
           onAnimate={handleSheetAnimate}
           onChange={handleSheetSettled}
         >
           <BottomSheetView
-            style={styles.sheetBody}
+            style={sheetChromeStyles.sheetBody}
             focusHook={useStaticPageFocus}
           >
             <PromptHeader
@@ -510,30 +510,6 @@ const styles = StyleSheet.create({
   promptSheetContainer: {
     zIndex: 80,
     elevation: 80,
-  },
-  sheetBackground: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: tokens.color.cardAlt,
-    shadowColor: "#000000",
-    shadowOpacity: 0.55,
-    shadowRadius: 44,
-    shadowOffset: { width: 0, height: -18 },
-  },
-  handleArea: {
-    height: 17,
-    paddingTop: 9,
-    paddingBottom: 3,
-  },
-  handleIndicator: {
-    width: 38,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: tokens.color.borderSubtleStrong,
-  },
-  sheetBody: {
-    flex: 1,
-    bottom: 0,
   },
   promptPagerViewport: {
     flex: 1,

@@ -10,7 +10,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   cancelAnimation,
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -23,6 +22,7 @@ import { tokens } from "../../../../styles/tokens";
 import { PressableSurface } from "../SheetLayers";
 import { MetadataImportContent } from "./MetadataImportContent";
 import { MetadataSheetContent } from "./MetadataSheetContent";
+import { SHEET_EASING } from "../sheetChrome";
 
 type MetadataTab = "metadata" | "import";
 
@@ -143,7 +143,7 @@ export function useMetadataSheetPagerController() {
       pageIndex.value = nextIndex;
       pageTranslateX.value = withTiming(-nextIndex * windowWidth, {
         duration: PAGE_ANIMATION_DURATION,
-        easing: Easing.bezier(0.32, 0.72, 0, 1),
+        easing: SHEET_EASING,
       });
     },
     [pageIndex, pageTranslateX, windowWidth],
@@ -190,7 +190,7 @@ export function useMetadataSheetPagerController() {
           pageIndex.value = nextIndex;
           pageTranslateX.value = withTiming(-nextIndex * windowWidth, {
             duration: PAGE_ANIMATION_DURATION,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            easing: SHEET_EASING,
           });
           runOnJS(selectPage)(nextIndex);
         })
@@ -198,7 +198,7 @@ export function useMetadataSheetPagerController() {
           if (success) return;
           pageTranslateX.value = withTiming(-pageIndex.value * windowWidth, {
             duration: PAGE_ANIMATION_DURATION,
-            easing: Easing.bezier(0.32, 0.72, 0, 1),
+            easing: SHEET_EASING,
           });
         }),
     [pageDragStartX, pageIndex, pageTranslateX, selectPage, windowWidth],

@@ -15,7 +15,6 @@ import BottomSheet, {
 import { Ionicons } from "@expo/vector-icons";
 import {
   cancelAnimation,
-  Easing,
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
@@ -45,6 +44,7 @@ import {
   useMetadataSheetPagerController,
 } from "./metadata/MetadataSheetPager";
 import { SettingsSheetContent } from "./settings/SettingsSheetContent";
+import { SHEET_EASING, sheetChromeStyles } from "./sheetChrome";
 
 export type UtilitySheet = "settings" | "history" | "metadata";
 
@@ -72,7 +72,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
 
   if (sheet === "metadata") {
     return generation ? (
-      <BottomSheetView style={styles.sheetBody}>
+      <BottomSheetView style={sheetChromeStyles.sheetBody}>
         <MetadataSheetPager
           generation={generation}
           onClose={onClose}
@@ -86,7 +86,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
 
   return (
     <BottomSheetView
-      style={styles.sheetBody}
+      style={sheetChromeStyles.sheetBody}
       pointerEvents={active ? "auto" : "none"}
       accessibilityElementsHidden={!active}
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
@@ -153,7 +153,7 @@ export function UtilitySheetHost({
   );
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
-    easing: Easing.bezier(0.32, 0.72, 0, 1),
+    easing: SHEET_EASING,
   });
   const handleSheetClosed = useCallback(() => {
     // Native completion callbacks can arrive after a new open/close request.
@@ -291,16 +291,18 @@ export function UtilitySheetHost({
           footerComponent={
             renderedSheet === "history" ? renderHistoryFooter : undefined
           }
-          handleStyle={styles.handleArea}
-          handleIndicatorStyle={styles.handleIndicator}
+          handleStyle={sheetChromeStyles.handleArea}
+          handleIndicatorStyle={sheetChromeStyles.handleIndicator}
           style={styles.utilitySheetMask}
           containerStyle={styles.utilitySheetContainer}
-          backgroundStyle={styles.sheetBackground}
+          backgroundStyle={sheetChromeStyles.sheetBackground}
           onClose={handleSheetClosed}
           onChange={handleSheetChanged}
         >
           {contentSheet === null ? (
-            <BottomSheetView style={styles.sheetBody}>{null}</BottomSheetView>
+            <BottomSheetView style={sheetChromeStyles.sheetBody}>
+              {null}
+            </BottomSheetView>
           ) : (
             <UtilitySheetContent
               key={contentSheet}
@@ -327,30 +329,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-  },
-  sheetBackground: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: tokens.color.cardAlt,
-    shadowColor: "#000000",
-    shadowOpacity: 0.55,
-    shadowRadius: 44,
-    shadowOffset: { width: 0, height: -18 },
-  },
-  handleArea: {
-    height: 17,
-    paddingTop: 9,
-    paddingBottom: 3,
-  },
-  handleIndicator: {
-    width: 38,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: tokens.color.borderSubtleStrong,
-  },
-  sheetBody: {
-    flex: 1,
-    bottom: 0,
   },
   utilityHeader: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
