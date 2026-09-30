@@ -1,13 +1,11 @@
 import { useEffect, useRef } from "react";
-import { requireOptionalNativeModule } from "expo-modules-core";
-import { Platform } from "react-native";
 
-export type PredictiveBackEvent = {
-  progress: number;
-  swipeEdge: number;
-  touchX: number;
-  touchY: number;
-};
+import {
+  predictiveBackNativeModule as nativeModule,
+  type PredictiveBackEvent,
+} from "../../modules/predictive-back";
+
+export type { PredictiveBackEvent };
 
 export type PredictiveBackHandlers = {
   onStart?: (event: PredictiveBackEvent) => void;
@@ -15,20 +13,6 @@ export type PredictiveBackHandlers = {
   onCancel?: () => void;
   onCommit?: () => void;
 };
-
-type PredictiveBackNativeModule = {
-  progressAvailable: boolean;
-  setMode: (mode: "app" | "system") => void;
-  addListener: (
-    eventName: string,
-    listener: (event: PredictiveBackEvent) => void,
-  ) => { remove: () => void };
-};
-
-const nativeModule =
-  Platform.OS === "android"
-    ? requireOptionalNativeModule<PredictiveBackNativeModule>("PredictiveBack")
-    : null;
 
 export const PREDICTIVE_BACK_SUPPORTED = nativeModule != null;
 export const PREDICTIVE_BACK_HAS_PROGRESS =
