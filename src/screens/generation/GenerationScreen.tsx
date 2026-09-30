@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     color: tokens.color.negative,
   },
   actionPressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
   progressFill: {
     position: "absolute",

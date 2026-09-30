@@ -587,6 +587,6 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

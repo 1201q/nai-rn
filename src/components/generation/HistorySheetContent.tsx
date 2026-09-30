@@ -67,7 +67,7 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
             accessibilityHint="화면에 불러오지 않은 항목도 포함합니다. 이후 생성된 이미지는 자동 선택되지 않습니다."
             accessibilityState={{ disabled: busy, busy: selectingAll }}
             disabled={busy}
-            activeOpacity={0.65}
+            activeOpacity={tokens.opacity.pressed}
             onPress={() => void toggleSelectAll()}
             style={[styles.headerTextButton, busy && styles.disabled]}
           >
@@ -84,7 +84,7 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
         <BottomSheetTouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="선택 취소"
-          activeOpacity={0.65}
+          activeOpacity={tokens.opacity.pressed}
           onPress={exitSelectionMode}
           style={styles.headerTextButton}
         >
@@ -94,7 +94,7 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
         <BottomSheetTouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="History 닫기"
-          activeOpacity={0.65}
+          activeOpacity={tokens.opacity.pressed}
           onPress={closeSheet}
           style={styles.closeButton}
         >
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
   disabled: {
     opacity: 0.35,

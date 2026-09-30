@@ -161,6 +161,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

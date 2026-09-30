@@ -524,6 +524,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

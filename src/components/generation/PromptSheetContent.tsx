@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: 20,
-    backgroundColor: "#100F13",
+    backgroundColor: tokens.color.promptSurface,
   },
   mergedPanel: {
     padding: 15,
@@ -645,6 +645,6 @@ const styles = StyleSheet.create({
     lineHeight: PROMPT_LINE_HEIGHT,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

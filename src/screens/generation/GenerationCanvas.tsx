@@ -603,6 +603,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.card,
   },
   toolbarPressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

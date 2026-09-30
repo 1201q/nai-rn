@@ -227,6 +227,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.accent,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

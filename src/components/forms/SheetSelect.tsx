@@ -348,6 +348,6 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

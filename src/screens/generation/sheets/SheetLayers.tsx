@@ -16,6 +16,7 @@ import {
   PREDICTIVE_BACK_MIN_SCALE,
   PREDICTIVE_BACK_SCALE_STOP,
 } from "../../../native/predictiveBackStyle";
+import { tokens } from "../../../styles/tokens";
 
 export function PredictiveBackSheetLayer({
   active = true,
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     transformOrigin: "center bottom",
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
   disabled: {
     opacity: 0.35,

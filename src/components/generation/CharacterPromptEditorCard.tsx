@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: 16,
-    backgroundColor: "#100F13",
+    backgroundColor: tokens.color.promptSurface,
   },
   cardDisabled: {
     opacity: 0.55,
@@ -660,6 +660,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

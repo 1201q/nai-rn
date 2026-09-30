@@ -400,6 +400,6 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.base,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

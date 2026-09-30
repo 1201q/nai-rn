@@ -180,6 +180,6 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: 20,
-    backgroundColor: "#100F13",
+    backgroundColor: tokens.color.promptSurface,
   },
   basePromptBody: {
     padding: 15,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: 16,
-    backgroundColor: "#100F13",
+    backgroundColor: tokens.color.promptSurface,
   },
   characterPromptHeader: {
     height: 40,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     color: tokens.color.accent,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
   recordId: {
     paddingHorizontal: tokens.space[2],

@@ -332,6 +332,6 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

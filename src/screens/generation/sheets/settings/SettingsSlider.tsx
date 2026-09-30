@@ -252,6 +252,6 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   pressed: {
-    opacity: 0.65,
+    opacity: tokens.opacity.pressed,
   },
 });

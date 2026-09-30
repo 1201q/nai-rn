@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: 16,
-    backgroundColor: "#100F13",
+    backgroundColor: tokens.color.promptSurface,
     overflow: "hidden",
   },
   header: {
