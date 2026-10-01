@@ -15,6 +15,7 @@ import Reanimated, {
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
 import { IconButton } from "../../components/common/Buttons";
+import { RollingNumber } from "../../components/common/RollingNumber";
 import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
@@ -319,9 +320,15 @@ function GenerationScreenContent() {
             size={15}
             color={tokens.color.accent}
           />
-          <Text style={styles.balanceText}>
-            {anlasBalance ? anlasBalance.total.toLocaleString() : "—"}
-          </Text>
+          {anlasBalance ? (
+            <RollingNumber
+              value={anlasBalance.total}
+              style={styles.balanceText}
+              lineHeight={20}
+            />
+          ) : (
+            <Text style={styles.balanceText}>—</Text>
+          )}
         </Pressable>
 
         <IconButton
