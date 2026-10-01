@@ -139,6 +139,17 @@ test("uses native files and common request options without JS response decoding"
   expect(onEvent).toHaveBeenCalledTimes(1);
 });
 
+test("requests WebP and prepares a WebP original file", async () => {
+  await generateAndSaveImage(
+    { ...input, imageFormat: "webp" },
+    jest.fn(),
+    new AbortController().signal,
+  );
+  expect(prepareNativeGenerationFiles).toHaveBeenCalledWith("webp");
+  const body = JSON.parse(native.generate.mock.calls[0][2]);
+  expect(body.parameters.image_format).toBe("webp");
+});
+
 test("records the noise schedule that was actually sent", async () => {
   await generateAndSaveImage(
     { ...input, noiseSchedule: "native" },

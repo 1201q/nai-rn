@@ -2,9 +2,12 @@ import {
   prepareNativeGenerationFiles,
   savePreparedGeneration,
 } from "../generationHistory";
+import { extractImageMetadata } from "../imageMetadata";
 
 const mockRun = jest.fn();
 const mockDelete = jest.fn();
+const mockBytes = jest.fn();
+jest.mock("../imageMetadata", () => ({ extractImageMetadata: jest.fn() }));
 jest.mock("expo-sqlite", () => ({
   openDatabaseAsync: async () => ({ execAsync: jest.fn(), runAsync: mockRun }),
 }));
@@ -25,7 +28,7 @@ jest.mock("expo-file-system", () => {
       mockDelete(this.uri);
     }
     bytes() {
-      throw Error("Native output must not be read in JS");
+      return mockBytes();
     }
     write() {
       throw Error("Native output must not be written in JS");
@@ -51,10 +54,14 @@ const input = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockRun.mockResolvedValue({});
+  mockBytes.mockImplementation(() => {
+    throw Error("Native output must not be read in JS");
+  });
 });
 
 test("registers prepared files without file reads or thumbnail regeneration", async () => {
-  const files = await prepareNativeGenerationFiles();
+  const files = await prepareNativeGenerationFiles("png");
+  expect(files.imagePath).toBe(`originals/${files.id}.png`);
   const record = await savePreparedGeneration(files, input, false);
   expect(record).toMatchObject({
     imagePath: files.imagePath,
@@ -66,8 +73,34 @@ test("registers prepared files without file reads or thumbnail regeneration", as
   expect(mockDelete).not.toHaveBeenCalled();
 });
 
+test("reads stealth metadata in JS when the native module finds none", async () => {
+  const bytes = new Uint8Array([1]);
+  mockBytes.mockResolvedValueOnce(bytes);
+  jest.mocked(extractImageMetadata).mockReturnValueOnce({ Comment: "webp" });
+  const files = await prepareNativeGenerationFiles("webp");
+  expect(files.imagePath).toBe(`originals/${files.id}.webp`);
+  const record = await savePreparedGeneration(
+    files,
+    { ...input, metadata: {} },
+    true,
+  );
+  expect(extractImageMetadata).toHaveBeenCalledWith(bytes);
+  expect(record.metadataJson).toBe('{"Comment":"webp"}');
+});
+
+test("keeps the generation when the metadata fallback fails", async () => {
+  const files = await prepareNativeGenerationFiles("webp");
+  const record = await savePreparedGeneration(
+    files,
+    { ...input, metadata: {} },
+    true,
+  );
+  expect(record.metadataJson).toBe("{}");
+  expect(mockDelete).not.toHaveBeenCalled();
+});
+
 test("removes both prepared files if the DB insert fails", async () => {
-  const files = await prepareNativeGenerationFiles();
+  const files = await prepareNativeGenerationFiles("png");
   mockRun.mockRejectedValueOnce(new Error("DB failure"));
   await expect(savePreparedGeneration(files, input, true)).rejects.toThrow(
     "DB failure",

@@ -8,6 +8,7 @@ export {
   type GenerateNovelAiCharacterPrompt,
   type GenerateNovelAiImageInput,
   getVarietyPlusSigma,
+  type NovelAiImageFormat,
   resolveNoiseSchedule,
   shouldUseAutoSmea,
 } from "./requestBody";

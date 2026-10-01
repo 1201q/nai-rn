@@ -1,5 +1,6 @@
 import type { NaiResolution, NoiseSchedule } from "../constants/generation";
 import type { UcPresetIndex } from "../lib/naiPresets";
+import type { NovelAiImageFormat } from "../lib/novelai";
 
 export const GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS = 250;
 
@@ -30,6 +31,7 @@ type StoredGenerationOptions = {
   seed: number;
   seedLocked: boolean;
   batchCount: number;
+  imageFormat: NovelAiImageFormat;
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
   i2iSourceImage: {
@@ -70,6 +72,7 @@ const PERSISTED_OPTION_KEYS = [
   "sampler",
   "seedLocked",
   "batchCount",
+  "imageFormat",
   "varietyPlus",
   "normalizeVibeStrengths",
   "i2iSourceImage",
@@ -100,6 +103,7 @@ export function selectPersistedOptions(
     ...(state.seedLocked ? { seed: state.seed } : {}),
     seedLocked: state.seedLocked,
     batchCount: state.batchCount,
+    imageFormat: state.imageFormat,
     varietyPlus: state.varietyPlus,
     normalizeVibeStrengths: state.normalizeVibeStrengths,
     ...(state.i2iSourceImage

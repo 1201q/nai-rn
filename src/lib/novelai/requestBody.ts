@@ -9,6 +9,8 @@ import { type UcPresetIndex } from "../naiPresets";
 
 type NovelAiPreciseReferenceType = "character" | "style" | "character&style";
 
+export type NovelAiImageFormat = "png" | "webp";
+
 export type GenerateNovelAiImageInput = {
   token: string;
   prompt: string;
@@ -27,6 +29,7 @@ export type GenerateNovelAiImageInput = {
   varietyPlus?: boolean;
   qualityToggle?: boolean;
   ucPreset?: UcPresetIndex;
+  imageFormat?: NovelAiImageFormat;
   i2iImageBase64?: string;
   i2iStrength?: number;
   i2iNoise?: number;
@@ -158,6 +161,7 @@ export function createImageGenerationBody({
   varietyPlus = false,
   qualityToggle = true,
   ucPreset = 0,
+  imageFormat = "png",
   i2iImageBase64,
   i2iStrength = 0.7,
   i2iNoise = 0,
@@ -248,7 +252,7 @@ export function createImageGenerationBody({
       ? { deliberate_euler_ancestral_bug: false, prefer_brownian: true }
       : {}),
     ucPreset,
-    image_format: "png",
+    image_format: imageFormat,
     use_coords: useCharacterCoords,
     skip_cfg_above_sigma: varietyPlus
       ? getVarietyPlusSigma(model, width, height)

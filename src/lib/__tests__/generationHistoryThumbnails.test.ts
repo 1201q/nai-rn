@@ -14,7 +14,7 @@ jest.mock("expo-image-manipulator", () => ({
   manipulateAsync: jest.fn(async () => ({ uri: "file:///cache/thumb.jpg" })),
   SaveFormat: { JPEG: "jpeg" },
 }));
-jest.mock("../pngMetadata", () => ({ extractPngTextMetadata: () => ({}) }));
+jest.mock("../imageMetadata", () => ({ extractImageMetadata: () => null }));
 jest.mock("expo-file-system", () => {
   class Directory {
     uri: string;
@@ -43,6 +43,7 @@ const ROOT = "file:///documents/nai-images";
 function recordInput(width: number, height: number) {
   return {
     imageBase64: "",
+    imageFormat: "png" as const,
     prompt: "test",
     negativePrompt: "",
     model: "test",
@@ -63,7 +64,7 @@ beforeEach(() => {
 });
 
 test("prepares native thumbnails in the aspect-fit thumbnail directory", async () => {
-  const files = await prepareNativeGenerationFiles();
+  const files = await prepareNativeGenerationFiles("png");
   expect(files.thumbnailPath).toBe(`grid-thumbnails/${files.id}.jpg`);
   expect(files.thumbnailUri).toBe(`${ROOT}/grid-thumbnails/${files.id}.jpg`);
 });

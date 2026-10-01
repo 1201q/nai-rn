@@ -11,6 +11,8 @@ const mockSliderControlsProps = jest.fn();
 type MockSettingsState = {
   batchCount: number;
   setBatchCount: jest.Mock<void, [number]>;
+  imageFormat: "png" | "webp";
+  setImageFormat: jest.Mock<void, ["png" | "webp"]>;
   storedToken: string | null;
   saveToken: jest.Mock<Promise<void>, [string]>;
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
@@ -23,6 +25,8 @@ jest.mock("../../../store/generationStore", () => {
     useGenerationStore: create<MockSettingsState>(() => ({
       batchCount: 1,
       setBatchCount: jest.fn(),
+      imageFormat: "png",
+      setImageFormat: jest.fn(),
       storedToken: null,
       saveToken: jest.fn(),
       refreshAnlas: jest.fn(),
@@ -107,6 +111,17 @@ describe("AppSettingsScreen token verification feedback", () => {
       precision: 0,
       onChange: initialState.setBatchCount,
     });
+    await screen.unmount();
+  });
+
+  test("selects the image format, with PNG as the default", async () => {
+    const screen = await render(<AppSettingsScreen />);
+
+    expect(screen.getByLabelText("PNG").props.accessibilityState).toEqual({
+      selected: true,
+    });
+    await fireEvent.press(screen.getByLabelText("WebP"));
+    expect(initialState.setImageFormat).toHaveBeenCalledWith("webp");
     await screen.unmount();
   });
 

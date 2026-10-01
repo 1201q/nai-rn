@@ -101,7 +101,7 @@ class GenerationImagePipelineModule : Module() {
           previewsInitialized = true
         }
       }
-      val originalOutput = outputFile(originalUri, id, "originals", "png")
+      val originalOutput = outputFile(originalUri, id, "originals", if (originalUri.endsWith(".webp")) "webp" else "png")
       val thumbnailOutput = outputFile(thumbnailUri, id, "grid-thumbnails", "jpg")
       require(!originalOutput.exists() && !thumbnailOutput.exists()) { "Output already exists" }
       original = originalOutput

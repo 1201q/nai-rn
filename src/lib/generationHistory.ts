@@ -15,7 +15,8 @@ import {
   createStorageId,
 } from "./localData/managedFiles";
 import { createDatabaseOpener } from "./localData/sqlite";
-import { extractPngTextMetadata } from "./pngMetadata";
+import { extractImageMetadata } from "./imageMetadata";
+import type { NovelAiImageFormat } from "./novelai";
 
 const DATABASE_NAME = "generation-history.db";
 const IMAGE_ROOT_DIR = "nai-images";
@@ -70,6 +71,7 @@ type SaveGenerationBase64Input = Omit<
   "imageBytes" | "metadata"
 > & {
   imageBase64: string;
+  imageFormat: NovelAiImageFormat;
 };
 
 type GenerationRow = {
@@ -354,14 +356,30 @@ async function insertGenerationRecord(record: GenerationRecord) {
   return record;
 }
 
-export async function prepareNativeGenerationFiles() {
+// WebP에는 PNG 텍스트 청크가 없어 stealth alpha에서 읽는다. 추출 실패로
+// 이미 생성된 이미지를 버리지 않도록 실패하면 빈 메타데이터로 저장한다.
+async function readStoredImageMetadata(
+  imagePath: string,
+): Promise<Record<string, string>> {
+  try {
+    const bytes = await imageFiles.file(imagePath).bytes();
+    return extractImageMetadata(bytes) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function prepareNativeGenerationFiles(
+  imageFormat: NovelAiImageFormat,
+) {
   await initGenerationHistoryStorage();
   const id = createStorageId("gen");
+  const imagePath = `${ORIGINALS_DIR}/${id}.${imageFormat}`;
   return {
     id,
-    imagePath: `${ORIGINALS_DIR}/${id}.png`,
+    imagePath,
     thumbnailPath: `${THUMBNAILS_DIR}/${id}.jpg`,
-    originalUri: imageFiles.file(`${ORIGINALS_DIR}/${id}.png`).uri,
+    originalUri: imageFiles.file(imagePath).uri,
     thumbnailUri: imageFiles.file(`${THUMBNAILS_DIR}/${id}.jpg`).uri,
   };
 }
@@ -379,8 +397,13 @@ export async function savePreparedGeneration(
   input: Omit<SaveGenerationInput, "imageBytes">,
   hasThumbnail: boolean,
 ) {
-  const { metadata, ...recordInput } = input;
+  const { metadata: nativeMetadata, ...recordInput } = input;
   try {
+    // 네이티브 모듈은 PNG 텍스트 청크만 읽으므로 비어 있으면 JS에서 다시 읽는다.
+    const metadata =
+      Object.keys(nativeMetadata).length > 0
+        ? nativeMetadata
+        : await readStoredImageMetadata(files.imagePath);
     return await insertGenerationRecord({
       ...recordInput,
       id: files.id,
@@ -397,21 +420,21 @@ export async function savePreparedGeneration(
 
 export async function saveGenerationImageBase64({
   imageBase64,
+  imageFormat,
   ...recordInput
 }: SaveGenerationBase64Input): Promise<GenerationRecord> {
   await initGenerationHistoryStorage();
 
   const id = createStorageId("gen");
   const createdAt = Date.now();
-  const imagePath = `${ORIGINALS_DIR}/${id}.png`;
+  const imagePath = `${ORIGINALS_DIR}/${id}.${imageFormat}`;
   const thumbnailFileName = `${id}.jpg`;
-  const originalFile = imageFiles.file(`${ORIGINALS_DIR}/${id}.png`);
+  const originalFile = imageFiles.file(imagePath);
 
   try {
     originalFile.create({ overwrite: true });
     originalFile.write(imageBase64, { encoding: "base64" });
 
-    const imageBytes = await originalFile.bytes();
     return await saveGenerationRecord({
       ...recordInput,
       id,
@@ -419,7 +442,7 @@ export async function saveGenerationImageBase64({
       imagePath,
       thumbnailFileName,
       originalFile,
-      metadata: extractPngTextMetadata(imageBytes),
+      metadata: await readStoredImageMetadata(imagePath),
     });
   } catch (error: unknown) {
     imageFiles.remove(imagePath);

@@ -41,6 +41,7 @@ export async function generateAndSaveImage(
       input.noiseSchedule,
     sampler: input.sampler,
   };
+  const imageFormat = input.imageFormat ?? "png";
   if (Platform.OS !== "android") {
     const result = await generateNovelAiImageStream(
       input,
@@ -50,7 +51,7 @@ export async function generateAndSaveImage(
           type: event.type,
           step: event.type === "intermediate" ? event.step : null,
           generationId: event.generationId,
-          imageUri: `data:image/${event.type === "final" ? "png" : "jpeg"};base64,${event.imageBase64}`,
+          imageUri: `data:image/${event.type === "final" ? imageFormat : "jpeg"};base64,${event.imageBase64}`,
         });
       },
       signal,
@@ -58,6 +59,7 @@ export async function generateAndSaveImage(
     return saveGenerationImageBase64({
       ...recordInput,
       imageBase64: result.imageBase64,
+      imageFormat,
       seed: result.seed,
     });
   }
@@ -67,7 +69,7 @@ export async function generateAndSaveImage(
       "Android 이미지 처리 모듈이 없습니다. 새 APK를 빌드해 설치해 주세요.",
     );
   if (signal.aborted) throw cancelled();
-  const files = await prepareNativeGenerationFiles();
+  const files = await prepareNativeGenerationFiles(imageFormat);
   const { token, ...requestInput } = input;
   const { seed, body } = createImageGenerationBody(requestInput);
   const json = JSON.stringify({

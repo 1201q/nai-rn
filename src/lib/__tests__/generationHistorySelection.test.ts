@@ -9,6 +9,7 @@ const mockDb = { execAsync: jest.fn(), getAllAsync: jest.fn() };
 
 jest.mock("expo-sqlite", () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock("expo-image-manipulator", () => ({}));
+jest.mock("@shopify/react-native-skia", () => ({}));
 jest.mock("expo-file-system", () => ({
   Directory: class {
     create() {}

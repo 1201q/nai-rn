@@ -28,11 +28,18 @@ type Feedback = {
   message: string;
 };
 
+const IMAGE_FORMATS = [
+  { value: "png", label: "PNG" },
+  { value: "webp", label: "WebP" },
+] as const;
+
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const batchCount = useGenerationStore((state) => state.batchCount);
   const setBatchCount = useGenerationStore((state) => state.setBatchCount);
+  const imageFormat = useGenerationStore((state) => state.imageFormat);
+  const setImageFormat = useGenerationStore((state) => state.setImageFormat);
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
   const saveToken = useGenerationStore((state) => state.saveToken);
@@ -263,6 +270,49 @@ export function AppSettingsScreen() {
                     onChange={setBatchCount}
                   />
                 </View>
+                <View style={styles.legacyRow}>
+                  <View style={styles.legacyIcon}>
+                    <Ionicons
+                      name="image-outline"
+                      size={20}
+                      color={tokens.color.accent}
+                    />
+                  </View>
+                  <View style={styles.legacyCopy}>
+                    <Text style={styles.legacyTitle}>Image Format</Text>
+                    <Text style={styles.legacyDescription}>
+                      생성 이미지를 저장할 형식
+                    </Text>
+                  </View>
+                  <View style={styles.formatOptions}>
+                    {IMAGE_FORMATS.map((format) => {
+                      const selected = imageFormat === format.value;
+                      return (
+                        <Pressable
+                          key={format.value}
+                          accessibilityRole="radio"
+                          accessibilityLabel={format.label}
+                          accessibilityState={{ selected }}
+                          onPress={() => setImageFormat(format.value)}
+                          style={({ pressed }) => [
+                            styles.formatOption,
+                            selected && styles.formatOptionSelected,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.formatOptionText,
+                              selected && styles.formatOptionTextSelected,
+                            ]}
+                          >
+                            {format.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               </View>
             </View>
           </View>
@@ -419,6 +469,31 @@ const styles = StyleSheet.create({
   batchSlider: {
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  formatOptions: {
+    padding: 3,
+    flexDirection: "row",
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.sunken,
+  },
+  formatOption: {
+    minWidth: 56,
+    height: 34,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.sm,
+  },
+  formatOptionSelected: {
+    backgroundColor: tokens.color.accent,
+  },
+  formatOptionText: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
+  },
+  formatOptionTextSelected: {
+    color: tokens.color.onAccent,
   },
   legacyIcon: {
     width: 40,

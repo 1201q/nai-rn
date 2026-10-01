@@ -26,6 +26,7 @@ function createState(
     seed: 123,
     seedLocked: false,
     batchCount: 1,
+    imageFormat: "png",
     varietyPlus: false,
     normalizeVibeStrengths: true,
     i2iSourceImage: null,

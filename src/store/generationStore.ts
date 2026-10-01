@@ -28,6 +28,7 @@ import {
 import {
   type GenerateNovelAiCharacterPrompt,
   type NovelAiAnlasBalance,
+  type NovelAiImageFormat,
   encodeNovelAiVibe,
   getNovelAiAnlasBalance,
   NovelAiRequestError,
@@ -255,6 +256,8 @@ type GenerationState = {
   setSeedLocked: (v: boolean) => void;
   batchCount: number;
   setBatchCount: (v: number) => void;
+  imageFormat: NovelAiImageFormat;
+  setImageFormat: (v: NovelAiImageFormat) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
   applyMetadataImport: (
@@ -361,6 +364,7 @@ type QueueParams = {
     promptGuidanceRescale: number;
     noiseSchedule: NoiseSchedule;
     sampler: string;
+    imageFormat: NovelAiImageFormat;
     varietyPlus: boolean;
     qualityToggle: boolean;
     ucPreset: UcPresetIndex;
@@ -532,6 +536,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isNumber(parsed.seed)) next.seed = parsed.seed;
     if (isBoolean(parsed.seedLocked)) next.seedLocked = parsed.seedLocked;
     if (isNumber(parsed.batchCount)) next.batchCount = parsed.batchCount;
+    if (parsed.imageFormat === "png" || parsed.imageFormat === "webp") {
+      next.imageFormat = parsed.imageFormat;
+    }
     if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
     if (isBoolean(parsed.normalizeVibeStrengths)) {
       next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;
@@ -606,6 +613,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setSeedLocked: (v) => set({ seedLocked: v }),
   batchCount: 1,
   setBatchCount: (v) => set({ batchCount: v }),
+  imageFormat: "png",
+  setImageFormat: (v) => set({ imageFormat: v }),
   varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
   applyMetadataImport: (parsed, selection) =>
@@ -1278,6 +1287,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         promptGuidanceRescale: s.promptGuidanceRescale,
         noiseSchedule: s.noiseSchedule,
         sampler: s.sampler,
+        imageFormat: s.imageFormat,
         varietyPlus: s.varietyPlus,
         qualityToggle: s.qualityToggle,
         ucPreset: s.ucPreset,

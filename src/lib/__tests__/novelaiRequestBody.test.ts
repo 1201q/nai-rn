@@ -110,6 +110,16 @@ test("V3 body", () => {
   expect(body).toMatchSnapshot();
 });
 
+test("sends the selected image format", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-4-5-full",
+    imageFormat: "webp",
+  });
+
+  expect(body.parameters.image_format).toBe("webp");
+});
+
 test("stream request sends the body with stream: sse", () => {
   const sent: string[] = [];
   const headers: Record<string, string> = {};
