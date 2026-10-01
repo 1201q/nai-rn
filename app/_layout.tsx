@@ -11,7 +11,6 @@ import { toast } from "sonner-native";
 
 import { AppToaster } from "../src/components/common/AppToaster";
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
-import { AppSheetProvider } from "../src/context/AppSheetContext";
 import { PredictiveBackScreen } from "../src/components/navigation/PredictiveBackScreen";
 import { initializePredictiveBack } from "../src/native/predictiveBack";
 import { useGenerationStore } from "../src/store/generationStore";
@@ -46,34 +45,31 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <KeyboardProvider>
           <GenerationOptionsProvider>
-            <AppSheetProvider>
-              {/* Keep portal content below the global option sheets. */}
-              <PortalProvider>
-                <Stack
-                  screenLayout={({ children }) =>
-                    Platform.OS === "android" ? (
-                      <PredictiveBackScreen>{children}</PredictiveBackScreen>
-                    ) : (
-                      children
-                    )
-                  }
-                  screenOptions={{
-                    headerShown: false,
-                    animation: Platform.OS === "android" ? "none" : "default",
-                    presentation:
-                      Platform.OS === "android" ? "transparentModal" : "card",
-                    contentStyle: {
-                      backgroundColor:
-                        Platform.OS === "android"
-                          ? "transparent"
-                          : tokens.color.app,
-                    },
-                  }}
-                />
-              </PortalProvider>
-              {/* Render notifications after portal content. */}
-              <AppToaster />
-            </AppSheetProvider>
+            <PortalProvider>
+              <Stack
+                screenLayout={({ children }) =>
+                  Platform.OS === "android" ? (
+                    <PredictiveBackScreen>{children}</PredictiveBackScreen>
+                  ) : (
+                    children
+                  )
+                }
+                screenOptions={{
+                  headerShown: false,
+                  animation: Platform.OS === "android" ? "none" : "default",
+                  presentation:
+                    Platform.OS === "android" ? "transparentModal" : "card",
+                  contentStyle: {
+                    backgroundColor:
+                      Platform.OS === "android"
+                        ? "transparent"
+                        : tokens.color.app,
+                  },
+                }}
+              />
+            </PortalProvider>
+            {/* Render notifications after portal content. */}
+            <AppToaster />
           </GenerationOptionsProvider>
         </KeyboardProvider>
       </SafeAreaProvider>
