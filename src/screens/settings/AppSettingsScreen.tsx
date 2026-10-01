@@ -19,8 +19,8 @@ import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
+import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
 import { useGenerationStore } from "../../store/generationStore";
-import { useAppSheet } from "../../context/AppSheetContext";
 import { tokens } from "../../styles/tokens";
 
 type Feedback = {
@@ -31,8 +31,8 @@ type Feedback = {
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { open } = useAppSheet();
   const batchCount = useGenerationStore((state) => state.batchCount);
+  const setBatchCount = useGenerationStore((state) => state.setBatchCount);
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
   const saveToken = useGenerationStore((state) => state.saveToken);
@@ -236,16 +236,7 @@ export function AppSettingsScreen() {
             <View style={styles.generationSection}>
               <Text style={styles.sectionLabel}>GENERATION</Text>
               <View style={styles.legacyCard}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Batch Count"
-                  accessibilityValue={{ text: String(batchCount) }}
-                  onPress={() => open("batchCount")}
-                  style={({ pressed }) => [
-                    styles.legacyRow,
-                    pressed && styles.pressed,
-                  ]}
-                >
+                <View style={styles.legacyRow}>
                   <View style={styles.legacyIcon}>
                     <Ionicons
                       name="layers-outline"
@@ -259,13 +250,19 @@ export function AppSettingsScreen() {
                       한 번에 생성할 이미지 수
                     </Text>
                   </View>
-                  <Text style={styles.legacyTitle}>{batchCount}</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={tokens.color.textMuted}
+                </View>
+                <View style={styles.batchSlider}>
+                  <SheetSliderControls
+                    inSheet={false}
+                    label="Batch Count"
+                    value={batchCount}
+                    min={1}
+                    max={100}
+                    step={1}
+                    precision={0}
+                    onChange={setBatchCount}
                   />
-                </Pressable>
+                </View>
               </View>
             </View>
           </View>
@@ -418,6 +415,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  batchSlider: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   legacyIcon: {
     width: 40,

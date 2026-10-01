@@ -6,10 +6,11 @@ import {
 } from "../../../store/generationStore";
 import { AppSettingsScreen } from "../AppSettingsScreen";
 
-const mockOpenSheet = jest.fn();
+const mockSliderControlsProps = jest.fn();
 
 type MockSettingsState = {
   batchCount: number;
+  setBatchCount: jest.Mock<void, [number]>;
   storedToken: string | null;
   saveToken: jest.Mock<Promise<void>, [string]>;
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
@@ -21,6 +22,7 @@ jest.mock("../../../store/generationStore", () => {
   return {
     useGenerationStore: create<MockSettingsState>(() => ({
       batchCount: 1,
+      setBatchCount: jest.fn(),
       storedToken: null,
       saveToken: jest.fn(),
       refreshAnlas: jest.fn(),
@@ -32,8 +34,11 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
-jest.mock("../../../context/AppSheetContext", () => ({
-  useAppSheet: () => ({ open: mockOpenSheet }),
+jest.mock("../../../components/forms/SheetSliderControls", () => ({
+  SheetSliderControls: (props: unknown) => {
+    mockSliderControlsProps(props);
+    return null;
+  },
 }));
 
 jest.mock("expo-router", () => ({
@@ -86,14 +91,22 @@ describe("AppSettingsScreen token verification feedback", () => {
     mockSaveToken.mockResolvedValue(undefined);
   });
 
-  test("keeps Batch Count accessible without legacy page links", async () => {
+  test("edits Batch Count inline with a slider, without legacy page links", async () => {
     const screen = await render(<AppSettingsScreen />);
 
     expect(screen.queryByText("LEGACY PAGES")).toBeNull();
     expect(screen.queryByText("Settings / Prompt")).toBeNull();
     expect(screen.queryByText("History")).toBeNull();
-    await fireEvent.press(screen.getByLabelText("Batch Count"));
-    expect(mockOpenSheet).toHaveBeenCalledWith("batchCount");
+    expect(mockSliderControlsProps).toHaveBeenLastCalledWith({
+      inSheet: false,
+      label: "Batch Count",
+      value: 1,
+      min: 1,
+      max: 100,
+      step: 1,
+      precision: 0,
+      onChange: initialState.setBatchCount,
+    });
     await screen.unmount();
   });
 

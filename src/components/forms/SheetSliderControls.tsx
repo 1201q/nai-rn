@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Reanimated, {
   useAnimatedProps,
@@ -15,6 +15,7 @@ import { tokens } from "../../styles/tokens";
 
 const AnimatedBottomSheetTextInput =
   Reanimated.createAnimatedComponent(BottomSheetTextInput);
+const AnimatedTextInput = Reanimated.createAnimatedComponent(TextInput);
 
 function formatSliderValue(value: number, precision: number) {
   return Number(value.toFixed(precision)).toString();
@@ -29,8 +30,11 @@ export function SheetSliderControls({
   precision,
   onChange,
   active = true,
+  inSheet = true,
 }: {
   active?: boolean;
+  // BottomSheetTextInput은 시트 밖에서 렌더하면 throw하므로 일반 화면에선 false.
+  inSheet?: boolean;
   label: string;
   value: number;
   min: number;
@@ -39,6 +43,7 @@ export function SheetSliderControls({
   precision: number;
   onChange: (value: number) => void;
 }) {
+  const ValueInput = inSheet ? AnimatedBottomSheetTextInput : AnimatedTextInput;
   const inputFocusedRef = useRef(false);
   const [draftValue, setDraftValue] = useState(() =>
     formatSliderValue(value, precision),
@@ -103,7 +108,7 @@ export function SheetSliderControls({
   return (
     <View style={styles.settingsSliderControls}>
       <View style={styles.settingsSliderValueBox}>
-        <AnimatedBottomSheetTextInput
+        <ValueInput
           accessibilityLabel={`${label} 값`}
           value={draftValue}
           animatedProps={animatedInputProps}
