@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { MAX_CHARACTER_PROMPTS } from "../../constants/generation";
-import { useAppSheet } from "../../context/AppSheetContext";
+import {
+  MIN_POSITION_CHARACTERS,
+  hasOverlappingPositions,
+} from "../../lib/characterPosition";
 import {
   type CharacterPrompt,
   useGenerationStore,
@@ -25,12 +28,13 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   active,
   editingCharacterId,
   onEditingCharacterChange,
+  onEditPositions,
 }: {
   active: boolean;
   editingCharacterId: string | null;
   onEditingCharacterChange: (id: string | null) => void;
+  onEditPositions: (characterId: string | null) => void;
 }) {
-  const { openCharacterPosition } = useAppSheet();
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
@@ -138,14 +142,18 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   );
 
   const openPosition = useCallback(
-    (id: string) => {
+    (id: string | null) => {
       setPositionEnabled(true);
-      openCharacterPosition(id);
+      onEditPositions(id);
     },
-    [openCharacterPosition, setPositionEnabled],
+    [onEditPositions, setPositionEnabled],
   );
 
   const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
+  const canPosition = characterPrompts.length >= MIN_POSITION_CHARACTERS;
+  const customPosition = positionEnabled && canPosition;
+  const positionsOverlap =
+    customPosition && hasOverlappingPositions(characterPrompts);
 
   return (
     <View style={styles.section}>
@@ -181,18 +189,18 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
             <Pressable
               accessibilityRole="radio"
               accessibilityLabel="AI's Choice"
-              accessibilityState={{ selected: !positionEnabled }}
+              accessibilityState={{ selected: !customPosition }}
               onPress={() => setPositionEnabled(false)}
               style={({ pressed }) => [
                 styles.positionOption,
-                !positionEnabled && styles.positionOptionActive,
+                !customPosition && styles.positionOptionActive,
                 pressed && styles.pressed,
               ]}
             >
               <Text
                 style={[
                   styles.positionOptionLabel,
-                  !positionEnabled && styles.positionOptionLabelActive,
+                  !customPosition && styles.positionOptionLabelActive,
                 ]}
               >
                 AI&apos;s Choice
@@ -201,25 +209,59 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
             <Pressable
               accessibilityRole="radio"
               accessibilityLabel="Custom position"
-              accessibilityState={{ selected: positionEnabled }}
+              accessibilityState={{
+                selected: customPosition,
+                disabled: !canPosition,
+              }}
+              disabled={!canPosition}
               onPress={() => setPositionEnabled(true)}
               style={({ pressed }) => [
                 styles.positionOption,
-                positionEnabled && styles.positionOptionActive,
+                customPosition && styles.positionOptionActive,
+                !canPosition && styles.positionDisabled,
                 pressed && styles.pressed,
               ]}
             >
               <Text
                 style={[
                   styles.positionOptionLabel,
-                  positionEnabled && styles.positionOptionLabelActive,
+                  customPosition && styles.positionOptionLabelActive,
                 ]}
               >
                 Custom
               </Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="캐릭터 위치 편집"
+              accessibilityState={{ disabled: !canPosition }}
+              disabled={!canPosition}
+              onPress={() => openPosition(null)}
+              style={({ pressed }) => [
+                styles.positionEditButton,
+                customPosition && styles.positionOptionActive,
+                !canPosition && styles.positionDisabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={16}
+                color={
+                  customPosition
+                    ? tokens.color.textPrimary
+                    : tokens.color.textMuted
+                }
+              />
+            </Pressable>
           </View>
         </View>
+        {positionsOverlap ? (
+          <Text style={styles.positionWarning}>
+            캐릭터 위치가 겹치면 결과 품질이 떨어질 수 있습니다. 위치를
+            조정하거나 AI&apos;s Choice를 사용하세요.
+          </Text>
+        ) : null}
       </View>
 
       {characterPrompts.map((item, index) => (
@@ -232,7 +274,8 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
             expandedIds.includes(item.id) || editingCharacterId === item.id
           }
           persistentlyExpanded={expandedIds.includes(item.id)}
-          positionEnabled={positionEnabled}
+          positionEnabled={customPosition}
+          canEditPosition={canPosition}
           canMoveDown={index < characterPrompts.length - 1}
           onToggleExpanded={toggleExpanded}
           onBeginEditing={onEditingCharacterChange}
@@ -322,6 +365,22 @@ const styles = StyleSheet.create({
   },
   positionOptionActive: {
     backgroundColor: tokens.color.toast,
+  },
+  positionEditButton: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 9,
+  },
+  positionDisabled: {
+    opacity: 0.4,
+  },
+  positionWarning: {
+    color: tokens.color.negative,
+    fontFamily: tokens.font.regular,
+    fontSize: 13,
+    lineHeight: 19,
   },
   positionOptionLabel: {
     color: tokens.color.textMuted,

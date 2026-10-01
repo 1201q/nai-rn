@@ -33,7 +33,6 @@ export const tokens = {
     promptSurface: "#100F13", // 프롬프트 / 레퍼런스 / 메타데이터 카드 배경
 
     // 캐릭터/레퍼런스 회전 아이덴티티 색
-    badge1: "#FFC93C",
     badge2: "#FDA4AF",
     badge3: "#C4B5FD",
     badge4: "#7DD3FC",

@@ -782,6 +782,7 @@ function RegisterPendingCommit({ commit }: { commit: () => void }) {
 function renderPromptStage(stage: PromptSheetStage) {
   return (
     <PromptSheetHost
+      onEditCharacterPositions={jest.fn()}
       promptPreview="prompt"
       promptStage={stage}
       predictiveBackProgress={backProgress}
@@ -844,6 +845,7 @@ describe("generation sheet accessibility visibility", () => {
     const onStageChange = jest.fn();
     await render(
       <PromptSheetHost
+        onEditCharacterPositions={jest.fn()}
         promptPreview="prompt"
         promptStage="collapsed"
         predictiveBackProgress={backProgress}
@@ -1068,6 +1070,7 @@ describe("generation sheet safe area", () => {
         .mockReturnValue({ top, bottom, left: 0, right: 0 });
       const prompt = await render(
         <PromptSheetHost
+          onEditCharacterPositions={jest.fn()}
           promptPreview="prompt"
           promptStage="collapsed"
           predictiveBackProgress={backProgress}
@@ -1108,6 +1111,7 @@ describe("generation sheet safe area", () => {
     });
     const renderPrompt = () => (
       <PromptSheetHost
+        onEditCharacterPositions={jest.fn()}
         promptPreview="prompt"
         promptStage="full"
         predictiveBackProgress={backProgress}

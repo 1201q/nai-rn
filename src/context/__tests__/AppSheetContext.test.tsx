@@ -6,7 +6,6 @@ import type {
 } from "@gorhom/bottom-sheet";
 
 import { AppSheetProvider, useAppSheet } from "../AppSheetContext";
-import { useGenerationStore } from "../../store/generationStore";
 
 const mockSheetProps = jest.fn<void, [BottomSheetProps]>();
 const mockSheetClose = jest.fn();
@@ -56,36 +55,14 @@ jest.mock("../../native/predictiveBack", () => ({
 jest.mock("../../components/sheets/BatchCountSheet", () => ({
   BatchCountSheet: () => null,
 }));
-jest.mock("../../store/generationStore", () => {
-  const { create } = require("zustand") as typeof import("zustand");
-  return {
-    useGenerationStore: create(() => ({
-      characterPrompts: [
-        {
-          id: "character-1",
-          name: "First character",
-          prompt: "",
-          negativePrompt: "",
-          enabled: true,
-          position: { x: 0.5, y: 0.5 },
-        },
-      ],
-      setCharacterPromptPosition: jest.fn(),
-    })),
-  };
-});
 
 function SheetControls() {
-  const { open, openCharacterPosition, close } = useAppSheet();
+  const { open, close } = useAppSheet();
   return (
     <View>
       <Pressable
         accessibilityLabel="Open batch"
         onPress={() => open("batchCount")}
-      />
-      <Pressable
-        accessibilityLabel="Open position"
-        onPress={() => openCharacterPosition("character-1")}
       />
       <Pressable accessibilityLabel="Close options" onPress={close} />
     </View>
@@ -126,36 +103,13 @@ test("opens Batch Count, keeps backdrop taps inert, and closes on predictive bac
   await screen.unmount();
 });
 
-test("opens the requested character, saves its position, and closes on backdrop press", async () => {
+test("Batch Count uses the route's snap point and content panning", async () => {
   const screen = await renderSheets();
-  await fireEvent.press(screen.getByLabelText("Open position"));
-  expect(screen.getByText("Character Position")).toBeTruthy();
-  expect(screen.getByText("First character")).toBeTruthy();
-  await fireEvent.press(screen.getByLabelText("X 0.1, Y 0.9"));
-  expect(
-    useGenerationStore.getState().setCharacterPromptPosition,
-  ).toHaveBeenCalledWith("character-1", 0.1, 0.9);
+  await fireEvent.press(screen.getByLabelText("Open batch"));
 
-  await fireEvent.press(screen.getByLabelText("Dismiss options"));
-  expect(mockSheetClose).toHaveBeenCalledTimes(1);
-  await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose?.());
-  expect(screen.queryByText("Character Position")).toBeNull();
+  expect(mockSheetProps.mock.calls.at(-1)![0]).toMatchObject({
+    snapPoints: ["44%"],
+    enableContentPanningGesture: false,
+  });
   await screen.unmount();
 });
-
-test.each([
-  ["Open batch", ["44%"], false],
-  ["Open position", ["68%"], true],
-] as const)(
-  "%s uses the route's snap point and content panning",
-  async (label, snapPoints, contentPanning) => {
-    const screen = await renderSheets();
-    await fireEvent.press(screen.getByLabelText(label));
-
-    expect(mockSheetProps.mock.calls.at(-1)![0]).toMatchObject({
-      snapPoints,
-      enableContentPanningGesture: contentPanning,
-    });
-    await screen.unmount();
-  },
-);

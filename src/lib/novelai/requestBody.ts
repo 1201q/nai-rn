@@ -3,6 +3,7 @@ import {
   type NoiseSchedule,
 } from "../../constants/generation";
 import { getModelCapabilities } from "../../constants/models";
+import { MIN_POSITION_CHARACTERS } from "../characterPosition";
 import { prepareImagePromptCaptions } from "../imagePromptCaptions";
 import { type UcPresetIndex } from "../naiPresets";
 
@@ -187,7 +188,7 @@ export function createImageGenerationBody({
   const useCharacterCoords =
     shouldUseV4Prompt &&
     characterPositionEnabled &&
-    characterPrompts.length > 0;
+    characterPrompts.length >= MIN_POSITION_CHARACTERS;
   const preciseStrengthValues =
     preciseReferenceStrengths.length === preciseReferenceImages.length
       ? preciseReferenceStrengths

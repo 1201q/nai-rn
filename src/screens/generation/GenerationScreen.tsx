@@ -33,6 +33,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+import { CharacterPositionEditor } from "./CharacterPositionEditor";
 import { GenerationCanvas } from "./GenerationCanvas";
 import {
   PromptSheetHost,
@@ -202,6 +203,9 @@ function GenerationScreenContent() {
   } | null>(null);
   const [utilitySheetVisible, setUtilitySheetVisible] = useState(false);
   const [promptStage, setPromptStage] = useState<PromptSheetStage>("collapsed");
+  const [positionEditing, setPositionEditing] = useState<{
+    characterId: string | null;
+  } | null>(null);
   const promptBackProgress = useSharedValue(0);
   const utilityBackProgress = useSharedValue(0);
   const { commitPendingInput } = useGenerationInputCommit();
@@ -218,13 +222,25 @@ function GenerationScreenContent() {
   const handlePromptStageChange = useCallback(
     (stage: PromptSheetStage) => {
       if (stage === "collapsed") finishInputEditing();
+      else setPositionEditing(null);
       setPromptStage(stage);
+    },
+    [finishInputEditing],
+  );
+  const closePositionEditor = useCallback(() => setPositionEditing(null), []);
+  const openPositionEditor = useCallback(
+    (characterId: string | null) => {
+      finishInputEditing();
+      setUtilitySheet(null);
+      setPromptStage("collapsed");
+      setPositionEditing({ characterId });
     },
     [finishInputEditing],
   );
   const toggleUtilitySheet = useCallback(
     (nextSheet: UtilitySheet) => {
       finishInputEditing();
+      setPositionEditing(null);
       setUtilitySheet((current) => (current === nextSheet ? null : nextSheet));
     },
     [finishInputEditing],
@@ -236,6 +252,7 @@ function GenerationScreenContent() {
   const handleMetadataExtract = useCallback(
     (metadataJson: string) => {
       finishInputEditing();
+      setPositionEditing(null);
       setExtractedMetadata({ metadataJson });
       setUtilitySheet("metadata");
     },
@@ -244,10 +261,16 @@ function GenerationScreenContent() {
   const handleGenerationStarted = useCallback(() => {
     setUtilitySheet(null);
     setPromptStage("collapsed");
+    setPositionEditing(null);
   }, []);
   const hasUtilitySheet = utilitySheet !== null || utilitySheetVisible;
   const hasOpenSheet = hasUtilitySheet || promptStage !== "collapsed";
+  const isPositionEditing = positionEditing !== null;
   const handleBack = useCallback(() => {
+    if (isPositionEditing) {
+      setPositionEditing(null);
+      return;
+    }
     if (hasUtilitySheet) {
       finishInputEditing();
       setUtilitySheet(null);
@@ -259,10 +282,12 @@ function GenerationScreenContent() {
     }
     finishInputEditing();
     setPromptStage("collapsed");
-  }, [finishInputEditing, hasUtilitySheet, promptStage]);
+  }, [finishInputEditing, hasUtilitySheet, isPositionEditing, promptStage]);
 
   const trackPredictiveBack = useCallback(
     (event: PredictiveBackEvent) => {
+      // The position editor has no sheet to scale.
+      if (isPositionEditing) return;
       if (hasUtilitySheet) {
         cancelAnimation(utilityBackProgress);
         utilityBackProgress.value = event.progress;
@@ -274,7 +299,12 @@ function GenerationScreenContent() {
       promptBackProgress.value = event.progress;
       utilityBackProgress.value = 0;
     },
-    [hasUtilitySheet, promptBackProgress, utilityBackProgress],
+    [
+      hasUtilitySheet,
+      isPositionEditing,
+      promptBackProgress,
+      utilityBackProgress,
+    ],
   );
   const cancelPredictiveBack = useCallback(() => {
     promptBackProgress.value = withSpring(0, PREDICTIVE_BACK_CANCEL_SPRING);
@@ -285,7 +315,7 @@ function GenerationScreenContent() {
     handleBack();
   }, [handleBack]);
 
-  useBackHandler(hasOpenSheet, {
+  useBackHandler(hasOpenSheet || isPositionEditing, {
     onBack: commitPredictiveBack,
     onStart: trackPredictiveBack,
     onProgress: trackPredictiveBack,
@@ -341,9 +371,19 @@ function GenerationScreenContent() {
       </View>
 
       <View style={styles.topActionsSpacer} />
-      <GenerationCanvas onOpenMetadata={openMetadataSheet} />
+      {/* Keep the canvas mounted so its preview and zoom state survive. */}
+      <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
+        <GenerationCanvas onOpenMetadata={openMetadataSheet} />
+      </View>
+      {positionEditing ? (
+        <CharacterPositionEditor
+          initialCharacterId={positionEditing.characterId}
+          onFinish={closePositionEditor}
+        />
+      ) : null}
 
       <PromptSheetHost
+        onEditCharacterPositions={openPositionEditor}
         promptPreview={prompt}
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}
@@ -428,6 +468,13 @@ const styles = StyleSheet.create({
   },
   topActionsSpacer: {
     height: 40,
+  },
+  canvasSlot: {
+    flex: 1,
+    minHeight: 0,
+  },
+  hidden: {
+    display: "none",
   },
   balancePill: {
     height: 40,

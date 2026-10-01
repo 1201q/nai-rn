@@ -15,7 +15,6 @@ import { useGenerationInputCommitRegistration } from "../../context/GenerationIn
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
-import { CHARACTER_BADGE_COLORS } from "../../styles/characterBadgeColors";
 import {
   PromptHighlightTextInput,
   type PromptHighlightTextInputHandle,
@@ -70,6 +69,7 @@ export const CharacterPromptEditorCard = memo(
     expanded,
     persistentlyExpanded,
     positionEnabled,
+    canEditPosition,
     canMoveDown,
     onToggleExpanded,
     onBeginEditing,
@@ -84,6 +84,7 @@ export const CharacterPromptEditorCard = memo(
     expanded: boolean;
     persistentlyExpanded: boolean;
     positionEnabled: boolean;
+    canEditPosition: boolean;
     canMoveDown: boolean;
     onToggleExpanded: (id: string) => void;
     onBeginEditing: (id: string | null) => void;
@@ -117,8 +118,6 @@ export const CharacterPromptEditorCard = memo(
     const fallbackName = `Character ${index + 1}`;
     const displayName = nameText.trim() || fallbackName;
     const activeText = mode === "base" ? promptText : negativeText;
-    const badgeColor =
-      CHARACTER_BADGE_COLORS[index % CHARACTER_BADGE_COLORS.length];
 
     const updateActiveText = useCallback(
       (value: string) => {
@@ -247,6 +246,8 @@ export const CharacterPromptEditorCard = memo(
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${displayName} 위치 지정`}
+            accessibilityState={{ disabled: !canEditPosition }}
+            disabled={!canEditPosition}
             onPress={() => onOpenPosition(item.id)}
             style={({ pressed }) => [
               styles.badgeCell,
@@ -256,11 +257,7 @@ export const CharacterPromptEditorCard = memo(
             <View
               style={[
                 styles.badge,
-                {
-                  backgroundColor: positionEnabled
-                    ? badgeColor
-                    : tokens.color.sunken,
-                },
+                positionEnabled ? styles.badgePositioned : styles.badgeDefault,
               ]}
             >
               <Text
@@ -546,7 +543,13 @@ const styles = StyleSheet.create({
     color: tokens.color.textTertiary,
   },
   badgeTextPositioned: {
-    color: tokens.color.onAccent,
+    color: tokens.color.app,
+  },
+  badgeDefault: {
+    backgroundColor: tokens.color.sunken,
+  },
+  badgePositioned: {
+    backgroundColor: tokens.color.textPrimary,
   },
   nameInput: {
     minWidth: 0,

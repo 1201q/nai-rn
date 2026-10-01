@@ -214,7 +214,9 @@ export function PromptSheetHost({
   predictiveBackProgress,
   onPromptStageChange,
   onMetadataExtract,
+  onEditCharacterPositions,
 }: {
+  onEditCharacterPositions: (characterId: string | null) => void;
   promptPreview: string;
   promptStage: PromptSheetStage;
   predictiveBackProgress: SharedValue<number>;
@@ -388,7 +390,10 @@ export function PromptSheetHost({
                         style={[styles.promptPage, { width: windowWidth }]}
                       >
                         {item.key === "prompt" ? (
-                          <PromptSheetContent active={active} />
+                          <PromptSheetContent
+                            active={active}
+                            onEditCharacterPositions={onEditCharacterPositions}
+                          />
                         ) : item.key === "reference" ? (
                           <ReferenceImagesSheetContent
                             active={active}

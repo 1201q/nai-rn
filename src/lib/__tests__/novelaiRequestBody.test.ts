@@ -27,6 +27,11 @@ test("V4.5 body with characters, Vibe and Precise references", () => {
         negativePrompt: "bad hands",
         position: { x: 0.3, y: 0.7 },
       },
+      {
+        prompt: "boy, black hair",
+        negativePrompt: "",
+        position: { x: 0.7, y: 0.5 },
+      },
     ],
     characterPositionEnabled: true,
     varietyPlus: true,
@@ -42,6 +47,30 @@ test("V4.5 body with characters, Vibe and Precise references", () => {
 
   expect(seed).toBe(1234);
   expect(body).toMatchSnapshot();
+});
+
+test("ignores custom positions for a single character", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-4-5-full",
+    characterPrompts: [
+      { prompt: "girl", negativePrompt: "", position: { x: 0.3, y: 0.7 } },
+    ],
+    characterPositionEnabled: true,
+  });
+  const parameters = body.parameters as {
+    use_coords: boolean;
+    v4_prompt: {
+      use_coords: boolean;
+      caption: { char_captions: { centers: { x: number; y: number }[] }[] };
+    };
+  };
+
+  expect(parameters.use_coords).toBe(false);
+  expect(parameters.v4_prompt.use_coords).toBe(false);
+  expect(parameters.v4_prompt.caption.char_captions[0].centers).toEqual([
+    { x: 0.5, y: 0.5 },
+  ]);
 });
 
 test("fills Precise Reference defaults when per-image arrays mismatch", () => {

@@ -1,18 +1,12 @@
 import { useState } from "react";
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { Keyboard, StyleSheet } from "react-native";
 
 import type { CharacterPrompt } from "../../../store/generationStore";
 import { useGenerationStore } from "../../../store/generationStore";
 import { CharacterPromptSection } from "../CharacterPromptSection";
 
-const mockOpenCharacterPosition = jest.fn();
-
-jest.mock("../../../context/AppSheetContext", () => ({
-  useAppSheet: () => ({
-    openCharacterPosition: mockOpenCharacterPosition,
-  }),
-}));
+const mockEditPositions = jest.fn();
 
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
@@ -95,6 +89,7 @@ function CharacterPromptSectionHarness() {
       active
       editingCharacterId={editingCharacterId}
       onEditingCharacterChange={setEditingCharacterId}
+      onEditPositions={mockEditPositions}
     />
   );
 }
@@ -104,7 +99,7 @@ describe("CharacterPromptSection", () => {
     useGenerationStore.getState().setCharacterPrompts([]);
     useGenerationStore.getState().setCharacterPromptExpandedIds([]);
     useGenerationStore.getState().setCharacterPositionEnabled(false);
-    mockOpenCharacterPosition.mockClear();
+    mockEditPositions.mockClear();
   });
 
   it("adds a character and stores its editable name in the existing name field", async () => {
@@ -143,18 +138,49 @@ describe("CharacterPromptSection", () => {
     expect(getByLabelText("character-token-negative")).toBeTruthy();
   });
 
-  it("enables custom positions before opening the existing position sheet", async () => {
-    const { getByLabelText, queryByLabelText } = await render(
-      <CharacterPromptSectionHarness />,
-    );
+  it("allows custom positions only from two characters", async () => {
+    const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
-    const character = useGenerationStore.getState().characterPrompts[0];
-    expect(queryByLabelText("Character 1 복사")).toBeNull();
+    await fireEvent.press(getByLabelText("Custom position"));
+    await fireEvent.press(getByLabelText("캐릭터 위치 편집"));
     await fireEvent.press(getByLabelText("Character 1 위치 지정"));
+    expect(useGenerationStore.getState().characterPositionEnabled).toBe(false);
+    expect(mockEditPositions).not.toHaveBeenCalled();
 
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
+    const character = useGenerationStore.getState().characterPrompts[1];
+    await fireEvent.press(getByLabelText("캐릭터 위치 편집"));
     expect(useGenerationStore.getState().characterPositionEnabled).toBe(true);
-    expect(mockOpenCharacterPosition).toHaveBeenCalledWith(character.id);
+    expect(mockEditPositions).toHaveBeenLastCalledWith(null);
+
+    await fireEvent.press(getByLabelText("Character 2 위치 지정"));
+    expect(mockEditPositions).toHaveBeenLastCalledWith(character.id);
+  });
+
+  it("warns about overlapping custom positions", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+    const warning = /캐릭터 위치가 겹치면/;
+
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
+    expect(queryByText(warning)).toBeNull();
+
+    await fireEvent.press(getByLabelText("Custom position"));
+    expect(queryByText(warning)).toBeTruthy();
+
+    const [first, second] = useGenerationStore.getState().characterPrompts;
+    await act(() => {
+      useGenerationStore
+        .getState()
+        .setCharacterPrompts([
+          first,
+          { ...second, position: { x: 0.1, y: 0.5 } },
+        ]);
+    });
+    expect(queryByText(warning)).toBeNull();
   });
 
   it("opens a collapsed editor only from its prompt content", async () => {

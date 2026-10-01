@@ -166,6 +166,25 @@ jest.mock("../GenerationCanvas", () => ({
   },
 }));
 
+jest.mock("../CharacterPositionEditor", () => ({
+  CharacterPositionEditor: ({
+    initialCharacterId,
+    onFinish,
+  }: {
+    initialCharacterId: string | null;
+    onFinish: () => void;
+  }) => {
+    const React = require("react") as typeof import("react");
+    const { Pressable } =
+      require("react-native") as typeof import("react-native");
+    return React.createElement(Pressable, {
+      testID: "position-editor",
+      accessibilityLabel: `위치 편집 ${initialCharacterId}`,
+      onPress: onFinish,
+    });
+  },
+}));
+
 jest.mock("../GenerationSheetScaffold", () => {
   const React = require("react") as typeof import("react");
   const { Pressable, Text, View } =
@@ -177,9 +196,11 @@ jest.mock("../GenerationSheetScaffold", () => {
     PromptSheetHost: ({
       promptStage,
       onPromptStageChange,
+      onEditCharacterPositions,
     }: {
       promptStage: "collapsed" | "half" | "full";
       onPromptStageChange: (stage: "collapsed" | "half" | "full") => void;
+      onEditCharacterPositions: (characterId: string | null) => void;
     }) =>
       React.createElement(
         View,
@@ -188,6 +209,10 @@ jest.mock("../GenerationSheetScaffold", () => {
         React.createElement(Pressable, {
           accessibilityLabel: "Prompt 테스트 열기",
           onPress: () => onPromptStageChange("full"),
+        }),
+        React.createElement(Pressable, {
+          accessibilityLabel: "위치 편집 테스트 열기",
+          onPress: () => onEditCharacterPositions("character-2"),
         }),
       ),
     UtilitySheetHost: function MockUtilitySheet({
@@ -366,6 +391,38 @@ describe("GenerationScreen generation acceptance", () => {
     expect(screen.getByTestId("generation-screen")).toHaveStyle({
       paddingBottom: 162,
     });
+  });
+
+  test("position editing collapses sheets and ends on save, back, or a sheet opening", async () => {
+    const screen = await render(<GenerationScreen />);
+    const openEditor = () =>
+      fireEvent.press(screen.getByLabelText("위치 편집 테스트 열기"));
+
+    await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+    await fireEvent.press(screen.getByLabelText("Settings 열기"));
+    await openEditor();
+    expect(screen.getByLabelText("위치 편집 character-2")).toBeTruthy();
+    expect(screen.getByTestId("prompt-stage").props.children).toBe("collapsed");
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
+
+    await fireEvent.press(screen.getByTestId("position-editor"));
+    expect(screen.queryByTestId("position-editor")).toBeNull();
+
+    await openEditor();
+    const [enabled, handlers] = mockBackHandlers.mock.calls.at(-1)!;
+    expect(enabled).toBe(true);
+    await act(() => handlers.onCommit!());
+    expect(screen.queryByTestId("position-editor")).toBeNull();
+
+    await openEditor();
+    await fireEvent.press(screen.getByLabelText("Settings 열기"));
+    expect(screen.queryByTestId("position-editor")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("Settings 닫기"));
+    await openEditor();
+    await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+    expect(screen.queryByTestId("position-editor")).toBeNull();
+    await screen.unmount();
   });
 
   test("keeps Prompt open when generation validation is rejected", async () => {

@@ -27,12 +27,6 @@ function CommitPendingInputButton() {
   );
 }
 
-jest.mock("../../../context/AppSheetContext", () => ({
-  useAppSheet: () => ({
-    openCharacterPosition: jest.fn(),
-  }),
-}));
-
 jest.mock("../../../store/generationStore", () => {
   const { create } = require("zustand") as typeof import("zustand");
   const useGenerationStore = create<{
@@ -170,7 +164,9 @@ describe("PromptComposerCard", () => {
         bottom,
         left: 0,
       });
-      const screen = await render(<PromptSheetContent active />);
+      const screen = await render(
+        <PromptSheetContent active onEditCharacterPositions={jest.fn()} />,
+      );
 
       const { contentContainerStyle } =
         screen.getByTestId("prompt-scroll").props;

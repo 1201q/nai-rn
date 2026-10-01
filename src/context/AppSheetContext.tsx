@@ -23,24 +23,21 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 
-import { CharacterPositionSheet } from "../components/sheets/CharacterPositionSheet";
 import { BatchCountSheet } from "../components/sheets/BatchCountSheet";
 import { useBackHandler } from "../native/useBackHandler";
 import { tokens } from "../styles/tokens";
 
-type AppSheetRoute = "batchCount" | "characterPosition";
+type AppSheetRoute = "batchCount";
 const IDLE_ROUTE = "__idle__";
 type SheetRoute = AppSheetRoute | typeof IDLE_ROUTE;
 
 type SheetEntry = {
   route: SheetRoute;
-  characterId?: string;
 };
 type OpenSheetEntry = SheetEntry & { route: AppSheetRoute };
 
 type AppSheetContextValue = {
   open: (route: "batchCount") => void;
-  openCharacterPosition: (characterId: string) => void;
   close: () => void;
 };
 
@@ -59,7 +56,7 @@ type AppSheetRouteConfig = {
   snapPoint: string;
   contentPanning: boolean;
   closeOnBackdrop: boolean;
-  render: (entry: SheetEntry) => ReactNode;
+  render: () => ReactNode;
 };
 
 const APP_SHEET_ROUTES: Record<AppSheetRoute, AppSheetRouteConfig> = {
@@ -69,16 +66,6 @@ const APP_SHEET_ROUTES: Record<AppSheetRoute, AppSheetRouteConfig> = {
     contentPanning: false,
     closeOnBackdrop: false,
     render: () => <BatchCountSheet />,
-  },
-  characterPosition: {
-    title: "Character Position",
-    snapPoint: "68%",
-    contentPanning: true,
-    closeOnBackdrop: true,
-    render: (entry) =>
-      entry.characterId ? (
-        <CharacterPositionSheet characterId={entry.characterId} />
-      ) : null,
   },
 };
 const IDLE_SNAP_POINT = "1%";
@@ -178,13 +165,6 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
     [openEntry],
   );
 
-  const openCharacterPosition = useCallback(
-    (characterId: string) => {
-      openEntry({ route: "characterPosition", characterId });
-    },
-    [openEntry],
-  );
-
   const handleChange = useCallback(
     (index: number) => {
       const wasOpen = openRef.current;
@@ -238,8 +218,8 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AppSheetContextValue>(
-    () => ({ open, openCharacterPosition, close }),
-    [open, openCharacterPosition, close],
+    () => ({ open, close }),
+    [open, close],
   );
 
   const snapPoint = routeConfig?.snapPoint ?? IDLE_SNAP_POINT;
@@ -314,7 +294,7 @@ export function AppSheetProvider({ children }: { children: ReactNode }) {
                   entering={ROUTE_FADE_IN}
                   style={sheetStyles.routeContent}
                 >
-                  {routeConfig.render(current)}
+                  {routeConfig.render()}
                 </Reanimated.View>
               </Reanimated.View>
             </BottomSheetScrollView>

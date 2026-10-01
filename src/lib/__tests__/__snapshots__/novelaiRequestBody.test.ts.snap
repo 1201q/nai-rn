@@ -102,6 +102,15 @@ exports[`V4.5 body with characters, Vibe and Precise references 1`] = `
             ],
             "char_caption": "bad hands",
           },
+          {
+            "centers": [
+              {
+                "x": 0.7,
+                "y": 0.5,
+              },
+            ],
+            "char_caption": "",
+          },
         ],
       },
       "legacy_uc": false,
@@ -120,6 +129,15 @@ exports[`V4.5 body with characters, Vibe and Precise references 1`] = `
               },
             ],
             "char_caption": "girl, red hair",
+          },
+          {
+            "centers": [
+              {
+                "x": 0.7,
+                "y": 0.5,
+              },
+            ],
+            "char_caption": "boy, black hair",
           },
         ],
       },

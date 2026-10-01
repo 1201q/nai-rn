@@ -462,8 +462,10 @@ export const PromptComposerCard = memo(function PromptComposerCard({
 
 export const PromptSheetContent = memo(function PromptSheetContent({
   active,
+  onEditCharacterPositions,
 }: {
   active: boolean;
+  onEditCharacterPositions: (characterId: string | null) => void;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(
@@ -500,6 +502,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
         active={active}
         editingCharacterId={editingCharacterId}
         onEditingCharacterChange={setEditingCharacterId}
+        onEditPositions={onEditCharacterPositions}
       />
     </BottomSheetKeyboardAwareScrollView>
   );
