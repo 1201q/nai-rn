@@ -61,9 +61,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   metadataPagerController: MetadataSheetPagerController;
 }) {
   if (sheet === "history") {
-    return (
-      <HistorySheetContent controller={historyController} active={active} />
-    );
+    return <HistorySheetContent controller={historyController} />;
   }
 
   if (sheet === "metadata") {
@@ -121,28 +119,24 @@ export function UtilitySheetHost({
   const [transition, setTransition] = useState(() => ({
     sheet,
     content: sheet,
-    retained: sheet === "metadata" ? null : sheet,
+    retainSettings: sheet === "settings",
   }));
   if (transition.sheet !== sheet) {
     // Retain closing content without waiting for a second React commit to open.
     setTransition({
       sheet,
       content: sheet ?? transition.content,
-      // Settings and History stay mounted while closed; History keeps its scroll.
-      retained:
-        sheet === null
-          ? transition.retained
-          : sheet === "metadata"
-            ? null
-            : sheet,
+      retainSettings:
+        sheet === null ? transition.retainSettings : sheet === "settings",
     });
   }
   const latestTransition = useRef(transition);
   latestTransition.current = transition;
   const renderedSheet = sheet ?? transition.content;
   const visible = renderedSheet !== null;
-  // Cached content must not keep the backdrop or back handler active.
-  const contentSheet = renderedSheet ?? transition.retained;
+  // Cached Settings must not keep the backdrop or back handler active.
+  const contentSheet =
+    renderedSheet ?? (transition.retainSettings ? "settings" : null);
   const historyController = useHistorySheetController({ onClose });
   const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();

@@ -29,8 +29,6 @@ const mockSheetSnap = jest.fn();
 const mockSettingsMounted = jest.fn();
 const mockSettingsUnmounted = jest.fn();
 const mockSettingsScrollTo = jest.fn();
-const mockHistoryMounted = jest.fn();
-const mockHistoryUnmounted = jest.fn();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -174,23 +172,12 @@ jest.mock("../../../components/generation/PromptSheetContent", () => {
     },
   };
 });
-jest.mock("../../../components/generation/HistorySheetContent", () => {
-  const React = require("react") as typeof import("react");
-  return {
-    useHistorySheetController: () => ({ exitSelectionMode: jest.fn() }),
-    HistorySheetContent: function MockHistorySheetContent() {
-      React.useEffect(() => {
-        mockHistoryMounted();
-        return () => {
-          mockHistoryUnmounted();
-        };
-      }, []);
-      return null;
-    },
-    HistorySheetFooter: () => null,
-    HistorySheetHandle: () => null,
-  };
-});
+jest.mock("../../../components/generation/HistorySheetContent", () => ({
+  useHistorySheetController: () => ({ exitSelectionMode: jest.fn() }),
+  HistorySheetContent: () => null,
+  HistorySheetFooter: () => null,
+  HistorySheetHandle: () => null,
+}));
 jest.mock(
   "../../../components/generation/BottomSheetKeyboardAwareScrollView",
   () => {
@@ -508,24 +495,6 @@ describe("Utility sheet transitions", () => {
     ).toBeNull();
     await screen.rerender(content("settings"));
     expect(mockSettingsMounted).toHaveBeenCalledTimes(2);
-  });
-
-  test("keeps History mounted across close and reopen to preserve its scroll", async () => {
-    const content = (sheet: "history" | "settings" | null) => (
-      <UtilitySheetHost
-        sheet={sheet}
-        predictiveBackProgress={backProgress}
-        onClose={jest.fn()}
-      />
-    );
-    const screen = await render(content("history"));
-    await screen.rerender(content(null));
-    await act(() => mockSheetProps.mock.calls.at(-1)![0].onClose!());
-    expect(mockHistoryUnmounted).not.toHaveBeenCalled();
-    await screen.rerender(content("history"));
-    expect(mockHistoryMounted).toHaveBeenCalledTimes(1);
-    await screen.rerender(content("settings"));
-    expect(mockHistoryUnmounted).toHaveBeenCalledTimes(1);
   });
 
   test("clears hidden input registration and restores Settings UI on reopen", async () => {
