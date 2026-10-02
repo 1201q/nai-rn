@@ -131,29 +131,31 @@ export const HistorySheetTile = memo(function HistorySheetTile({
           transition={0}
           style={StyleSheet.absoluteFill}
         />
-        {/* Selection visuals stay mounted and only toggle opacity, so mode
-            switches and select-all do not create views in every tile. */}
-        <View
-          pointerEvents="none"
-          style={[styles.selectedOverlay, !selected && styles.hidden]}
-        />
-        <View
-          pointerEvents="none"
-          style={[
-            styles.selectionIndicator,
-            selected && styles.selectionIndicatorSelected,
-            !selectionMode && styles.hidden,
-          ]}
-        >
-          <Ionicons
-            name="checkmark"
-            size={14}
-            color={tokens.color.onAccent}
-            style={!selected && styles.hidden}
-          />
-        </View>
+        {selected ? (
+          <View pointerEvents="none" style={styles.selectedDim} />
+        ) : null}
+        {selectionMode ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.selectionIndicator,
+              selected && styles.selectionIndicatorSelected,
+            ]}
+          >
+            {selected ? (
+              <Ionicons
+                name="checkmark"
+                size={14}
+                color={tokens.color.onAccent}
+              />
+            ) : null}
+          </View>
+        ) : null}
         {isCurrent ? (
           <View pointerEvents="none" style={styles.currentRing} />
+        ) : null}
+        {selected ? (
+          <View pointerEvents="none" style={styles.selectedRing} />
         ) : null}
       </Pressable>
     </View>
@@ -179,7 +181,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(10,10,12,0.62)",
   },
-  selectedOverlay: {
+  selectedDim: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(10,10,12,0.38)",
+  },
+  selectedRing: {
     position: "absolute",
     top: 0,
     right: 0,
@@ -188,10 +198,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: tokens.color.accent,
     borderRadius: 12,
-    backgroundColor: "rgba(10,10,12,0.38)",
-  },
-  hidden: {
-    opacity: 0,
   },
   currentRing: {
     position: "absolute",

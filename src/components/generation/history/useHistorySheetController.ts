@@ -175,11 +175,6 @@ export function useHistorySheetController({
       setSelectedIds(new Set());
       return;
     }
-    // The store keeps a loaded ID catalog current, so reuse it.
-    if (historyIds !== null) {
-      setSelectedIds(new Set(historyIds));
-      return;
-    }
     const request = ++selectionRequestRef.current;
     selectingAllRef.current = true;
     setSelectingAll(true);
@@ -198,7 +193,7 @@ export function useHistorySheetController({
         setSelectingAll(false);
       }
     }
-  }, [allSelected, busy, historyIds, loadHistoryIds]);
+  }, [allSelected, busy, loadHistoryIds]);
 
   const saveSelected = useCallback(async () => {
     if (

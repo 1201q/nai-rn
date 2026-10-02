@@ -1,13 +1,4 @@
-import {
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import BottomSheet, {
   type BottomSheetFooterProps,
@@ -53,24 +44,6 @@ export type UtilitySheet = "settings" | "history" | "metadata";
 
 const UTILITY_BACKDROP_Z_INDEX = 82;
 const UTILITY_SHEET_Z_INDEX = 85;
-
-const HistoryControllerContext = createContext<HistorySheetController | null>(
-  null,
-);
-
-// gorhom renders these as component types, so they must keep one identity;
-// a new function per controller change would remount the handle and footer.
-function HistoryHandle(_props: BottomSheetHandleProps) {
-  const controller = useContext(HistoryControllerContext);
-  return controller ? <HistorySheetHandle controller={controller} /> : null;
-}
-
-function HistoryFooter(props: BottomSheetFooterProps) {
-  const controller = useContext(HistoryControllerContext);
-  return controller ? (
-    <HistorySheetFooter {...props} controller={controller} />
-  ) : null;
-}
 
 const UtilitySheetContent = memo(function UtilitySheetContent({
   sheet,
@@ -197,6 +170,18 @@ export function UtilitySheetHost({
     },
     [transition],
   );
+  const renderHistoryFooter = useCallback(
+    (props: BottomSheetFooterProps) => (
+      <HistorySheetFooter {...props} controller={historyController} />
+    ),
+    [historyController],
+  );
+  const renderHistoryHandle = useCallback(
+    (_props: BottomSheetHandleProps) => (
+      <HistorySheetHandle controller={historyController} />
+    ),
+    [historyController],
+  );
   const historySelectionBackActive =
     renderedSheet === "history" && historyController.selectionMode;
 
@@ -258,61 +243,59 @@ export function UtilitySheetHost({
         progress={predictiveBackProgress}
         zIndex={UTILITY_SHEET_Z_INDEX}
       >
-        <HistoryControllerContext.Provider value={historyController}>
-          <BottomSheet
-            ref={sheetRef}
-            index={sheet === null ? -1 : 0}
-            snapPoints={snapPoints}
-            animatedIndex={animatedIndex}
-            animationConfigs={animationConfigs}
-            animateOnMount={false}
-            enableDynamicSizing={false}
-            enableContentPanningGesture
-            enableHandlePanningGesture
-            enableOverDrag={false}
-            enablePanDownToClose
-            enableBlurKeyboardOnGesture
-            keyboardBehavior="extend"
-            keyboardBlurBehavior="restore"
-            android_keyboardInputMode="adjustResize"
-            activeOffsetY={renderedSheet === "metadata" ? [-10, 10] : undefined}
-            failOffsetX={renderedSheet === "metadata" ? [-18, 18] : undefined}
-            waitFor={
-              renderedSheet === "metadata"
-                ? metadataPagerController.pageGesture
-                : undefined
-            }
-            handleComponent={
-              renderedSheet === "history" ? HistoryHandle : undefined
-            }
-            footerComponent={
-              renderedSheet === "history" ? HistoryFooter : undefined
-            }
-            handleStyle={sheetChromeStyles.handleArea}
-            handleIndicatorStyle={sheetChromeStyles.handleIndicator}
-            style={styles.utilitySheetMask}
-            containerStyle={styles.utilitySheetContainer}
-            backgroundStyle={sheetChromeStyles.sheetBackground}
-            onClose={handleSheetClosed}
-            onChange={handleSheetChanged}
-          >
-            {contentSheet === null ? (
-              <BottomSheetView style={sheetChromeStyles.sheetBody}>
-                {null}
-              </BottomSheetView>
-            ) : (
-              <UtilitySheetContent
-                key={contentSheet}
-                sheet={contentSheet}
-                active={visible}
-                onClose={onClose}
-                historyController={historyController}
-                generation={generation}
-                metadataPagerController={metadataPagerController}
-              />
-            )}
-          </BottomSheet>
-        </HistoryControllerContext.Provider>
+        <BottomSheet
+          ref={sheetRef}
+          index={sheet === null ? -1 : 0}
+          snapPoints={snapPoints}
+          animatedIndex={animatedIndex}
+          animationConfigs={animationConfigs}
+          animateOnMount={false}
+          enableDynamicSizing={false}
+          enableContentPanningGesture
+          enableHandlePanningGesture
+          enableOverDrag={false}
+          enablePanDownToClose
+          enableBlurKeyboardOnGesture
+          keyboardBehavior="extend"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
+          activeOffsetY={renderedSheet === "metadata" ? [-10, 10] : undefined}
+          failOffsetX={renderedSheet === "metadata" ? [-18, 18] : undefined}
+          waitFor={
+            renderedSheet === "metadata"
+              ? metadataPagerController.pageGesture
+              : undefined
+          }
+          handleComponent={
+            renderedSheet === "history" ? renderHistoryHandle : undefined
+          }
+          footerComponent={
+            renderedSheet === "history" ? renderHistoryFooter : undefined
+          }
+          handleStyle={sheetChromeStyles.handleArea}
+          handleIndicatorStyle={sheetChromeStyles.handleIndicator}
+          style={styles.utilitySheetMask}
+          containerStyle={styles.utilitySheetContainer}
+          backgroundStyle={sheetChromeStyles.sheetBackground}
+          onClose={handleSheetClosed}
+          onChange={handleSheetChanged}
+        >
+          {contentSheet === null ? (
+            <BottomSheetView style={sheetChromeStyles.sheetBody}>
+              {null}
+            </BottomSheetView>
+          ) : (
+            <UtilitySheetContent
+              key={contentSheet}
+              sheet={contentSheet}
+              active={visible}
+              onClose={onClose}
+              historyController={historyController}
+              generation={generation}
+              metadataPagerController={metadataPagerController}
+            />
+          )}
+        </BottomSheet>
       </PredictiveBackSheetLayer>
     </>
   );
