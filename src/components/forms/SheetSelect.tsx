@@ -44,6 +44,7 @@ export function SheetSelect({
   variant = "field",
   open: controlledOpen,
   onOpenChange,
+  portalHostName = SHEET_SELECT_PORTAL_HOST,
   style,
 }: {
   label?: string;
@@ -55,6 +56,8 @@ export function SheetSelect({
   variant?: "field" | "compact";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  // 생성 화면 밖에서는 그 화면이 직접 띄운 PortalHost 이름을 넘긴다.
+  portalHostName?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -187,7 +190,7 @@ export function SheetSelect({
       </Pressable>
 
       {open && anchor ? (
-        <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
+        <Portal hostName={portalHostName}>
           <View style={styles.portal}>
             <Pressable
               {...NATIVE_RESPONDER_BLOCKER}

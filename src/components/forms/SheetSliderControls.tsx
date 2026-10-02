@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Reanimated, {
@@ -31,8 +37,11 @@ export function SheetSliderControls({
   onChange,
   active = true,
   inSheet = true,
+  header,
 }: {
   active?: boolean;
+  // 넘기면 값 입력칸이 header 오른쪽으로 올라가고 슬라이더는 아래 줄 전체 폭을 쓴다.
+  header?: ReactNode;
   // BottomSheetTextInput은 시트 밖에서 렌더하면 throw하므로 일반 화면에선 false.
   inSheet?: boolean;
   label: string;
@@ -105,63 +114,82 @@ export function SheetSliderControls({
     inputCommit.commitAndDeactivate();
   }
 
-  return (
-    <View style={styles.settingsSliderControls}>
-      <View style={styles.settingsSliderValueBox}>
-        <ValueInput
-          accessibilityLabel={`${label} 값`}
-          value={draftValue}
-          animatedProps={animatedInputProps}
-          onChangeText={(next) => {
-            editing.value = true;
-            draftValueRef.current = next;
-            setDraftValue(next);
-          }}
-          onFocus={() => {
-            inputFocusedRef.current = true;
-            editing.value = true;
-            const next = formatSliderValue(display.value, precision);
-            draftValueRef.current = next;
-            setDraftValue(next);
-            inputCommit.activate();
-          }}
-          onBlur={() => {
-            inputFocusedRef.current = false;
-            editing.value = false;
-            inputCommit.commitAndDeactivate();
-            if (slidingRef.current) inputCommit.activate();
-          }}
-          onSubmitEditing={commitDraft}
-          keyboardType={precision === 0 ? "number-pad" : "decimal-pad"}
-          returnKeyType="done"
-          submitBehavior="blurAndSubmit"
-          selectTextOnFocus
-          style={styles.settingsSliderValue}
-        />
-      </View>
-      <Slider
-        accessibilityLabel={label}
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        precision={precision}
-        display={display}
-        trackHeight={6}
-        thumbSize={24}
-        pill
-        jumpOnTap
-        onSlidingStart={() => {
-          slidingRef.current = true;
-          editing.value = false;
-          commitPendingInput();
+  const valueBox = (
+    <View style={styles.settingsSliderValueBox}>
+      <ValueInput
+        accessibilityLabel={`${label} 값`}
+        value={draftValue}
+        animatedProps={animatedInputProps}
+        onChangeText={(next) => {
+          editing.value = true;
+          draftValueRef.current = next;
+          setDraftValue(next);
+        }}
+        onFocus={() => {
+          inputFocusedRef.current = true;
+          editing.value = true;
+          const next = formatSliderValue(display.value, precision);
+          draftValueRef.current = next;
+          setDraftValue(next);
           inputCommit.activate();
         }}
-        trackBg={tokens.color.sunken}
-        thumbBorderWidth={0}
-        onSlidingComplete={handleSliderComplete}
-        style={styles.settingsSliderTrack}
+        onBlur={() => {
+          inputFocusedRef.current = false;
+          editing.value = false;
+          inputCommit.commitAndDeactivate();
+          if (slidingRef.current) inputCommit.activate();
+        }}
+        onSubmitEditing={commitDraft}
+        keyboardType={precision === 0 ? "number-pad" : "decimal-pad"}
+        returnKeyType="done"
+        submitBehavior="blurAndSubmit"
+        selectTextOnFocus
+        style={styles.settingsSliderValue}
       />
+    </View>
+  );
+  const slider = (
+    <Slider
+      accessibilityLabel={label}
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      precision={precision}
+      display={display}
+      trackHeight={6}
+      thumbSize={24}
+      pill
+      jumpOnTap
+      onSlidingStart={() => {
+        slidingRef.current = true;
+        editing.value = false;
+        commitPendingInput();
+        inputCommit.activate();
+      }}
+      trackBg={header ? tokens.color.raised : tokens.color.sunken}
+      thumbBorderWidth={0}
+      onSlidingComplete={handleSliderComplete}
+      style={header ? undefined : styles.settingsSliderTrack}
+    />
+  );
+
+  if (header) {
+    return (
+      <View style={styles.settingsSliderStacked}>
+        <View style={styles.settingsSliderHeaderRow}>
+          {header}
+          {valueBox}
+        </View>
+        {slider}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.settingsSliderControls}>
+      {valueBox}
+      {slider}
     </View>
   );
 }
@@ -171,6 +199,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
+  },
+  settingsSliderStacked: {
+    gap: 14,
+  },
+  settingsSliderHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
   },
   settingsSliderValueBox: {
     width: 64,

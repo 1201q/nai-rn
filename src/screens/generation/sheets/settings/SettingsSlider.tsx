@@ -15,7 +15,12 @@ import { useBackHandler } from "../../../../native/useBackHandler";
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
-  "steps" | "promptGuidance" | "rescale" | "variety";
+  | "steps"
+  | "promptGuidance"
+  | "rescale"
+  | "variety"
+  | "batchCount"
+  | "imageFormat";
 
 const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
 const TOOLTIP_WIDTH = 280;
@@ -31,16 +36,22 @@ const SETTINGS_HELP: Record<SettingsHelpKey, string> = {
     "높은 Prompt Guidance에서 색이 지나치게 진하거나 경계가 거칠어질 때 완화합니다.",
   variety:
     "초기 구도 단계의 프롬프트 제약을 줄여 포즈와 배경의 다양성을 높입니다.",
+  batchCount:
+    "생성 버튼을 한번 누를 때 연속으로 만들 이미지 수입니다. 이미지 1장의 생성이 끝난 후, 바로 다음 생성으로 진입합니다.",
+  imageFormat:
+    "생성 이미지를 저장할 파일 형식입니다. PNG는 무손실이라 용량이 크고, WebP는 용량이 더 작습니다.",
 };
 
 export function SettingsHelpButton({
   helpKey,
   open,
   onToggle,
+  portalHostName = SHEET_SELECT_PORTAL_HOST,
 }: {
   helpKey: SettingsHelpKey;
   open: boolean;
   onToggle: () => void;
+  portalHostName?: string;
 }) {
   const buttonRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<{
@@ -104,7 +115,7 @@ export function SettingsHelpButton({
         <Ionicons name="information" size={12} color={tokens.color.textMuted} />
       </Pressable>
       {open && anchor ? (
-        <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
+        <Portal hostName={portalHostName}>
           <View style={styles.portal}>
             <Pressable
               {...NATIVE_RESPONDER_BLOCKER}

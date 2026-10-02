@@ -7,6 +7,7 @@ import {
 import { AppSettingsScreen } from "../AppSettingsScreen";
 
 const mockSliderControlsProps = jest.fn();
+const mockSelectProps = jest.fn();
 
 type MockSettingsState = {
   batchCount: number;
@@ -14,6 +15,8 @@ type MockSettingsState = {
   imageFormat: "png" | "webp";
   setImageFormat: jest.Mock<void, ["png" | "webp"]>;
   storedToken: string | null;
+  anlasBalance:
+    Extract<AnlasRefreshResult, { status: "success" }>["balance"] | null;
   saveToken: jest.Mock<Promise<void>, [string]>;
   refreshAnlas: jest.Mock<Promise<AnlasRefreshResult>, []>;
 };
@@ -28,6 +31,7 @@ jest.mock("../../../store/generationStore", () => {
       imageFormat: "png",
       setImageFormat: jest.fn(),
       storedToken: null,
+      anlasBalance: null,
       saveToken: jest.fn(),
       refreshAnlas: jest.fn(),
     })),
@@ -45,6 +49,17 @@ jest.mock("../../../components/forms/SheetSliderControls", () => ({
   },
 }));
 
+jest.mock("../../../components/forms/SheetSelect", () => ({
+  SheetSelect: (props: unknown) => {
+    mockSelectProps(props);
+    return null;
+  },
+}));
+
+jest.mock("@gorhom/portal", () => ({
+  PortalHost: () => null,
+}));
+
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn() }),
 }));
@@ -56,27 +71,6 @@ jest.mock("expo-status-bar", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
-
-jest.mock("../../../components/common/Buttons", () => {
-  const React = require("react") as typeof import("react");
-  const { Pressable, Text } =
-    require("react-native") as typeof import("react-native");
-
-  return {
-    PrimaryButton: ({
-      label,
-      onPress,
-    }: {
-      label: string;
-      onPress: () => void;
-    }) =>
-      React.createElement(
-        Pressable,
-        { accessibilityLabel: label, onPress },
-        React.createElement(Text, null, label),
-      ),
-  };
-});
 
 jest.mock("../../../components/common/DetailScrollHeader", () => ({
   DETAIL_FIXED_HEADER_CONTENT_OFFSET: 0,
@@ -110,6 +104,7 @@ describe("AppSettingsScreen token verification feedback", () => {
       step: 1,
       precision: 0,
       onChange: initialState.setBatchCount,
+      header: expect.anything(),
     });
     await screen.unmount();
   });
@@ -117,11 +112,34 @@ describe("AppSettingsScreen token verification feedback", () => {
   test("selects the image format, with PNG as the default", async () => {
     const screen = await render(<AppSettingsScreen />);
 
-    expect(screen.getByLabelText("PNG").props.accessibilityState).toEqual({
-      selected: true,
-    });
-    await fireEvent.press(screen.getByLabelText("WebP"));
+    const select = mockSelectProps.mock.lastCall[0];
+    expect(select.value).toBe("PNG");
+    expect(select.options).toEqual(["PNG", "WebP"]);
+    select.onChange("WebP");
     expect(initialState.setImageFormat).toHaveBeenCalledWith("webp");
+    await screen.unmount();
+  });
+
+  test("shows tier, Anlas and a masked token once a token is stored", async () => {
+    useGenerationStore.setState({
+      storedToken: "pst-abcdefghijkl1234",
+      anlasBalance: {
+        fixed: 10000,
+        purchased: 2480,
+        total: 12480,
+        tier: 3,
+        expiresAt: 0,
+      },
+    });
+    const screen = await render(<AppSettingsScreen />);
+
+    expect(screen.getByText("OPUS")).toBeTruthy();
+    expect(screen.getByText("12,480")).toBeTruthy();
+    expect(screen.getByText("pst-••••••••1234")).toBeTruthy();
+    expect(screen.queryByLabelText("NovelAI API 토큰")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("토큰 변경"));
+    expect(screen.getByLabelText("NovelAI API 토큰")).toBeTruthy();
     await screen.unmount();
   });
 
@@ -133,7 +151,7 @@ describe("AppSettingsScreen token verification feedback", () => {
       screen.getByLabelText("NovelAI API 토큰"),
       " new-token ",
     );
-    await fireEvent.press(screen.getByLabelText("Save Token"));
+    await fireEvent.press(screen.getByLabelText("토큰 저장"));
 
     await waitFor(() => {
       expect(mockSaveToken).toHaveBeenCalledWith("new-token");

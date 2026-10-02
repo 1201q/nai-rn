@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -10,18 +11,23 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { PortalHost } from "@gorhom/portal";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { PrimaryButton } from "../../components/common/Buttons";
 import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
+import { SheetSelect } from "../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
 import { useGenerationStore } from "../../store/generationStore";
-import { tokens } from "../../styles/tokens";
+import { monoFont, tokens } from "../../styles/tokens";
+import {
+  SettingsHelpButton,
+  type SettingsHelpKey,
+} from "../generation/sheets/settings/SettingsSlider";
 
 type Feedback = {
   tone: "success" | "error";
@@ -32,6 +38,39 @@ const IMAGE_FORMATS = [
   { value: "png", label: "PNG" },
   { value: "webp", label: "WebP" },
 ] as const;
+const IMAGE_FORMAT_LABELS = IMAGE_FORMATS.map((format) => format.label);
+
+// NovelAI 구독 tier (0~3)
+const TIER_NAMES = ["PAPER", "TABLET", "SCROLL", "OPUS"];
+const SELECT_PORTAL_HOST = "app-settings-select-overlay";
+
+function maskToken(token: string) {
+  return `${token.slice(0, 4)}••••••••${token.slice(-4)}`;
+}
+
+function OptionLabel({
+  title,
+  helpKey,
+  helpOpen,
+  onHelpToggle,
+}: {
+  title: string;
+  helpKey: SettingsHelpKey;
+  helpOpen: boolean;
+  onHelpToggle: () => void;
+}) {
+  return (
+    <View style={styles.optionLabel}>
+      <Text style={styles.optionTitle}>{title}</Text>
+      <SettingsHelpButton
+        helpKey={helpKey}
+        open={helpOpen}
+        onToggle={onHelpToggle}
+        portalHostName={SELECT_PORTAL_HOST}
+      />
+    </View>
+  );
+}
 
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -42,17 +81,22 @@ export function AppSettingsScreen() {
   const setImageFormat = useGenerationStore((state) => state.setImageFormat);
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
+  const anlasBalance = useGenerationStore((state) => state.anlasBalance);
   const saveToken = useGenerationStore((state) => state.saveToken);
   const refreshAnlas = useGenerationStore((state) => state.refreshAnlas);
   const [tokenInput, setTokenInput] = useState("");
   const [isTokenVisible, setIsTokenVisible] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [helpKey, setHelpKey] = useState<SettingsHelpKey | null>(null);
 
-  useEffect(() => {
-    if (storedToken) setTokenInput(storedToken);
-  }, [storedToken]);
+  const showEditor = !storedToken || isEditing;
+
+  function toggleHelp(next: SettingsHelpKey) {
+    setHelpKey((current) => (current === next ? null : next));
+  }
 
   async function handleSaveToken() {
     const token = tokenInput.trim();
@@ -68,6 +112,8 @@ export function AppSettingsScreen() {
       const result = await refreshAnlas();
 
       if (result.status === "success") {
+        setIsEditing(false);
+        setTokenInput("");
         setFeedback({
           tone: "success",
           message: "API 토큰을 저장하고 확인했습니다.",
@@ -120,99 +166,140 @@ export function AppSettingsScreen() {
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         >
-          <View>
-            <Text style={styles.sectionLabel}>NOVELAI</Text>
-
-            <View style={styles.tokenCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIcon}>
-                  <Ionicons
-                    name="key-outline"
-                    size={19}
-                    color={tokens.color.accent}
-                  />
-                </View>
-                <View style={styles.cardCopy}>
-                  <Text style={styles.cardTitle}>API Token</Text>
-                  <Text style={styles.cardDescription}>
-                    이미지 생성과 ANLAS 잔액 조회에 사용됩니다
+          <View style={styles.account}>
+            {anlasBalance ? (
+              <>
+                <View style={styles.tierBadge}>
+                  <Text style={styles.tierText}>
+                    {TIER_NAMES[anlasBalance.tier] ?? TIER_NAMES[0]}
                   </Text>
                 </View>
-              </View>
+                <View style={styles.anlasRow}>
+                  <Text style={styles.anlasValue}>
+                    {anlasBalance.total.toLocaleString("en-US")}
+                  </Text>
+                  <Text style={styles.anlasUnit}>Anlas</Text>
+                </View>
+              </>
+            ) : null}
 
-              <View
-                style={[
-                  styles.inputShell,
-                  isInputFocused && styles.inputShellFocused,
-                ]}
-              >
-                <TextInput
-                  value={tokenInput}
-                  accessibilityLabel="NovelAI API 토큰"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isSaving}
-                  onBlur={() => setIsInputFocused(false)}
-                  onChangeText={(value) => {
-                    setTokenInput(value);
-                    setFeedback(null);
-                  }}
-                  onFocus={() => setIsInputFocused(true)}
-                  onSubmitEditing={() => void handleSaveToken()}
-                  placeholder="NovelAI API token"
-                  placeholderTextColor={tokens.color.textMuted}
-                  returnKeyType="done"
-                  secureTextEntry={!isTokenVisible}
-                  selectionColor={tokens.color.accent}
-                  style={styles.tokenInput}
+            {storedToken ? (
+              <View style={styles.tokenRow}>
+                <Ionicons
+                  name="key-outline"
+                  size={16}
+                  color={tokens.color.textMuted}
                 />
+                <Text numberOfLines={1} style={styles.tokenMasked}>
+                  {maskToken(storedToken)}
+                </Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
-                    isTokenVisible ? "토큰 숨기기" : "토큰 표시"
+                    isEditing ? "토큰 변경 취소" : "토큰 변경"
                   }
-                  hitSlop={4}
-                  onPress={() => setIsTokenVisible((current) => !current)}
-                  style={({ pressed }) => [
-                    styles.visibilityButton,
-                    pressed && styles.pressed,
-                  ]}
+                  hitSlop={8}
+                  onPress={() => {
+                    setIsEditing((current) => !current);
+                    setTokenInput("");
+                    setFeedback(null);
+                  }}
+                  style={({ pressed }) => pressed && styles.pressed}
                 >
-                  <Ionicons
-                    name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
-                    size={20}
-                    color={tokens.color.textTertiary}
-                  />
+                  <Text style={styles.tokenAction}>
+                    {isEditing ? "취소" : "변경"}
+                  </Text>
                 </Pressable>
               </View>
-
-              <View style={styles.securityRow}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={13}
-                  color={tokens.color.textMuted}
-                />
-                <Text style={styles.securityText}>
-                  토큰은 이 기기의 보안 저장소에만 저장됩니다
+            ) : (
+              <View>
+                <Text style={styles.optionTitle}>API Token</Text>
+                <Text style={styles.tokenDescription}>
+                  이미지 생성과 ANLAS 잔액 조회에 사용됩니다
                 </Text>
               </View>
-            </View>
+            )}
 
-            <View style={styles.saveButtonRow}>
-              <PrimaryButton
-                label={isSaving ? "Saving..." : "Save Token"}
-                icon={
-                  <Ionicons
-                    name="checkmark"
-                    size={19}
-                    color={tokens.color.onAccent}
+            {showEditor ? (
+              <View style={styles.editor}>
+                <View
+                  style={[
+                    styles.inputShell,
+                    isInputFocused && styles.inputShellFocused,
+                  ]}
+                >
+                  <TextInput
+                    value={tokenInput}
+                    accessibilityLabel="NovelAI API 토큰"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isSaving}
+                    onBlur={() => setIsInputFocused(false)}
+                    onChangeText={(value) => {
+                      setTokenInput(value);
+                      setFeedback(null);
+                    }}
+                    onFocus={() => setIsInputFocused(true)}
+                    onSubmitEditing={() => void handleSaveToken()}
+                    placeholder="NovelAI API token"
+                    placeholderTextColor={tokens.color.textMuted}
+                    returnKeyType="done"
+                    secureTextEntry={!isTokenVisible}
+                    selectionColor={tokens.color.accent}
+                    style={styles.tokenInput}
                   />
-                }
-                loading={isSaving}
-                disabled={isSaving}
-                onPress={() => void handleSaveToken()}
-              />
-            </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isTokenVisible ? "토큰 숨기기" : "토큰 표시"
+                    }
+                    hitSlop={4}
+                    onPress={() => setIsTokenVisible((current) => !current)}
+                    style={({ pressed }) => [
+                      styles.visibilityButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
+                      size={20}
+                      color={tokens.color.textTertiary}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="토큰 저장"
+                    accessibilityState={{ disabled: isSaving }}
+                    disabled={isSaving}
+                    onPress={() => void handleSaveToken()}
+                    style={({ pressed }) => [
+                      styles.saveButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={tokens.color.onAccent}
+                      />
+                    ) : (
+                      <Text style={styles.saveButtonText}>저장</Text>
+                    )}
+                  </Pressable>
+                </View>
+
+                <View style={styles.securityRow}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={13}
+                    color={tokens.color.textMuted}
+                  />
+                  <Text style={styles.securityText}>
+                    토큰은 이 기기의 보안 저장소에만 저장됩니다
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
             {feedback ? (
               <View accessibilityLiveRegion="polite" style={styles.feedbackRow}>
@@ -239,82 +326,51 @@ export function AppSettingsScreen() {
                 </Text>
               </View>
             ) : null}
+          </View>
 
-            <View style={styles.generationSection}>
-              <Text style={styles.sectionLabel}>GENERATION</Text>
-              <View style={styles.legacyCard}>
-                <View style={styles.legacyRow}>
-                  <View style={styles.legacyIcon}>
-                    <Ionicons
-                      name="layers-outline"
-                      size={20}
-                      color={tokens.color.accent}
-                    />
-                  </View>
-                  <View style={styles.legacyCopy}>
-                    <Text style={styles.legacyTitle}>Batch Count</Text>
-                    <Text style={styles.legacyDescription}>
-                      한 번에 생성할 이미지 수
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.batchSlider}>
-                  <SheetSliderControls
-                    inSheet={false}
-                    label="Batch Count"
-                    value={batchCount}
-                    min={1}
-                    max={100}
-                    step={1}
-                    precision={0}
-                    onChange={setBatchCount}
-                  />
-                </View>
-                <View style={styles.legacyRow}>
-                  <View style={styles.legacyIcon}>
-                    <Ionicons
-                      name="image-outline"
-                      size={20}
-                      color={tokens.color.accent}
-                    />
-                  </View>
-                  <View style={styles.legacyCopy}>
-                    <Text style={styles.legacyTitle}>Image Format</Text>
-                    <Text style={styles.legacyDescription}>
-                      생성 이미지를 저장할 형식
-                    </Text>
-                  </View>
-                  <View style={styles.formatOptions}>
-                    {IMAGE_FORMATS.map((format) => {
-                      const selected = imageFormat === format.value;
-                      return (
-                        <Pressable
-                          key={format.value}
-                          accessibilityRole="radio"
-                          accessibilityLabel={format.label}
-                          accessibilityState={{ selected }}
-                          onPress={() => setImageFormat(format.value)}
-                          style={({ pressed }) => [
-                            styles.formatOption,
-                            selected && styles.formatOptionSelected,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.formatOptionText,
-                              selected && styles.formatOptionTextSelected,
-                            ]}
-                          >
-                            {format.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            </View>
+          <View style={styles.option}>
+            <SheetSliderControls
+              inSheet={false}
+              label="Batch Count"
+              value={batchCount}
+              min={1}
+              max={100}
+              step={1}
+              precision={0}
+              onChange={setBatchCount}
+              header={
+                <OptionLabel
+                  title="Batch Count"
+                  helpKey="batchCount"
+                  helpOpen={helpKey === "batchCount"}
+                  onHelpToggle={() => toggleHelp("batchCount")}
+                />
+              }
+            />
+          </View>
+
+          <View style={[styles.option, styles.optionRow]}>
+            <OptionLabel
+              title="Image Format"
+              helpKey="imageFormat"
+              helpOpen={helpKey === "imageFormat"}
+              onHelpToggle={() => toggleHelp("imageFormat")}
+            />
+            <SheetSelect
+              accessibilityLabel="Image Format"
+              value={
+                IMAGE_FORMATS.find((format) => format.value === imageFormat)!
+                  .label
+              }
+              options={IMAGE_FORMAT_LABELS}
+              onChange={(label) =>
+                setImageFormat(
+                  IMAGE_FORMATS.find((format) => format.label === label)!.value,
+                )
+              }
+              portalHostName={SELECT_PORTAL_HOST}
+              style={styles.formatSelect}
+            />
           </View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
@@ -327,6 +383,10 @@ export function AppSettingsScreen() {
         showMore={false}
         hideCompactTitleOnScroll
       />
+
+      <View pointerEvents="box-none" style={styles.selectPortalLayer}>
+        <PortalHost name={SELECT_PORTAL_HOST} />
+      </View>
     </View>
   );
 }
@@ -341,50 +401,65 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: tokens.space[6],
+    paddingHorizontal: tokens.space[10],
   },
-  sectionLabel: {
-    marginBottom: 12,
-    paddingHorizontal: 4,
-    color: tokens.color.textMuted,
+  account: {
+    paddingTop: 4,
+    paddingBottom: 24,
+  },
+  tierBadge: {
+    height: 24,
+    paddingHorizontal: 10,
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(255,201,60,0.45)",
+  },
+  tierText: {
+    color: tokens.color.accent,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type["3xs"],
-    letterSpacing: tokens.tracking.wide,
+    fontSize: tokens.type["2xs"],
+    letterSpacing: 0.3,
   },
-  tokenCard: {
-    padding: 16,
-    borderRadius: tokens.radius.xl,
-    backgroundColor: tokens.color.card,
+  anlasRow: {
+    marginTop: 14,
+    marginBottom: 18,
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
   },
-  cardHeader: {
+  anlasValue: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.bold,
+    fontSize: 34,
+    letterSpacing: -0.8,
+    fontVariant: ["tabular-nums"],
+  },
+  anlasUnit: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.sm,
+  },
+  tokenRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
   },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.sunken,
-  },
-  cardCopy: {
+  tokenMasked: {
     flex: 1,
     minWidth: 0,
+    color: tokens.color.textSecondary,
+    fontFamily: monoFont,
+    fontSize: tokens.type.sm,
   },
-  cardTitle: {
-    color: tokens.color.textPrimary,
+  tokenAction: {
+    color: tokens.color.accent,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.md,
+    fontSize: tokens.type.sm,
   },
-  cardDescription: {
-    marginTop: 3,
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 17,
+  editor: {
+    marginTop: 12,
   },
   inputShell: {
     height: 52,
@@ -409,14 +484,28 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.sm,
   },
   visibilityButton: {
-    width: 48,
+    width: 44,
     height: 50,
     alignItems: "center",
     justifyContent: "center",
   },
+  saveButton: {
+    minWidth: 54,
+    height: 36,
+    marginRight: 8,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.accent,
+  },
+  saveButtonText: {
+    color: tokens.color.onAccent,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.sm,
+  },
   securityRow: {
-    marginTop: 10,
-    paddingHorizontal: 2,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -428,15 +517,9 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["2xs"],
     lineHeight: 17,
   },
-  saveButtonRow: {
-    height: 52,
-    marginTop: 14,
-    flexDirection: "row",
-  },
   feedbackRow: {
     minHeight: 20,
     marginTop: 12,
-    paddingHorizontal: 4,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -451,73 +534,46 @@ const styles = StyleSheet.create({
   feedbackTextError: {
     color: tokens.color.negative,
   },
-  generationSection: {
-    marginTop: 36,
+  option: {
+    paddingVertical: 18,
+    borderTopWidth: 1,
+    borderTopColor: tokens.color.borderSubtle,
   },
-  legacyCard: {
-    overflow: "hidden",
-    borderRadius: tokens.radius.xl,
-    backgroundColor: tokens.color.card,
-  },
-  legacyRow: {
-    minHeight: 72,
-    paddingHorizontal: 16,
+  optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 20,
   },
-  batchSlider: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  formatOptions: {
-    padding: 3,
-    flexDirection: "row",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.sunken,
-  },
-  formatOption: {
-    minWidth: 56,
-    height: 34,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.sm,
-  },
-  formatOptionSelected: {
-    backgroundColor: tokens.color.accent,
-  },
-  formatOptionText: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.xs,
-  },
-  formatOptionTextSelected: {
-    color: tokens.color.onAccent,
-  },
-  legacyIcon: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: tokens.radius.md,
-    backgroundColor: tokens.color.sunken,
-  },
-  legacyCopy: {
+  optionLabel: {
     flex: 1,
     minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
   },
-  legacyTitle: {
+  optionTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.sm,
+    fontSize: 17,
   },
-  legacyDescription: {
-    marginTop: 3,
+  tokenDescription: {
+    marginTop: 6,
     color: tokens.color.textMuted,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
-    lineHeight: 17,
+    fontSize: tokens.type.xs,
+    lineHeight: 19,
+  },
+  formatSelect: {
+    width: 112,
+  },
+  selectPortalLayer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 120,
+    elevation: 120,
   },
   pressed: {
     opacity: tokens.opacity.pressed,
