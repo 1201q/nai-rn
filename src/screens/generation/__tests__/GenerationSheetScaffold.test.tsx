@@ -70,6 +70,7 @@ jest.mock("@gorhom/bottom-sheet", () => {
     },
     BottomSheetScrollView: View,
     BottomSheetTextInput: TextInput,
+    useBottomSheetGestureHandlers: () => ({ handlePanGestureHandler: {} }),
     useBottomSheetTimingConfigs: () => ({}),
   };
 });
@@ -220,15 +221,20 @@ jest.mock("react-native-gesture-handler", () => ({
       for (const method of [
         "enabled",
         "activeOffsetX",
+        "activeOffsetY",
+        "failOffsetX",
         "failOffsetY",
         "shouldCancelWhenOutside",
         "onStart",
         "onUpdate",
+        "onChange",
         "onEnd",
         "onFinalize",
       ]) {
         gesture[method] = jest.fn((callback: (...args: any[]) => void) => {
-          if (method.startsWith("on")) mockPanCallbacks[method] = callback;
+          // 시트 헤더 드래그 제스처(콜백 undefined)가 페이저 콜백을 덮어쓰지 않게 한다.
+          if (method.startsWith("on") && callback)
+            mockPanCallbacks[method] = callback;
           return gesture;
         });
       }

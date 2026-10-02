@@ -15,10 +15,11 @@ import {
 } from "react-native";
 import BottomSheet, {
   BottomSheetView,
+  useBottomSheetGestureHandlers,
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import { GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   Extrapolation,
   interpolate,
@@ -115,96 +116,112 @@ function PromptHeader({
     ],
   }));
   const collapsed = stage === "collapsed";
+  const { handlePanGestureHandler } = useBottomSheetGestureHandlers();
+  // 콘텐츠 드래그를 끈 대신 헤더를 핸들처럼 시트 드래그 영역으로 쓴다.
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-10, 10])
+        .failOffsetX([-18, 18])
+        .shouldCancelWhenOutside(false)
+        .onStart(handlePanGestureHandler.handleOnStart)
+        .onChange(handlePanGestureHandler.handleOnChange)
+        .onEnd(handlePanGestureHandler.handleOnEnd)
+        .onFinalize(handlePanGestureHandler.handleOnFinalize),
+    [handlePanGestureHandler],
+  );
 
   return (
-    <View style={styles.promptHeader}>
-      <Reanimated.View
-        pointerEvents={collapsed ? "auto" : "none"}
-        accessibilityElementsHidden={!collapsed}
-        importantForAccessibility={collapsed ? "auto" : "no-hide-descendants"}
-        style={[styles.promptHeaderLayer, styles.previewLayer, previewStyle]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Prompt 펼치기"
-          onPress={onExpand}
-          style={({ pressed }) => [
-            styles.promptPreviewButton,
-            pressed && styles.pressed,
-          ]}
+    <GestureDetector gesture={dragGesture}>
+      <View style={styles.promptHeader}>
+        <Reanimated.View
+          pointerEvents={collapsed ? "auto" : "none"}
+          accessibilityElementsHidden={!collapsed}
+          importantForAccessibility={collapsed ? "auto" : "no-hide-descendants"}
+          style={[styles.promptHeaderLayer, styles.previewLayer, previewStyle]}
         >
-          <Text numberOfLines={1} style={styles.promptPreviewText}>
-            {preview.trim() || "Prompt를 입력하세요"}
-          </Text>
-          <Ionicons
-            name="chevron-up"
-            size={17}
-            color={tokens.color.textSecondary}
-          />
-        </Pressable>
-      </Reanimated.View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Prompt 펼치기"
+            onPress={onExpand}
+            style={({ pressed }) => [
+              styles.promptPreviewButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text numberOfLines={1} style={styles.promptPreviewText}>
+              {preview.trim() || "Prompt를 입력하세요"}
+            </Text>
+            <Ionicons
+              name="chevron-up"
+              size={17}
+              color={tokens.color.textSecondary}
+            />
+          </Pressable>
+        </Reanimated.View>
 
-      <Reanimated.View
-        pointerEvents={collapsed ? "none" : "auto"}
-        accessibilityElementsHidden={collapsed}
-        importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}
-        style={[styles.promptHeaderLayer, styles.tabsLayer, tabsStyle]}
-      >
-        <View style={styles.promptTabs}>
-          {PROMPT_TABS.map((item) => {
-            const active = item.key === tab;
-            return (
-              <Pressable
-                key={item.key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                onPress={() => onTabChange(item.key)}
-                style={({ pressed }) => [
-                  styles.promptTab,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.promptTabContent}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.promptTabLabel,
-                      active && styles.promptTabLabelActive,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                  {item.key !== "chunks" && counts[item.key] > 0 ? (
-                    <View style={styles.promptTabBadge}>
-                      <Text style={styles.promptTabBadgeText}>
-                        {counts[item.key]}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View
-                  style={[
-                    styles.promptTabIndicator,
-                    active && styles.promptTabIndicatorActive,
-                  ]}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
-        <PressableSurface
-          accessibilityLabel="Prompt 접기"
-          onPress={onCollapse}
-          style={styles.promptCloseButton}
+        <Reanimated.View
+          pointerEvents={collapsed ? "none" : "auto"}
+          accessibilityElementsHidden={collapsed}
+          importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}
+          style={[styles.promptHeaderLayer, styles.tabsLayer, tabsStyle]}
         >
-          <Ionicons
-            name="chevron-down"
-            size={19}
-            color={tokens.color.textPrimary}
-          />
-        </PressableSurface>
-      </Reanimated.View>
-    </View>
+          <View style={styles.promptTabs}>
+            {PROMPT_TABS.map((item) => {
+              const active = item.key === tab;
+              return (
+                <Pressable
+                  key={item.key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => onTabChange(item.key)}
+                  style={({ pressed }) => [
+                    styles.promptTab,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.promptTabContent}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.promptTabLabel,
+                        active && styles.promptTabLabelActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {item.key !== "chunks" && counts[item.key] > 0 ? (
+                      <View style={styles.promptTabBadge}>
+                        <Text style={styles.promptTabBadgeText}>
+                          {counts[item.key]}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View
+                    style={[
+                      styles.promptTabIndicator,
+                      active && styles.promptTabIndicatorActive,
+                    ]}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+          <PressableSurface
+            accessibilityLabel="Prompt 접기"
+            onPress={onCollapse}
+            style={styles.promptCloseButton}
+          >
+            <Ionicons
+              name="chevron-down"
+              size={19}
+              color={tokens.color.textPrimary}
+            />
+          </PressableSurface>
+        </Reanimated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -267,6 +284,16 @@ export function PromptSheetHost({
     ],
     [promptCollapsedHeight, promptFullTop, windowHeight],
   );
+  // gorhom 콘텐츠 영역은 항상 full 높이라 half에선 가려진 만큼 뷰포트를 줄인다.
+  const hiddenAtHalf = snapPoints[2] - snapPoints[1];
+  const pagerViewportStyle = useAnimatedStyle(() => ({
+    marginBottom: interpolate(
+      animatedIndex.value,
+      [1, 2],
+      [hiddenAtHalf, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
   const stageIndex =
     promptStage === "collapsed" ? 0 : promptStage === "half" ? 1 : 2;
 
@@ -331,7 +358,8 @@ export function PromptSheetHost({
           animationConfigs={animationConfigs}
           animateOnMount={false}
           enableDynamicSizing={false}
-          enableContentPanningGesture
+          // gorhom은 콘텐츠 드래그가 켜져 있으면 최상단 스냅에서만 내부 스크롤을 풀어준다.
+          enableContentPanningGesture={false}
           enableHandlePanningGesture
           enableOverDrag={false}
           enablePanDownToClose={false}
@@ -368,7 +396,9 @@ export function PromptSheetHost({
               onCollapse={collapsePrompt}
             />
             <GestureDetector gesture={promptPageGesture}>
-              <View style={styles.promptPagerViewport}>
+              <Reanimated.View
+                style={[styles.promptPagerViewport, pagerViewportStyle]}
+              >
                 <Reanimated.View
                   style={[
                     styles.promptPagerTrack,
@@ -406,7 +436,7 @@ export function PromptSheetHost({
                     );
                   })}
                 </Reanimated.View>
-              </View>
+              </Reanimated.View>
             </GestureDetector>
           </BottomSheetView>
         </BottomSheet>
