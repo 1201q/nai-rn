@@ -20,6 +20,7 @@ import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
+import { Toggle } from "../../components/forms/FormControls";
 import { SheetSelect } from "../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
 import { useGenerationStore } from "../../store/generationStore";
@@ -79,6 +80,28 @@ export function AppSettingsScreen() {
   const setBatchCount = useGenerationStore((state) => state.setBatchCount);
   const imageFormat = useGenerationStore((state) => state.imageFormat);
   const setImageFormat = useGenerationStore((state) => state.setImageFormat);
+  const mainImageLocked = useGenerationStore((state) => state.mainImageLocked);
+  const setMainImageLocked = useGenerationStore(
+    (state) => state.setMainImageLocked,
+  );
+  const closeSheetsOnGenerate = useGenerationStore(
+    (state) => state.closeSheetsOnGenerate,
+  );
+  const setCloseSheetsOnGenerate = useGenerationStore(
+    (state) => state.setCloseSheetsOnGenerate,
+  );
+  const predictiveBackPreview = useGenerationStore(
+    (state) => state.predictiveBackPreview,
+  );
+  const setPredictiveBackPreview = useGenerationStore(
+    (state) => state.setPredictiveBackPreview,
+  );
+  const sliderHandleOnly = useGenerationStore(
+    (state) => state.sliderHandleOnly,
+  );
+  const setSliderHandleOnly = useGenerationStore(
+    (state) => state.setSliderHandleOnly,
+  );
   const scrollY = useRef(new Animated.Value(0)).current;
   const storedToken = useGenerationStore((state) => state.storedToken);
   const anlasBalance = useGenerationStore((state) => state.anlasBalance);
@@ -372,6 +395,73 @@ export function AppSettingsScreen() {
               style={styles.formatSelect}
             />
           </View>
+
+          <View style={[styles.option, styles.optionRow]}>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>
+                메인 화면 이미지 확대/이동 잠금
+              </Text>
+              <Text style={styles.optionDescription}>
+                메인 화면의 생성 이미지를 기본 크기와 위치로 고정합니다. 켜 두면
+                드래그, 확대/축소가 잠깁니다.
+              </Text>
+            </View>
+            <Toggle
+              label="이미지 확대/이동 잠금"
+              value={mainImageLocked}
+              onChange={setMainImageLocked}
+            />
+          </View>
+
+          <View style={[styles.option, styles.optionRow]}>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>
+                이미지 생성 시 열린 시트 닫기
+              </Text>
+              <Text style={styles.optionDescription}>
+                이미지 생성 버튼을 누르면 열려 있던 Prompt, Settings, History
+                시트를 닫습니다.
+              </Text>
+            </View>
+            <Toggle
+              label="생성 시 시트 닫기"
+              value={closeSheetsOnGenerate}
+              onChange={setCloseSheetsOnGenerate}
+            />
+          </View>
+
+          <View style={[styles.option, styles.optionRow]}>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>슬라이더 핸들로만 조절하기</Text>
+              <Text style={styles.optionDescription}>
+                슬라이더의 동그란 핸들을 잡고 끌 때만 값이 바뀝니다. 스크롤하다
+                의도치 않게 값이 바뀌는 실수를 막습니다.
+              </Text>
+            </View>
+            <Toggle
+              label="슬라이더 핸들로만 조절"
+              value={sliderHandleOnly}
+              onChange={setSliderHandleOnly}
+            />
+          </View>
+
+          {Platform.OS === "android" ? (
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>뒤로가기 미리보기 (고급)</Text>
+                <Text style={styles.optionDescription}>
+                  뒤로가기 제스처를 하는 동안 시트와 화면이 손가락을 따라
+                  줄어들면서 미리 보입니다. predictive back에 문제가 있다면
+                  끄시는 것을 추천드립니다.
+                </Text>
+              </View>
+              <Toggle
+                label="뒤로가기 미리보기"
+                value={predictiveBackPreview}
+                onChange={setPredictiveBackPreview}
+              />
+            </View>
+          ) : null}
         </Animated.ScrollView>
       </KeyboardAvoidingView>
 
@@ -555,6 +645,17 @@ const styles = StyleSheet.create({
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
     fontSize: 17,
+  },
+  optionText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  optionDescription: {
+    marginTop: 4,
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.xs,
+    lineHeight: 19,
   },
   tokenDescription: {
     marginTop: 6,

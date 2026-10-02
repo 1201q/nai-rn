@@ -34,6 +34,10 @@ function createState(
     i2iStrength: 0.7,
     i2iNoise: 0,
     mainImageBlurred: false,
+    mainImageLocked: false,
+    closeSheetsOnGenerate: true,
+    predictiveBackPreview: true,
+    sliderHandleOnly: false,
     ...overrides,
   };
 }

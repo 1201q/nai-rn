@@ -22,6 +22,12 @@ const owners = new Map<object, PredictiveBackHandlers>();
 const observers = new Set<PredictiveBackHandlers>();
 let subscriptions: Array<{ remove: () => void }> | null = null;
 let appliedMode: "app" | "system" | null = null;
+let previewEnabled = true;
+
+// 끄면 제스처 중 미리보기 이벤트를 버리고 확정(commit)만 전달한다.
+export function setPredictiveBackPreviewEnabled(enabled: boolean) {
+  previewEnabled = enabled;
+}
 
 function currentHandlers() {
   let current: PredictiveBackHandlers | undefined;
@@ -35,6 +41,8 @@ function dispatch(
   name: keyof PredictiveBackHandlers,
   event?: PredictiveBackEvent,
 ) {
+  if (!previewEnabled && name !== "onCommit") return;
+
   const handler = currentHandlers()?.[name];
   if (handler) {
     if (name === "onStart" || name === "onProgress") {

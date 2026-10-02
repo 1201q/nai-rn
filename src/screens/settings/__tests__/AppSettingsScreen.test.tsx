@@ -14,6 +14,14 @@ type MockSettingsState = {
   setBatchCount: jest.Mock<void, [number]>;
   imageFormat: "png" | "webp";
   setImageFormat: jest.Mock<void, ["png" | "webp"]>;
+  mainImageLocked: boolean;
+  setMainImageLocked: jest.Mock<void, [boolean]>;
+  closeSheetsOnGenerate: boolean;
+  setCloseSheetsOnGenerate: jest.Mock<void, [boolean]>;
+  predictiveBackPreview: boolean;
+  setPredictiveBackPreview: jest.Mock<void, [boolean]>;
+  sliderHandleOnly: boolean;
+  setSliderHandleOnly: jest.Mock<void, [boolean]>;
   storedToken: string | null;
   anlasBalance:
     Extract<AnlasRefreshResult, { status: "success" }>["balance"] | null;
@@ -30,6 +38,14 @@ jest.mock("../../../store/generationStore", () => {
       setBatchCount: jest.fn(),
       imageFormat: "png",
       setImageFormat: jest.fn(),
+      mainImageLocked: false,
+      setMainImageLocked: jest.fn(),
+      closeSheetsOnGenerate: true,
+      setCloseSheetsOnGenerate: jest.fn(),
+      predictiveBackPreview: true,
+      setPredictiveBackPreview: jest.fn(),
+      sliderHandleOnly: false,
+      setSliderHandleOnly: jest.fn(),
       storedToken: null,
       anlasBalance: null,
       saveToken: jest.fn(),
@@ -55,6 +71,22 @@ jest.mock("../../../components/forms/SheetSelect", () => ({
     return null;
   },
 }));
+
+jest.mock("expo-haptics", () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("react-native-reanimated", () => {
+  const React = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  return {
+    __esModule: true,
+    default: { View },
+    useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+    useAnimatedStyle: (factory: () => object) => factory(),
+    withTiming: (value: number) => value,
+  };
+});
 
 jest.mock("@gorhom/portal", () => ({
   PortalHost: () => null,
@@ -117,6 +149,23 @@ describe("AppSettingsScreen token verification feedback", () => {
     expect(select.options).toEqual(["PNG", "WebP"]);
     select.onChange("WebP");
     expect(initialState.setImageFormat).toHaveBeenCalledWith("webp");
+    await screen.unmount();
+  });
+
+  test("toggles the image lock and close-sheets-on-generate options", async () => {
+    const screen = await render(<AppSettingsScreen />);
+
+    const lock = screen.getByLabelText("이미지 확대/이동 잠금");
+    const closeSheets = screen.getByLabelText("생성 시 시트 닫기");
+    expect(lock.props.accessibilityState).toMatchObject({ checked: false });
+    expect(closeSheets.props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+
+    await fireEvent.press(lock);
+    await fireEvent.press(closeSheets);
+    expect(initialState.setMainImageLocked).toHaveBeenCalledWith(true);
+    expect(initialState.setCloseSheetsOnGenerate).toHaveBeenCalledWith(false);
     await screen.unmount();
   });
 

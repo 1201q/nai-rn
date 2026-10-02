@@ -100,6 +100,7 @@ const mockGenerationState = {
   resolution: { width: 832, height: 1216 },
   mainImageBlurred: false,
   setMainImageBlurred: jest.fn(),
+  mainImageLocked: false,
 };
 jest.mock("../../../store/generationStore", () => ({
   useGenerationStore: (selector: (state: object) => unknown) =>
@@ -112,6 +113,7 @@ beforeEach(() => {
   mockGenerationState.isViewingActiveGeneration = false;
   mockGenerationState.isLoading = false;
   mockGenerationState.mainImageBlurred = false;
+  mockGenerationState.mainImageLocked = false;
   jest.clearAllMocks();
 });
 
@@ -313,6 +315,29 @@ describe("generation canvas image loading", () => {
     await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
 
     expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls + 3);
+  });
+
+  test("resets the image transform and disables gestures when locked", async () => {
+    mockGenerationState.currentGeneration = {
+      imagePath: "locked.png",
+      width: 400,
+      height: 200,
+    };
+    const screen = await render(
+      <GenerationCanvas onOpenMetadata={jest.fn()} />,
+    );
+    expect(screen.getByRole("image").props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+    const resetCalls = jest.mocked(cancelAnimation).mock.calls.length;
+
+    mockGenerationState.mainImageLocked = true;
+    await screen.rerender(<GenerationCanvas onOpenMetadata={jest.fn()} />);
+
+    expect(cancelAnimation).toHaveBeenCalledTimes(resetCalls + 3);
+    expect(screen.getByRole("image").props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
   });
 });
 

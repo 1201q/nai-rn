@@ -24,6 +24,7 @@ type MockGenerationState = {
   batchCount: number;
   queueTotal: number;
   queueIndex: number;
+  closeSheetsOnGenerate: boolean;
   generateImage: jest.Mock<Promise<GenerationStartResult>, []>;
   requestQueueCancel: jest.Mock<void, []>;
 };
@@ -43,6 +44,7 @@ jest.mock("../../../store/generationStore", () => {
       batchCount: 1,
       queueTotal: 0,
       queueIndex: 0,
+      closeSheetsOnGenerate: true,
       generateImage: jest.fn(),
       requestQueueCancel: jest.fn(),
     })),
@@ -494,6 +496,23 @@ describe("GenerationScreen generation acceptance", () => {
       );
       expect(screen.getByTestId("utility-sheet").props.children).toBe("closed");
     });
+    await screen.unmount();
+  });
+
+  test("keeps open sheets after generation starts when closing is turned off", async () => {
+    useGenerationStore.setState({ closeSheetsOnGenerate: false });
+    mockGenerateImage.mockResolvedValue({ status: "started" });
+    const screen = await render(<GenerationScreen />);
+
+    await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+    await fireEvent.press(screen.getByLabelText("Settings 열기"));
+    await fireEvent.press(screen.getByLabelText("생성"));
+
+    await waitFor(() => {
+      expect(mockGenerateImage).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId("prompt-stage").props.children).toBe("full");
+    expect(screen.getByTestId("utility-sheet").props.children).toBe("settings");
     await screen.unmount();
   });
 });

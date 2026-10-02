@@ -22,6 +22,8 @@ import { tokens } from "../../styles/tokens";
 
 const SPRING = { damping: 15, stiffness: 220, mass: 0.5 };
 const HAPTIC_INTERVAL_MS = 50;
+// handleOnly일 때 핸들로 인정하는 터치 반폭(핸들이 좁아도 잡을 수 있게).
+const HANDLE_GRAB_HALF_WIDTH = 22;
 
 function hapticTick() {
   Haptics.selectionAsync().catch(() => {});
@@ -51,6 +53,7 @@ export function Slider({
   thumbBorderColor = tokens.color.card,
   thumbBorderWidth,
   jumpOnTap = false,
+  handleOnly = false,
   style,
 }: {
   accessibilityLabel: string;
@@ -73,6 +76,8 @@ export function Slider({
   thumbBorderColor?: string;
   thumbBorderWidth?: number;
   jumpOnTap?: boolean;
+  // 핸들을 잡고 끌 때만 값이 바뀐다. 바를 탭/드래그하면 안내만 띄운다.
+  handleOnly?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const [width, setWidth] = useState(0);
@@ -84,6 +89,7 @@ export function Slider({
   const resolvedThumbBorderWidth = thumbBorderWidth ?? (pill ? 2 : 3);
 
   const active = useSharedValue(false);
+  const grabbed = useSharedValue(true);
   // thumb 중심 x. 드래그 중엔 손가락, 정지 땐 value에서 동기화.
   const posX = useSharedValue(0);
   const pressed = useSharedValue(0);
@@ -159,7 +165,16 @@ export function Slider({
   const pan = Gesture.Pan()
     .activeOffsetX([-6, 6])
     .failOffsetY([-12, 12])
+    .onBegin((e) => {
+      grabbed.value =
+        !handleOnly ||
+        Math.abs(e.x - posX.value) <= Math.max(half, HANDLE_GRAB_HALF_WIDTH);
+    })
     .onStart((e) => {
+      if (!grabbed.value) {
+        runOnJS(showDragHint)();
+        return;
+      }
       active.value = true;
       lastHapticAt.value = -Infinity;
       if (onSlidingStart) runOnJS(onSlidingStart)();
@@ -167,6 +182,7 @@ export function Slider({
       handle(Math.min(width - half, Math.max(half, e.x)));
     })
     .onUpdate((e) => {
+      if (!active.value) return;
       handle(Math.min(width - half, Math.max(half, e.x)));
     })
     .onFinalize(() => {
@@ -180,7 +196,7 @@ export function Slider({
 
   const tap = Gesture.Tap().onEnd((event, success) => {
     if (!success) return;
-    if (jumpOnTap) {
+    if (jumpOnTap && !handleOnly) {
       lastHapticAt.value = -Infinity;
       if (onSlidingStart) runOnJS(onSlidingStart)();
       const x = Math.min(width - half, Math.max(half, event.x));

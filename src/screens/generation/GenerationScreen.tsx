@@ -259,9 +259,11 @@ function GenerationScreenContent() {
     [finishInputEditing],
   );
   const handleGenerationStarted = useCallback(() => {
+    // 위치 편집기는 캔버스를 가리므로 설정과 무관하게 닫는다.
+    setPositionEditing(null);
+    if (!useGenerationStore.getState().closeSheetsOnGenerate) return;
     setUtilitySheet(null);
     setPromptStage("collapsed");
-    setPositionEditing(null);
   }, []);
   const hasUtilitySheet = utilitySheet !== null || utilitySheetVisible;
   const hasOpenSheet = hasUtilitySheet || promptStage !== "collapsed";

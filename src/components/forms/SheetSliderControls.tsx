@@ -17,6 +17,7 @@ import {
   useGenerationInputCommit,
   useGenerationInputCommitRegistration,
 } from "../../context/GenerationInputCommitContext";
+import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 
 const AnimatedBottomSheetTextInput =
@@ -60,6 +61,7 @@ export function SheetSliderControls({
   const draftValueRef = useRef(draftValue);
   const slidingRef = useRef(false);
   const { commitPendingInput } = useGenerationInputCommit();
+  const sliderHandleOnly = useGenerationStore((s) => s.sliderHandleOnly);
   const display = useSharedValue(value);
   const editing = useSharedValue(false);
   const animatedInputProps = useAnimatedProps(() => {
@@ -161,6 +163,7 @@ export function SheetSliderControls({
       thumbSize={24}
       pill
       jumpOnTap
+      handleOnly={sliderHandleOnly}
       onSlidingStart={() => {
         slidingRef.current = true;
         editing.value = false;

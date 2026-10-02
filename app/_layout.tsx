@@ -12,7 +12,10 @@ import { toast } from "sonner-native";
 import { AppToaster } from "../src/components/common/AppToaster";
 import { GenerationOptionsProvider } from "../src/context/GenerationOptionsContext";
 import { PredictiveBackScreen } from "../src/components/navigation/PredictiveBackScreen";
-import { initializePredictiveBack } from "../src/native/predictiveBack";
+import {
+  initializePredictiveBack,
+  setPredictiveBackPreviewEnabled,
+} from "../src/native/predictiveBack";
 import { useGenerationStore } from "../src/store/generationStore";
 import { applyGlobalFont } from "../src/styles/applyGlobalFont";
 import { tokens } from "../src/styles/tokens";
@@ -27,6 +30,9 @@ LogBox.ignoreLogs([
 export default function RootLayout() {
   const message = useGenerationStore((state) => state.message);
   const setMessage = useGenerationStore((state) => state.setMessage);
+  const predictiveBackPreview = useGenerationStore(
+    (state) => state.predictiveBackPreview,
+  );
 
   useEffect(() => {
     if (!message) return;
@@ -37,6 +43,10 @@ export default function RootLayout() {
   useEffect(() => {
     initializePredictiveBack();
   }, []);
+
+  useEffect(() => {
+    setPredictiveBackPreviewEnabled(predictiveBackPreview);
+  }, [predictiveBackPreview]);
 
   return (
     <GestureHandlerRootView

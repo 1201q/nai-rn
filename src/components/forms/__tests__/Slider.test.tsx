@@ -2,6 +2,7 @@ import { useState } from "react";
 import { act, fireEvent, render } from "@testing-library/react-native";
 import * as Haptics from "expo-haptics";
 import { runOnJS, type SharedValue } from "react-native-reanimated";
+import { toast } from "sonner-native";
 
 import { Slider } from "../Slider";
 
@@ -19,6 +20,7 @@ jest.mock("react-native-gesture-handler", () => {
     for (const name of [
       "activeOffsetX",
       "failOffsetY",
+      "onBegin",
       "onStart",
       "onUpdate",
       "onFinalize",
@@ -239,6 +241,45 @@ describe("Slider accessibility and drag updates", () => {
     });
     expect(start).toHaveBeenCalledTimes(1);
     expect(commit).toHaveBeenCalledWith(10);
+  });
+
+  test("handleOnly changes the value only when the drag starts on the handle", async () => {
+    const start = jest.fn();
+    const commit = jest.fn();
+    const screen = await render(
+      <Slider
+        {...defaults}
+        jumpOnTap
+        handleOnly
+        onSlidingStart={start}
+        onSlidingComplete={commit}
+      />,
+    );
+    await fireEvent(screen.getByRole("adjustable"), "layout", {
+      nativeEvent: { layout: { width: 122 } },
+    });
+
+    // value 5 → 핸들 중심 x ≈ 55.4
+    await act(() => {
+      mockTap.onEnd({ x: 111 }, true);
+      mockPan.onBegin({ x: 111 });
+      mockPan.onStart({ x: 105 });
+      mockPan.onUpdate({ x: 11 });
+      mockPan.onFinalize();
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledTimes(2);
+
+    await act(() => {
+      mockPan.onBegin({ x: 60 });
+      mockPan.onStart({ x: 66 });
+      mockPan.onUpdate({ x: 111 });
+      mockPan.onFinalize();
+    });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(commit).toHaveBeenCalledWith(10);
+    expect(toast).toHaveBeenCalledTimes(2);
   });
 
   test("failed gestures do not start or commit", async () => {

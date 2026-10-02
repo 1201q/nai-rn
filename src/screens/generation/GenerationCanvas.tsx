@@ -94,12 +94,14 @@ const FreeTransformImage = memo(function FreeTransformImage({
   size,
   blurRadius,
   enabled,
+  locked,
   onLoad,
 }: {
   uri: string;
   size: Size;
   blurRadius: number;
   enabled: boolean;
+  locked: boolean;
   onLoad: (event: ImageLoadEventData) => void;
 }) {
   const scale = useSharedValue(1);
@@ -109,6 +111,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
   const panStartY = useSharedValue(0);
   const pinchStartScale = useSharedValue(1);
 
+  // 이미지가 바뀌거나 잠금이 켜지면 기본 상태로 되돌린다.
   useEffect(() => {
     cancelAnimation(scale);
     cancelAnimation(translateX);
@@ -116,7 +119,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
     scale.value = 1;
     translateX.value = 0;
     translateY.value = 0;
-  }, [scale, translateX, translateY, uri]);
+  }, [scale, translateX, translateY, uri, locked]);
 
   const panGesture = Gesture.Pan()
     .enabled(enabled)
@@ -248,6 +251,7 @@ export function GenerationCanvas({
   const resolution = useGenerationStore((s) => s.resolution);
   const mainImageBlurred = useGenerationStore((s) => s.mainImageBlurred);
   const setMainImageBlurred = useGenerationStore((s) => s.setMainImageBlurred);
+  const mainImageLocked = useGenerationStore((s) => s.mainImageLocked);
   const [expanded, setExpanded] = useState(true);
   const expandedRef = useRef(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -290,7 +294,7 @@ export function GenerationCanvas({
   const canUseImageActions =
     Boolean(currentImageUri) && !viewingActiveGeneration;
   const canTransformImage =
-    Boolean(currentImageUri) && !viewingActiveGeneration;
+    Boolean(currentImageUri) && !viewingActiveGeneration && !mainImageLocked;
 
   const handleImageLoad = useCallback((event: ImageLoadEventData) => {
     const { url, width, height } = event.source;
@@ -385,6 +389,7 @@ export function GenerationCanvas({
             size={imageSize}
             blurRadius={mainImageBlurred ? MAIN_IMAGE_BLUR_RADIUS : 0}
             enabled={canTransformImage}
+            locked={mainImageLocked}
             onLoad={handleImageLoad}
           />
         ) : null}

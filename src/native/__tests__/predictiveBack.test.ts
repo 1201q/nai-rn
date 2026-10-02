@@ -98,6 +98,35 @@ test("routes native events to the latest owner and to observers", () => {
   expect(observer.onCommit).toHaveBeenCalledTimes(1);
 });
 
+test("delivers only commits while the preview is turned off", () => {
+  const predictiveBack = loadModule();
+  const owner = {
+    onStart: jest.fn(),
+    onProgress: jest.fn(),
+    onCancel: jest.fn(),
+    onCommit: jest.fn(),
+  };
+  const observer = { onProgress: jest.fn(), onCommit: jest.fn() };
+  predictiveBack.acquirePredictiveBack({}, owner);
+  predictiveBack.observePredictiveBack(observer);
+  predictiveBack.setPredictiveBackPreviewEnabled(false);
+
+  emit("predictiveBackStart", EVENT);
+  emit("predictiveBackProgress", EVENT);
+  emit("predictiveBackCancel");
+  emit("predictiveBackCommit");
+  expect(owner.onStart).not.toHaveBeenCalled();
+  expect(owner.onProgress).not.toHaveBeenCalled();
+  expect(owner.onCancel).not.toHaveBeenCalled();
+  expect(observer.onProgress).not.toHaveBeenCalled();
+  expect(owner.onCommit).toHaveBeenCalledTimes(1);
+  expect(observer.onCommit).toHaveBeenCalledTimes(1);
+
+  predictiveBack.setPredictiveBackPreviewEnabled(true);
+  emit("predictiveBackStart", EVENT);
+  expect(owner.onStart).toHaveBeenCalledWith(EVENT);
+});
+
 test("re-acquiring moves an owner back to the top", () => {
   const predictiveBack = loadModule();
   const a = { onCommit: jest.fn() };

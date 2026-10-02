@@ -43,6 +43,10 @@ type StoredGenerationOptions = {
   i2iStrength: number;
   i2iNoise: number;
   mainImageBlurred: boolean;
+  mainImageLocked: boolean;
+  closeSheetsOnGenerate: boolean;
+  predictiveBackPreview: boolean;
+  sliderHandleOnly: boolean;
 };
 
 export type PersistedGenerationOptions = Partial<StoredGenerationOptions>;
@@ -80,6 +84,10 @@ const PERSISTED_OPTION_KEYS = [
   "i2iStrength",
   "i2iNoise",
   "mainImageBlurred",
+  "mainImageLocked",
+  "closeSheetsOnGenerate",
+  "predictiveBackPreview",
+  "sliderHandleOnly",
 ] as const satisfies readonly (keyof PersistableGenerationState)[];
 
 export function selectPersistedOptions(
@@ -119,6 +127,10 @@ export function selectPersistedOptions(
     i2iStrength: state.i2iStrength,
     i2iNoise: state.i2iNoise,
     mainImageBlurred: state.mainImageBlurred,
+    mainImageLocked: state.mainImageLocked,
+    closeSheetsOnGenerate: state.closeSheetsOnGenerate,
+    predictiveBackPreview: state.predictiveBackPreview,
+    sliderHandleOnly: state.sliderHandleOnly,
   };
 }
 

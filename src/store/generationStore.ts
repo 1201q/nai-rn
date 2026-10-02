@@ -305,6 +305,14 @@ type GenerationState = {
   clearI2I: () => void;
   mainImageBlurred: boolean;
   setMainImageBlurred: (v: boolean) => void;
+  mainImageLocked: boolean;
+  setMainImageLocked: (v: boolean) => void;
+  closeSheetsOnGenerate: boolean;
+  setCloseSheetsOnGenerate: (v: boolean) => void;
+  predictiveBackPreview: boolean;
+  setPredictiveBackPreview: (v: boolean) => void;
+  sliderHandleOnly: boolean;
+  setSliderHandleOnly: (v: boolean) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -554,6 +562,18 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isNumber(parsed.i2iNoise)) next.i2iNoise = parsed.i2iNoise;
     if (isBoolean(parsed.mainImageBlurred)) {
       next.mainImageBlurred = parsed.mainImageBlurred;
+    }
+    if (isBoolean(parsed.mainImageLocked)) {
+      next.mainImageLocked = parsed.mainImageLocked;
+    }
+    if (isBoolean(parsed.closeSheetsOnGenerate)) {
+      next.closeSheetsOnGenerate = parsed.closeSheetsOnGenerate;
+    }
+    if (isBoolean(parsed.predictiveBackPreview)) {
+      next.predictiveBackPreview = parsed.predictiveBackPreview;
+    }
+    if (isBoolean(parsed.sliderHandleOnly)) {
+      next.sliderHandleOnly = parsed.sliderHandleOnly;
     }
     return next;
   } catch {
@@ -814,6 +834,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setI2INoise: (v) => set({ i2iNoise: v }),
   mainImageBlurred: false,
   setMainImageBlurred: (v) => set({ mainImageBlurred: v }),
+  mainImageLocked: false,
+  setMainImageLocked: (v) => set({ mainImageLocked: v }),
+  closeSheetsOnGenerate: true,
+  setCloseSheetsOnGenerate: (v) => set({ closeSheetsOnGenerate: v }),
+  predictiveBackPreview: true,
+  setPredictiveBackPreview: (v) => set({ predictiveBackPreview: v }),
+  sliderHandleOnly: false,
+  setSliderHandleOnly: (v) => set({ sliderHandleOnly: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
