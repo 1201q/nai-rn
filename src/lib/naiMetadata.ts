@@ -6,6 +6,7 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
+import { getModelCapabilities } from "../constants/models";
 import type { CharacterPrompt } from "../types/generation";
 import { isBoolean, isNonEmptyString, isNumber } from "./guards";
 import {
@@ -46,6 +47,12 @@ function mapSourceToModel(
   software: string | undefined,
 ): string | undefined {
   const text = `${source ?? ""} ${software ?? ""}`;
+  if (/v5/i.test(text)) {
+    // 공식 웹과 동일: 알려진 Full hash만 Full, 나머지는 Curated로 본다. hash는 모델 갱신 때 바뀔 수 있다.
+    return /657484A5|0ADF9AB7/i.test(text)
+      ? "nai-diffusion-5-full"
+      : "nai-diffusion-5-curated";
+  }
   if (/furry/i.test(text)) return "nai-diffusion-furry-3";
   if (/v4\.5/i.test(text)) {
     return /curated/i.test(text)
@@ -169,8 +176,11 @@ export function parseNaiMetadata(
       : mergedPrompt !== undefined
         ? hasQualityTags(mergedPrompt, presetModel)
         : undefined;
+  // V5의 프리셋 숫자는 앱 인덱스와 체계가 달라 문자열 대조로만 추정한다.
   const ucPreset =
-    comment && isUcPresetIndex(comment.ucPreset)
+    comment &&
+    isUcPresetIndex(comment.ucPreset) &&
+    !getModelCapabilities(presetModel).v5Request
       ? comment.ucPreset
       : mergedNegativePrompt
         ? inferUcPreset(mergedNegativePrompt, presetModel)

@@ -19,14 +19,30 @@ type ExpectedBehavior = {
   v4Prompt: boolean;
   autoSmea: boolean;
   nativeScheduleReplaced: boolean;
-  varietyPlusSigma: number;
+  // 없으면 Variety+를 지원하지 않는 모델
+  varietyPlusSigma?: number;
   addsNsfwToUc: boolean;
   vibeAnlasCost: number;
-  tokenizer: "t5" | "clip";
-  maxTokens: number;
+  // 없으면 토큰 정책이 없는 모델
+  tokenizer?: "t5" | "clip";
+  maxTokens?: number;
 };
 
 const EXPECTED: Record<string, ExpectedBehavior> = {
+  "nai-diffusion-5-full": {
+    v4Prompt: true,
+    autoSmea: false,
+    nativeScheduleReplaced: true,
+    addsNsfwToUc: true,
+    vibeAnlasCost: 0,
+  },
+  "nai-diffusion-5-curated": {
+    v4Prompt: true,
+    autoSmea: false,
+    nativeScheduleReplaced: true,
+    addsNsfwToUc: false,
+    vibeAnlasCost: 0,
+  },
   "nai-diffusion-4-5-full": {
     v4Prompt: true,
     autoSmea: false,
@@ -135,9 +151,12 @@ describe.each(Object.entries(EXPECTED))("%s", (model, expected) => {
   });
 
   it("uses the model's Variety+ base sigma", () => {
-    expect(getVarietyPlusSigma(model, 832, 1216)).toBeCloseTo(
-      expected.varietyPlusSigma,
-    );
+    const sigma = getVarietyPlusSigma(model, 832, 1216);
+    if (expected.varietyPlusSigma === undefined) {
+      expect(sigma).toBeUndefined();
+    } else {
+      expect(sigma).toBeCloseTo(expected.varietyPlusSigma);
+    }
   });
 
   it("adds nsfw to the UC preset except for curated models", () => {
@@ -175,11 +194,31 @@ describe.each(Object.entries(EXPECTED))("%s", (model, expected) => {
   });
 
   it("uses the model's prompt tokenizer", () => {
-    expect(getImagePromptTokenPolicy(model)).toEqual({
-      tokenizer: expected.tokenizer,
-      maxTokens: expected.maxTokens,
-    });
+    expect(getImagePromptTokenPolicy(model)).toEqual(
+      expected.tokenizer
+        ? { tokenizer: expected.tokenizer, maxTokens: expected.maxTokens }
+        : undefined,
+    );
   });
+});
+
+it("forces the Karras schedule and params_version 4 only for V5", () => {
+  expect(
+    MODELS.map(({ value }) => [
+      value,
+      resolveNoiseSchedule(value, "k_euler", "exponential"),
+      createImageGenerationBody({ ...REQUEST, model: value }).body.parameters
+        .params_version,
+    ]),
+  ).toEqual([
+    ["nai-diffusion-5-full", "karras", 4],
+    ["nai-diffusion-5-curated", "karras", 4],
+    ["nai-diffusion-4-5-full", "exponential", 3],
+    ["nai-diffusion-4-5-curated", "exponential", 3],
+    ["nai-diffusion-4-curated-preview", "exponential", 3],
+    ["nai-diffusion-3", "exponential", 3],
+    ["nai-diffusion-furry-3", "exponential", 3],
+  ]);
 });
 
 it("has no token policy for unknown models", () => {
@@ -194,6 +233,8 @@ it("supports Vibe Transfer on V4+ and Precise Reference only on V4.5", () => {
       getModelCapabilities(value).preciseReference,
     ]),
   ).toEqual([
+    ["nai-diffusion-5-full", false, false],
+    ["nai-diffusion-5-curated", false, false],
     ["nai-diffusion-4-5-full", true, true],
     ["nai-diffusion-4-5-curated", true, true],
     ["nai-diffusion-4-curated-preview", true, false],

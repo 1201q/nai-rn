@@ -27,6 +27,21 @@ describe("getNovelAiAnlasBalance", () => {
     });
   });
 
+  test("reads the Opus usage limit state when present", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tier: 3,
+        expiresAt: 1_800_000_000,
+        usage: { percent: 0, isNegative: true, timeUntilNextPercent: 7888 },
+      }),
+    } as Response);
+
+    await expect(getNovelAiAnlasBalance("token")).resolves.toMatchObject({
+      usageNegative: true,
+    });
+  });
+
   test.each([401, 403])(
     "preserves HTTP %s as an authentication error",
     async (status) => {

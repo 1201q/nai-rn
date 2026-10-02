@@ -1,6 +1,6 @@
 import { getModelCapabilities } from "../constants/models";
 
-// NovelAI 웹 클라이언트 번들(2026-09-24)에서 추출한 비용 산식 기반 예상치 (V4.5 이하).
+// NovelAI 웹 클라이언트 번들(2026-09-24)에서 추출한 비용 산식 기반 예상치.
 // 근거: docs/2026-09-24-novelai-anlas-cost-policy.md §2, §3.3, §4.2
 
 const OPUS_TIER = 3;
@@ -11,6 +11,7 @@ const VIBE_FREE_COUNT = 4;
 const VIBE_EXTRA_COST = 2;
 export const PRECISE_REFERENCE_COST = 5;
 const SMEA_MULTIPLIER = 1.2;
+const V5_MULTIPLIER = 1.5;
 
 export type AnlasCostInput = {
   model: string;
@@ -26,6 +27,8 @@ export type AnlasCostInput = {
   // 구독 만료 시각 (Unix 초)
   expiresAt: number;
   nowSeconds: number;
+  // Opus 사용량 한도 소진 여부 (V5 전용). 모르면 undefined
+  usageNegative?: boolean;
   activeVibeCount: number;
   unencodedVibeCount: number;
   activePreciseReferenceCount: number;
@@ -37,17 +40,23 @@ export function estimateAnlasCost(input: AnlasCostInput): number {
     2.951823174884865e-6 * px + 5.753298233447344e-7 * px * input.steps,
   );
   const smeaMultiplier = input.smea ? SMEA_MULTIPLIER : 1;
+  const isV5 = getModelCapabilities(input.model).v5Request;
+  // V5 배율은 올림한 base에 곱한다 (실측과 일치하는 순서).
   const perImage = Math.max(
-    Math.ceil(base * smeaMultiplier * input.strength),
+    Math.ceil(
+      base * smeaMultiplier * (isV5 ? V5_MULTIPLIER : 1) * input.strength,
+    ),
     2,
   );
 
-  // i2i도 무료 대상 (웹 클라이언트 기준)
+  // i2i도 무료 대상 (웹 클라이언트 기준).
+  // V5는 Opus 사용량 한도가 남아 있을 때만 무료이고, 한도 상태를 모르면 무료로 보지 않는다.
   const free =
     input.tier >= OPUS_TIER &&
     input.expiresAt > input.nowSeconds &&
     px <= OPUS_FREE_MAX_PIXELS &&
-    input.steps <= OPUS_FREE_MAX_STEPS;
+    input.steps <= OPUS_FREE_MAX_STEPS &&
+    (!isV5 || input.usageNegative === false);
 
   const supportsVibe = getModelCapabilities(input.model).vibeTransfer;
   const vibeExtra = supportsVibe

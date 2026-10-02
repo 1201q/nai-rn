@@ -38,6 +38,33 @@ describe("quality tags (official web parity)", () => {
   });
 });
 
+describe("V5 presets (official docs 2026-10-02)", () => {
+  const V5_LIGHT =
+    "lowres, bad hands, bad anatomy, artistic error, sepia, white haze, worst quality, very displeasing, jpeg artifacts, 0::ai-generated::";
+
+  it.each(["nai-diffusion-5-full", "nai-diffusion-5-curated"])(
+    "%s uses the V5 quality suffix and Light preset",
+    (model) => {
+      expect(mergeQualityTags("1girl", true, model)).toBe(
+        "1girl, very aesthetic, masterpiece, no text",
+      );
+      expect(mergeUcPreset("", 1, model, "1girl, nsfw")).toBe(V5_LIGHT);
+      expect(mergeUcPreset("", 3, model, "1girl, nsfw")).toBe(
+        `${V45_FULL_HEAVY}, @_@, mismatched pupils, glowing eyes, bad anatomy`,
+      );
+    },
+  );
+
+  it("prepends nsfw for Full but not for Curated", () => {
+    expect(mergeUcPreset("", 0, "nai-diffusion-5-full", "1girl")).toBe(
+      `nsfw, ${V45_FULL_HEAVY}`,
+    );
+    expect(mergeUcPreset("", 0, "nai-diffusion-5-curated", "1girl")).toBe(
+      V45_FULL_HEAVY,
+    );
+  });
+});
+
 describe("UC presets (official web parity)", () => {
   it("prepends nsfw only when the prompt does not mention it", () => {
     expect(mergeUcPreset("", 0, "nai-diffusion-4-5-full", "1girl")).toBe(

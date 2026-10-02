@@ -110,3 +110,28 @@ describe("estimateAnlasCost", () => {
     ).toBe(54);
   });
 });
+
+// 실측값: docs/2026-09-24-novelai-anlas-cost-policy.md §2
+describe("estimateAnlasCost for V5", () => {
+  const v5 = (overrides: Partial<AnlasCostInput> = {}) =>
+    input({ model: "nai-diffusion-5-full", ...overrides });
+
+  test.each([
+    [512, 768, 23, 11],
+    [832, 1216, 23, 26],
+    [1024, 1536, 23, 39],
+    [1024, 1536, 28, 45],
+  ])("%sx%s · %s steps costs %s", (width, height, steps, cost) => {
+    expect(estimateAnlasCost(v5({ width, height, steps }))).toBe(cost);
+  });
+
+  test("Opus is free only while the usage limit is known to remain", () => {
+    expect(estimateAnlasCost(v5({ tier: 3, usageNegative: false }))).toBe(0);
+    expect(estimateAnlasCost(v5({ tier: 3, usageNegative: true }))).toBe(30);
+    expect(estimateAnlasCost(v5({ tier: 3 }))).toBe(30);
+  });
+
+  test("the usage limit does not affect V4.5", () => {
+    expect(estimateAnlasCost(input({ tier: 3, usageNegative: true }))).toBe(0);
+  });
+});

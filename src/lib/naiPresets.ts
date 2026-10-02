@@ -8,6 +8,8 @@ const DEFAULT_PRESET_MODEL = "nai-diffusion-4-5-full";
 const SEPARATOR = ", ";
 
 const QUALITY_SUFFIXES: Record<string, string> = {
+  "nai-diffusion-5-full": "very aesthetic, masterpiece, no text",
+  "nai-diffusion-5-curated": "very aesthetic, masterpiece, no text",
   "nai-diffusion-4-5-full": "very aesthetic, masterpiece, no text",
   "nai-diffusion-4-5-curated":
     "very aesthetic, masterpiece, no text, -0.8::feet::, rating:general",
@@ -23,14 +25,23 @@ const V45_FULL_HEAVY =
 const V3_HEAVY =
   "lowres, {bad}, error, fewer, extra, missing, worst quality, jpeg artifacts, bad quality, watermark, unfinished, displeasing, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]";
 
+const V45_FULL_UC_PRESETS: Partial<Record<UcPresetIndex, string>> = {
+  0: V45_FULL_HEAVY,
+  1: "lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page",
+  2: "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic",
+  3: `${V45_FULL_HEAVY}, @_@, mismatched pupils, glowing eyes, bad anatomy`,
+  4: "",
+};
+// V5 Full/Curated는 같은 프리셋을 쓰고, V4.5 Full과는 Light만 다르다 (공식 문서 2026-10-02).
+const V5_UC_PRESETS: Partial<Record<UcPresetIndex, string>> = {
+  ...V45_FULL_UC_PRESETS,
+  1: "lowres, bad hands, bad anatomy, artistic error, sepia, white haze, worst quality, very displeasing, jpeg artifacts, 0::ai-generated::",
+};
+
 const UC_PRESETS: Record<string, Partial<Record<UcPresetIndex, string>>> = {
-  "nai-diffusion-4-5-full": {
-    0: V45_FULL_HEAVY,
-    1: "lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page",
-    2: "{worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic",
-    3: `${V45_FULL_HEAVY}, @_@, mismatched pupils, glowing eyes, bad anatomy`,
-    4: "",
-  },
+  "nai-diffusion-5-full": V5_UC_PRESETS,
+  "nai-diffusion-5-curated": V5_UC_PRESETS,
+  "nai-diffusion-4-5-full": V45_FULL_UC_PRESETS,
   "nai-diffusion-4-5-curated": {
     0: "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, halftone, multiple views, logo, too many watermarks, negative space, blank page",
     1: "blurry, lowres, upscaled, artistic error, scan artifacts, jpeg artifacts, logo, too many watermarks, negative space, blank page",

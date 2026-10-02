@@ -66,6 +66,7 @@ jest.mock("../../../../../hooks/useGenerationChromeMetrics", () => ({
 }));
 jest.mock("../../../../../lib/novelai", () => ({
   resolveNoiseSchedule: () => null,
+  resolveSampler: (_model: string, sampler: string) => sampler,
 }));
 jest.mock("../../../../../store/generationStore", () => {
   const { create } = require("zustand");

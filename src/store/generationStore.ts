@@ -1148,7 +1148,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     if (activeVibes.length > 0) {
       if (!getModelCapabilities(s.model).vibeTransfer) {
         set({
-          message: "Vibe Transfer는 V4 이상 모델에서 사용할 수 있습니다.",
+          message: "Vibe Transfer는 현재 모델에서 사용할 수 없습니다.",
         });
         finishPreparation();
         return rejectGenerationStart("validation");
@@ -1563,6 +1563,7 @@ export const selectAnlasCost = (s: GenerationState): number | null => {
     tier: s.anlasBalance.tier,
     expiresAt: s.anlasBalance.expiresAt,
     nowSeconds: Date.now() / 1000,
+    usageNegative: s.anlasBalance.usageNegative,
     activeVibeCount: activeVibes.length,
     unencodedVibeCount: activeVibes.filter(
       (item) => !canUseCachedVibeEncoding(item, s.model),

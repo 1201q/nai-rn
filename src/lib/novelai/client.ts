@@ -30,6 +30,8 @@ export type NovelAiAnlasBalance = {
   tier: number;
   // 구독 만료 시각 (Unix 초)
   expiresAt: number;
+  // Opus 사용량 한도 소진 여부 (V5 전용). 응답에 usage가 없으면 undefined
+  usageNegative?: boolean;
 };
 
 export async function getNovelAiAnlasBalance(
@@ -58,6 +60,7 @@ export async function getNovelAiAnlasBalance(
       fixedTrainingStepsLeft?: number;
       purchasedTrainingSteps?: number;
     };
+    usage?: { isNegative?: boolean };
   };
 
   const fixed = data.trainingStepsLeft?.fixedTrainingStepsLeft ?? 0;
@@ -68,6 +71,7 @@ export async function getNovelAiAnlasBalance(
     total: fixed + purchased,
     tier: data.tier ?? 0,
     expiresAt: data.expiresAt ?? 0,
+    usageNegative: data.usage?.isNegative,
   };
 }
 

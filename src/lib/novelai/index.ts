@@ -10,6 +10,7 @@ export {
   getVarietyPlusSigma,
   type NovelAiImageFormat,
   resolveNoiseSchedule,
+  resolveSampler,
   shouldUseAutoSmea,
 } from "./requestBody";
 export {

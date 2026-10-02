@@ -10,6 +10,7 @@ import {
   normalizeBearerToken,
   NovelAiRequestError,
   resolveNoiseSchedule,
+  resolveSampler,
   type GenerateNovelAiImageInput,
 } from "./novelai";
 import {
@@ -39,7 +40,7 @@ export async function generateAndSaveImage(
     noiseSchedule:
       resolveNoiseSchedule(input.model, input.sampler, input.noiseSchedule) ??
       input.noiseSchedule,
-    sampler: input.sampler,
+    sampler: resolveSampler(input.model, input.sampler),
   };
   const imageFormat = input.imageFormat ?? "png";
   if (Platform.OS !== "android") {

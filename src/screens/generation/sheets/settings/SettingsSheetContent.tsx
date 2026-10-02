@@ -13,7 +13,7 @@ import {
 } from "../../../../constants/generation";
 import { getModelCapabilities, MODELS } from "../../../../constants/models";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
-import { resolveNoiseSchedule } from "../../../../lib/novelai";
+import { resolveNoiseSchedule, resolveSampler } from "../../../../lib/novelai";
 import { useGenerationStore } from "../../../../store/generationStore";
 import { tokens } from "../../../../styles/tokens";
 import { ResolutionDimensionInputs } from "./ResolutionDimensionInputs";
@@ -38,6 +38,10 @@ const SETTINGS_KEYBOARD_SCROLL_MODE =
 const MODEL_OPTIONS = MODELS.map((option) => option.label);
 const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
 const SAMPLER_OPTIONS = SAMPLERS.map((option) => option.label);
+// 공식 웹과 동일: V5에는 DDIM이 없다.
+const V5_SAMPLER_OPTIONS = SAMPLERS.filter(
+  (option) => option.value !== "ddim_v3",
+).map((option) => option.label);
 const SCHEDULE_OPTIONS = NOISE_SCHEDULES.map((option) => option.label);
 // 공식 웹과 동일: V4 이상은 Native 스케줄을 지원하지 않는다.
 const V4_SCHEDULE_OPTIONS = NOISE_SCHEDULES.filter(
@@ -98,8 +102,11 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
 
   const modelLabel =
     MODELS.find((option) => option.value === model)?.label ?? model;
+  const capabilities = getModelCapabilities(model);
+  const displaySampler = resolveSampler(model, sampler);
   const samplerLabel =
-    SAMPLERS.find((option) => option.value === sampler)?.label ?? sampler;
+    SAMPLERS.find((option) => option.value === displaySampler)?.label ??
+    displaySampler;
   const displaySchedule =
     resolveNoiseSchedule(model, sampler, schedule) ?? schedule;
   const scheduleLabel =
@@ -254,19 +261,21 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
           onHelpToggle={() => toggleHelp("promptGuidance")}
           onChange={setPromptGuidance}
           trailing={
-            <View style={styles.varietyControl}>
-              <Text style={styles.varietyLabel}>Variety+</Text>
-              <SettingsHelpButton
-                helpKey="variety"
-                open={helpKey === "variety"}
-                onToggle={() => toggleHelp("variety")}
-              />
-              <Toggle
-                value={varietyPlus}
-                label="Variety+"
-                onChange={setVarietyPlus}
-              />
-            </View>
+            capabilities.varietyPlusBaseSigma === undefined ? undefined : (
+              <View style={styles.varietyControl}>
+                <Text style={styles.varietyLabel}>Variety+</Text>
+                <SettingsHelpButton
+                  helpKey="variety"
+                  open={helpKey === "variety"}
+                  onToggle={() => toggleHelp("variety")}
+                />
+                <Toggle
+                  value={varietyPlus}
+                  label="Variety+"
+                  onChange={setVarietyPlus}
+                />
+              </View>
+            )
           }
         />
         <View style={styles.aiColumns}>
@@ -277,7 +286,9 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
           <SheetSelect
             label="Sampler"
             value={samplerLabel}
-            options={SAMPLER_OPTIONS}
+            options={
+              capabilities.v5Request ? V5_SAMPLER_OPTIONS : SAMPLER_OPTIONS
+            }
             onChange={changeSampler}
             open={openSelect === "sampler"}
             onOpenChange={(open) => setSelectOpen("sampler", open)}
@@ -319,18 +330,21 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
               onHelpToggle={() => toggleHelp("rescale")}
               onChange={setPromptGuidanceRescale}
             />
-            <SheetSelect
-              label="Schedule"
-              value={scheduleLabel}
-              options={
-                getModelCapabilities(model).nativeNoiseSchedule
-                  ? SCHEDULE_OPTIONS
-                  : V4_SCHEDULE_OPTIONS
-              }
-              onChange={changeSchedule}
-              open={openSelect === "schedule"}
-              onOpenChange={(open) => setSelectOpen("schedule", open)}
-            />
+            {/* 공식 웹과 동일: V5는 Karras 고정이라 선택지를 보여주지 않는다. */}
+            {capabilities.v5Request ? null : (
+              <SheetSelect
+                label="Schedule"
+                value={scheduleLabel}
+                options={
+                  capabilities.nativeNoiseSchedule
+                    ? SCHEDULE_OPTIONS
+                    : V4_SCHEDULE_OPTIONS
+                }
+                onChange={changeSchedule}
+                open={openSelect === "schedule"}
+                onOpenChange={(open) => setSelectOpen("schedule", open)}
+              />
+            )}
           </View>
         ) : null}
       </View>

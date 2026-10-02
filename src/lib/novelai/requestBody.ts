@@ -5,7 +5,7 @@ import {
 import { getModelCapabilities } from "../../constants/models";
 import { MIN_POSITION_CHARACTERS } from "../characterPosition";
 import { prepareImagePromptCaptions } from "../imagePromptCaptions";
-import { type UcPresetIndex } from "../naiPresets";
+import { resolveUcPresetForModel, type UcPresetIndex } from "../naiPresets";
 
 type NovelAiPreciseReferenceType = "character" | "style" | "character&style";
 
@@ -65,6 +65,7 @@ export function resolveNoiseSchedule(
   sampler: string,
   noiseSchedule: NoiseSchedule,
 ): NoiseSchedule | undefined {
+  if (getModelCapabilities(model).v5Request) return "karras";
   if (SAMPLERS_WITHOUT_NOISE_SCHEDULE.has(sampler)) return undefined;
   if (
     !getModelCapabilities(model).nativeNoiseSchedule &&
@@ -75,6 +76,13 @@ export function resolveNoiseSchedule(
       : "karras";
   }
   return noiseSchedule;
+}
+
+// 공식 웹과 동일: V5에는 DDIM이 없어 Euler Ancestral로 대체한다.
+export function resolveSampler(model: string, sampler: string): string {
+  return getModelCapabilities(model).v5Request && sampler === "ddim_v3"
+    ? "k_euler_ancestral"
+    : sampler;
 }
 
 // 공식 웹과 동일: V3는 픽셀 수가 기준 이상이면 SMEA를 자동으로 켠다 (i2i와 일부 샘플러 제외).
@@ -101,11 +109,22 @@ export function getVarietyPlusSigma(
   model: string,
   width: number,
   height: number,
-): number {
+): number | undefined {
   const baseSigma = getModelCapabilities(model).varietyPlusBaseSigma;
+  if (baseSigma === undefined) return undefined;
   const latentArea = Math.floor(width / 8) * Math.floor(height / 8);
   return baseSigma * Math.sqrt(latentArea / (104 * 152));
 }
+
+// V5 요청의 프리셋 ID와 tag_hint (웹 요청 캡처 2026-10-02).
+// heavy / standard만 캡처로 확인했고 나머지 ID 문자열은 미확인이다.
+const V5_UC_PRESETS: Record<UcPresetIndex, { id: string; hint: number }> = {
+  0: { id: "heavy", hint: 2 },
+  1: { id: "light", hint: 3 },
+  2: { id: "furryFocus", hint: 5 },
+  3: { id: "humanFocus", hint: 4 },
+  4: { id: "none", hint: 0 },
+};
 
 type V4CharacterCaption = {
   char_caption: string;
@@ -156,7 +175,7 @@ export function createImageGenerationBody({
   promptGuidance,
   promptGuidanceRescale,
   noiseSchedule,
-  sampler,
+  sampler: inputSampler,
   seed: inputSeed,
   varietyPlus = false,
   qualityToggle = true,
@@ -175,6 +194,7 @@ export function createImageGenerationBody({
   preciseReferenceTypes = [],
 }: Omit<GenerateNovelAiImageInput, "token">) {
   const seed = inputSeed ?? generateRandomSeed();
+  const sampler = resolveSampler(model, inputSampler);
   const captions = prepareImagePromptCaptions({
     model,
     prompt,
@@ -185,7 +205,9 @@ export function createImageGenerationBody({
   });
   const mergedPrompt = captions.positiveBaseCaption;
   const mergedNegativePrompt = captions.negativeBaseCaption;
-  const shouldUseV4Prompt = getModelCapabilities(model).v4Prompt;
+  const capabilities = getModelCapabilities(model);
+  const shouldUseV4Prompt = capabilities.v4Prompt;
+  const v5UcPreset = V5_UC_PRESETS[resolveUcPresetForModel(ucPreset, model)];
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
   const hasPreciseReferences = preciseReferenceImages.length > 0;
@@ -228,6 +250,7 @@ export function createImageGenerationBody({
     sampler,
     noiseSchedule,
   );
+  const varietyPlusSigma = getVarietyPlusSigma(model, width, height);
   const autoSmea = shouldUseAutoSmea(model, width, height, sampler, isI2I);
   const parameters = {
     width,
@@ -241,9 +264,21 @@ export function createImageGenerationBody({
     n_samples: 1,
     seed,
     negative_prompt: mergedNegativePrompt,
-    uc: mergedNegativePrompt,
-    qualityToggle,
-    params_version: 3,
+    ...(capabilities.v5Request
+      ? {
+          ucPresetId: v5UcPreset.id,
+          qualityPresetId: qualityToggle ? "standard" : "none",
+          tag_hint_qt: qualityToggle ? 1 : 0,
+          tag_hint_uc_preset: v5UcPreset.hint,
+          straight_alpha: true,
+          params_version: 4,
+        }
+      : {
+          uc: mergedNegativePrompt,
+          qualityToggle,
+          ucPreset,
+          params_version: 3,
+        }),
     legacy: false,
     legacy_uc: false,
     add_original_image: true,
@@ -251,12 +286,12 @@ export function createImageGenerationBody({
     ...(sampler === "k_euler_ancestral" && resolvedNoiseSchedule !== "native"
       ? { deliberate_euler_ancestral_bug: false, prefer_brownian: true }
       : {}),
-    ucPreset,
     image_format: imageFormat,
     use_coords: useCharacterCoords,
-    skip_cfg_above_sigma: varietyPlus
-      ? getVarietyPlusSigma(model, width, height)
-      : null,
+    // Variety+를 지원하지 않는 모델(V5)은 필드를 보내지 않는다.
+    ...(varietyPlusSigma === undefined
+      ? {}
+      : { skip_cfg_above_sigma: varietyPlus ? varietyPlusSigma : null }),
     ...(i2iImageBase64
       ? {
           image: stripBase64Header(i2iImageBase64),

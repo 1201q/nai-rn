@@ -110,6 +110,71 @@ test("V3 body", () => {
   expect(body).toMatchSnapshot();
 });
 
+// 웹 요청 캡처(2026-10-02) 기준: V5는 프리셋을 문자열 ID와 tag_hint로 보낸다.
+test("V5 body sends preset ids instead of the numeric preset fields", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-full",
+    noiseSchedule: "exponential",
+    sampler: "k_euler_ancestral",
+    qualityToggle: true,
+    ucPreset: 0,
+  });
+  const parameters = body.parameters as Record<string, unknown>;
+
+  expect(body.model).toBe("nai-diffusion-5-full");
+  expect(body.input).toBe("1girl, very aesthetic, masterpiece, no text");
+  expect(parameters).toMatchObject({
+    params_version: 4,
+    noise_schedule: "karras",
+    ucPresetId: "heavy",
+    qualityPresetId: "standard",
+    tag_hint_qt: 1,
+    tag_hint_uc_preset: 2,
+    straight_alpha: true,
+    deliberate_euler_ancestral_bug: false,
+    prefer_brownian: true,
+  });
+  expect(parameters.negative_prompt).toMatch(/^nsfw, lowres, artistic error/);
+  for (const key of ["uc", "qualityToggle", "ucPreset", "sm"]) {
+    expect(parameters).not.toHaveProperty(key);
+  }
+  expect(parameters).not.toHaveProperty("skip_cfg_above_sigma");
+  expect(parameters).toHaveProperty("v4_prompt");
+});
+
+test("V5 body maps quality None and UC None to their hint ids", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-curated",
+    qualityToggle: false,
+    ucPreset: 4,
+    varietyPlus: true,
+  });
+
+  expect(body.parameters).toMatchObject({
+    ucPresetId: "none",
+    qualityPresetId: "none",
+    tag_hint_qt: 0,
+    tag_hint_uc_preset: 0,
+  });
+  // 웹의 V5에는 Variety+가 없다.
+  expect(body.parameters).not.toHaveProperty("skip_cfg_above_sigma");
+});
+
+test("V5 body replaces DDIM with Euler Ancestral on the Karras schedule", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-full",
+    sampler: "ddim_v3",
+  });
+
+  expect(body.parameters).toMatchObject({
+    sampler: "k_euler_ancestral",
+    noise_schedule: "karras",
+  });
+});
+
 test("sends the selected image format", () => {
   const { body } = createImageGenerationBody({
     ...BASE,

@@ -19,9 +19,12 @@ export type ModelCapabilities = {
   nativeNoiseSchedule: boolean;
   // Curated 계열은 UC에 nsfw를 자동으로 붙이지 않는다.
   curated: boolean;
-  // Variety+ 기준 sigma (832x1216 latent 기준)
-  varietyPlusBaseSigma: number;
-  tokenPolicy: ImagePromptTokenPolicy;
+  // Variety+ 기준 sigma (832x1216 latent 기준). 없으면 Variety+를 지원하지 않는다.
+  varietyPlusBaseSigma?: number;
+  // 없으면 토큰 수를 표시하지 않는다.
+  tokenPolicy?: ImagePromptTokenPolicy;
+  // V5 요청 형식: params_version 4, Karras 고정, 프리셋을 문자열 ID와 tag_hint로 전송
+  v5Request: boolean;
 };
 
 const T5_POLICY: ImagePromptTokenPolicy = { tokenizer: "t5", maxTokens: 512 };
@@ -32,9 +35,31 @@ const CLIP_POLICY: ImagePromptTokenPolicy = {
 
 // 선택지 표시 순서를 겸한다.
 export const MODEL_CAPABILITIES = {
+  "nai-diffusion-5-full": {
+    label: "V5 Full",
+    description: "최신 V5 모델, 자연어 이해와 세부 묘사가 가장 좋음",
+    v4Prompt: true,
+    vibeTransfer: false,
+    preciseReference: false,
+    autoSmea: false,
+    nativeNoiseSchedule: false,
+    curated: false,
+    v5Request: true,
+  },
+  "nai-diffusion-5-curated": {
+    label: "V5 Curated",
+    description: "정제된 데이터로 학습한 V5 모델, 안전하고 일관된 결과",
+    v4Prompt: true,
+    vibeTransfer: false,
+    preciseReference: false,
+    autoSmea: false,
+    nativeNoiseSchedule: false,
+    curated: true,
+    v5Request: true,
+  },
   "nai-diffusion-4-5-full": {
     label: "V4.5 Full",
-    description: "최신 V4.5 모델, 배경 표현이 좋고 자유도 높음",
+    description: "V4.5 모델, 배경 표현이 좋고 자유도 높음",
     v4Prompt: true,
     vibeTransfer: true,
     preciseReference: true,
@@ -43,6 +68,7 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
+    v5Request: false,
   },
   "nai-diffusion-4-5-curated": {
     label: "V4.5 Curated",
@@ -55,6 +81,7 @@ export const MODEL_CAPABILITIES = {
     curated: true,
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
+    v5Request: false,
   },
   "nai-diffusion-4-curated-preview": {
     label: "V4 Curated (Legacy)",
@@ -67,6 +94,7 @@ export const MODEL_CAPABILITIES = {
     curated: true,
     varietyPlusBaseSigma: 19,
     tokenPolicy: T5_POLICY,
+    v5Request: false,
   },
   "nai-diffusion-3": {
     label: "Anime V3 (Legacy)",
@@ -79,6 +107,7 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
+    v5Request: false,
   },
   "nai-diffusion-furry-3": {
     label: "Furry V3 (Legacy)",
@@ -91,6 +120,7 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
+    v5Request: false,
   },
 } as const satisfies Record<string, ModelCapabilities>;
 
@@ -129,6 +159,6 @@ export function getImagePromptTokenPolicy(
   model: string,
 ): ImagePromptTokenPolicy | undefined {
   return isKnownModel(model)
-    ? MODEL_CAPABILITIES[model].tokenPolicy
+    ? getModelCapabilities(model).tokenPolicy
     : undefined;
 }
