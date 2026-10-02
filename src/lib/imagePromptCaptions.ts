@@ -40,6 +40,7 @@ export function prepareImagePromptCaptions({
   qualityToggle,
   ucPreset,
   characterPrompts,
+  autoText = true,
 }: {
   model: string;
   prompt: string;
@@ -47,16 +48,19 @@ export function prepareImagePromptCaptions({
   qualityToggle: boolean;
   ucPreset: UcPresetIndex;
   characterPrompts: GenerateNovelAiCharacterPrompt[];
+  // false면 V5 자동 Text 블록을 붙이지 않는다 (토큰 수 계산용).
+  autoText?: boolean;
 }): PreparedImagePromptCaptions {
   const capabilities = getModelCapabilities(model);
   const supportsCharacterCaptions = capabilities.v4Prompt;
   const qualityCaption = mergeQualityTags(prompt, qualityToggle, model);
-  const positiveBaseCaption = capabilities.v5Request
-    ? appendAutoTextBlock(qualityCaption, [
-        prompt,
-        ...characterPrompts.map((item) => item.prompt),
-      ])
-    : qualityCaption;
+  const positiveBaseCaption =
+    capabilities.v5Request && autoText
+      ? appendAutoTextBlock(qualityCaption, [
+          prompt,
+          ...characterPrompts.map((item) => item.prompt),
+        ])
+      : qualityCaption;
 
   return {
     positiveBaseCaption,

@@ -1,4 +1,4 @@
-export type ImagePromptTokenizerType = "t5" | "clip";
+export type ImagePromptTokenizerType = "t5" | "clip" | "qwen";
 
 export type ImagePromptTokenPolicy = {
   tokenizer: ImagePromptTokenizerType;
@@ -46,6 +46,8 @@ export const MODEL_CAPABILITIES = {
     autoSmea: false,
     nativeNoiseSchedule: false,
     curated: false,
+    // 공식 문서 기준 한도 (Full 1471, Curated 703)
+    tokenPolicy: { tokenizer: "qwen", maxTokens: 1471 },
     maxCharacters: 22,
     v5Request: true,
   },
@@ -58,6 +60,7 @@ export const MODEL_CAPABILITIES = {
     autoSmea: false,
     nativeNoiseSchedule: false,
     curated: true,
+    tokenPolicy: { tokenizer: "qwen", maxTokens: 703 },
     maxCharacters: 22,
     v5Request: true,
   },

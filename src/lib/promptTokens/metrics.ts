@@ -99,6 +99,8 @@ export async function calculatePromptTokenMetrics(
     qualityToggle: withDraft.qualityToggle,
     ucPreset: withDraft.ucPreset,
     characterPrompts: activeCharacters,
+    // 공식 웹과 동일: 자동 Text 블록은 토큰 수에 넣지 않는다.
+    autoText: false,
   });
   const tokenizer = await getPromptTokenizer(policy.tokenizer);
   const baseCaption =
@@ -111,7 +113,7 @@ export async function calculatePromptTokenMetrics(
       : captions.negativeCharacterCaptions;
   const includedInTotal =
     target.scope === "base" ||
-    (policy.tokenizer === "t5" &&
+    (policy.tokenizer !== "clip" &&
       Boolean(character?.enabled) &&
       Boolean(character?.prompt.trim()));
   const fieldCaption =
@@ -120,9 +122,9 @@ export async function calculatePromptTokenMetrics(
       : target.channel === "positive"
         ? (character?.prompt.trim() ?? draftText.trim())
         : (character?.negativePrompt.trim() ?? draftText.trim());
-  const fieldTokens = tokenizer.encode(fieldCaption).length;
+  const fieldTokens = tokenizer.countTokens(fieldCaption);
   const totalTokens = [baseCaption, ...characterCaptions].reduce(
-    (total, caption) => total + tokenizer.encode(caption).length,
+    (total, caption) => total + tokenizer.countTokens(caption),
     0,
   );
 

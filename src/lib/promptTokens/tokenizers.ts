@@ -1,7 +1,7 @@
 import { decode } from "html-entities";
 
 export interface PromptTokenizer {
-  encode(text: string): number[];
+  countTokens(text: string): number;
 }
 
 type UnigramConfig = {
@@ -94,6 +94,10 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
     });
     tokenIds.push(this.eosId);
     return tokenIds;
+  }
+
+  countTokens(text: string): number {
+    return this.encode(text).length;
   }
 
   private encodePiece(piece: string): number[] {
@@ -230,6 +234,10 @@ export class NovelAiClipTokenizer implements PromptTokenizer {
     });
   }
 
+  countTokens(text: string): number {
+    return this.encode(text).length;
+  }
+
   private bpe(token: string): string {
     const cached = this.cache.get(token);
     if (cached) return cached;
@@ -270,5 +278,73 @@ export class NovelAiClipTokenizer implements PromptTokenizer {
     const result = word.join(" ");
     this.cache.set(token, result);
     return result;
+  }
+}
+
+// V5용 byte-level BPE (GPT-2 방식). 번들에는 merge 순위만 들어 있어 토큰 id는 만들지 않고 개수만 센다.
+// 웹과 동일: T5와 달리 가중치 문법을 지우지 않고, 특수 토큰도 더하지 않는다.
+export class NovelAiQwenTokenizer implements PromptTokenizer {
+  private readonly byteEncoder = bytesToUnicode();
+  private readonly ranks = new Map<string, number>();
+  private readonly cache = new Map<string, number>();
+  private readonly splitPattern: RegExp;
+  private readonly textEncoder = new TextEncoder();
+
+  constructor(definition: { splitRegex: string; merges: string }) {
+    this.splitPattern = new RegExp(definition.splitRegex, "gu");
+    // 줄 번호가 merge 순위다. "left right" -> pairKey 형식으로 바꿔 저장한다.
+    definition.merges.split("\n").forEach((line, rank) => {
+      this.ranks.set(line.replace(" ", "\u0000"), rank);
+    });
+  }
+
+  countTokens(text: string): number {
+    let total = 0;
+    for (const match of text.normalize("NFC").matchAll(this.splitPattern)) {
+      total += this.countPiece(match[0]);
+    }
+    return total;
+  }
+
+  private countPiece(piece: string): number {
+    const cached = this.cache.get(piece);
+    if (cached !== undefined) return cached;
+
+    let word = Array.from(
+      this.textEncoder.encode(piece),
+      (byte) => this.byteEncoder.get(byte) ?? "",
+    );
+    while (word.length > 1) {
+      let bestIndex = -1;
+      let bestRank = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < word.length - 1; index += 1) {
+        const rank = this.ranks.get(pairKey([word[index], word[index + 1]]));
+        if (rank !== undefined && rank < bestRank) {
+          bestRank = rank;
+          bestIndex = index;
+        }
+      }
+      if (bestIndex === -1) break;
+
+      const left = word[bestIndex];
+      const right = word[bestIndex + 1];
+      const merged: string[] = [];
+      for (let index = 0; index < word.length; index += 1) {
+        if (
+          index < word.length - 1 &&
+          word[index] === left &&
+          word[index + 1] === right
+        ) {
+          merged.push(left + right);
+          index += 1;
+        } else {
+          merged.push(word[index]);
+        }
+      }
+      word = merged;
+    }
+
+    this.cache.set(piece, word.length);
+    return word.length;
   }
 }

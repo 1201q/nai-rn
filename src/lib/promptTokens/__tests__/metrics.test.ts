@@ -2,13 +2,7 @@ import { calculatePromptTokenMetrics } from "../metrics";
 
 jest.mock("../loader", () => ({
   getPromptTokenizer: async (type: "t5" | "clip") => ({
-    encode: (text: string) =>
-      Array.from(
-        {
-          length: text.length + (type === "t5" ? 1 : 0),
-        },
-        (_, index) => index,
-      ),
+    countTokens: (text: string) => text.length + (type === "t5" ? 1 : 0),
   }),
 }));
 
@@ -130,4 +124,34 @@ describe("prompt token metrics", () => {
       maxTokens: null,
     });
   });
+});
+
+it("counts V5 character prompts in the total with the model limit", async () => {
+  const metrics = await calculatePromptTokenMetrics(
+    { ...snapshot, model: "nai-diffusion-5-curated" },
+    { scope: "character", characterId: "character-1", channel: "positive" },
+    "hero",
+  );
+
+  expect(metrics.status).toBe("ready");
+  expect(metrics.maxTokens).toBe(703);
+  expect(metrics.includedInTotal).toBe(true);
+});
+
+// 웹 표시값(2026-10-02): 자동으로 붙는 teXt: 블록은 토큰 수에 넣지 않는다.
+it("does not count the V5 auto Text block", async () => {
+  const prompt = 'a girl holding a sign, "hello"';
+  const metrics = await calculatePromptTokenMetrics(
+    {
+      ...snapshot,
+      model: "nai-diffusion-5-full",
+      prompt,
+      characterPrompts: [],
+    },
+    { scope: "base", channel: "positive" },
+    prompt,
+  );
+
+  expect(metrics.fieldTokens).toBe(prompt.length);
+  expect(metrics.totalTokens).toBe(prompt.length);
 });

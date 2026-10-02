@@ -8,7 +8,11 @@ const { inflateRawSync } = require("zlib") as {
   inflateRawSync: (data: Uint8Array) => { toString: () => string };
 };
 
-import { NovelAiClipTokenizer, NovelAiT5Tokenizer } from "../tokenizers";
+import {
+  NovelAiClipTokenizer,
+  NovelAiQwenTokenizer,
+  NovelAiT5Tokenizer,
+} from "../tokenizers";
 
 function readCompressedDefinition(fileName: string): string {
   return inflateRawSync(
@@ -24,6 +28,39 @@ describe("NovelAI prompt tokenizers", () => {
     readCompressedDefinition("clip_tokenizer.def"),
   ) as { text: string };
   const clip = new NovelAiClipTokenizer(clipDefinition.text);
+  const qwen = new NovelAiQwenTokenizer(
+    JSON.parse(readCompressedDefinition("qwen35_merges.def")),
+  );
+
+  // 기준값: 원본 qwen35_tokenizer.def(vocab 포함)로 따로 계산한 토큰 수.
+  it.each([
+    ["", 0],
+    ["1girl", 2],
+    ["1girl, blue eyes", 5],
+    ["1girl, blue eyes, long hair, standing in a garden", 13],
+    ['a girl holding a sign, "hello"', 9],
+    ["1girl,  blue eyes\nsmile", 9],
+    ["こんにちは、世界", 3],
+    ["소녀, 파란 눈", 6],
+    ["very aesthetic, masterpiece, no text", 7],
+    ["nsfw, lowres, bad anatomy", 8],
+  ])("matches the Qwen fixture for %p", (text, expected) => {
+    expect(qwen.countTokens(text)).toBe(expected);
+  });
+
+  it.each([702, 703, 704])(
+    "counts the Qwen boundary at %i repeated tags",
+    (tagCount) => {
+      expect(qwen.countTokens(Array(tagCount).fill("girl").join(" "))).toBe(
+        tagCount,
+      );
+    },
+  );
+
+  // 웹 표시값(2026-10-02): V5는 가중치 문법을 지우지 않고 그대로 센다.
+  it("counts emphasis syntax as written for Qwen", () => {
+    expect(qwen.countTokens("1.2::1girl::, {blue eyes}, [long hair]")).toBe(16);
+  });
 
   it.each([
     ["", 1],

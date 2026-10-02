@@ -5,6 +5,7 @@ import { inflateSync, strFromU8 } from "fflate";
 import type { ImagePromptTokenizerType } from "../../constants/models";
 import {
   NovelAiClipTokenizer,
+  NovelAiQwenTokenizer,
   NovelAiT5Tokenizer,
   type PromptTokenizer,
 } from "./tokenizers";
@@ -14,6 +15,9 @@ const tokenizerPromises: Partial<
 > = {};
 
 function getTokenizerAsset(type: ImagePromptTokenizerType): number {
+  if (type === "qwen") {
+    return require("../../../assets/tokenizers/qwen35_merges.def");
+  }
   return type === "t5"
     ? require("../../../assets/tokenizers/t5_tokenizer.def")
     : require("../../../assets/tokenizers/clip_tokenizer.def");
@@ -34,6 +38,9 @@ export function getPromptTokenizer(
     tokenizerPromises[type] = readDefinition(type).then((definition) => {
       if (type === "t5") {
         return new NovelAiT5Tokenizer(JSON.parse(definition));
+      }
+      if (type === "qwen") {
+        return new NovelAiQwenTokenizer(JSON.parse(definition));
       }
       const parsed = JSON.parse(definition) as { text: string };
       return new NovelAiClipTokenizer(parsed.text);

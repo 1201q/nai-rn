@@ -24,7 +24,7 @@ type ExpectedBehavior = {
   addsNsfwToUc: boolean;
   vibeAnlasCost: number;
   // 없으면 토큰 정책이 없는 모델
-  tokenizer?: "t5" | "clip";
+  tokenizer?: "t5" | "clip" | "qwen";
   maxTokens?: number;
 };
 
@@ -35,6 +35,8 @@ const EXPECTED: Record<string, ExpectedBehavior> = {
     nativeScheduleReplaced: true,
     addsNsfwToUc: true,
     vibeAnlasCost: 0,
+    tokenizer: "qwen",
+    maxTokens: 1471,
   },
   "nai-diffusion-5-curated": {
     v4Prompt: true,
@@ -42,6 +44,8 @@ const EXPECTED: Record<string, ExpectedBehavior> = {
     nativeScheduleReplaced: true,
     addsNsfwToUc: false,
     vibeAnlasCost: 0,
+    tokenizer: "qwen",
+    maxTokens: 703,
   },
   "nai-diffusion-4-5-full": {
     v4Prompt: true,
