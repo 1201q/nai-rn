@@ -18,9 +18,11 @@ export {
 export const ReferenceImagesSheetContent = memo(
   function ReferenceImagesSheetContent({
     active,
+    sheetHiddenHeight = 0,
     onMetadataExtract,
   }: {
     active: boolean;
+    sheetHiddenHeight?: number;
     onMetadataExtract?: (metadataJson: string) => void;
   }) {
     const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
@@ -30,8 +32,9 @@ export const ReferenceImagesSheetContent = memo(
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: sheetContentPaddingBottom },
+          { paddingBottom: sheetContentPaddingBottom + sheetHiddenHeight },
         ]}
+        bottomOffset={-sheetHiddenHeight}
         mode={Platform.OS === "android" ? "layout" : "insets"}
         removeClippedSubviews={false}
         showsVerticalScrollIndicator={false}

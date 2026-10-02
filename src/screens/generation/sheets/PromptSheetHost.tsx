@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type EffectCallback,
 } from "react";
 import {
@@ -20,9 +21,12 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { KeyboardEvents } from "react-native-keyboard-controller";
 import Reanimated, {
   Extrapolation,
   interpolate,
+  runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -284,18 +288,42 @@ export function PromptSheetHost({
     ],
     [promptCollapsedHeight, promptFullTop, windowHeight],
   );
-  // gorhom 콘텐츠 영역은 항상 full 높이라 half에선 가려진 만큼 뷰포트를 줄인다.
+  // gorhom 콘텐츠 영역은 항상 full 높이라 half에선 아래가 이만큼 화면 밖에 있다.
   const hiddenAtHalf = snapPoints[2] - snapPoints[1];
-  const pagerViewportStyle = useAnimatedStyle(() => ({
-    marginBottom: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [hiddenAtHalf, 0],
-      Extrapolation.CLAMP,
-    ),
-  }));
   const stageIndex =
     promptStage === "collapsed" ? 0 : promptStage === "half" ? 1 : 2;
+  // half에 있는 동안 스크롤 콘텐츠가 받는 보정값. 가려진 높이만큼 아래 여백을 더하고,
+  // 포커스 시 시트가 full로 올라갈 만큼 키보드 스크롤을 줄인다(키보드 스크롤은
+  // 포커스 시점의 input 위치로 계산된다). ScrollView 크기를 줄이는 방식은 Android가
+  // 크기 변경 때 포커스된 input을 화면에 맞추려 스크롤해서 쓰지 않는다.
+  // 보정은 시트가 full에 닿고 키보드도 다 올라온 뒤에 푼다. 키보드가 움직이는
+  // 중에 풀면 남은 프레임이 half 기준 위치로 다시 과하게 스크롤한다.
+  // 키보드로 올라간 시트는 onChange가 오지 않아 실제 위치(animatedIndex)로 판단한다.
+  const [sheetBelowFull, setSheetBelowFull] = useState(stageIndex !== 2);
+  useAnimatedReaction(
+    () => animatedIndex.value < 1.99,
+    (belowFull, previous) => {
+      if (belowFull !== previous) runOnJS(setSheetBelowFull)(belowFull);
+    },
+  );
+  const [keyboardMoving, setKeyboardMoving] = useState(false);
+  const [halfInsetPending, setHalfInsetPending] = useState(stageIndex !== 2);
+  useEffect(() => {
+    const subscriptions = [
+      KeyboardEvents.addListener("keyboardWillShow", () =>
+        setKeyboardMoving(true),
+      ),
+      KeyboardEvents.addListener("keyboardDidShow", () =>
+        setKeyboardMoving(false),
+      ),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+  useEffect(() => {
+    if (sheetBelowFull) setHalfInsetPending(true);
+    else if (!keyboardMoving) setHalfInsetPending(false);
+  }, [sheetBelowFull, keyboardMoving]);
+  const sheetHiddenHeight = halfInsetPending ? hiddenAtHalf : 0;
 
   useEffect(() => {
     sheetRef.current?.snapToIndex(stageIndex);
@@ -396,9 +424,7 @@ export function PromptSheetHost({
               onCollapse={collapsePrompt}
             />
             <GestureDetector gesture={promptPageGesture}>
-              <Reanimated.View
-                style={[styles.promptPagerViewport, pagerViewportStyle]}
-              >
+              <View style={styles.promptPagerViewport}>
                 <Reanimated.View
                   style={[
                     styles.promptPagerTrack,
@@ -422,11 +448,13 @@ export function PromptSheetHost({
                         {item.key === "prompt" ? (
                           <PromptSheetContent
                             active={active}
+                            sheetHiddenHeight={sheetHiddenHeight}
                             onEditCharacterPositions={onEditCharacterPositions}
                           />
                         ) : item.key === "reference" ? (
                           <ReferenceImagesSheetContent
                             active={active}
+                            sheetHiddenHeight={sheetHiddenHeight}
                             onMetadataExtract={onMetadataExtract}
                           />
                         ) : (
@@ -436,7 +464,7 @@ export function PromptSheetHost({
                     );
                   })}
                 </Reanimated.View>
-              </Reanimated.View>
+              </View>
             </GestureDetector>
           </BottomSheetView>
         </BottomSheet>

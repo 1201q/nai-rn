@@ -462,9 +462,11 @@ export const PromptComposerCard = memo(function PromptComposerCard({
 
 export const PromptSheetContent = memo(function PromptSheetContent({
   active,
+  sheetHiddenHeight = 0,
   onEditCharacterPositions,
 }: {
   active: boolean;
+  sheetHiddenHeight?: number;
   onEditCharacterPositions: (characterId: string | null) => void;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
@@ -486,9 +488,11 @@ export const PromptSheetContent = memo(function PromptSheetContent({
       style={styles.scrollView}
       contentContainerStyle={[
         styles.scrollContent,
-        { paddingBottom: sheetContentPaddingBottom },
+        { paddingBottom: sheetContentPaddingBottom + sheetHiddenHeight },
       ]}
-      bottomOffset={SUGGESTION_BAR_HEIGHT + PROMPT_KEYBOARD_GAP}
+      bottomOffset={
+        SUGGESTION_BAR_HEIGHT + PROMPT_KEYBOARD_GAP - sheetHiddenHeight
+      }
       extraKeyboardSpace={SUGGESTION_BAR_HEIGHT}
       mode={PROMPT_KEYBOARD_SCROLL_MODE}
       showsVerticalScrollIndicator={false}

@@ -75,6 +75,9 @@ jest.mock("@gorhom/bottom-sheet", () => {
   };
 });
 
+jest.mock("react-native-keyboard-controller", () => ({
+  KeyboardEvents: { addListener: () => ({ remove: () => {} }) },
+}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: jest.fn(),
 }));
@@ -255,6 +258,7 @@ jest.mock("react-native-reanimated", () => {
     Extrapolation: { CLAMP: "clamp" },
     interpolate: () => 0,
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+    useAnimatedReaction: () => {},
     useAnimatedStyle: (factory: () => object) => factory(),
     useAnimatedProps: (factory: () => object) => ({ read: factory }),
     cancelAnimation: jest.fn(),
