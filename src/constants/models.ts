@@ -23,6 +23,8 @@ export type ModelCapabilities = {
   varietyPlusBaseSigma?: number;
   // 없으면 토큰 수를 표시하지 않는다.
   tokenPolicy?: ImagePromptTokenPolicy;
+  // 캐릭터 프롬프트 상한 (V5 22명은 공식 문서 기준)
+  maxCharacters: number;
   // V5 요청 형식: params_version 4, Karras 고정, 프리셋을 문자열 ID와 tag_hint로 전송
   v5Request: boolean;
 };
@@ -44,6 +46,7 @@ export const MODEL_CAPABILITIES = {
     autoSmea: false,
     nativeNoiseSchedule: false,
     curated: false,
+    maxCharacters: 22,
     v5Request: true,
   },
   "nai-diffusion-5-curated": {
@@ -55,6 +58,7 @@ export const MODEL_CAPABILITIES = {
     autoSmea: false,
     nativeNoiseSchedule: false,
     curated: true,
+    maxCharacters: 22,
     v5Request: true,
   },
   "nai-diffusion-4-5-full": {
@@ -68,6 +72,7 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
+    maxCharacters: 6,
     v5Request: false,
   },
   "nai-diffusion-4-5-curated": {
@@ -81,6 +86,7 @@ export const MODEL_CAPABILITIES = {
     curated: true,
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
+    maxCharacters: 6,
     v5Request: false,
   },
   "nai-diffusion-4-curated-preview": {
@@ -94,6 +100,7 @@ export const MODEL_CAPABILITIES = {
     curated: true,
     varietyPlusBaseSigma: 19,
     tokenPolicy: T5_POLICY,
+    maxCharacters: 6,
     v5Request: false,
   },
   "nai-diffusion-3": {
@@ -107,6 +114,7 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
+    maxCharacters: 6,
     v5Request: false,
   },
   "nai-diffusion-furry-3": {
@@ -120,11 +128,17 @@ export const MODEL_CAPABILITIES = {
     curated: false,
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
+    maxCharacters: 6,
     v5Request: false,
   },
 } as const satisfies Record<string, ModelCapabilities>;
 
 export type ModelId = keyof typeof MODEL_CAPABILITIES;
+
+// 저장값 복원처럼 모델과 무관하게 자를 때 쓰는 가장 큰 상한.
+export const MAX_STORED_CHARACTER_PROMPTS = Math.max(
+  ...Object.values(MODEL_CAPABILITIES).map((item) => item.maxCharacters),
+);
 
 export const DEFAULT_MODEL: ModelId = "nai-diffusion-4-5-full";
 

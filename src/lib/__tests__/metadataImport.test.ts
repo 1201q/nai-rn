@@ -1,4 +1,3 @@
-import { MAX_CHARACTER_PROMPTS } from "../../constants/generation";
 import type { ParsedNaiMetadata } from "../naiMetadata";
 import {
   buildMetadataImportPatch,
@@ -101,9 +100,8 @@ describe("buildMetadataImportPatch", () => {
   });
 
   test("appends characters up to the supported limit", () => {
-    const currentCharacters = Array.from(
-      { length: MAX_CHARACTER_PROMPTS - 1 },
-      (_, index) => createCharacter(`current-${index}`),
+    const currentCharacters = Array.from({ length: 5 }, (_, index) =>
+      createCharacter(`current-${index}`),
     );
     const importedCharacters = [
       createCharacter("imported-0"),
@@ -120,7 +118,7 @@ describe("buildMetadataImportPatch", () => {
       createSelection({ characters: true, characterMode: "append" }),
     );
 
-    expect(patch.characterPrompts).toHaveLength(MAX_CHARACTER_PROMPTS);
+    expect(patch.characterPrompts).toHaveLength(6);
     expect(patch.characterPrompts).toEqual([
       ...currentCharacters,
       importedCharacters[0],
@@ -158,5 +156,26 @@ describe("buildMetadataImportPatch", () => {
     );
 
     expect(patch).toEqual({});
+  });
+
+  test("appends up to the V5 limit when the current model is V5", () => {
+    const patch = buildMetadataImportPatch(
+      createState({
+        model: "nai-diffusion-5-full",
+        characterPrompts: Array.from({ length: 20 }, (_, index) =>
+          createCharacter(`current-${index}`),
+        ),
+      }),
+      {
+        raw: {},
+        characters: Array.from({ length: 5 }, (_, index) =>
+          createCharacter(`imported-${index}`),
+        ),
+        hasSettings: false,
+      },
+      createSelection({ characters: true, characterMode: "append" }),
+    );
+
+    expect(patch.characterPrompts).toHaveLength(22);
   });
 });

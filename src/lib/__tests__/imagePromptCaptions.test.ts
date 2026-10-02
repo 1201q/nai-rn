@@ -45,7 +45,9 @@ const requestDefaults = {
 
 describe("image prompt captions", () => {
   it("filters disabled and entirely empty characters", () => {
-    expect(resolveActiveCharacterPrompts(characters)).toEqual([
+    expect(
+      resolveActiveCharacterPrompts(characters, "nai-diffusion-4-5-full"),
+    ).toEqual([
       {
         prompt: "hero",
         negativePrompt: "hat",
@@ -55,7 +57,10 @@ describe("image prompt captions", () => {
   });
 
   it("uses the same V4 captions in metrics preparation and payload", () => {
-    const activeCharacters = resolveActiveCharacterPrompts(characters);
+    const activeCharacters = resolveActiveCharacterPrompts(
+      characters,
+      "nai-diffusion-4-5-full",
+    );
     const prepared = prepareImagePromptCaptions({
       model: "nai-diffusion-4-5-full",
       prompt: requestDefaults.prompt,
@@ -99,7 +104,10 @@ describe("image prompt captions", () => {
       negativePrompt: requestDefaults.negativePrompt,
       qualityToggle: requestDefaults.qualityToggle,
       ucPreset: requestDefaults.ucPreset,
-      characterPrompts: resolveActiveCharacterPrompts(characters),
+      characterPrompts: resolveActiveCharacterPrompts(
+        characters,
+        "nai-diffusion-4-5-full",
+      ),
     });
 
     expect(prepared.positiveCharacterCaptions).toEqual([]);
@@ -108,15 +116,18 @@ describe("image prompt captions", () => {
 
   it("drops characters without a positive prompt", () => {
     expect(
-      resolveActiveCharacterPrompts([
-        {
-          id: "negative-only",
-          prompt: " ",
-          negativePrompt: "hat",
-          enabled: true,
-          position: { x: 0.5, y: 0.5 },
-        },
-      ]),
+      resolveActiveCharacterPrompts(
+        [
+          {
+            id: "negative-only",
+            prompt: " ",
+            negativePrompt: "hat",
+            enabled: true,
+            position: { x: 0.5, y: 0.5 },
+          },
+        ],
+        "nai-diffusion-4-5-full",
+      ),
     ).toEqual([]);
   });
 
@@ -197,5 +208,103 @@ describe("image prompt captions", () => {
       expect(parameters).not.toHaveProperty("deliberate_euler_ancestral_bug");
       expect(parameters).not.toHaveProperty("prefer_brownian");
     }
+  });
+});
+
+describe("per-model character limit", () => {
+  const many = Array.from({ length: 23 }, (_, index) => ({
+    id: `c${index}`,
+    prompt: `character ${index}`,
+    negativePrompt: "",
+    enabled: true,
+    position: { x: 0.5, y: 0.5 },
+  }));
+
+  it.each([
+    ["nai-diffusion-4-5-full", 6],
+    ["nai-diffusion-5-full", 22],
+    ["nai-diffusion-5-curated", 22],
+  ])("%s sends the first %s active characters", (model, limit) => {
+    const active = resolveActiveCharacterPrompts(many, model);
+    expect(active).toHaveLength(limit);
+    expect(active[0].prompt).toBe("character 0");
+  });
+});
+
+// 웹 요청 캡처(2026-10-02): 따옴표 문자열을 모아 Quality 태그 뒤에 teXt: 블록으로 붙인다.
+describe("V5 auto Text block", () => {
+  const prepare = (
+    model: string,
+    prompt: string,
+    characterPrompt: string,
+    qualityToggle = true,
+  ) =>
+    prepareImagePromptCaptions({
+      model,
+      prompt,
+      negativePrompt: "",
+      qualityToggle,
+      ucPreset: 4,
+      characterPrompts: [
+        {
+          prompt: characterPrompt,
+          negativePrompt: "",
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
+    });
+
+  it("matches the captured web request", () => {
+    const captions = prepare(
+      "nai-diffusion-5-full",
+      '1girl, holding a sign, "hello"',
+      'girl, "world"',
+    );
+
+    expect(captions.positiveBaseCaption).toBe(
+      '1girl, holding a sign, "hello", very aesthetic, masterpiece, no text, teXt: hello\n\nworld',
+    );
+    expect(captions.positiveCharacterCaptions).toEqual(['girl, "world"']);
+  });
+
+  it("collects curly and Japanese quotes without quality tags", () => {
+    expect(
+      prepare(
+        "nai-diffusion-5-curated",
+        "sign, “open”",
+        "girl, 「閉店」",
+        false,
+      ).positiveBaseCaption,
+    ).toBe("sign, “open”, teXt: open\n\n閉店");
+  });
+
+  it("does nothing when a Text: block is already written", () => {
+    expect(
+      prepare(
+        "nai-diffusion-5-full",
+        '1girl, "hello", Text: bye',
+        "girl",
+        false,
+      ).positiveBaseCaption,
+    ).toBe('1girl, "hello", Text: bye');
+    expect(
+      prepare(
+        "nai-diffusion-5-full",
+        '1girl, "hello"',
+        "girl, text: bye",
+        false,
+      ).positiveBaseCaption,
+    ).toBe('1girl, "hello"');
+  });
+
+  it("does nothing without quotes or on older models", () => {
+    expect(
+      prepare("nai-diffusion-5-full", "1girl", "girl", false)
+        .positiveBaseCaption,
+    ).toBe("1girl");
+    expect(
+      prepare("nai-diffusion-4-5-full", '1girl, "hello"', "girl", false)
+        .positiveBaseCaption,
+    ).toBe('1girl, "hello"');
   });
 });

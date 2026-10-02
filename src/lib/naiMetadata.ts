@@ -1,5 +1,4 @@
 import {
-  MAX_CHARACTER_PROMPTS,
   isNoiseSchedule,
   resolutionFromDimensions,
   SAMPLERS,
@@ -13,6 +12,7 @@ import {
   hasQualityTags,
   inferUcPreset,
   isUcPresetIndex,
+  stripAutoTextBlock,
   stripQualityTags,
   stripUcPreset,
   type UcPresetIndex,
@@ -99,18 +99,21 @@ function extractCharCaptions(
   }));
 }
 
-function buildCharacters(comment: Record<string, unknown>): CharacterPrompt[] {
+function buildCharacters(
+  comment: Record<string, unknown>,
+  maxCharacters: number,
+): CharacterPrompt[] {
   const prompts = extractCharCaptions(comment.v4_prompt);
   const negatives = extractCharCaptions(comment.v4_negative_prompt);
   const count = Math.min(
     Math.max(prompts.length, negatives.length),
-    MAX_CHARACTER_PROMPTS,
+    maxCharacters,
   );
 
   const characters: CharacterPrompt[] = [];
   for (
     let index = 0;
-    index < count && characters.length < MAX_CHARACTER_PROMPTS;
+    index < count && characters.length < maxCharacters;
     index += 1
   ) {
     const prompt = prompts[index]?.prompt ?? "";
@@ -119,7 +122,7 @@ function buildCharacters(comment: Record<string, unknown>): CharacterPrompt[] {
     const centers = prompts[index]?.centers ??
       negatives[index]?.centers ?? [{ x: 0.5, y: 0.5 }];
     for (let centerIndex = 0; centerIndex < centers.length; centerIndex += 1) {
-      if (characters.length >= MAX_CHARACTER_PROMPTS) break;
+      if (characters.length >= maxCharacters) break;
       characters.push({
         id: `import-${Date.now()}-${index}-${centerIndex}`,
         prompt,
@@ -156,7 +159,7 @@ export function parseNaiMetadata(
   }
 
   // Prompt / Undesired (Comment 우선, v4 base_caption, Description 순)
-  const mergedPrompt =
+  const rawPrompt =
     (comment && isNonEmptyString(comment.prompt)
       ? comment.prompt
       : undefined) ??
@@ -170,6 +173,11 @@ export function parseNaiMetadata(
   // 프리셋 문자열은 모델마다 다르므로 모델을 먼저 추정한다 (모르면 V4.5 Full 기준).
   const model = mapSourceToModel(raw.Source, raw.Software);
   const presetModel = model ?? "nai-diffusion-4-5-full";
+  // V5가 자동으로 붙인 Text 블록은 생성할 때 다시 붙으므로 떼어낸다.
+  const mergedPrompt =
+    rawPrompt !== undefined && getModelCapabilities(presetModel).v5Request
+      ? stripAutoTextBlock(rawPrompt)
+      : rawPrompt;
   const qualityToggle =
     comment && isBoolean(comment.qualityToggle)
       ? comment.qualityToggle
@@ -203,7 +211,10 @@ export function parseNaiMetadata(
 
   // Characters
   if (comment) {
-    const characters = buildCharacters(comment);
+    const characters = buildCharacters(
+      comment,
+      getModelCapabilities(presetModel).maxCharacters,
+    );
     if (characters.length > 0) result.characters = characters;
   }
 

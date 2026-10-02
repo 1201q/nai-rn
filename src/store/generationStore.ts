@@ -88,13 +88,15 @@ import {
   DEFAULT_NAI_RESOLUTION,
   generateRandomSeed,
   isNoiseSchedule,
-  MAX_CHARACTER_PROMPTS,
   MAX_GENERATION_PIXELS,
   resolutionFromDimensions,
   type NaiResolution,
   type NoiseSchedule,
 } from "../constants/generation";
-import { getModelCapabilities } from "../constants/models";
+import {
+  getModelCapabilities,
+  MAX_STORED_CHARACTER_PROMPTS,
+} from "../constants/models";
 import type { CharacterPrompt, I2ISourceImage } from "../types/generation";
 
 export type { CharacterPrompt };
@@ -161,7 +163,7 @@ function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
     return [];
   }
 
-  return value.slice(0, MAX_CHARACTER_PROMPTS).flatMap((item, index) => {
+  return value.slice(0, MAX_STORED_CHARACTER_PROMPTS).flatMap((item, index) => {
     if (!item || typeof item !== "object") {
       return [];
     }
@@ -1305,7 +1307,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       token: s.storedToken,
       prompt: effPrompt,
       negativePrompt: effNegativePrompt,
-      characterPrompts: resolveActiveCharacterPrompts(s.characterPrompts),
+      characterPrompts: resolveActiveCharacterPrompts(
+        s.characterPrompts,
+        s.model,
+      ),
       opts: {
         model: s.model,
         width,

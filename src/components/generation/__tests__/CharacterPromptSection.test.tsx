@@ -328,3 +328,49 @@ describe("CharacterPromptSection", () => {
     expect(StyleSheet.flatten(negativeInput.props.style).height).toBe("100%");
   });
 });
+
+describe("CharacterPromptSection character limit", () => {
+  const characters = (count: number): CharacterPrompt[] =>
+    Array.from({ length: count }, (_, index) => ({
+      id: `c${index}`,
+      prompt: `character ${index}`,
+      negativePrompt: "",
+      enabled: true,
+      position: { x: 0.5, y: 0.5 },
+    }));
+
+  afterEach(async () => {
+    await act(() => {
+      useGenerationStore.setState({ model: undefined } as never);
+      useGenerationStore.getState().setCharacterPrompts([]);
+    });
+  });
+
+  it("allows 22 characters on V5", async () => {
+    useGenerationStore.setState({ model: "nai-diffusion-5-full" } as never);
+    useGenerationStore.getState().setCharacterPrompts(characters(6));
+    const { getByLabelText, queryByText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    const add = getByLabelText("캐릭터 프롬프트 추가, 6 / 22");
+    expect(add.props.accessibilityState.disabled).toBe(false);
+    expect(queryByText(/명만 전송됩니다/)).toBeNull();
+  });
+
+  it("warns when a 6-character model has more active characters", async () => {
+    useGenerationStore.setState({ model: "nai-diffusion-4-5-full" } as never);
+    useGenerationStore.getState().setCharacterPrompts(characters(8));
+    const { getByLabelText, getByText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    const add = getByLabelText("캐릭터 프롬프트 추가, 8 / 6");
+    expect(add.props.accessibilityState.disabled).toBe(true);
+    expect(
+      getByText(
+        "현재 모델은 캐릭터를 6명까지 지원합니다. 앞에서부터 6명만 전송됩니다.",
+      ),
+    ).toBeTruthy();
+  });
+});

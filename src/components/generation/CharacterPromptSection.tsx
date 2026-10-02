@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { MAX_CHARACTER_PROMPTS } from "../../constants/generation";
+import { getModelCapabilities } from "../../constants/models";
 import {
   MIN_POSITION_CHARACTERS,
   hasOverlappingPositions,
@@ -37,6 +37,9 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
 }) {
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
+  );
+  const maxCharacters = useGenerationStore(
+    (state) => getModelCapabilities(state.model).maxCharacters,
   );
   const setCharacterPrompts = useGenerationStore(
     (state) => state.setCharacterPrompts,
@@ -86,7 +89,12 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
 
   const addCharacter = useCallback(() => {
     const state = useGenerationStore.getState();
-    if (state.characterPrompts.length >= MAX_CHARACTER_PROMPTS) return;
+    if (
+      state.characterPrompts.length >=
+      getModelCapabilities(state.model).maxCharacters
+    ) {
+      return;
+    }
     const character = createCharacterPrompt(state.characterPrompts.length);
     state.setCharacterPrompts([...state.characterPrompts, character]);
     state.setCharacterPromptExpandedIds([
@@ -149,7 +157,10 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
     [onEditPositions, setPositionEnabled],
   );
 
-  const canAdd = characterPrompts.length < MAX_CHARACTER_PROMPTS;
+  const canAdd = characterPrompts.length < maxCharacters;
+  const activeCount = characterPrompts.filter(
+    (item) => item.enabled && item.prompt.trim(),
+  ).length;
   const canPosition = characterPrompts.length >= MIN_POSITION_CHARACTERS;
   const customPosition = positionEnabled && canPosition;
   const positionsOverlap =
@@ -161,7 +172,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleGroup}>
             <Text style={styles.sectionTitle}>
-              {`Character Prompts (${characterPrompts.length}/${MAX_CHARACTER_PROMPTS})`}
+              {`Character Prompts (${characterPrompts.length}/${maxCharacters})`}
             </Text>
             <Text style={styles.sectionDescription}>
               장면 속 캐릭터별로 프롬프트를 지정합니다.
@@ -169,7 +180,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`캐릭터 프롬프트 추가, ${characterPrompts.length} / ${MAX_CHARACTER_PROMPTS}`}
+            accessibilityLabel={`캐릭터 프롬프트 추가, ${characterPrompts.length} / ${maxCharacters}`}
             accessibilityState={{ disabled: !canAdd }}
             disabled={!canAdd}
             onPress={addCharacter}
@@ -256,6 +267,11 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
             </Pressable>
           </View>
         </View>
+        {activeCount > maxCharacters ? (
+          <Text style={styles.positionWarning}>
+            {`현재 모델은 캐릭터를 ${maxCharacters}명까지 지원합니다. 앞에서부터 ${maxCharacters}명만 전송됩니다.`}
+          </Text>
+        ) : null}
         {positionsOverlap ? (
           <Text style={styles.positionWarning}>
             캐릭터 위치가 겹치면 결과 품질이 떨어질 수 있습니다. 위치를

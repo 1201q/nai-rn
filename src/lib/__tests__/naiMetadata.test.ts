@@ -38,3 +38,47 @@ describe("V5 metadata", () => {
     ).toBe(3);
   });
 });
+
+describe("imported character limit", () => {
+  const comment = {
+    v4_prompt: {
+      caption: {
+        char_captions: Array.from({ length: 8 }, (_, index) => ({
+          char_caption: `character ${index}`,
+          centers: [{ x: 0.5, y: 0.5 }],
+        })),
+      },
+    },
+  };
+
+  it("keeps more than six characters for V5 images", () => {
+    expect(
+      parse("NovelAI Diffusion V5 657484A5", comment).characters,
+    ).toHaveLength(8);
+  });
+
+  it("keeps the six character limit for V4.5 images", () => {
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", comment).characters,
+    ).toHaveLength(6);
+  });
+});
+
+describe("V5 auto Text block on import", () => {
+  it("removes the generated teXt: block before detecting quality tags", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt:
+        '1girl, "hello", very aesthetic, masterpiece, no text, teXt: hello\n\nworld',
+    });
+
+    expect(parsed.prompt).toBe('1girl, "hello"');
+    expect(parsed.qualityToggle).toBe(true);
+  });
+
+  it("keeps a hand-written Text: block", () => {
+    expect(
+      parse("NovelAI Diffusion V5 657484A5", { prompt: "1girl, Text: hello" })
+        .prompt,
+    ).toBe("1girl, Text: hello");
+  });
+});

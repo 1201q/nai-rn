@@ -90,6 +90,7 @@ export async function calculatePromptTokenMetrics(
       : undefined;
   const activeCharacters = resolveActiveCharacterPrompts(
     withDraft.characterPrompts,
+    withDraft.model,
   );
   const captions = prepareImagePromptCaptions({
     model: withDraft.model,

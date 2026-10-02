@@ -250,3 +250,9 @@ it("uses the default request shape without references for unknown models", () =>
     preciseReference: false,
   });
 });
+
+it("allows 22 characters on V5 and 6 elsewhere", () => {
+  expect(
+    MODELS.map(({ value }) => getModelCapabilities(value).maxCharacters),
+  ).toEqual([22, 22, 6, 6, 6, 6, 6]);
+});

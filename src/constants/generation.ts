@@ -113,8 +113,6 @@ export const NOISE_SCHEDULES: Array<{
   },
 ];
 
-export const MAX_CHARACTER_PROMPTS = 6;
-
 export const MAX_SEED = 4_294_967_295;
 
 export function generateRandomSeed(): number {

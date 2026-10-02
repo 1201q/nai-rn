@@ -69,6 +69,35 @@ const UC_PRESETS: Record<string, Partial<Record<UcPresetIndex, string>>> = {
 // V4+ 프롬프트의 "Text:" 블록 경계 (웹 클라이언트 정규식 그대로).
 const TEXT_BLOCK_PATTERN = /(?:^|\s|[,.:[\]{}、。])text:(?!:)/i;
 
+// V5 자동 Text 블록 (웹 요청 캡처 2026-10-02).
+// 프롬프트의 따옴표 문자열을 모아 맨 끝에 ", teXt: a\n\nb"로 붙인다. 원래 따옴표는 그대로 둔다.
+// 웹은 좌표 순 정렬과 작은따옴표도 처리하는 것으로 보이지만 확인하지 못해 넣지 않았다.
+const AUTO_TEXT_MARKER = ", teXt: ";
+const QUOTED_TEXT_PATTERN = /"([^"]+)"|“([^”]+)”|「([^」]+)」/g;
+
+// sources: 기본 프롬프트와 전송되는 캐릭터 프롬프트 (이 순서로 모은다).
+export function appendAutoTextBlock(caption: string, sources: string[]) {
+  // 직접 쓴 Text: 블록이 있으면 자동 처리를 하지 않는다.
+  if (sources.some((source) => TEXT_BLOCK_PATTERN.test(source))) {
+    return caption;
+  }
+  const texts = sources.flatMap((source) =>
+    Array.from(
+      source.matchAll(QUOTED_TEXT_PATTERN),
+      (match) => match[1] ?? match[2] ?? match[3],
+    ),
+  );
+  return texts.length === 0
+    ? caption
+    : `${caption}${AUTO_TEXT_MARKER}${texts.join("\n\n")}`;
+}
+
+// 대소문자가 섞인 teXt:는 자동 블록에만 쓰이므로 그것만 잘라낸다.
+export function stripAutoTextBlock(prompt: string) {
+  const index = prompt.lastIndexOf(AUTO_TEXT_MARKER);
+  return index === -1 ? prompt : prompt.slice(0, index);
+}
+
 export const UC_PRESET_OPTIONS: ReadonlyArray<{
   value: SelectableUcPresetIndex;
   label: string;

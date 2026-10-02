@@ -2,6 +2,7 @@ import { getModelCapabilities } from "../constants/models";
 import type { CharacterPrompt } from "../types/generation";
 import type { GenerateNovelAiCharacterPrompt } from "./novelai";
 import {
+  appendAutoTextBlock,
   mergeQualityTags,
   mergeUcPreset,
   type UcPresetIndex,
@@ -14,10 +15,12 @@ export type PreparedImagePromptCaptions = {
   negativeCharacterCaptions: string[];
 };
 
+// 모델 상한을 넘는 캐릭터는 앞에서부터 상한까지만 보낸다.
 export function resolveActiveCharacterPrompts(
   characterPrompts: CharacterPrompt[],
+  model: string,
 ): GenerateNovelAiCharacterPrompt[] {
-  return characterPrompts.flatMap((item) => {
+  const active = characterPrompts.flatMap((item) => {
     if (!item.enabled) return [];
 
     const prompt = item.prompt.trim();
@@ -27,6 +30,7 @@ export function resolveActiveCharacterPrompts(
 
     return [{ prompt, negativePrompt, position: item.position }];
   });
+  return active.slice(0, getModelCapabilities(model).maxCharacters);
 }
 
 export function prepareImagePromptCaptions({
@@ -44,8 +48,15 @@ export function prepareImagePromptCaptions({
   ucPreset: UcPresetIndex;
   characterPrompts: GenerateNovelAiCharacterPrompt[];
 }): PreparedImagePromptCaptions {
-  const supportsCharacterCaptions = getModelCapabilities(model).v4Prompt;
-  const positiveBaseCaption = mergeQualityTags(prompt, qualityToggle, model);
+  const capabilities = getModelCapabilities(model);
+  const supportsCharacterCaptions = capabilities.v4Prompt;
+  const qualityCaption = mergeQualityTags(prompt, qualityToggle, model);
+  const positiveBaseCaption = capabilities.v5Request
+    ? appendAutoTextBlock(qualityCaption, [
+        prompt,
+        ...characterPrompts.map((item) => item.prompt),
+      ])
+    : qualityCaption;
 
   return {
     positiveBaseCaption,

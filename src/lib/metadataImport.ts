@@ -1,4 +1,4 @@
-import { MAX_CHARACTER_PROMPTS } from "../constants/generation";
+import { getModelCapabilities } from "../constants/models";
 import type { ParsedNaiMetadata } from "./naiMetadata";
 
 export type MetadataCharacterImportMode = "replace" | "append";
@@ -91,11 +91,16 @@ export function buildMetadataImportPatch(
     patch.negativePrompt = parsed.negativePrompt;
   }
   if (selection.characters && parsed.characters) {
+    // 설정도 함께 가져오면 모델이 바뀌므로 그 모델의 상한을 쓴다.
+    const model =
+      selection.settings && parsed.model !== undefined
+        ? parsed.model
+        : state.model;
     patch.characterPrompts =
       selection.characterMode === "append"
         ? [...state.characterPrompts, ...parsed.characters].slice(
             0,
-            MAX_CHARACTER_PROMPTS,
+            getModelCapabilities(model).maxCharacters,
           )
         : parsed.characters;
   }

@@ -18,6 +18,9 @@ const GRID_INDEXES = Array.from(
   (_, index) => index,
 );
 
+// 캐릭터가 이보다 많으면 칩이 그리드를 밀어내지 않도록 번호만 보여준다.
+const MAX_CAPTIONED_CHIPS = 6;
+
 type CellCharacter = {
   item: CharacterPrompt;
   index: number;
@@ -69,7 +72,10 @@ export function CharacterPositionEditor({
         {characterPrompts.map((item, index) => {
           const selected = item.id === activeCharacter?.id;
           const name = item.name?.trim();
-          const caption = name || item.prompt.trim().replace(/\s+/g, " ");
+          const caption =
+            characterPrompts.length > MAX_CAPTIONED_CHIPS
+              ? ""
+              : name || item.prompt.trim().replace(/\s+/g, " ");
           return (
             <Pressable
               key={item.id}
