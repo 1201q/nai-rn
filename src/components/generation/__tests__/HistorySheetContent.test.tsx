@@ -398,6 +398,23 @@ describe("History database-wide selection", () => {
     expect(hook.result.current.selectedCount).toBe(4);
   });
 
+  test("reuses the loaded ID catalog instead of querying it again", async () => {
+    const records = historyRecords(3);
+    storedHistory(records);
+    const hook = await renderSelectedHistoryController(records.slice(0, 1));
+    expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
+    expect(hook.result.current.selectedCount).toBe(0);
+    await act(async () => {
+      await hook.result.current.toggleSelectAll();
+    });
+    expect(hook.result.current.selectedCount).toBe(3);
+    expect(hook.result.current.selectingAll).toBe(false);
+    expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
+  });
+
   test("prunes deleted IDs using the database catalog, not the currently loaded page", async () => {
     const records = historyRecords(5);
     storedHistory(records);
@@ -624,7 +641,12 @@ describe("History database-wide selection", () => {
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    storedHistory([]);
+    await act(async () => {
+      useGenerationStore.setState({
+        generationHistory: [],
+        generationHistoryIds: [],
+      });
+    });
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });

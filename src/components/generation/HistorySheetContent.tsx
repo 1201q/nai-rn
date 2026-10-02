@@ -139,6 +139,8 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     selectionMode,
     selectedIds,
     busy,
+    saving,
+    deleting,
     enterSelectionMode,
     handleTilePress,
     handleActiveGenerationPress,
@@ -220,7 +222,9 @@ export const HistorySheetContent = memo(function HistorySheetContent({
             isCurrent={
               !activeGenerationSelected && item.id === currentGenerationId
             }
-            disabled={busy}
+            // The controller already ignores presses while busy; following
+            // only the long phases keeps select-all from re-rendering tiles.
+            disabled={saving || deleting}
             onPress={handleTilePress}
             onLongPress={enterSelectionMode}
           />
