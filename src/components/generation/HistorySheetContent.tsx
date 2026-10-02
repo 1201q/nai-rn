@@ -190,6 +190,9 @@ export const HistorySheetContent = memo(function HistorySheetContent({
         data={listData}
         keyExtractor={(item) => item?.id ?? "active-generation"}
         numColumns={3}
+        // Android detaches off-screen rows by default; resizing the list on
+        // selection toggles can leave visible rows detached.
+        removeClippedSubviews={false}
         accessibilityElementsHidden={!active}
         importantForAccessibility={active ? "auto" : "no-hide-descendants"}
         initialNumToRender={15}
