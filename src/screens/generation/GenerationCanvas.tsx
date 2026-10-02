@@ -212,6 +212,7 @@ const FreeTransformImage = memo(function FreeTransformImage({
             source={{ uri }}
             blurRadius={blurRadius}
             contentFit="cover"
+            allowDownscaling={false}
             cachePolicy={previewRequestId(uri) ? "none" : "memory-disk"}
             transition={0}
             style={StyleSheet.absoluteFill}
