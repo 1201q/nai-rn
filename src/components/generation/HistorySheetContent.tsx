@@ -1,6 +1,8 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -11,12 +13,12 @@ import {
   BottomSheetFlatList,
   BottomSheetFooter,
   TouchableOpacity as BottomSheetTouchableOpacity,
+  type BottomSheetFlatListMethods,
   type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 
 import {
-  GENERATION_ACTION_BAR_CONTENT_HEIGHT,
   GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
 } from "../../hooks/useGenerationChromeMetrics";
@@ -37,6 +39,8 @@ export {
 const GRID_PADDING = 12;
 const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
 const HISTORY_SCROLL_BOTTOM_GAP = 28;
+const HISTORY_SCROLL_TOP_THRESHOLD = 600;
+const HISTORY_SCROLL_TOP_BUTTON_GAP = 16;
 
 const HistorySheetHeader = memo(function HistorySheetHeader({
   controller,
@@ -122,8 +126,10 @@ export const HistorySheetHandle = memo(function HistorySheetHandle({
 
 export const HistorySheetContent = memo(function HistorySheetContent({
   controller,
+  active = true,
 }: {
   controller: HistorySheetController;
+  active?: boolean;
 }) {
   const { actionBarHeight } = useGenerationChromeMetrics();
   const { width } = useWindowDimensions();
@@ -149,84 +155,151 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     [generationHistory, isLoading],
   );
   const activeGenerationSelected = isLoading && isViewingActiveGeneration;
+  // Swapping the margin and padding in one commit lets the scroll view clamp
+  // its offset mid-update. Trail one frame so the scroll range never shrinks.
+  const [settledSelectionMode, setSettledSelectionMode] =
+    useState(selectionMode);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() =>
+      setSettledSelectionMode(selectionMode),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [selectionMode]);
+  const listEndsAboveSelectionActions = selectionMode || settledSelectionMode;
+  const contentClearsSelectionActions = !(
+    selectionMode && settledSelectionMode
+  );
+  const listRef = useRef<BottomSheetFlatListMethods>(null);
+  const [scrollTopVisible, setScrollTopVisible] = useState(false);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+      setScrollTopVisible(
+        event.nativeEvent.contentOffset.y > HISTORY_SCROLL_TOP_THRESHOLD,
+      ),
+    [],
+  );
 
   return (
-    <BottomSheetFlatList
-      data={listData}
-      keyExtractor={(item) => item?.id ?? "active-generation"}
-      numColumns={3}
-      showsVerticalScrollIndicator={false}
-      initialNumToRender={15}
-      maxToRenderPerBatch={9}
-      windowSize={7}
-      onEndReached={() => {
-        void loadMoreHistory();
-      }}
-      onEndReachedThreshold={0.4}
-      contentContainerStyle={[
-        styles.gridContent,
-        {
-          paddingBottom:
+    // The sheet pads its content container for over-drag; anchor the button to
+    // an in-flow box so it is not offset by that padding.
+    <View style={styles.listContainer}>
+      <BottomSheetFlatList
+        ref={listRef}
+        // gorhom forwards onScroll at runtime but omits it from the prop types.
+        {...({ onScroll: handleScroll } as object)}
+        data={listData}
+        keyExtractor={(item) => item?.id ?? "active-generation"}
+        numColumns={3}
+        accessibilityElementsHidden={!active}
+        importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+        initialNumToRender={15}
+        maxToRenderPerBatch={9}
+        windowSize={7}
+        onEndReached={() => {
+          void loadMoreHistory();
+        }}
+        onEndReachedThreshold={0.4}
+        // End the list above the action bar and selection actions so the scroll
+        // indicator stays visible.
+        style={{
+          marginBottom:
             actionBarHeight +
-            HISTORY_SELECTION_ACTIONS_HEIGHT +
-            HISTORY_SCROLL_BOTTOM_GAP,
-        },
-        listData.length === 0 && styles.emptyGrid,
-      ]}
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          {historyInitialized ? (
-            <>
-              <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
-              <Text style={styles.emptyText}>
-                이미지를 생성하면 여기에 기록이 쌓입니다
-              </Text>
-            </>
-          ) : (
-            <ActivityIndicator
-              accessibilityLabel="History 불러오는 중"
-              color={tokens.color.textMuted}
-            />
-          )}
-        </View>
-      }
-      ListFooterComponent={
-        historyLoadingMore ? (
-          <View style={styles.loadingFooter}>
-            <ActivityIndicator
-              accessibilityLabel="이전 History 불러오는 중"
-              color={tokens.color.textMuted}
-            />
+            (listEndsAboveSelectionActions
+              ? HISTORY_SELECTION_ACTIONS_HEIGHT
+              : 0),
+        }}
+        contentContainerStyle={[
+          styles.gridContent,
+          {
+            paddingBottom:
+              (contentClearsSelectionActions
+                ? HISTORY_SELECTION_ACTIONS_HEIGHT
+                : 0) + HISTORY_SCROLL_BOTTOM_GAP,
+          },
+          listData.length === 0 && styles.emptyGrid,
+        ]}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            {historyInitialized ? (
+              <>
+                <Text style={styles.emptyTitle}>
+                  아직 생성한 이미지가 없어요
+                </Text>
+                <Text style={styles.emptyText}>
+                  이미지를 생성하면 여기에 기록이 쌓입니다
+                </Text>
+              </>
+            ) : (
+              <ActivityIndicator
+                accessibilityLabel="History 불러오는 중"
+                color={tokens.color.textMuted}
+              />
+            )}
           </View>
-        ) : null
-      }
-      renderItem={({ item, index }) =>
-        item === null ? (
-          <ActiveGenerationTile
-            index={index}
-            size={tileSize}
-            previewUri={streamingPreviewUri}
-            selected={activeGenerationSelected}
-            disabled={busy || selectionMode}
-            onPress={handleActiveGenerationPress}
+        }
+        ListFooterComponent={
+          historyLoadingMore ? (
+            <View style={styles.loadingFooter}>
+              <ActivityIndicator
+                accessibilityLabel="이전 History 불러오는 중"
+                color={tokens.color.textMuted}
+              />
+            </View>
+          ) : null
+        }
+        renderItem={({ item, index }) =>
+          item === null ? (
+            <ActiveGenerationTile
+              index={index}
+              size={tileSize}
+              previewUri={streamingPreviewUri}
+              selected={activeGenerationSelected}
+              disabled={busy || selectionMode}
+              onPress={handleActiveGenerationPress}
+            />
+          ) : (
+            <HistorySheetTile
+              item={item}
+              index={index}
+              size={tileSize}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(item.id)}
+              isCurrent={
+                !activeGenerationSelected && item.id === currentGenerationId
+              }
+              disabled={busy}
+              onPress={handleTilePress}
+              onLongPress={enterSelectionMode}
+            />
+          )
+        }
+      />
+      {active && scrollTopVisible ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="History 맨 위로 이동"
+          onPress={() =>
+            listRef.current?.scrollToOffset({ offset: 0, animated: true })
+          }
+          style={({ pressed }) => [
+            styles.scrollTopButton,
+            {
+              bottom:
+                actionBarHeight +
+                (selectionMode ? HISTORY_SELECTION_ACTIONS_HEIGHT : 0) +
+                HISTORY_SCROLL_TOP_BUTTON_GAP,
+            },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name="arrow-up"
+            size={20}
+            color={tokens.color.textPrimary}
           />
-        ) : (
-          <HistorySheetTile
-            item={item}
-            index={index}
-            size={tileSize}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(item.id)}
-            isCurrent={
-              !activeGenerationSelected && item.id === currentGenerationId
-            }
-            disabled={busy}
-            onPress={handleTilePress}
-            onLongPress={enterSelectionMode}
-          />
-        )
-      }
-    />
+        </Pressable>
+      ) : null}
+    </View>
   );
 });
 
@@ -392,7 +465,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingHorizontal: 32,
-    paddingBottom: GENERATION_ACTION_BAR_CONTENT_HEIGHT,
   },
   emptyTitle: {
     color: tokens.color.textPrimary,
@@ -420,6 +492,21 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.cardAlt,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  scrollTopButton: {
+    position: "absolute",
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.raised,
   },
   emptyFooter: {
     height: 0,

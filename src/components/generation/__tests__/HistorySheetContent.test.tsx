@@ -902,13 +902,39 @@ describe("History deletion confirmation", () => {
       const footerProps = jest.mocked(BottomSheetFooter).mock.calls[0][0];
       const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
       expect(footerProps.bottomInset).toBe(71 + bottom);
+      expect(StyleSheet.flatten(listProps.style)).toMatchObject({
+        marginBottom: 128 + bottom,
+      });
       expect(StyleSheet.flatten(listProps.contentContainerStyle)).toMatchObject(
         {
-          paddingBottom: 156 + bottom,
+          paddingBottom: 28,
         },
       );
     },
   );
+
+  test("shows the scroll-to-top button only after scrolling down", async () => {
+    const hook = await renderSelectedHistoryController();
+    const screen = await render(
+      <HistorySheetContent controller={hook.result.current} />,
+    );
+    const scrollTo = (y: number) =>
+      act(() =>
+        (
+          jest.mocked(BottomSheetFlatList).mock.calls.at(-1)![0] as unknown as {
+            onScroll: (event: {
+              nativeEvent: { contentOffset: { x: number; y: number } };
+            }) => void;
+          }
+        ).onScroll({ nativeEvent: { contentOffset: { x: 0, y } } }),
+      );
+
+    expect(screen.queryByLabelText("History 맨 위로 이동")).toBeNull();
+    await scrollTo(700);
+    expect(screen.getByLabelText("History 맨 위로 이동")).toBeTruthy();
+    await scrollTo(100);
+    expect(screen.queryByLabelText("History 맨 위로 이동")).toBeNull();
+  });
 
   test("keeps the selection and does not delete when cancelled", async () => {
     const hook = await renderSelectedHistoryController();
