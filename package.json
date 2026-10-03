@@ -29,6 +29,7 @@
     "expensify-common": "2.0.189",
     "expo": "^57.0.7",
     "expo-asset": "~57.0.6",
+    "expo-build-properties": "~57.0.6",
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.6",
     "expo-dev-client": "~57.0.7",

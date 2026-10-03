@@ -49,6 +49,18 @@ export default {
       bundler: "metro",
     },
     plugins: [
+      [
+        "expo-build-properties",
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            buildArchs: process.env.ANDROID_BUILD_ARCH
+              ? [process.env.ANDROID_BUILD_ARCH]
+              : ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"],
+          },
+        },
+      ],
       "expo-router",
       "expo-secure-store",
       "expo-sqlite",

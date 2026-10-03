@@ -29,7 +29,26 @@
         "buildType": "apk"
       },
       "env": {
-        "APP_VARIANT": "production"
+        "APP_VARIANT": "production",
+        "ANDROID_BUILD_ARCH": "arm64-v8a"
+      }
+    },
+    "apk-armv7": {
+      "extends": "apk",
+      "env": {
+        "ANDROID_BUILD_ARCH": "armeabi-v7a"
+      }
+    },
+    "apk-x86": {
+      "extends": "apk",
+      "env": {
+        "ANDROID_BUILD_ARCH": "x86"
+      }
+    },
+    "apk-x86_64": {
+      "extends": "apk",
+      "env": {
+        "ANDROID_BUILD_ARCH": "x86_64"
       }
     },
     "production": {
