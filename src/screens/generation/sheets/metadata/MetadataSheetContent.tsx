@@ -6,7 +6,10 @@ import { NOISE_SCHEDULES, SAMPLERS } from "../../../../constants/generation";
 import { MODELS } from "../../../../constants/models";
 import type { GenerationRecord } from "../../../../lib/generationHistory";
 import { parseNaiMetadataJson } from "../../../../lib/naiMetadata";
-import { getUcPresetLabel } from "../../../../lib/naiPresets";
+import {
+  getQualityPresetLabel,
+  getUcPresetLabel,
+} from "../../../../lib/naiPresets";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { monoFont, tokens } from "../../../../styles/tokens";
 import { PromptHighlightTextInput } from "../../../../components/forms/PromptHighlightTextInput";
@@ -281,12 +284,11 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     {
       label: "QUALITY TAGS",
       value:
-        parsed?.qualityToggle === undefined
+        parsed?.qualityPreset === undefined
           ? "-"
-          : parsed.qualityToggle
-            ? "On"
-            : "Off",
-      accent: parsed?.qualityToggle === true,
+          : getQualityPresetLabel(parsed.qualityPreset),
+      accent:
+        parsed?.qualityPreset !== undefined && parsed.qualityPreset !== "none",
     },
     {
       label: "UC PRESET",

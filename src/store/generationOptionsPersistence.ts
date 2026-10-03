@@ -1,5 +1,5 @@
 import type { NaiResolution, NoiseSchedule } from "../constants/generation";
-import type { UcPresetIndex } from "../lib/naiPresets";
+import type { QualityPreset, UcPresetIndex } from "../lib/naiPresets";
 import type { NovelAiImageFormat } from "../lib/novelai";
 
 export const GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS = 250;
@@ -16,7 +16,9 @@ type StoredCharacterPrompt = {
 type StoredGenerationOptions = {
   prompt: string;
   negativePrompt: string;
-  qualityToggle: boolean;
+  qualityPreset: QualityPreset;
+  // 이전 버전의 저장값 (복원할 때만 읽는다)
+  qualityToggle?: boolean;
   ucPreset: UcPresetIndex;
   characterPrompts: StoredCharacterPrompt[];
   characterPromptExpandedIds: string[];
@@ -62,7 +64,7 @@ export type PersistableGenerationState = Omit<
 const PERSISTED_OPTION_KEYS = [
   "prompt",
   "negativePrompt",
-  "qualityToggle",
+  "qualityPreset",
   "ucPreset",
   "characterPrompts",
   "characterPromptExpandedIds",
@@ -96,7 +98,7 @@ export function selectPersistedOptions(
   return {
     prompt: state.prompt,
     negativePrompt: state.negativePrompt,
-    qualityToggle: state.qualityToggle,
+    qualityPreset: state.qualityPreset,
     ucPreset: state.ucPreset,
     characterPrompts: state.characterPrompts,
     characterPromptExpandedIds: state.characterPromptExpandedIds,

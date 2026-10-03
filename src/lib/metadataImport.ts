@@ -24,6 +24,7 @@ export type MetadataImportState = {
   prompt: string;
   negativePrompt: string;
   characterPrompts: NonNullable<ParsedNaiMetadata["characters"]>;
+  characterPositionEnabled: boolean;
   model: string;
   resolution: NonNullable<ParsedNaiMetadata["resolution"]>;
   steps: number;
@@ -32,7 +33,7 @@ export type MetadataImportState = {
   noiseSchedule: NonNullable<ParsedNaiMetadata["noiseSchedule"]>;
   sampler: string;
   varietyPlus: boolean;
-  qualityToggle: boolean;
+  qualityPreset: NonNullable<ParsedNaiMetadata["qualityPreset"]>;
   ucPreset: NonNullable<ParsedNaiMetadata["ucPreset"]>;
   seed: number;
 };
@@ -103,6 +104,13 @@ export function buildMetadataImportPatch(
             getModelCapabilities(model).maxCharacters,
           )
         : parsed.characters;
+    // 위치 모드는 캐릭터를 통째로 바꿀 때만 이미지 값을 따른다 (추가하면 기존 캐릭터와 섞이므로).
+    if (
+      selection.characterMode === "replace" &&
+      parsed.characterPositionEnabled !== undefined
+    ) {
+      patch.characterPositionEnabled = parsed.characterPositionEnabled;
+    }
   }
   if (selection.settings) {
     if (parsed.model !== undefined) patch.model = parsed.model;
@@ -123,8 +131,8 @@ export function buildMetadataImportPatch(
     if (parsed.varietyPlus !== undefined) {
       patch.varietyPlus = parsed.varietyPlus;
     }
-    if (parsed.qualityToggle !== undefined) {
-      patch.qualityToggle = parsed.qualityToggle;
+    if (parsed.qualityPreset !== undefined) {
+      patch.qualityPreset = parsed.qualityPreset;
     }
     if (parsed.ucPreset !== undefined) patch.ucPreset = parsed.ucPreset;
   }

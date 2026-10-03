@@ -56,7 +56,7 @@ const generation: GenerationRecord = {
       sampler: "k_euler_ancestral",
       noise_schedule: "karras",
       seed: 123456,
-      qualityToggle: true,
+      qualityPreset: "standard" as const,
       ucPreset: 0,
       v4_prompt: {
         caption: {

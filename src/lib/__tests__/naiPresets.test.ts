@@ -1,8 +1,10 @@
 import {
+  getQualityPresetOptions,
   getUcPresetOptions,
   inferUcPreset,
   mergeQualityTags,
   mergeUcPreset,
+  resolveQualityPresetForModel,
   resolveUcPresetForModel,
   stripUcPreset,
 } from "../naiPresets";
@@ -13,27 +15,33 @@ const V45_FULL_HEAVY =
 
 describe("quality tags (official web parity)", () => {
   it("uses the model-specific suffix", () => {
-    expect(mergeQualityTags("1girl", true, "nai-diffusion-4-5-full")).toBe(
-      "1girl, very aesthetic, masterpiece, no text",
-    );
-    expect(mergeQualityTags("1girl", true, "nai-diffusion-4-5-curated")).toBe(
+    expect(
+      mergeQualityTags("1girl", "standard", "nai-diffusion-4-5-full"),
+    ).toBe("1girl, very aesthetic, masterpiece, no text");
+    expect(
+      mergeQualityTags("1girl", "standard", "nai-diffusion-4-5-curated"),
+    ).toBe(
       "1girl, very aesthetic, masterpiece, no text, -0.8::feet::, rating:general",
     );
-    expect(mergeQualityTags("1girl", true, "nai-diffusion-3")).toBe(
+    expect(mergeQualityTags("1girl", "standard", "nai-diffusion-3")).toBe(
       "1girl, best quality, amazing quality, very aesthetic, absurdres",
     );
-    expect(mergeQualityTags("1girl", false, "nai-diffusion-3")).toBe("1girl");
+    expect(mergeQualityTags("1girl", "none", "nai-diffusion-3")).toBe("1girl");
   });
 
   it("does not leave a leading separator for an empty prompt", () => {
-    expect(mergeQualityTags("", true, "nai-diffusion-4-5-full")).toBe(
+    expect(mergeQualityTags("", "standard", "nai-diffusion-4-5-full")).toBe(
       "very aesthetic, masterpiece, no text",
     );
   });
 
   it("inserts V4+ tags before the Text: block", () => {
     expect(
-      mergeQualityTags("1girl, Text: hello", true, "nai-diffusion-4-5-full"),
+      mergeQualityTags(
+        "1girl, Text: hello",
+        "standard",
+        "nai-diffusion-4-5-full",
+      ),
     ).toBe("1girl,, very aesthetic, masterpiece, no text Text: hello");
   });
 });
@@ -45,7 +53,7 @@ describe("V5 presets (official docs 2026-10-02)", () => {
   it.each(["nai-diffusion-5-full", "nai-diffusion-5-curated"])(
     "%s uses the V5 quality suffix and Light preset",
     (model) => {
-      expect(mergeQualityTags("1girl", true, model)).toBe(
+      expect(mergeQualityTags("1girl", "standard", model)).toBe(
         "1girl, very aesthetic, masterpiece, no text",
       );
       expect(mergeUcPreset("", 1, model, "1girl, nsfw")).toBe(V5_LIGHT);
@@ -146,5 +154,36 @@ describe("Variety+ sigma (official web parity)", () => {
     expect(
       getVarietyPlusSigma("nai-diffusion-4-5-full", 1024, 1536),
     ).toBeCloseTo(72.32, 2);
+  });
+});
+
+describe("Quality Light", () => {
+  it("appends the Light suffix on V5", () => {
+    expect(mergeQualityTags("1girl", "light", "nai-diffusion-5-full")).toBe(
+      "1girl, very aesthetic, amazing quality, no text",
+    );
+  });
+
+  it("falls back to Standard on models without Light", () => {
+    expect(mergeQualityTags("1girl", "light", "nai-diffusion-4-5-full")).toBe(
+      "1girl, very aesthetic, masterpiece, no text",
+    );
+    expect(
+      resolveQualityPresetForModel("light", "nai-diffusion-4-5-full"),
+    ).toBe("standard");
+    expect(resolveQualityPresetForModel("light", "nai-diffusion-5-full")).toBe(
+      "light",
+    );
+  });
+
+  it("offers Light only on V5", () => {
+    const labels = (model: string) =>
+      getQualityPresetOptions(model).map((option) => option.label);
+    expect(labels("nai-diffusion-5-curated")).toEqual([
+      "Standard",
+      "Light",
+      "None",
+    ]);
+    expect(labels("nai-diffusion-4-5-full")).toEqual(["Standard", "None"]);
   });
 });

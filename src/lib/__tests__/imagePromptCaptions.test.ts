@@ -1,3 +1,4 @@
+import type { QualityPreset } from "../naiPresets";
 import {
   prepareImagePromptCaptions,
   resolveActiveCharacterPrompts,
@@ -39,7 +40,7 @@ const requestDefaults = {
   promptGuidanceRescale: 0,
   noiseSchedule: "karras" as const,
   sampler: "k_euler_ancestral",
-  qualityToggle: true,
+  qualityPreset: "standard" as const,
   ucPreset: 4 as const,
 };
 
@@ -65,7 +66,7 @@ describe("image prompt captions", () => {
       model: "nai-diffusion-4-5-full",
       prompt: requestDefaults.prompt,
       negativePrompt: requestDefaults.negativePrompt,
-      qualityToggle: requestDefaults.qualityToggle,
+      qualityPreset: requestDefaults.qualityPreset,
       ucPreset: requestDefaults.ucPreset,
       characterPrompts: activeCharacters,
     });
@@ -102,7 +103,7 @@ describe("image prompt captions", () => {
       model: "nai-diffusion-3",
       prompt: requestDefaults.prompt,
       negativePrompt: requestDefaults.negativePrompt,
-      qualityToggle: requestDefaults.qualityToggle,
+      qualityPreset: requestDefaults.qualityPreset,
       ucPreset: requestDefaults.ucPreset,
       characterPrompts: resolveActiveCharacterPrompts(
         characters,
@@ -237,13 +238,13 @@ describe("V5 auto Text block", () => {
     model: string,
     prompt: string,
     characterPrompt: string,
-    qualityToggle = true,
+    qualityPreset: QualityPreset = "standard",
   ) =>
     prepareImagePromptCaptions({
       model,
       prompt,
       negativePrompt: "",
-      qualityToggle,
+      qualityPreset,
       ucPreset: 4,
       characterPrompts: [
         {
@@ -273,7 +274,7 @@ describe("V5 auto Text block", () => {
         "nai-diffusion-5-curated",
         "sign, “open”",
         "girl, 「閉店」",
-        false,
+        "none",
       ).positiveBaseCaption,
     ).toBe("sign, “open”, teXt: open\n\n閉店");
   });
@@ -284,7 +285,7 @@ describe("V5 auto Text block", () => {
         "nai-diffusion-5-full",
         '1girl, "hello", Text: bye',
         "girl",
-        false,
+        "none",
       ).positiveBaseCaption,
     ).toBe('1girl, "hello", Text: bye');
     expect(
@@ -292,18 +293,18 @@ describe("V5 auto Text block", () => {
         "nai-diffusion-5-full",
         '1girl, "hello"',
         "girl, text: bye",
-        false,
+        "none",
       ).positiveBaseCaption,
     ).toBe('1girl, "hello"');
   });
 
   it("does nothing without quotes or on older models", () => {
     expect(
-      prepare("nai-diffusion-5-full", "1girl", "girl", false)
+      prepare("nai-diffusion-5-full", "1girl", "girl", "none")
         .positiveBaseCaption,
     ).toBe("1girl");
     expect(
-      prepare("nai-diffusion-4-5-full", '1girl, "hello"', "girl", false)
+      prepare("nai-diffusion-4-5-full", '1girl, "hello"', "girl", "none")
         .positiveBaseCaption,
     ).toBe('1girl, "hello"');
   });

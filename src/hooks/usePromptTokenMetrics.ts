@@ -38,7 +38,7 @@ export function usePromptTokenMetrics(
   const model = useGenerationStore((state) => state.model);
   const prompt = useGenerationStore((state) => state.prompt);
   const negativePrompt = useGenerationStore((state) => state.negativePrompt);
-  const qualityToggle = useGenerationStore((state) => state.qualityToggle);
+  const qualityPreset = useGenerationStore((state) => state.qualityPreset);
   const ucPreset = useGenerationStore((state) => state.ucPreset);
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
@@ -65,7 +65,7 @@ export function usePromptTokenMetrics(
           model,
           prompt,
           negativePrompt,
-          qualityToggle,
+          qualityPreset,
           ucPreset,
           characterPrompts,
         },
@@ -95,7 +95,7 @@ export function usePromptTokenMetrics(
     model,
     negativePrompt,
     prompt,
-    qualityToggle,
+    qualityPreset,
     target,
     ucPreset,
   ]);

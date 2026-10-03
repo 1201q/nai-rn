@@ -3,6 +3,7 @@ import { getModelCapabilities } from "../constants/models";
 // 공식 웹 클라이언트(2026-09-24 번들)의 모델별 품질 태그 / UC 프리셋과 결합 규칙을 옮겼다.
 export type UcPresetIndex = 0 | 1 | 2 | 3 | 4;
 export type SelectableUcPresetIndex = 0 | 1 | 3 | 4;
+export type QualityPreset = "standard" | "light" | "none";
 
 const DEFAULT_PRESET_MODEL = "nai-diffusion-4-5-full";
 const SEPARATOR = ", ";
@@ -17,6 +18,12 @@ const QUALITY_SUFFIXES: Record<string, string> = {
     "rating:general, best quality, very aesthetic, absurdres",
   "nai-diffusion-3": "best quality, amazing quality, very aesthetic, absurdres",
   "nai-diffusion-furry-3": "{best quality}, {amazing quality}",
+};
+
+// Light Quality는 V5에만 있다 (공식 문서 2026-10-02).
+const LIGHT_QUALITY_SUFFIXES: Record<string, string> = {
+  "nai-diffusion-5-full": "very aesthetic, amazing quality, no text",
+  "nai-diffusion-5-curated": "very aesthetic, amazing quality, no text",
 };
 
 // 인덱스: 0 heavy, 1 light, 2 furryFocus, 3 humanFocus, 4 none. 없는 인덱스는 none으로 처리.
@@ -98,6 +105,44 @@ export function stripAutoTextBlock(prompt: string) {
   return index === -1 ? prompt : prompt.slice(0, index);
 }
 
+export const QUALITY_PRESET_OPTIONS: readonly {
+  value: QualityPreset;
+  label: string;
+}[] = [
+  { value: "standard", label: "Standard" },
+  { value: "light", label: "Light" },
+  { value: "none", label: "None" },
+];
+
+export function isQualityPreset(value: unknown): value is QualityPreset {
+  return value === "standard" || value === "light" || value === "none";
+}
+
+export function getQualityPresetLabel(value: QualityPreset): string {
+  return (
+    QUALITY_PRESET_OPTIONS.find((option) => option.value === value)?.label ??
+    "None"
+  );
+}
+
+// 선택한 모델이 지원하는 Quality 프리셋만 선택지로 보여준다.
+export function getQualityPresetOptions(model: string) {
+  return QUALITY_PRESET_OPTIONS.filter(
+    (option) =>
+      option.value !== "light" || LIGHT_QUALITY_SUFFIXES[model] !== undefined,
+  );
+}
+
+// Light가 없는 모델은 Standard로 처리한다 (요청과 표시 모두).
+export function resolveQualityPresetForModel(
+  preset: QualityPreset,
+  model: string,
+): QualityPreset {
+  return preset === "light" && LIGHT_QUALITY_SUFFIXES[model] === undefined
+    ? "standard"
+    : preset;
+}
+
 export const UC_PRESET_OPTIONS: ReadonlyArray<{
   value: SelectableUcPresetIndex;
   label: string;
@@ -120,7 +165,10 @@ export function getUcPresetLabel(value: UcPresetIndex): string {
   );
 }
 
-function getQualitySuffix(model: string) {
+function getQualitySuffix(model: string, preset: QualityPreset = "standard") {
+  if (preset === "light" && LIGHT_QUALITY_SUFFIXES[model] !== undefined) {
+    return LIGHT_QUALITY_SUFFIXES[model];
+  }
   return QUALITY_SUFFIXES[model] ?? QUALITY_SUFFIXES[DEFAULT_PRESET_MODEL];
 }
 
@@ -157,11 +205,11 @@ function splitFirstSegment(text: string) {
 
 export function mergeQualityTags(
   prompt: string,
-  qualityToggle: boolean,
+  qualityPreset: QualityPreset,
   model: string,
 ): string {
-  if (!qualityToggle) return prompt;
-  const suffix = getQualitySuffix(model);
+  if (qualityPreset === "none") return prompt;
+  const suffix = getQualitySuffix(model, qualityPreset);
 
   if (getModelCapabilities(model).v4Prompt) {
     // 첫 세그먼트의 "Text:" 블록 앞부분에만 붙인다.
@@ -219,13 +267,29 @@ export function mergeUcPreset(
   return merged;
 }
 
-export function hasQualityTags(prompt: string, model: string): boolean {
-  const suffix = getQualitySuffix(model);
+function hasQualitySuffix(prompt: string, suffix: string) {
   return prompt === suffix || prompt.endsWith(`${SEPARATOR}${suffix}`);
 }
 
-export function stripQualityTags(prompt: string, model: string): string {
-  const suffix = getQualitySuffix(model);
+// 프롬프트 끝의 Quality 태그로 프리셋을 추정한다. 없으면 None.
+export function inferQualityPreset(
+  prompt: string,
+  model: string,
+): QualityPreset {
+  const light = LIGHT_QUALITY_SUFFIXES[model];
+  if (light !== undefined && hasQualitySuffix(prompt, light)) return "light";
+  return hasQualitySuffix(prompt, getQualitySuffix(model))
+    ? "standard"
+    : "none";
+}
+
+export function stripQualityTags(
+  prompt: string,
+  qualityPreset: QualityPreset,
+  model: string,
+): string {
+  if (qualityPreset === "none") return prompt;
+  const suffix = getQualitySuffix(model, qualityPreset);
   if (prompt === suffix) return "";
   return prompt.endsWith(`${SEPARATOR}${suffix}`)
     ? prompt.slice(0, -(suffix.length + SEPARATOR.length))

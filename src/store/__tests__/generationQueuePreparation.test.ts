@@ -805,3 +805,34 @@ test("restores current options while ignoring removed legacy settings", () => {
     expect(persisted).not.toHaveProperty("preciseReferenceExpandedIds");
   });
 });
+
+describe("persisted quality preset", () => {
+  function restore(stored: Record<string, unknown>) {
+    let qualityPreset: unknown;
+    jest.isolateModules(() => {
+      const { storage } = require("../../lib/storage") as {
+        storage: { getString: jest.Mock };
+      };
+      storage.getString.mockImplementation((key: string) =>
+        key === "nai_generation_options_v1"
+          ? JSON.stringify(stored)
+          : undefined,
+      );
+      const { useGenerationStore: restored } =
+        require("../generationStore") as typeof import("../generationStore");
+      qualityPreset = restored.getState().qualityPreset;
+    });
+    return qualityPreset;
+  }
+
+  it.each([
+    [true, "standard"],
+    [false, "none"],
+  ])("migrates the legacy qualityToggle %s to %s", (toggle, expected) => {
+    expect(restore({ qualityToggle: toggle })).toBe(expected);
+  });
+
+  it("restores a saved Light preset", () => {
+    expect(restore({ qualityPreset: "light" })).toBe("light");
+  });
+});

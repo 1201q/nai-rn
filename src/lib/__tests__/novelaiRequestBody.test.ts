@@ -117,7 +117,7 @@ test("V5 body sends preset ids instead of the numeric preset fields", () => {
     model: "nai-diffusion-5-full",
     noiseSchedule: "exponential",
     sampler: "k_euler_ancestral",
-    qualityToggle: true,
+    qualityPreset: "standard" as const,
     ucPreset: 0,
   });
   const parameters = body.parameters as Record<string, unknown>;
@@ -147,7 +147,7 @@ test("V5 body maps quality None and UC None to their hint ids", () => {
   const { body } = createImageGenerationBody({
     ...BASE,
     model: "nai-diffusion-5-curated",
-    qualityToggle: false,
+    qualityPreset: "none" as const,
     ucPreset: 4,
     varietyPlus: true,
   });
@@ -224,4 +224,29 @@ test("stream request sends the body with stream: sse", () => {
     "Content-Type": "application/json",
     Accept: "text/event-stream",
   });
+});
+
+test("V5 body sends the Light quality preset", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-full",
+    qualityPreset: "light",
+  });
+
+  expect(body.input).toBe("1girl, very aesthetic, amazing quality, no text");
+  expect(body.parameters).toMatchObject({
+    qualityPresetId: "light",
+    tag_hint_qt: 3,
+  });
+});
+
+test("V4.5 body sends Light as the Standard quality toggle", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-4-5-full",
+    qualityPreset: "light",
+  });
+
+  expect(body.input).toBe("1girl, very aesthetic, masterpiece, no text");
+  expect(body.parameters).toMatchObject({ qualityToggle: true });
 });

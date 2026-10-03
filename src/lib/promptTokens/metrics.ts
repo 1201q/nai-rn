@@ -4,7 +4,7 @@ import {
   prepareImagePromptCaptions,
   resolveActiveCharacterPrompts,
 } from "../imagePromptCaptions";
-import type { UcPresetIndex } from "../naiPresets";
+import type { QualityPreset, UcPresetIndex } from "../naiPresets";
 import { getPromptTokenizer } from "./loader";
 
 export type PromptTokenChannel = "positive" | "negative";
@@ -30,7 +30,7 @@ export type PromptTokenSnapshot = {
   model: string;
   prompt: string;
   negativePrompt: string;
-  qualityToggle: boolean;
+  qualityPreset: QualityPreset;
   ucPreset: UcPresetIndex;
   characterPrompts: CharacterPrompt[];
 };
@@ -96,7 +96,7 @@ export async function calculatePromptTokenMetrics(
     model: withDraft.model,
     prompt: withDraft.prompt,
     negativePrompt: withDraft.negativePrompt,
-    qualityToggle: withDraft.qualityToggle,
+    qualityPreset: withDraft.qualityPreset,
     ucPreset: withDraft.ucPreset,
     characterPrompts: activeCharacters,
     // 공식 웹과 동일: 자동 Text 블록은 토큰 수에 넣지 않는다.

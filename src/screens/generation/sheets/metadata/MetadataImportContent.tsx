@@ -51,7 +51,7 @@ function resolveImportMetadata(
     noiseSchedule: generation.noiseSchedule,
     sampler: generation.sampler,
     varietyPlus: parsed?.varietyPlus,
-    qualityToggle: parsed?.qualityToggle,
+    qualityPreset: parsed?.qualityPreset,
     ucPreset: parsed?.ucPreset,
     seed: parsed?.seed ?? generation.seed ?? undefined,
     hasSettings: true,

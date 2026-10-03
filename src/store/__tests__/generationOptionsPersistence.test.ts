@@ -11,7 +11,7 @@ function createState(
   return {
     prompt: "prompt",
     negativePrompt: "negative",
-    qualityToggle: true,
+    qualityPreset: "standard" as const,
     ucPreset: 1,
     characterPrompts: [],
     characterPromptExpandedIds: [],

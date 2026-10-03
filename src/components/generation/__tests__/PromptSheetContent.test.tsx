@@ -32,22 +32,22 @@ jest.mock("../../../store/generationStore", () => {
   const useGenerationStore = create<{
     prompt: string;
     negativePrompt: string;
-    qualityToggle: boolean;
+    qualityPreset: "standard" | "light" | "none";
     ucPreset: 0 | 1 | 3 | 4;
     model: string;
     setPrompt: (value: string) => void;
     setNegativePrompt: (value: string) => void;
-    setQualityToggle: (value: boolean) => void;
+    setQualityPreset: (value: "standard" | "light" | "none") => void;
     setUcPreset: (value: 0 | 1 | 3 | 4) => void;
   }>((set) => ({
     prompt: "base",
     negativePrompt: "negative",
-    qualityToggle: true,
+    qualityPreset: "standard" as const,
     ucPreset: 0,
     model: "nai-diffusion-4-5-full",
     setPrompt: (prompt) => set({ prompt }),
     setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
-    setQualityToggle: (qualityToggle) => set({ qualityToggle }),
+    setQualityPreset: (qualityPreset) => set({ qualityPreset }),
     setUcPreset: (ucPreset) => set({ ucPreset }),
   }));
 
@@ -151,7 +151,7 @@ describe("PromptComposerCard", () => {
     const state = useGenerationStore.getState();
     state.setPrompt("base");
     state.setNegativePrompt("negative");
-    state.setQualityToggle(true);
+    state.setQualityPreset("standard");
     state.setUcPreset(0);
   });
 
@@ -214,7 +214,7 @@ describe("PromptComposerCard", () => {
     const { getByLabelText } = await render(<PromptComposerCard active />);
 
     await fireEvent.press(getByLabelText("Quality Tags select"));
-    expect(useGenerationStore.getState().qualityToggle).toBe(false);
+    expect(useGenerationStore.getState().qualityPreset).toBe("none");
 
     await fireEvent.press(getByLabelText("Undesired Content"));
     await fireEvent.press(getByLabelText("UC Preset select"));

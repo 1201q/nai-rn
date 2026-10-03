@@ -126,7 +126,7 @@ describe.each(Object.entries(EXPECTED))("%s", (model, expected) => {
       model,
       prompt: "1girl",
       negativePrompt: "",
-      qualityToggle: false,
+      qualityPreset: "none" as const,
       ucPreset: 4,
       characterPrompts: REQUEST.characterPrompts,
     });
@@ -137,7 +137,7 @@ describe.each(Object.entries(EXPECTED))("%s", (model, expected) => {
 
   it("merges quality tags with the V4 or V3 rule", () => {
     // V4는 첫 세그먼트에만, V3는 "|" 세그먼트마다 붙인다.
-    const merged = mergeQualityTags("a|b", true, model);
+    const merged = mergeQualityTags("a|b", "standard", model);
     const segments = merged.split("|");
     expect(segments[1] === "b").toBe(expected.v4Prompt);
   });

@@ -52,7 +52,12 @@ import {
   type MetadataImportSelection,
 } from "../lib/metadataImport";
 import type { ParsedNaiMetadata } from "../lib/naiMetadata";
-import { isUcPresetIndex, type UcPresetIndex } from "../lib/naiPresets";
+import {
+  isQualityPreset,
+  isUcPresetIndex,
+  type QualityPreset,
+  type UcPresetIndex,
+} from "../lib/naiPresets";
 import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
@@ -225,8 +230,8 @@ type GenerationState = {
   setPrompt: (v: string) => void;
   negativePrompt: string;
   setNegativePrompt: (v: string) => void;
-  qualityToggle: boolean;
-  setQualityToggle: (v: boolean) => void;
+  qualityPreset: QualityPreset;
+  setQualityPreset: (v: QualityPreset) => void;
   ucPreset: UcPresetIndex;
   setUcPreset: (v: UcPresetIndex) => void;
   characterPrompts: CharacterPrompt[];
@@ -376,7 +381,7 @@ type QueueParams = {
     sampler: string;
     imageFormat: NovelAiImageFormat;
     varietyPlus: boolean;
-    qualityToggle: boolean;
+    qualityPreset: QualityPreset;
     ucPreset: UcPresetIndex;
     characterPositionEnabled: boolean;
     vibeEncodedImages?: string[];
@@ -513,8 +518,11 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isString(parsed.negativePrompt)) {
       next.negativePrompt = parsed.negativePrompt;
     }
-    if (isBoolean(parsed.qualityToggle)) {
-      next.qualityToggle = parsed.qualityToggle;
+    if (isQualityPreset(parsed.qualityPreset)) {
+      next.qualityPreset = parsed.qualityPreset;
+    } else if (isBoolean(parsed.qualityToggle)) {
+      // 이전 버전의 저장값 (Light 도입 전)
+      next.qualityPreset = parsed.qualityToggle ? "standard" : "none";
     }
     if (isUcPresetIndex(parsed.ucPreset)) next.ucPreset = parsed.ucPreset;
     next.characterPrompts = resolveStoredCharacterPrompts(
@@ -593,8 +601,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     set((state) =>
       state.negativePrompt === v ? state : { negativePrompt: v },
     ),
-  qualityToggle: true,
-  setQualityToggle: (v) => set({ qualityToggle: v }),
+  qualityPreset: "standard",
+  setQualityPreset: (v) => set({ qualityPreset: v }),
   ucPreset: 0,
   setUcPreset: (v) => set({ ucPreset: v }),
   characterPrompts: [],
@@ -1322,7 +1330,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         sampler: s.sampler,
         imageFormat: s.imageFormat,
         varietyPlus: s.varietyPlus,
-        qualityToggle: s.qualityToggle,
+        qualityPreset: s.qualityPreset,
         ucPreset: s.ucPreset,
         characterPositionEnabled: s.characterPositionEnabled,
         ...(vibeEncodedImages

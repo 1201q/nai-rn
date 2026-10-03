@@ -14,8 +14,11 @@ import { useGenerationInputCommitRegistration } from "../../context/GenerationIn
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import {
+  getQualityPresetLabel,
+  getQualityPresetOptions,
   getUcPresetLabel,
   getUcPresetOptions,
+  resolveQualityPresetForModel,
   resolveUcPresetForModel,
   type SelectableUcPresetIndex,
 } from "../../lib/naiPresets";
@@ -41,7 +44,6 @@ const PROMPT_LINE_HEIGHT = 23;
 const PROMPT_KEYBOARD_GAP = 12;
 const PROMPT_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
-const QUALITY_OPTIONS = ["Standard", "None"];
 const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
 
 function PromptDraftInput({
@@ -127,14 +129,15 @@ export const PromptComposerCard = memo(function PromptComposerCard({
   const setNegativePrompt = useGenerationStore(
     (state) => state.setNegativePrompt,
   );
-  const qualityToggle = useGenerationStore((state) => state.qualityToggle);
-  const setQualityToggle = useGenerationStore(
-    (state) => state.setQualityToggle,
+  const qualityPreset = useGenerationStore((state) => state.qualityPreset);
+  const setQualityPreset = useGenerationStore(
+    (state) => state.setQualityPreset,
   );
   const ucPreset = useGenerationStore((state) => state.ucPreset);
   const setUcPreset = useGenerationStore((state) => state.setUcPreset);
   const model = useGenerationStore((state) => state.model);
   const ucPresetOptions = getUcPresetOptions(model);
+  const qualityPresetOptions = getQualityPresetOptions(model);
   const [mode, setMode] = useState<PromptChannel>("base");
   const [split, setSplit] = useState(false);
   const [promptText, setPromptText] = useState(prompt);
@@ -228,7 +231,9 @@ export const PromptComposerCard = memo(function PromptComposerCard({
     promptHeight,
     negativeHeight,
   );
-  const qualityValue = qualityToggle ? QUALITY_OPTIONS[0] : QUALITY_OPTIONS[1];
+  const qualityValue = getQualityPresetLabel(
+    resolveQualityPresetForModel(qualityPreset, model),
+  );
   const ucValue = getUcPresetLabel(resolveUcPresetForModel(ucPreset, model));
 
   const renderQualitySelect = () => (
@@ -236,11 +241,16 @@ export const PromptComposerCard = memo(function PromptComposerCard({
       accessibilityLabel="Quality Tags"
       value={qualityValue}
       displayValue={`Quality Tags: ${qualityValue}`}
-      options={QUALITY_OPTIONS}
+      options={qualityPresetOptions.map((option) => option.label)}
       variant="compact"
       open={openSelect === "quality"}
       onOpenChange={(open) => setOpenSelect(open ? "quality" : null)}
-      onChange={(value) => setQualityToggle(value === QUALITY_OPTIONS[0])}
+      onChange={(label) => {
+        const option = qualityPresetOptions.find(
+          (item) => item.label === label,
+        );
+        if (option) setQualityPreset(option.value);
+      }}
     />
   );
   const renderUcSelect = () => (

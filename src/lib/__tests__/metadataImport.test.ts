@@ -22,6 +22,7 @@ function createState(
     prompt: "current prompt",
     negativePrompt: "current negative",
     characterPrompts: [],
+    characterPositionEnabled: false,
     model: "current-model",
     resolution: { label: "Current", width: 832, height: 1216 },
     steps: 28,
@@ -30,7 +31,7 @@ function createState(
     noiseSchedule: "karras",
     sampler: "k_euler_ancestral",
     varietyPlus: true,
-    qualityToggle: true,
+    qualityPreset: "standard" as const,
     ucPreset: 1,
     seed: 123,
     ...overrides,
@@ -67,7 +68,7 @@ describe("buildMetadataImportPatch", () => {
       noiseSchedule: "native",
       sampler: "k_euler",
       varietyPlus: false,
-      qualityToggle: false,
+      qualityPreset: "none" as const,
       ucPreset: 0,
       seed: 0,
       hasSettings: true,
@@ -93,7 +94,7 @@ describe("buildMetadataImportPatch", () => {
       noiseSchedule: "native",
       sampler: "k_euler",
       varietyPlus: false,
-      qualityToggle: false,
+      qualityPreset: "none" as const,
       ucPreset: 0,
       seed: 0,
     });
@@ -177,5 +178,32 @@ describe("buildMetadataImportPatch", () => {
     );
 
     expect(patch.characterPrompts).toHaveLength(22);
+  });
+
+  test("imports the position mode with characters only when replacing", () => {
+    const parsed = {
+      raw: {},
+      characters: [createCharacter("imported-0")],
+      characterPositionEnabled: true,
+      hasSettings: false,
+    };
+
+    expect(
+      buildMetadataImportPatch(
+        createState(),
+        parsed,
+        createSelection({ characters: true }),
+      ).characterPositionEnabled,
+    ).toBe(true);
+    expect(
+      buildMetadataImportPatch(
+        createState(),
+        parsed,
+        createSelection({ characters: true, characterMode: "append" }),
+      ),
+    ).not.toHaveProperty("characterPositionEnabled");
+    expect(
+      buildMetadataImportPatch(createState(), parsed, createSelection()),
+    ).not.toHaveProperty("characterPositionEnabled");
   });
 });

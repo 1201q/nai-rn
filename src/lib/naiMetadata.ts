@@ -7,14 +7,16 @@ import {
 } from "../constants/generation";
 import { getModelCapabilities } from "../constants/models";
 import type { CharacterPrompt } from "../types/generation";
-import { isBoolean, isNonEmptyString, isNumber } from "./guards";
+import { isBoolean, isNonEmptyString, isNumber, isString } from "./guards";
 import {
-  hasQualityTags,
+  inferQualityPreset,
   inferUcPreset,
+  isQualityPreset,
   isUcPresetIndex,
   stripAutoTextBlock,
   stripQualityTags,
   stripUcPreset,
+  type QualityPreset,
   type UcPresetIndex,
 } from "./naiPresets";
 
@@ -22,9 +24,11 @@ export type ParsedNaiMetadata = {
   raw: Record<string, string>;
   prompt?: string;
   negativePrompt?: string;
-  qualityToggle?: boolean;
+  qualityPreset?: QualityPreset;
   ucPreset?: UcPresetIndex;
   characters?: CharacterPrompt[];
+  // 캐릭터 위치 지정 여부 (v4_prompt.use_coords)
+  characterPositionEnabled?: boolean;
   model?: string;
   resolution?: NaiResolution;
   steps?: number;
@@ -166,9 +170,14 @@ export function parseNaiMetadata(
     (comment ? getBaseCaption(comment.v4_prompt) : undefined) ??
     (isNonEmptyString(raw.Description) ? raw.Description : undefined);
 
+  // 빈 UC도 "UC 없이 생성했다"는 정보라 그대로 가져온다.
+  const v4NegativeCaption = (
+    comment?.v4_negative_prompt as
+      { caption?: { base_caption?: unknown } } | undefined
+  )?.caption?.base_caption;
   const mergedNegativePrompt =
-    (comment && isNonEmptyString(comment.uc) ? comment.uc : undefined) ??
-    (comment ? getBaseCaption(comment.v4_negative_prompt) : undefined);
+    (comment && isString(comment.uc) ? comment.uc : undefined) ??
+    (isString(v4NegativeCaption) ? v4NegativeCaption : undefined);
 
   // 프리셋 문자열은 모델마다 다르므로 모델을 먼저 추정한다 (모르면 V4.5 Full 기준).
   const model = mapSourceToModel(raw.Source, raw.Software);
@@ -178,26 +187,37 @@ export function parseNaiMetadata(
     rawPrompt !== undefined && getModelCapabilities(presetModel).v5Request
       ? stripAutoTextBlock(rawPrompt)
       : rawPrompt;
-  const qualityToggle =
-    comment && isBoolean(comment.qualityToggle)
-      ? comment.qualityToggle
-      : mergedPrompt !== undefined
-        ? hasQualityTags(mergedPrompt, presetModel)
-        : undefined;
+  // V5는 qualityPresetId, 이전 모델은 qualityToggle을 남긴다. 켜져 있으면 Standard/Light는 태그로 구분한다.
+  const inferredQuality =
+    mergedPrompt !== undefined
+      ? inferQualityPreset(mergedPrompt, presetModel)
+      : undefined;
+  const qualityPreset =
+    comment && isQualityPreset(comment.qualityPresetId)
+      ? comment.qualityPresetId
+      : comment && isBoolean(comment.qualityToggle)
+        ? comment.qualityToggle
+          ? inferredQuality === "light"
+            ? "light"
+            : "standard"
+          : "none"
+        : inferredQuality;
   // V5의 프리셋 숫자는 앱 인덱스와 체계가 달라 문자열 대조로만 추정한다.
   const ucPreset =
     comment &&
     isUcPresetIndex(comment.ucPreset) &&
     !getModelCapabilities(presetModel).v5Request
       ? comment.ucPreset
-      : mergedNegativePrompt
-        ? inferUcPreset(mergedNegativePrompt, presetModel)
+      : mergedNegativePrompt !== undefined
+        ? // 어떤 프리셋 문자열로도 시작하지 않으면 None으로 생성된 것이다.
+          (inferUcPreset(mergedNegativePrompt, presetModel) ?? 4)
         : undefined;
 
   if (mergedPrompt !== undefined) {
-    result.prompt = qualityToggle
-      ? stripQualityTags(mergedPrompt, presetModel)
-      : mergedPrompt;
+    result.prompt =
+      qualityPreset === undefined
+        ? mergedPrompt
+        : stripQualityTags(mergedPrompt, qualityPreset, presetModel);
   }
   if (mergedNegativePrompt !== undefined) {
     result.negativePrompt = stripUcPreset(
@@ -206,7 +226,7 @@ export function parseNaiMetadata(
       presetModel,
     );
   }
-  if (qualityToggle !== undefined) result.qualityToggle = qualityToggle;
+  if (qualityPreset !== undefined) result.qualityPreset = qualityPreset;
   if (ucPreset !== undefined) result.ucPreset = ucPreset;
 
   // Characters
@@ -216,6 +236,10 @@ export function parseNaiMetadata(
       getModelCapabilities(presetModel).maxCharacters,
     );
     if (characters.length > 0) result.characters = characters;
+    const useCoords = (
+      comment.v4_prompt as { use_coords?: unknown } | undefined
+    )?.use_coords;
+    if (isBoolean(useCoords)) result.characterPositionEnabled = useCoords;
   }
 
   // Settings
@@ -250,7 +274,7 @@ export function parseNaiMetadata(
     result.noiseSchedule !== undefined ||
     result.sampler !== undefined ||
     result.varietyPlus !== undefined ||
-    result.qualityToggle !== undefined ||
+    result.qualityPreset !== undefined ||
     result.ucPreset !== undefined ||
     result.model !== undefined;
 

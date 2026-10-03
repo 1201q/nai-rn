@@ -26,7 +26,7 @@ describe("V5 metadata", () => {
     });
 
     expect(parsed.prompt).toBe("1girl");
-    expect(parsed.qualityToggle).toBe(true);
+    expect(parsed.qualityPreset).toBe("standard");
     expect(parsed.ucPreset).toBe(0);
     expect(parsed.negativePrompt).toBe("bad hands");
   });
@@ -72,7 +72,7 @@ describe("V5 auto Text block on import", () => {
     });
 
     expect(parsed.prompt).toBe('1girl, "hello"');
-    expect(parsed.qualityToggle).toBe(true);
+    expect(parsed.qualityPreset).toBe("standard");
   });
 
   it("keeps a hand-written Text: block", () => {
@@ -80,5 +80,99 @@ describe("V5 auto Text block on import", () => {
       parse("NovelAI Diffusion V5 657484A5", { prompt: "1girl, Text: hello" })
         .prompt,
     ).toBe("1girl, Text: hello");
+  });
+});
+
+// UC 문자열이 어떤 프리셋으로도 시작하지 않으면 None으로 생성된 것이다.
+describe("UC preset None on import", () => {
+  it("infers None for a V5 image whose UC matches no preset", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt: "1girl",
+      uc: "bad hands",
+    });
+
+    expect(parsed.ucPreset).toBe(4);
+    expect(parsed.negativePrompt).toBe("bad hands");
+  });
+
+  it("infers None and an empty UC for a V5 image generated without UC", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt: "1girl",
+      uc: "",
+      v4_negative_prompt: { caption: { base_caption: "", char_captions: [] } },
+    });
+
+    expect(parsed.ucPreset).toBe(4);
+    expect(parsed.negativePrompt).toBe("");
+  });
+
+  it("leaves the UC untouched when the image has no UC field", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", { prompt: "1girl" });
+
+    expect(parsed.ucPreset).toBeUndefined();
+    expect(parsed.negativePrompt).toBeUndefined();
+  });
+});
+
+describe("character position mode on import", () => {
+  const withCoords = (useCoords: unknown) => ({
+    v4_prompt: {
+      caption: {
+        char_captions: [
+          { char_caption: "a", centers: [{ x: 0.1, y: 0.1 }] },
+          { char_caption: "b", centers: [{ x: 0.9, y: 0.9 }] },
+        ],
+      },
+      use_coords: useCoords,
+    },
+  });
+
+  it.each([true, false])("reads use_coords %s", (useCoords) => {
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", withCoords(useCoords))
+        .characterPositionEnabled,
+    ).toBe(useCoords);
+  });
+
+  it("leaves the mode untouched when use_coords is missing", () => {
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", withCoords(undefined))
+        .characterPositionEnabled,
+    ).toBeUndefined();
+  });
+});
+
+describe("quality preset on import", () => {
+  it("infers Light from the V5 prompt suffix", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt: "1girl, very aesthetic, amazing quality, no text",
+    });
+
+    expect(parsed.qualityPreset).toBe("light");
+    expect(parsed.prompt).toBe("1girl");
+  });
+
+  it("prefers qualityPresetId when the image has it", () => {
+    expect(
+      parse("NovelAI Diffusion V5 657484A5", {
+        prompt: "1girl",
+        qualityPresetId: "none",
+      }).qualityPreset,
+    ).toBe("none");
+  });
+
+  it("maps the V4.5 qualityToggle", () => {
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", {
+        prompt: "1girl, very aesthetic, masterpiece, no text",
+        qualityToggle: true,
+      }).qualityPreset,
+    ).toBe("standard");
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", {
+        prompt: "1girl",
+        qualityToggle: false,
+      }).qualityPreset,
+    ).toBe("none");
   });
 });

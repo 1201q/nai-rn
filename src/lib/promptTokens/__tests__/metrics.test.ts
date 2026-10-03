@@ -10,7 +10,7 @@ const snapshot = {
   model: "nai-diffusion-4-5-full",
   prompt: "base",
   negativePrompt: "neg",
-  qualityToggle: false,
+  qualityPreset: "none" as const,
   ucPreset: 4 as const,
   characterPrompts: [
     {

@@ -5,7 +5,12 @@ import {
 import { getModelCapabilities } from "../../constants/models";
 import { MIN_POSITION_CHARACTERS } from "../characterPosition";
 import { prepareImagePromptCaptions } from "../imagePromptCaptions";
-import { resolveUcPresetForModel, type UcPresetIndex } from "../naiPresets";
+import {
+  type QualityPreset,
+  resolveQualityPresetForModel,
+  resolveUcPresetForModel,
+  type UcPresetIndex,
+} from "../naiPresets";
 
 type NovelAiPreciseReferenceType = "character" | "style" | "character&style";
 
@@ -27,7 +32,7 @@ export type GenerateNovelAiImageInput = {
   sampler: string;
   seed?: number;
   varietyPlus?: boolean;
-  qualityToggle?: boolean;
+  qualityPreset?: QualityPreset;
   ucPreset?: UcPresetIndex;
   imageFormat?: NovelAiImageFormat;
   i2iImageBase64?: string;
@@ -118,6 +123,11 @@ export function getVarietyPlusSigma(
 
 // V5 요청의 프리셋 ID와 tag_hint (웹 요청 캡처 2026-10-02).
 // heavy / standard만 캡처로 확인했고 나머지 ID 문자열은 미확인이다.
+const V5_QUALITY_HINTS: Record<QualityPreset, number> = {
+  standard: 1,
+  light: 3,
+  none: 0,
+};
 const V5_UC_PRESETS: Record<UcPresetIndex, { id: string; hint: number }> = {
   0: { id: "heavy", hint: 2 },
   1: { id: "light", hint: 3 },
@@ -178,7 +188,7 @@ export function createImageGenerationBody({
   sampler: inputSampler,
   seed: inputSeed,
   varietyPlus = false,
-  qualityToggle = true,
+  qualityPreset = "standard",
   ucPreset = 0,
   imageFormat = "png",
   i2iImageBase64,
@@ -199,7 +209,7 @@ export function createImageGenerationBody({
     model,
     prompt,
     negativePrompt,
-    qualityToggle,
+    qualityPreset,
     ucPreset,
     characterPrompts,
   });
@@ -208,6 +218,10 @@ export function createImageGenerationBody({
   const capabilities = getModelCapabilities(model);
   const shouldUseV4Prompt = capabilities.v4Prompt;
   const v5UcPreset = V5_UC_PRESETS[resolveUcPresetForModel(ucPreset, model)];
+  const resolvedQualityPreset = resolveQualityPresetForModel(
+    qualityPreset,
+    model,
+  );
   const isI2I = Boolean(i2iImageBase64);
   const hasVibes = vibeEncodedImages.length > 0;
   const hasPreciseReferences = preciseReferenceImages.length > 0;
@@ -267,15 +281,15 @@ export function createImageGenerationBody({
     ...(capabilities.v5Request
       ? {
           ucPresetId: v5UcPreset.id,
-          qualityPresetId: qualityToggle ? "standard" : "none",
-          tag_hint_qt: qualityToggle ? 1 : 0,
+          qualityPresetId: resolvedQualityPreset,
+          tag_hint_qt: V5_QUALITY_HINTS[resolvedQualityPreset],
           tag_hint_uc_preset: v5UcPreset.hint,
           straight_alpha: true,
           params_version: 4,
         }
       : {
           uc: mergedNegativePrompt,
-          qualityToggle,
+          qualityToggle: resolvedQualityPreset !== "none",
           ucPreset,
           params_version: 3,
         }),

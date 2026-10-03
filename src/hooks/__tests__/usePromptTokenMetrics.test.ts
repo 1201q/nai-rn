@@ -6,7 +6,7 @@ const mockStoreState = {
   model: "nai-diffusion-4-5-full",
   prompt: "base",
   negativePrompt: "negative",
-  qualityToggle: false,
+  qualityPreset: "none" as const,
   ucPreset: 4,
   characterPrompts: [],
 };
