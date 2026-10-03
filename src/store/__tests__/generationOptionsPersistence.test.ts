@@ -20,6 +20,7 @@ function createState(
     resolution: { label: "Normal", width: 832, height: 1216 },
     steps: 28,
     promptGuidance: 5,
+    settingsByModel: {},
     promptGuidanceRescale: 0,
     noiseSchedule: "karras",
     sampler: "k_euler_ancestral",

@@ -268,3 +268,21 @@ it("allows positioning a single character only on V5", () => {
     ),
   ).toEqual([1, 1, 2, 2, 2, 2, 2]);
 });
+
+it("starts each model with its default steps and CFG", () => {
+  expect(
+    MODELS.map(({ value }) => {
+      const { defaultSteps, defaultPromptGuidance } =
+        getModelCapabilities(value);
+      return [defaultSteps, defaultPromptGuidance];
+    }),
+  ).toEqual([
+    [23, 7],
+    [23, 7],
+    [23, 5],
+    [23, 5],
+    [23, 5.5],
+    [23, 5],
+    [23, 6.2],
+  ]);
+});

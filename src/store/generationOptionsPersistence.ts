@@ -1,4 +1,5 @@
 import type { NaiResolution, NoiseSchedule } from "../constants/generation";
+import type { ModelSettings } from "../constants/models";
 import type { QualityPreset, UcPresetIndex } from "../lib/naiPresets";
 import type { NovelAiImageFormat } from "../lib/novelai";
 
@@ -27,6 +28,7 @@ type StoredGenerationOptions = {
   resolution: NaiResolution;
   steps: number;
   promptGuidance: number;
+  settingsByModel: Record<string, ModelSettings>;
   promptGuidanceRescale: number;
   noiseSchedule: NoiseSchedule;
   sampler: string;
@@ -73,6 +75,7 @@ const PERSISTED_OPTION_KEYS = [
   "resolution",
   "steps",
   "promptGuidance",
+  "settingsByModel",
   "promptGuidanceRescale",
   "noiseSchedule",
   "sampler",
@@ -107,6 +110,7 @@ export function selectPersistedOptions(
     resolution: state.resolution,
     steps: state.steps,
     promptGuidance: state.promptGuidance,
+    settingsByModel: state.settingsByModel,
     promptGuidanceRescale: state.promptGuidanceRescale,
     noiseSchedule: state.noiseSchedule,
     sampler: state.sampler,

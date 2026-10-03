@@ -90,7 +90,6 @@ import {
   type PreciseReferenceType,
 } from "../lib/preciseReferences";
 import {
-  DEFAULT_NAI_RESOLUTION,
   generateRandomSeed,
   isNoiseSchedule,
   MAX_GENERATION_PIXELS,
@@ -99,8 +98,11 @@ import {
   type NoiseSchedule,
 } from "../constants/generation";
 import {
+  DEFAULT_MODEL,
+  getDefaultModelSettings,
   getModelCapabilities,
   MAX_STORED_CHARACTER_PROMPTS,
+  type ModelSettings,
 } from "../constants/models";
 import type { CharacterPrompt, I2ISourceImage } from "../types/generation";
 
@@ -161,6 +163,64 @@ function resolveStoredResolution(value: unknown): NaiResolution | null {
   }
 
   return resolutionFromDimensions(candidate.width, candidate.height);
+}
+
+function resolveStoredSettingsByModel(
+  value: unknown,
+): Record<string, ModelSettings> {
+  if (!value || typeof value !== "object") return {};
+  const result: Record<string, ModelSettings> = {};
+  for (const [model, item] of Object.entries(value)) {
+    const candidate = item as Partial<ModelSettings> | null;
+    const resolution = resolveStoredResolution(candidate?.resolution);
+    if (
+      resolution &&
+      isNumber(candidate?.steps) &&
+      isNumber(candidate?.promptGuidance) &&
+      isNumber(candidate?.promptGuidanceRescale) &&
+      isString(candidate?.sampler) &&
+      isNoiseSchedule(candidate?.noiseSchedule) &&
+      isBoolean(candidate?.varietyPlus)
+    ) {
+      result[model] = {
+        resolution,
+        steps: candidate.steps,
+        promptGuidance: candidate.promptGuidance,
+        promptGuidanceRescale: candidate.promptGuidanceRescale,
+        sampler: candidate.sampler,
+        noiseSchedule: candidate.noiseSchedule,
+        varietyPlus: candidate.varietyPlus,
+      };
+    }
+  }
+  return result;
+}
+
+// 모델을 바꿀 때 현재 모델의 생성 설정(ModelSettings)을 기억해 두고, 새 모델의 값을 꺼낸다.
+// 처음 쓰는 모델은 모델별 기본값으로 시작한다.
+function switchModelSettings(
+  state: Pick<
+    GenerationState,
+    "model" | keyof ModelSettings | "settingsByModel"
+  >,
+  nextModel: string,
+) {
+  const settingsByModel = {
+    ...state.settingsByModel,
+    [state.model]: {
+      resolution: state.resolution,
+      steps: state.steps,
+      promptGuidance: state.promptGuidance,
+      promptGuidanceRescale: state.promptGuidanceRescale,
+      sampler: state.sampler,
+      noiseSchedule: state.noiseSchedule,
+      varietyPlus: state.varietyPlus,
+    },
+  };
+  return {
+    settingsByModel,
+    ...(settingsByModel[nextModel] ?? getDefaultModelSettings(nextModel)),
+  };
 }
 
 function resolveStoredCharacterPrompts(value: unknown): CharacterPrompt[] {
@@ -251,6 +311,8 @@ type GenerationState = {
   setSteps: (v: number) => void;
   promptGuidance: number;
   setPromptGuidance: (v: number) => void;
+  // 현재 모델이 아닌 모델들의 마지막 생성 설정
+  settingsByModel: Record<string, ModelSettings>;
   promptGuidanceRescale: number;
   setPromptGuidanceRescale: (v: number) => void;
   noiseSchedule: NoiseSchedule;
@@ -544,6 +606,7 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isNumber(parsed.promptGuidance)) {
       next.promptGuidance = parsed.promptGuidance;
     }
+    next.settingsByModel = resolveStoredSettingsByModel(parsed.settingsByModel);
     if (isNumber(parsed.promptGuidanceRescale)) {
       next.promptGuidanceRescale = parsed.promptGuidanceRescale;
     }
@@ -623,19 +686,20 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }));
   },
 
-  model: "nai-diffusion-4-5-full",
-  setModel: (v) => set({ model: v }),
-  resolution: DEFAULT_NAI_RESOLUTION,
+  model: DEFAULT_MODEL,
+  setModel: (v) =>
+    set((state) =>
+      v === state.model
+        ? state
+        : { model: v, ...switchModelSettings(state, v) },
+    ),
+  ...getDefaultModelSettings(DEFAULT_MODEL),
   setResolution: (v) => set({ resolution: v }),
-  steps: 28,
   setSteps: (v) => set({ steps: v }),
-  promptGuidance: 5,
   setPromptGuidance: (v) => set({ promptGuidance: v }),
-  promptGuidanceRescale: 0,
+  settingsByModel: {},
   setPromptGuidanceRescale: (v) => set({ promptGuidanceRescale: v }),
-  noiseSchedule: "karras",
   setNoiseSchedule: (v) => set({ noiseSchedule: v }),
-  sampler: "k_euler_ancestral",
   setSampler: (v) => set({ sampler: v }),
   seed: generateRandomSeed(),
   setSeed: (v) => set({ seed: v }),
@@ -645,10 +709,16 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setBatchCount: (v) => set({ batchCount: v }),
   imageFormat: "png",
   setImageFormat: (v) => set({ imageFormat: v }),
-  varietyPlus: false,
   setVarietyPlus: (v) => set({ varietyPlus: v }),
   applyMetadataImport: (parsed, selection) =>
-    set((state) => buildMetadataImportPatch(state, parsed, selection)),
+    set((state) => {
+      const patch = buildMetadataImportPatch(state, parsed, selection);
+      if (patch.model === undefined || patch.model === state.model) {
+        return patch;
+      }
+      // 이전 모델의 값은 기억해 두고, 이미지에 없는 설정은 새 모델의 값을 쓴다.
+      return { ...switchModelSettings(state, patch.model), ...patch };
+    }),
   vibeReferences: [],
   normalizeVibeStrengths: true,
   setNormalizeVibeStrengths: (v) => set({ normalizeVibeStrengths: v }),

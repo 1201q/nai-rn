@@ -1,3 +1,9 @@
+import {
+  DEFAULT_NAI_RESOLUTION,
+  type NaiResolution,
+  type NoiseSchedule,
+} from "./generation";
+
 export type ImagePromptTokenizerType = "t5" | "clip" | "qwen";
 
 export type ImagePromptTokenPolicy = {
@@ -27,6 +33,10 @@ export type ModelCapabilities = {
   maxCharacters: number;
   // 위치 지정이 가능한 최소 캐릭터 수. V4 계열은 2명, V5는 1명부터 (웹 요청 캡처 2026-10-03)
   minPositionCharacters: number;
+  // 처음 이 모델을 고를 때의 steps / CFG (공식 웹 기본값).
+  // 이후에는 모델별로 마지막 값을 기억한다 (ModelSettings).
+  defaultSteps: number;
+  defaultPromptGuidance: number;
   // V5 요청 형식: params_version 4, Karras 고정, 프리셋을 문자열 ID와 tag_hint로 전송
   v5Request: boolean;
 };
@@ -52,6 +62,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: { tokenizer: "qwen", maxTokens: 1471 },
     maxCharacters: 22,
     minPositionCharacters: 1,
+    defaultSteps: 23,
+    defaultPromptGuidance: 7,
     v5Request: true,
   },
   "nai-diffusion-5-curated": {
@@ -66,6 +78,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: { tokenizer: "qwen", maxTokens: 703 },
     maxCharacters: 22,
     minPositionCharacters: 1,
+    defaultSteps: 23,
+    defaultPromptGuidance: 7,
     v5Request: true,
   },
   "nai-diffusion-4-5-full": {
@@ -81,6 +95,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
     minPositionCharacters: 2,
+    defaultSteps: 23,
+    defaultPromptGuidance: 5,
     v5Request: false,
   },
   "nai-diffusion-4-5-curated": {
@@ -96,6 +112,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
     minPositionCharacters: 2,
+    defaultSteps: 23,
+    defaultPromptGuidance: 5,
     v5Request: false,
   },
   "nai-diffusion-4-curated-preview": {
@@ -111,6 +129,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
     minPositionCharacters: 2,
+    defaultSteps: 23,
+    defaultPromptGuidance: 5.5,
     v5Request: false,
   },
   "nai-diffusion-3": {
@@ -126,6 +146,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: CLIP_POLICY,
     maxCharacters: 6,
     minPositionCharacters: 2,
+    defaultSteps: 23,
+    defaultPromptGuidance: 5,
     v5Request: false,
   },
   "nai-diffusion-furry-3": {
@@ -141,6 +163,8 @@ export const MODEL_CAPABILITIES = {
     tokenPolicy: CLIP_POLICY,
     maxCharacters: 6,
     minPositionCharacters: 2,
+    defaultSteps: 23,
+    defaultPromptGuidance: 6.2,
     v5Request: false,
   },
 } as const satisfies Record<string, ModelCapabilities>;
@@ -173,6 +197,30 @@ const UNKNOWN_MODEL_CAPABILITIES: ModelCapabilities = {
   vibeTransfer: false,
   preciseReference: false,
 };
+
+// 모델별로 따로 기억하는 생성 설정
+export type ModelSettings = {
+  resolution: NaiResolution;
+  steps: number;
+  promptGuidance: number;
+  promptGuidanceRescale: number;
+  sampler: string;
+  noiseSchedule: NoiseSchedule;
+  varietyPlus: boolean;
+};
+
+export function getDefaultModelSettings(model: string): ModelSettings {
+  const capabilities = getModelCapabilities(model);
+  return {
+    resolution: DEFAULT_NAI_RESOLUTION,
+    steps: capabilities.defaultSteps,
+    promptGuidance: capabilities.defaultPromptGuidance,
+    promptGuidanceRescale: 0,
+    sampler: "k_euler_ancestral",
+    noiseSchedule: "karras",
+    varietyPlus: false,
+  };
+}
 
 export function getModelCapabilities(model: string): ModelCapabilities {
   return isKnownModel(model)

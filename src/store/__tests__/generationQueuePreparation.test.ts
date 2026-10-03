@@ -836,3 +836,123 @@ describe("persisted quality preset", () => {
     expect(restore({ qualityPreset: "light" })).toBe("light");
   });
 });
+
+describe("per-model generation settings", () => {
+  const V5 = "nai-diffusion-5-full";
+  const V45 = "nai-diffusion-4-5-full";
+  const sampling = () => {
+    const {
+      resolution,
+      steps,
+      promptGuidance,
+      promptGuidanceRescale,
+      sampler,
+      noiseSchedule,
+      varietyPlus,
+    } = useGenerationStore.getState();
+    return {
+      resolution,
+      steps,
+      promptGuidance,
+      promptGuidanceRescale,
+      sampler,
+      noiseSchedule,
+      varietyPlus,
+    };
+  };
+  const PORTRAIT = { label: "Portrait 832×1216", width: 832, height: 1216 };
+  const SQUARE = { label: "Custom 1024x1024", width: 1024, height: 1024 };
+  const V45_USED = {
+    resolution: SQUARE,
+    steps: 28,
+    promptGuidance: 5,
+    promptGuidanceRescale: 0.2,
+    sampler: "k_dpmpp_2m",
+    noiseSchedule: "exponential" as const,
+    varietyPlus: true,
+  };
+  const V5_DEFAULT = {
+    resolution: PORTRAIT,
+    steps: 23,
+    promptGuidance: 7,
+    promptGuidanceRescale: 0,
+    sampler: "k_euler_ancestral",
+    noiseSchedule: "karras" as const,
+    varietyPlus: false,
+  };
+
+  beforeEach(() => {
+    useGenerationStore.setState({
+      model: V45,
+      ...V45_USED,
+      settingsByModel: {},
+    });
+  });
+
+  it("starts a model with its defaults and restores the previous values", () => {
+    useGenerationStore.getState().setModel(V5);
+    expect(sampling()).toEqual(V5_DEFAULT);
+
+    useGenerationStore.getState().setSteps(30);
+    useGenerationStore.getState().setPromptGuidanceRescale(0.1);
+    useGenerationStore.getState().setSampler("k_euler");
+    useGenerationStore.getState().setModel(V45);
+    expect(sampling()).toEqual(V45_USED);
+
+    useGenerationStore.getState().setModel(V5);
+    expect(sampling()).toEqual({
+      ...V5_DEFAULT,
+      steps: 30,
+      promptGuidanceRescale: 0.1,
+      sampler: "k_euler",
+    });
+  });
+
+  it("keeps the values when the same model is selected again", () => {
+    useGenerationStore.getState().setSteps(40);
+    useGenerationStore.getState().setModel(V45);
+    expect(sampling()).toEqual({ ...V45_USED, steps: 40 });
+  });
+
+  it("remembers the previous model when metadata import switches models", () => {
+    useGenerationStore.getState().applyMetadataImport(
+      { raw: {}, hasSettings: true, model: V5, steps: 25 },
+      {
+        prompt: false,
+        negativePrompt: false,
+        characters: false,
+        characterMode: "replace",
+        settings: true,
+        seed: false,
+      },
+    );
+    expect(sampling()).toEqual({ ...V5_DEFAULT, steps: 25 });
+
+    useGenerationStore.getState().setModel(V45);
+    expect(sampling()).toEqual(V45_USED);
+  });
+
+  it("restores the remembered values from storage", () => {
+    jest.isolateModules(() => {
+      const { storage } = require("../../lib/storage") as {
+        storage: { getString: jest.Mock };
+      };
+      storage.getString.mockImplementation((key: string) =>
+        key === "nai_generation_options_v1"
+          ? JSON.stringify({
+              model: V45,
+              settingsByModel: {
+                [V5]: { ...V5_DEFAULT, steps: 30 },
+                broken: { ...V5_DEFAULT, varietyPlus: "yes" },
+              },
+            })
+          : undefined,
+      );
+      const { useGenerationStore: restored } =
+        require("../generationStore") as typeof import("../generationStore");
+      expect(restored.getState().settingsByModel).toEqual({
+        [V5]: { ...V5_DEFAULT, steps: 30 },
+      });
+    });
+  });
+});
