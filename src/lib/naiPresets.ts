@@ -203,7 +203,8 @@ function splitFirstSegment(text: string) {
     : { head: text.slice(0, index), tail: text.slice(index) };
 }
 
-// V5 투명 배경 옵션 (웹 요청 캡처 2026-10-03): Quality 태그 뒤에 이어 붙는다.
+// V5 투명 배경 옵션 (웹 요청 캡처 2026-10-03): Quality 태그 앞에 붙는다.
+// 예: "solo, cat, transparent background, very aesthetic, masterpiece, no text"
 const TRANSPARENT_BACKGROUND_TAG = "transparent background";
 
 export function mergeQualityTags(
@@ -213,10 +214,10 @@ export function mergeQualityTags(
   transparentBackground = false,
 ): string {
   const suffix = [
-    qualityPreset === "none" ? "" : getQualitySuffix(model, qualityPreset),
     transparentBackground && getModelCapabilities(model).v5Request
       ? TRANSPARENT_BACKGROUND_TAG
       : "",
+    qualityPreset === "none" ? "" : getQualitySuffix(model, qualityPreset),
   ]
     .filter(Boolean)
     .join(SEPARATOR);
@@ -282,7 +283,7 @@ function hasQualitySuffix(prompt: string, suffix: string) {
   return prompt === suffix || prompt.endsWith(`${SEPARATOR}${suffix}`);
 }
 
-// 투명 배경 옵션이 붙인 태그를 떼어낸다 (메타데이터 가져오기용).
+// 투명 배경 옵션이 붙인 태그를 떼어낸다 (메타데이터 가져오기용, Quality 태그를 뗀 뒤에 호출).
 export function stripTransparentBackgroundTag(prompt: string): string {
   if (prompt === TRANSPARENT_BACKGROUND_TAG) return "";
   const suffix = `${SEPARATOR}${TRANSPARENT_BACKGROUND_TAG}`;

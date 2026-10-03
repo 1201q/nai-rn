@@ -190,13 +190,9 @@ export function parseNaiMetadata(
     comment && isV5
       ? comment.tag_hint_transparent_background === true
       : undefined;
-  // V5가 자동으로 붙인 Text 블록과 투명 배경 태그는 생성할 때 다시 붙으므로 떼어낸다.
-  const withoutAutoText =
-    rawPrompt !== undefined && isV5 ? stripAutoTextBlock(rawPrompt) : rawPrompt;
+  // V5가 자동으로 붙인 Text 블록은 생성할 때 다시 붙으므로 떼어낸다.
   const mergedPrompt =
-    withoutAutoText !== undefined && transparentBackground
-      ? stripTransparentBackgroundTag(withoutAutoText)
-      : withoutAutoText;
+    rawPrompt !== undefined && isV5 ? stripAutoTextBlock(rawPrompt) : rawPrompt;
   // V5는 qualityPresetId, 이전 모델은 qualityToggle을 남긴다. 켜져 있으면 Standard/Light는 태그로 구분한다.
   const inferredQuality =
     mergedPrompt !== undefined
@@ -224,10 +220,14 @@ export function parseNaiMetadata(
         : undefined;
 
   if (mergedPrompt !== undefined) {
-    result.prompt =
+    const withoutQuality =
       qualityPreset === undefined
         ? mergedPrompt
         : stripQualityTags(mergedPrompt, qualityPreset, presetModel);
+    // 투명 배경 태그는 Quality 태그 바로 앞에 붙는다.
+    result.prompt = transparentBackground
+      ? stripTransparentBackgroundTag(withoutQuality)
+      : withoutQuality;
   }
   if (mergedNegativePrompt !== undefined) {
     result.negativePrompt = stripUcPreset(

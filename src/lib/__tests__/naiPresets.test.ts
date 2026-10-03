@@ -214,11 +214,15 @@ describe("Quality Light", () => {
 });
 
 describe("transparent background tag", () => {
-  it("follows the quality tags and stays before a Text: block", () => {
+  // 웹 요청 캡처(2026-10-03): 빈 프롬프트 + Standard
+  it("precedes the quality tags and stays before a Text: block", () => {
+    expect(mergeQualityTags("", "standard", "nai-diffusion-5-full", true)).toBe(
+      "transparent background, very aesthetic, masterpiece, no text",
+    );
     expect(
       mergeQualityTags("1girl", "standard", "nai-diffusion-5-full", true),
     ).toBe(
-      "1girl, very aesthetic, masterpiece, no text, transparent background",
+      "1girl, transparent background, very aesthetic, masterpiece, no text",
     );
     expect(
       mergeQualityTags("1girl, Text: hi", "none", "nai-diffusion-5-full", true),

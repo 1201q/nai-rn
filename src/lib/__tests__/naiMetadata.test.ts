@@ -181,7 +181,7 @@ describe("transparent background on import", () => {
   it("restores the option and removes its tag before detecting quality", () => {
     const parsed = parse("NovelAI Diffusion V5 657484A5", {
       prompt:
-        "solo, cat, very aesthetic, masterpiece, no text, transparent background",
+        "solo, cat, transparent background, very aesthetic, masterpiece, no text",
       qualityPresetId: "standard",
       tag_hint_transparent_background: true,
     });
