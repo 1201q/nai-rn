@@ -1,11 +1,8 @@
 const { readFileSync } = require("fs") as {
-  readFileSync: (path: string) => Uint8Array;
+  readFileSync: (path: string, encoding: "utf8") => string;
 };
 const { join } = require("path") as {
   join: (...segments: string[]) => string;
-};
-const { inflateRawSync } = require("zlib") as {
-  inflateRawSync: (data: Uint8Array) => { toString: () => string };
 };
 
 import {
@@ -14,23 +11,29 @@ import {
   NovelAiT5Tokenizer,
 } from "../tokenizers";
 
-function readCompressedDefinition(fileName: string): string {
-  return inflateRawSync(
-    readFileSync(join(process.cwd(), "assets", "tokenizers", fileName)),
-  ).toString();
+function readDefinition(fileName: string): string {
+  return readFileSync(
+    join(process.cwd(), "assets", "tokenizers", fileName),
+    "utf8",
+  );
 }
 
 describe("NovelAI prompt tokenizers", () => {
-  const t5 = new NovelAiT5Tokenizer(
-    JSON.parse(readCompressedDefinition("t5_tokenizer.def")),
-  );
-  const clipDefinition = JSON.parse(
-    readCompressedDefinition("clip_tokenizer.def"),
-  ) as { text: string };
+  let t5: NovelAiT5Tokenizer;
+  let qwen: NovelAiQwenTokenizer;
+  const clipDefinition = JSON.parse(readDefinition("clip_tokenizer.def")) as {
+    text: string;
+  };
   const clip = new NovelAiClipTokenizer(clipDefinition.text);
-  const qwen = new NovelAiQwenTokenizer(
-    JSON.parse(readCompressedDefinition("qwen35_merges.def")),
-  );
+
+  beforeAll(async () => {
+    t5 = await NovelAiT5Tokenizer.create(
+      JSON.parse(readDefinition("t5_tokenizer.def")),
+    );
+    qwen = await NovelAiQwenTokenizer.create(
+      JSON.parse(readDefinition("qwen35_merges.def")),
+    );
+  });
 
   // 기준값: 원본 qwen35_tokenizer.def(vocab 포함)로 따로 계산한 토큰 수.
   it.each([

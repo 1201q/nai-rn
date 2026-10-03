@@ -1,0 +1,2 @@
+# 토크나이저 정의는 바이트 그대로 둔다 (README의 SHA-256과 일치해야 함).
+assets/tokenizers/*.def -text

@@ -33,6 +33,24 @@ function createTrieNode(): TrieNode {
   return { children: new Map() };
 }
 
+// 정의 항목을 한 번에 처리하면 기기에서 JS 스레드가 0.2~0.3초 멈춘다.
+// 시트 제스처와 뒤로가기가 막히지 않도록 일정 시간마다 양보한다.
+const YIELD_BUDGET_MS = 8;
+
+async function forEachYielding<T>(
+  items: readonly T[],
+  callback: (item: T, index: number) => void,
+): Promise<void> {
+  let sliceStart = performance.now();
+  for (let index = 0; index < items.length; index += 1) {
+    callback(items[index], index);
+    if (index % 512 === 0 && performance.now() - sliceStart > YIELD_BUDGET_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      sliceStart = performance.now();
+    }
+  }
+}
+
 export class NovelAiT5Tokenizer implements PromptTokenizer {
   private readonly root = createTrieNode();
   private readonly unknownId: number;
@@ -41,7 +59,25 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
   private readonly replacement: string;
   private readonly addPrefixSpace: boolean;
 
-  constructor(config: UnigramConfig) {
+  static async create(config: UnigramConfig): Promise<NovelAiT5Tokenizer> {
+    const tokenizer = new NovelAiT5Tokenizer(config);
+    await forEachYielding(config.model.vocab, ([token, score], tokenId) => {
+      let node = tokenizer.root;
+      for (const character of Array.from(token)) {
+        let child = node.children.get(character);
+        if (!child) {
+          child = createTrieNode();
+          node.children.set(character, child);
+        }
+        node = child;
+      }
+      node.tokenId = tokenId;
+      node.score = score;
+    });
+    return tokenizer;
+  }
+
+  private constructor(config: UnigramConfig) {
     this.unknownId = config.model.unk_id;
     this.unknownScore =
       config.model.vocab.reduce(
@@ -63,20 +99,6 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
     const metaspace = processors.find((item) => item.type === "Metaspace");
     this.replacement = metaspace?.replacement ?? "▁";
     this.addPrefixSpace = metaspace?.add_prefix_space ?? true;
-
-    config.model.vocab.forEach(([token, score], tokenId) => {
-      let node = this.root;
-      for (const character of Array.from(token)) {
-        let child = node.children.get(character);
-        if (!child) {
-          child = createTrieNode();
-          node.children.set(character, child);
-        }
-        node = child;
-      }
-      node.tokenId = tokenId;
-      node.score = score;
-    });
   }
 
   encode(text: string): number[] {
@@ -291,12 +313,20 @@ export class NovelAiQwenTokenizer implements PromptTokenizer {
   private readonly splitPattern: RegExp;
   private readonly textEncoder = new TextEncoder();
 
-  constructor(definition: { splitRegex: string; merges: string }) {
-    this.splitPattern = new RegExp(definition.splitRegex, "gu");
+  static async create(definition: {
+    splitRegex: string;
+    merges: string;
+  }): Promise<NovelAiQwenTokenizer> {
+    const tokenizer = new NovelAiQwenTokenizer(definition.splitRegex);
     // 줄 번호가 merge 순위다. "left right" -> pairKey 형식으로 바꿔 저장한다.
-    definition.merges.split("\n").forEach((line, rank) => {
-      this.ranks.set(line.replace(" ", "\u0000"), rank);
+    await forEachYielding(definition.merges.split("\n"), (line, rank) => {
+      tokenizer.ranks.set(line.replace(" ", "\u0000"), rank);
     });
+    return tokenizer;
+  }
+
+  private constructor(splitRegex: string) {
+    this.splitPattern = new RegExp(splitRegex, "gu");
   }
 
   countTokens(text: string): number {

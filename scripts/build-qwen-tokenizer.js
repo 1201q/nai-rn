@@ -10,7 +10,8 @@
 const { createHash } = require("crypto");
 const { readFileSync, writeFileSync } = require("fs");
 const { join } = require("path");
-const { deflateRawSync, inflateRawSync } = require("zlib");
+const { Buffer } = require("buffer");
+const { inflateRawSync } = require("zlib");
 
 const sourcePath = process.argv[2];
 if (!sourcePath) {
@@ -38,13 +39,13 @@ for (const pair of merges) {
   }
 }
 
-// 줄 번호가 merge 순위다.
-const output = deflateRawSync(
+// 줄 번호가 merge 순위다. 기기에서 JS로 압축을 풀면 느려서 압축 없이 저장한다.
+const output = Buffer.from(
   JSON.stringify({
     splitRegex: config.splitRegex,
     merges: merges.map((pair) => pair.join(" ")).join("\n"),
   }),
-  { level: 9 },
+  "utf8",
 );
 const outputPath = join(
   __dirname,

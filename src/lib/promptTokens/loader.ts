@@ -1,6 +1,5 @@
 import { Asset } from "expo-asset";
 import { File } from "expo-file-system";
-import { inflateSync, strFromU8 } from "fflate";
 
 import type { ImagePromptTokenizerType } from "../../constants/models";
 import {
@@ -27,24 +26,26 @@ async function readDefinition(type: ImagePromptTokenizerType): Promise<string> {
   const asset = Asset.fromModule(getTokenizerAsset(type));
   await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;
-  const compressed = await new File(uri).bytes();
-  return strFromU8(inflateSync(compressed));
+  // 압축 없이 넣어 둔 JSON을 네이티브에서 읽는다. JS 압축 해제는 기기에서 1초 가까이 걸렸다.
+  return new File(uri).text();
 }
 
 export function getPromptTokenizer(
   type: ImagePromptTokenizerType,
 ): Promise<PromptTokenizer> {
   if (!tokenizerPromises[type]) {
-    tokenizerPromises[type] = readDefinition(type).then((definition) => {
-      if (type === "t5") {
-        return new NovelAiT5Tokenizer(JSON.parse(definition));
-      }
-      if (type === "qwen") {
-        return new NovelAiQwenTokenizer(JSON.parse(definition));
-      }
-      const parsed = JSON.parse(definition) as { text: string };
-      return new NovelAiClipTokenizer(parsed.text);
-    });
+    tokenizerPromises[type] = readDefinition(type).then(
+      (definition): PromptTokenizer | Promise<PromptTokenizer> => {
+        if (type === "t5") {
+          return NovelAiT5Tokenizer.create(JSON.parse(definition));
+        }
+        if (type === "qwen") {
+          return NovelAiQwenTokenizer.create(JSON.parse(definition));
+        }
+        const parsed = JSON.parse(definition) as { text: string };
+        return new NovelAiClipTokenizer(parsed.text);
+      },
+    );
   }
   return tokenizerPromises[type];
 }
