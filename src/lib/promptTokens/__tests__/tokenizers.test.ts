@@ -39,7 +39,7 @@ describe("NovelAI prompt tokenizers", () => {
     ["1girl, blue eyes", 5],
     ["1girl, blue eyes, long hair, standing in a garden", 13],
     ['a girl holding a sign, "hello"', 9],
-    ["1girl,  blue eyes\nsmile", 9],
+    ["1girl,  blue eyes\nsmile", 8],
     ["こんにちは、世界", 3],
     ["소녀, 파란 눈", 6],
     ["very aesthetic, masterpiece, no text", 7],
@@ -56,6 +56,13 @@ describe("NovelAI prompt tokenizers", () => {
       );
     },
   );
+
+  // 웹 표시값(2026-10-03): 공백이 두 칸인 곳이 두 군데 있어 그대로 세면 330이 나온다.
+  it("matches the web count for a long prompt with repeated spaces", () => {
+    const prompt =
+      "1girl, 2::solo::, 2::artist:kitano yukito::, 0.3::artist:mignon::,   \n0.3::artist:hiro (dismaless)::, 0.8::artist:mx2j::, artist:natonyanya,\n\n2::artist:kokosando, artist:yutokamizu, artist:9ml,\nartist:7peach, \nartist:jell (jell y fish),\nartist:hwansang ::,\n\n-1::censored::, -5::bad anatomy::, 0.3::location ::, best quality, best illustration, masterpiece, highres, -2::upscaled ::, solo artist, -2::multiple views::,-6::artist collaboration ::, -3::simple illustration::, no text, magazine shoot, novel illustration, year 2025, year 2024, amazing quality, very aesthetic, absurdres,  -1::window::, -1::sky::, 2::blurry, blurry background::, stairs, park, falling petals, \n\n2::3d background, photo background, ai-generated background, screenshot background, game screenshot background, atmospheric perspective::,\n\n\nwide shot, dutch angle, cropped, 5::saturated::, -1::ligne claire ::, 1.7::flat color::,  soft shadow, -2::soft colors::, -3::outlines::, -4::clean lineart::, 0.5::white theme::, dating, couple";
+    expect(qwen.countTokens(prompt)).toBe(328);
+  });
 
   // 웹 표시값(2026-10-02): V5는 가중치 문법을 지우지 않고 그대로 센다.
   it("counts emphasis syntax as written for Qwen", () => {

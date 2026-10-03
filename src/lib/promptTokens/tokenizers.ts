@@ -283,6 +283,7 @@ export class NovelAiClipTokenizer implements PromptTokenizer {
 
 // V5용 byte-level BPE (GPT-2 방식). 번들에는 merge 순위만 들어 있어 토큰 id는 만들지 않고 개수만 센다.
 // 웹과 동일: T5와 달리 가중치 문법을 지우지 않고, 특수 토큰도 더하지 않는다.
+// 연속된 공백은 하나로 센다 (웹 표시값과 대조해 확인).
 export class NovelAiQwenTokenizer implements PromptTokenizer {
   private readonly byteEncoder = bytesToUnicode();
   private readonly ranks = new Map<string, number>();
@@ -300,7 +301,8 @@ export class NovelAiQwenTokenizer implements PromptTokenizer {
 
   countTokens(text: string): number {
     let total = 0;
-    for (const match of text.normalize("NFC").matchAll(this.splitPattern)) {
+    const cleanText = text.replace(/ {2,}/g, " ").normalize("NFC");
+    for (const match of cleanText.matchAll(this.splitPattern)) {
       total += this.countPiece(match[0]);
     }
     return total;
