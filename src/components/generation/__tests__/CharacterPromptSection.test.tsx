@@ -166,21 +166,19 @@ describe("CharacterPromptSection", () => {
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
+    await fireEvent.press(getByLabelText("Custom position"));
+    // 새 캐릭터는 겹치지 않는 자리에 놓인다.
+    const [first, second] = useGenerationStore.getState().characterPrompts;
+    expect(first.position).toEqual({ x: 0.5, y: 0.5 });
+    expect(second.position).toEqual({ x: 0.3, y: 0.5 });
     expect(queryByText(warning)).toBeNull();
 
-    await fireEvent.press(getByLabelText("Custom position"));
-    expect(queryByText(warning)).toBeTruthy();
-
-    const [first, second] = useGenerationStore.getState().characterPrompts;
     await act(() => {
       useGenerationStore
         .getState()
-        .setCharacterPrompts([
-          first,
-          { ...second, position: { x: 0.1, y: 0.5 } },
-        ]);
+        .setCharacterPrompts([first, { ...second, position: first.position }]);
     });
-    expect(queryByText(warning)).toBeNull();
+    expect(queryByText(warning)).toBeTruthy();
   });
 
   it("opens a collapsed editor only from its prompt content", async () => {

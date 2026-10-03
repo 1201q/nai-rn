@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getModelCapabilities } from "../../constants/models";
-import { hasOverlappingPositions } from "../../lib/characterPosition";
+import {
+  hasOverlappingPositions,
+  nextCharacterPosition,
+} from "../../lib/characterPosition";
 import {
   type CharacterPrompt,
   useGenerationStore,
@@ -11,13 +14,16 @@ import {
 import { tokens } from "../../styles/tokens";
 import { CharacterPromptEditorCard } from "./CharacterPromptEditorCard";
 
-function createCharacterPrompt(index: number): CharacterPrompt {
+function createCharacterPrompt(
+  index: number,
+  position: CharacterPrompt["position"],
+): CharacterPrompt {
   return {
     id: `character-${Date.now()}-${index}`,
     prompt: "",
     negativePrompt: "",
     enabled: true,
-    position: { x: 0.5, y: 0.5 },
+    position,
   };
 }
 
@@ -40,6 +46,9 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   );
   const minPositionCharacters = useGenerationStore(
     (state) => getModelCapabilities(state.model).minPositionCharacters,
+  );
+  const freePlacement = useGenerationStore(
+    (state) => getModelCapabilities(state.model).v5Request,
   );
   const setCharacterPrompts = useGenerationStore(
     (state) => state.setCharacterPrompts,
@@ -95,7 +104,10 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
     ) {
       return;
     }
-    const character = createCharacterPrompt(state.characterPrompts.length);
+    const character = createCharacterPrompt(
+      state.characterPrompts.length,
+      nextCharacterPosition(state.characterPrompts),
+    );
     state.setCharacterPrompts([...state.characterPrompts, character]);
     state.setCharacterPromptExpandedIds([
       ...state.characterPromptExpandedIds,
@@ -164,7 +176,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   const canPosition = characterPrompts.length >= minPositionCharacters;
   const customPosition = positionEnabled && canPosition;
   const positionsOverlap =
-    customPosition && hasOverlappingPositions(characterPrompts);
+    customPosition && hasOverlappingPositions(characterPrompts, freePlacement);
 
   return (
     <View style={styles.section}>

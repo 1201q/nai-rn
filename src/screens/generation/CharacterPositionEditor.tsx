@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
+import { getModelCapabilities } from "../../constants/models";
 import {
   POSITION_GRID_SIZE,
   gridCoordinate,
+  overlappingPositionIndexes,
   positionCellIndex,
 } from "../../lib/characterPosition";
 import {
@@ -12,6 +14,7 @@ import {
   useGenerationStore,
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+import { CharacterPositionBoard } from "./CharacterPositionBoard";
 
 const GRID_INDEXES = Array.from(
   { length: POSITION_GRID_SIZE },
@@ -39,6 +42,10 @@ export function CharacterPositionEditor({
   const setCharacterPromptPosition = useGenerationStore(
     (state) => state.setCharacterPromptPosition,
   );
+  // 공식 웹과 동일: V5는 자유 배치, 그 외는 5x5 그리드.
+  const freePlacement = useGenerationStore(
+    (state) => getModelCapabilities(state.model).v5Request,
+  );
   const [selectedId, setSelectedId] = useState(initialCharacterId);
   const [gridSize, setGridSize] = useState(0);
   const activeCharacter =
@@ -51,6 +58,8 @@ export function CharacterPositionEditor({
     { length: POSITION_GRID_SIZE * POSITION_GRID_SIZE },
     () => [],
   );
+
+  const overlappingIndexes = overlappingPositionIndexes(characterPrompts);
 
   characterPrompts.forEach((item, index) => {
     charactersByCell[positionCellIndex(item.position)].push({ item, index });
@@ -101,64 +110,74 @@ export function CharacterPositionEditor({
         })}
       </View>
 
-      <View
-        style={styles.gridArea}
-        onLayout={(event) => {
-          const { width, height } = event.nativeEvent.layout;
-          setGridSize(Math.min(width, height));
-        }}
-      >
-        <View style={[styles.grid, { width: gridSize, height: gridSize }]}>
-          {GRID_INDEXES.map((row) => (
-            <View key={`row-${row}`} style={styles.gridRow}>
-              {GRID_INDEXES.map((column) => {
-                const cellIndex = row * POSITION_GRID_SIZE + column;
-                const active = cellIndex === activeCellIndex;
-                const x = gridCoordinate(column);
-                const y = gridCoordinate(row);
+      {freePlacement ? (
+        <CharacterPositionBoard
+          characters={characterPrompts}
+          selectedId={activeCharacter?.id}
+          onSelect={setSelectedId}
+        />
+      ) : (
+        <View
+          style={styles.gridArea}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setGridSize(Math.min(width, height));
+          }}
+        >
+          <View style={[styles.grid, { width: gridSize, height: gridSize }]}>
+            {GRID_INDEXES.map((row) => (
+              <View key={`row-${row}`} style={styles.gridRow}>
+                {GRID_INDEXES.map((column) => {
+                  const cellIndex = row * POSITION_GRID_SIZE + column;
+                  const active = cellIndex === activeCellIndex;
+                  const x = gridCoordinate(column);
+                  const y = gridCoordinate(row);
 
-                return (
-                  <Pressable
-                    key={`cell-${row}-${column}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`X ${x.toFixed(1)}, Y ${y.toFixed(1)}`}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => selectCell(row, column)}
-                    style={({ pressed }) => [
-                      styles.cell,
-                      active && styles.cellActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    {charactersByCell[cellIndex].map(({ item, index }) => {
-                      const selected = item.id === activeCharacter?.id;
-                      return (
-                        <View
-                          key={item.id}
-                          style={[
-                            styles.marker,
-                            selected && styles.markerSelected,
-                            !item.enabled && styles.characterDisabled,
-                          ]}
-                        >
-                          <Text
+                  return (
+                    <Pressable
+                      key={`cell-${row}-${column}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`X ${x.toFixed(1)}, Y ${y.toFixed(1)}`}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => selectCell(row, column)}
+                      style={({ pressed }) => [
+                        styles.cell,
+                        active && styles.cellActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      {charactersByCell[cellIndex].map(({ item, index }) => {
+                        const selected = item.id === activeCharacter?.id;
+                        return (
+                          <View
+                            key={item.id}
                             style={[
-                              styles.markerText,
-                              selected && styles.markerTextSelected,
+                              styles.marker,
+                              selected && styles.markerSelected,
+                              overlappingIndexes.has(index) &&
+                                styles.markerOverlapping,
+                              !item.enabled && styles.characterDisabled,
                             ]}
                           >
-                            {index + 1}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
+                            <Text
+                              style={[
+                                styles.markerText,
+                                selected && styles.markerTextSelected,
+                              ]}
+                            >
+                              {index + 1}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.footer}>
         <Pressable
@@ -256,6 +275,9 @@ const styles = StyleSheet.create({
   markerSelected: {
     borderColor: tokens.color.textPrimary,
     backgroundColor: tokens.color.textPrimary,
+  },
+  markerOverlapping: {
+    borderColor: tokens.color.negative,
   },
   markerText: {
     color: tokens.color.textPrimary,
