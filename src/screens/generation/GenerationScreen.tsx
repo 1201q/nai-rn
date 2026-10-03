@@ -17,12 +17,14 @@ import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { IconButton } from "../../components/common/Buttons";
 import { RollingNumber } from "../../components/common/RollingNumber";
 import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
+import { OpusUsageRing } from "../../components/generation/OpusUsageRing";
 import { SuggestionBar } from "../../components/generation/SuggestionBar";
 import { SuggestionBarProvider } from "../../context/SuggestionBarContext";
 import {
   GenerationInputCommitProvider,
   useGenerationInputCommit,
 } from "../../context/GenerationInputCommitContext";
+import { getModelCapabilities } from "../../constants/models";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
 import type { PredictiveBackEvent } from "../../native/predictiveBack";
 import { PREDICTIVE_BACK_CANCEL_SPRING } from "../../native/predictiveBackStyle";
@@ -41,6 +43,9 @@ import {
   type PromptSheetStage,
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
+
+// 사용량 배지(40) + Anlas 표시와의 간격
+const USAGE_BADGE_SLIDE_DISTANCE = 40 + tokens.space[4];
 
 function GenerateAction({
   onBeforeGenerate,
@@ -195,6 +200,10 @@ function GenerationScreenContent() {
     useGenerationChromeMetrics();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
+  // Opus 사용량 한도는 V5 생성에만 적용된다.
+  const isV5 = useGenerationStore(
+    (s) => getModelCapabilities(s.model).v5Request,
+  );
   const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
@@ -338,30 +347,41 @@ function GenerationScreenContent() {
         pointerEvents="box-none"
         style={[styles.topActions, { top: topInset + 8 }]}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="ANLAS 토큰 설정"
-          onPress={() => router.navigate("/settings")}
-          style={({ pressed }) => [
-            styles.balancePill,
-            pressed && styles.balancePillPressed,
-          ]}
-        >
-          <Ionicons
-            name="diamond-outline"
-            size={15}
-            color={tokens.color.accent}
-          />
-          {anlasBalance ? (
-            <RollingNumber
-              value={anlasBalance.total}
-              style={styles.balanceText}
-              lineHeight={20}
+        <View style={styles.balanceGroup}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="ANLAS 토큰 설정"
+            onPress={() => router.navigate("/settings")}
+            style={({ pressed }) => [
+              styles.balancePill,
+              pressed && styles.balancePillPressed,
+            ]}
+          >
+            <Ionicons
+              name="diamond-outline"
+              size={15}
+              color={tokens.color.accent}
             />
-          ) : (
-            <Text style={styles.balanceText}>—</Text>
-          )}
-        </Pressable>
+            {anlasBalance ? (
+              <RollingNumber
+                value={anlasBalance.total}
+                style={styles.balanceText}
+                lineHeight={20}
+              />
+            ) : (
+              <Text style={styles.balanceText}>—</Text>
+            )}
+          </Pressable>
+          {anlasBalance?.usagePercent !== undefined ? (
+            <OpusUsageRing
+              percent={anlasBalance.usagePercent}
+              exhausted={anlasBalance.usageNegative === true}
+              nextPercentAt={anlasBalance.usageNextPercentAt}
+              visible={isV5}
+              slideDistance={USAGE_BADGE_SLIDE_DISTANCE}
+            />
+          ) : null}
+        </View>
 
         <IconButton
           icon="ellipsis-horizontal"
@@ -478,7 +498,14 @@ const styles = StyleSheet.create({
   hidden: {
     display: "none",
   },
+  balanceGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[4],
+  },
   balancePill: {
+    // 사용량 배지가 숨을 때 이 표시 뒤로 들어간다.
+    zIndex: 1,
     height: 40,
     paddingHorizontal: tokens.space[7],
     flexDirection: "row",

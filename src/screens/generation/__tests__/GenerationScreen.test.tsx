@@ -1,6 +1,7 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { BackHandler, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
 import {
   type GenerationStartResult,
@@ -16,6 +17,7 @@ const mockBackHandlers = jest.fn<void, [boolean, PredictiveBackHandlers]>();
 const mockUtilityProgress = jest.fn<void, [SharedValue<number>]>();
 
 type MockGenerationState = {
+  model?: string;
   anlasBalance: NovelAiAnlasBalance | null;
   anlasCost: number | null;
   prompt: string;
@@ -50,6 +52,8 @@ jest.mock("../../../store/generationStore", () => {
     })),
   };
 });
+
+jest.mock("sonner-native", () => ({ toast: jest.fn() }));
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
@@ -524,6 +528,56 @@ const setMockState = useGenerationStore.setState as (
 function balance(total: number): NovelAiAnlasBalance {
   return { fixed: total, purchased: 0, total, tier: 1, expiresAt: 0 };
 }
+
+describe("GenerationScreen Opus usage ring", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
+    useGenerationStore.setState(initialState, true);
+  });
+
+  const usageBalance = (): NovelAiAnlasBalance => ({
+    ...balance(100),
+    usagePercent: 42,
+    usageNegative: false,
+    usageNextPercentAt: Date.now() + 2 * 60 * 60 * 1000,
+  });
+
+  test("shows the remaining Opus usage on V5 and its recovery on press", async () => {
+    setMockState({
+      model: "nai-diffusion-5-full",
+      anlasBalance: usageBalance(),
+    });
+    const screen = await render(<GenerationScreen />);
+    const badge = screen.getByLabelText("Opus 사용량 42% 남음");
+    expect(badge).toHaveTextContent("42");
+
+    await fireEvent.press(badge);
+    expect(toast).toHaveBeenLastCalledWith(
+      "Opus 사용량 42% 남음 · 다음 1% 회복까지 약 2시간",
+    );
+  });
+
+  test("tucks the ring away on other models", async () => {
+    setMockState({
+      model: "nai-diffusion-4-5-full",
+      anlasBalance: usageBalance(),
+    });
+    const screen = await render(<GenerationScreen />);
+    expect(screen.queryByLabelText("Opus 사용량 42% 남음")).toBeNull();
+    expect(
+      screen.getByTestId("generation-opus-usage", {
+        includeHiddenElements: true,
+      }),
+    ).toBeTruthy();
+  });
+
+  test("hides the ring when the subscription has no usage", async () => {
+    setMockState({ anlasBalance: balance(100) });
+    const screen = await render(<GenerationScreen />);
+    expect(screen.queryByTestId("generation-opus-usage")).toBeNull();
+  });
+});
 
 describe("GenerationScreen Anlas cost badge", () => {
   beforeEach(() => {

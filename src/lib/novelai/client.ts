@@ -32,6 +32,10 @@ export type NovelAiAnlasBalance = {
   expiresAt: number;
   // Opus 사용량 한도 소진 여부 (V5 전용). 응답에 usage가 없으면 undefined
   usageNegative?: boolean;
+  // Opus 사용량 한도의 남은 비율 (0~100). 응답에 usage가 없으면 undefined
+  usagePercent?: number;
+  // 다음 1% 회복 시각 (epoch ms). 응답의 timeUntilNextPercent(초)를 받은 시각 기준으로 바꾼 값
+  usageNextPercentAt?: number;
 };
 
 export async function getNovelAiAnlasBalance(
@@ -60,7 +64,11 @@ export async function getNovelAiAnlasBalance(
       fixedTrainingStepsLeft?: number;
       purchasedTrainingSteps?: number;
     };
-    usage?: { isNegative?: boolean };
+    usage?: {
+      percent?: number;
+      isNegative?: boolean;
+      timeUntilNextPercent?: number;
+    };
   };
 
   const fixed = data.trainingStepsLeft?.fixedTrainingStepsLeft ?? 0;
@@ -72,6 +80,11 @@ export async function getNovelAiAnlasBalance(
     tier: data.tier ?? 0,
     expiresAt: data.expiresAt ?? 0,
     usageNegative: data.usage?.isNegative,
+    usagePercent: data.usage?.percent,
+    usageNextPercentAt:
+      data.usage?.timeUntilNextPercent === undefined
+        ? undefined
+        : Date.now() + data.usage.timeUntilNextPercent * 1000,
   };
 }
 

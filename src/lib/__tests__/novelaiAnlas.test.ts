@@ -39,6 +39,22 @@ describe("getNovelAiAnlasBalance", () => {
 
     await expect(getNovelAiAnlasBalance("token")).resolves.toMatchObject({
       usageNegative: true,
+      usagePercent: 0,
+    });
+  });
+
+  test("converts the next percent recovery into a timestamp", async () => {
+    jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        usage: { percent: 42, isNegative: false, timeUntilNextPercent: 7888 },
+      }),
+    } as Response);
+
+    await expect(getNovelAiAnlasBalance("token")).resolves.toMatchObject({
+      usagePercent: 42,
+      usageNextPercentAt: 1_000_000 + 7_888_000,
     });
   });
 
