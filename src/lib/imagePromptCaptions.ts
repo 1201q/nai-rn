@@ -39,6 +39,7 @@ export function prepareImagePromptCaptions({
   prompt,
   negativePrompt,
   qualityPreset,
+  transparentBackground = false,
   ucPreset,
   characterPrompts,
   autoText = true,
@@ -47,6 +48,8 @@ export function prepareImagePromptCaptions({
   prompt: string;
   negativePrompt: string;
   qualityPreset: QualityPreset;
+  // V5 투명 배경 옵션
+  transparentBackground?: boolean;
   ucPreset: UcPresetIndex;
   characterPrompts: GenerateNovelAiCharacterPrompt[];
   // false면 V5 자동 Text 블록을 붙이지 않는다 (토큰 수 계산용).
@@ -54,7 +57,12 @@ export function prepareImagePromptCaptions({
 }): PreparedImagePromptCaptions {
   const capabilities = getModelCapabilities(model);
   const supportsCharacterCaptions = capabilities.v4Prompt;
-  const qualityCaption = mergeQualityTags(prompt, qualityPreset, model);
+  const qualityCaption = mergeQualityTags(
+    prompt,
+    qualityPreset,
+    model,
+    transparentBackground,
+  );
   const positiveBaseCaption =
     capabilities.v5Request && autoText
       ? appendAutoTextBlock(qualityCaption, [

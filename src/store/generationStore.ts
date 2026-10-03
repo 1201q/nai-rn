@@ -292,6 +292,9 @@ type GenerationState = {
   setNegativePrompt: (v: string) => void;
   qualityPreset: QualityPreset;
   setQualityPreset: (v: QualityPreset) => void;
+  // V5 투명 배경 옵션 (V5가 아니면 요청에 반영되지 않는다)
+  transparentBackground: boolean;
+  setTransparentBackground: (v: boolean) => void;
   ucPreset: UcPresetIndex;
   setUcPreset: (v: UcPresetIndex) => void;
   characterPrompts: CharacterPrompt[];
@@ -444,6 +447,7 @@ type QueueParams = {
     imageFormat: NovelAiImageFormat;
     varietyPlus: boolean;
     qualityPreset: QualityPreset;
+    transparentBackground: boolean;
     ucPreset: UcPresetIndex;
     characterPositionEnabled: boolean;
     vibeEncodedImages?: string[];
@@ -586,6 +590,9 @@ function loadPersistedOptions(): Partial<GenerationState> {
       // 이전 버전의 저장값 (Light 도입 전)
       next.qualityPreset = parsed.qualityToggle ? "standard" : "none";
     }
+    if (isBoolean(parsed.transparentBackground)) {
+      next.transparentBackground = parsed.transparentBackground;
+    }
     if (isUcPresetIndex(parsed.ucPreset)) next.ucPreset = parsed.ucPreset;
     next.characterPrompts = resolveStoredCharacterPrompts(
       parsed.characterPrompts,
@@ -666,6 +673,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     ),
   qualityPreset: "standard",
   setQualityPreset: (v) => set({ qualityPreset: v }),
+  transparentBackground: false,
+  setTransparentBackground: (v) => set({ transparentBackground: v }),
   ucPreset: 0,
   setUcPreset: (v) => set({ ucPreset: v }),
   characterPrompts: [],
@@ -1109,10 +1118,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       overrides?.negativePrompt ?? s.negativePrompt
     ).trim();
 
-    if (!effPrompt) {
-      set({ message: "프롬프트를 입력해주세요." });
-      return rejectGenerationStart("validation");
-    }
     if (s.resolution.width * s.resolution.height > MAX_GENERATION_PIXELS) {
       set({
         message: `해상도가 너무 큽니다. 전체 픽셀 수는 ${MAX_GENERATION_PIXELS.toLocaleString()} 이하여야 합니다 (현재 ${s.resolution.width}×${s.resolution.height}).`,
@@ -1401,6 +1406,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         imageFormat: s.imageFormat,
         varietyPlus: s.varietyPlus,
         qualityPreset: s.qualityPreset,
+        transparentBackground: s.transparentBackground,
         ucPreset: s.ucPreset,
         characterPositionEnabled: s.characterPositionEnabled,
         ...(vibeEncodedImages

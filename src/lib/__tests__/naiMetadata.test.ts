@@ -176,3 +176,43 @@ describe("quality preset on import", () => {
     ).toBe("none");
   });
 });
+
+describe("transparent background on import", () => {
+  it("restores the option and removes its tag before detecting quality", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt:
+        "solo, cat, very aesthetic, masterpiece, no text, transparent background",
+      qualityPresetId: "standard",
+      tag_hint_transparent_background: true,
+    });
+
+    expect(parsed.transparentBackground).toBe(true);
+    expect(parsed.prompt).toBe("solo, cat");
+  });
+
+  it("matches the captured web request without quality tags", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt: "solo, cat, transparent background",
+      qualityPresetId: "none",
+      tag_hint_transparent_background: true,
+    });
+
+    expect(parsed.prompt).toBe("solo, cat");
+  });
+
+  it("turns the option off for V5 images without the hint", () => {
+    const parsed = parse("NovelAI Diffusion V5 657484A5", {
+      prompt: "solo, transparent background",
+    });
+
+    expect(parsed.transparentBackground).toBe(false);
+    expect(parsed.prompt).toBe("solo, transparent background");
+  });
+
+  it("leaves the option untouched for older models", () => {
+    expect(
+      parse("NovelAI Diffusion V4.5 4BDE2A90", { prompt: "1girl" })
+        .transparentBackground,
+    ).toBeUndefined();
+  });
+});

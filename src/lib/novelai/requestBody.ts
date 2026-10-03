@@ -32,6 +32,8 @@ export type GenerateNovelAiImageInput = {
   seed?: number;
   varietyPlus?: boolean;
   qualityPreset?: QualityPreset;
+  // V5 투명 배경 옵션
+  transparentBackground?: boolean;
   ucPreset?: UcPresetIndex;
   imageFormat?: NovelAiImageFormat;
   i2iImageBase64?: string;
@@ -188,6 +190,7 @@ export function createImageGenerationBody({
   seed: inputSeed,
   varietyPlus = false,
   qualityPreset = "standard",
+  transparentBackground = false,
   ucPreset = 0,
   imageFormat = "png",
   i2iImageBase64,
@@ -209,6 +212,7 @@ export function createImageGenerationBody({
     prompt,
     negativePrompt,
     qualityPreset,
+    transparentBackground,
     ucPreset,
     characterPrompts,
   });
@@ -284,6 +288,10 @@ export function createImageGenerationBody({
           qualityPresetId: resolvedQualityPreset,
           tag_hint_qt: V5_QUALITY_HINTS[resolvedQualityPreset],
           tag_hint_uc_preset: v5UcPreset.hint,
+          // 웹은 옵션이 꺼져 있으면 필드를 보내지 않는다.
+          ...(transparentBackground
+            ? { tag_hint_transparent_background: true }
+            : {}),
           straight_alpha: true,
           params_version: 4,
         }

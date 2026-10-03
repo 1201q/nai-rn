@@ -203,13 +203,24 @@ function splitFirstSegment(text: string) {
     : { head: text.slice(0, index), tail: text.slice(index) };
 }
 
+// V5 투명 배경 옵션 (웹 요청 캡처 2026-10-03): Quality 태그 뒤에 이어 붙는다.
+const TRANSPARENT_BACKGROUND_TAG = "transparent background";
+
 export function mergeQualityTags(
   prompt: string,
   qualityPreset: QualityPreset,
   model: string,
+  transparentBackground = false,
 ): string {
-  if (qualityPreset === "none") return prompt;
-  const suffix = getQualitySuffix(model, qualityPreset);
+  const suffix = [
+    qualityPreset === "none" ? "" : getQualitySuffix(model, qualityPreset),
+    transparentBackground && getModelCapabilities(model).v5Request
+      ? TRANSPARENT_BACKGROUND_TAG
+      : "",
+  ]
+    .filter(Boolean)
+    .join(SEPARATOR);
+  if (!suffix) return prompt;
 
   if (getModelCapabilities(model).v4Prompt) {
     // 첫 세그먼트의 "Text:" 블록 앞부분에만 붙인다.
@@ -269,6 +280,13 @@ export function mergeUcPreset(
 
 function hasQualitySuffix(prompt: string, suffix: string) {
   return prompt === suffix || prompt.endsWith(`${SEPARATOR}${suffix}`);
+}
+
+// 투명 배경 옵션이 붙인 태그를 떼어낸다 (메타데이터 가져오기용).
+export function stripTransparentBackgroundTag(prompt: string): string {
+  if (prompt === TRANSPARENT_BACKGROUND_TAG) return "";
+  const suffix = `${SEPARATOR}${TRANSPARENT_BACKGROUND_TAG}`;
+  return prompt.endsWith(suffix) ? prompt.slice(0, -suffix.length) : prompt;
 }
 
 // 프롬프트 끝의 Quality 태그로 프리셋을 추정한다. 없으면 None.

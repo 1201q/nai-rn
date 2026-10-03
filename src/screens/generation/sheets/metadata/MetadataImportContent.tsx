@@ -52,6 +52,7 @@ function resolveImportMetadata(
     sampler: generation.sampler,
     varietyPlus: parsed?.varietyPlus,
     qualityPreset: parsed?.qualityPreset,
+    transparentBackground: parsed?.transparentBackground,
     ucPreset: parsed?.ucPreset,
     seed: parsed?.seed ?? generation.seed ?? undefined,
     hasSettings: true,

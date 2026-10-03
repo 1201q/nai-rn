@@ -18,6 +18,7 @@ type StoredGenerationOptions = {
   prompt: string;
   negativePrompt: string;
   qualityPreset: QualityPreset;
+  transparentBackground: boolean;
   // 이전 버전의 저장값 (복원할 때만 읽는다)
   qualityToggle?: boolean;
   ucPreset: UcPresetIndex;
@@ -67,6 +68,7 @@ const PERSISTED_OPTION_KEYS = [
   "prompt",
   "negativePrompt",
   "qualityPreset",
+  "transparentBackground",
   "ucPreset",
   "characterPrompts",
   "characterPromptExpandedIds",
@@ -102,6 +104,7 @@ export function selectPersistedOptions(
     prompt: state.prompt,
     negativePrompt: state.negativePrompt,
     qualityPreset: state.qualityPreset,
+    transparentBackground: state.transparentBackground,
     ucPreset: state.ucPreset,
     characterPrompts: state.characterPrompts,
     characterPromptExpandedIds: state.characterPromptExpandedIds,

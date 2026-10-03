@@ -31,6 +31,7 @@ export type PromptTokenSnapshot = {
   prompt: string;
   negativePrompt: string;
   qualityPreset: QualityPreset;
+  transparentBackground: boolean;
   ucPreset: UcPresetIndex;
   characterPrompts: CharacterPrompt[];
 };
@@ -97,6 +98,7 @@ export async function calculatePromptTokenMetrics(
     prompt: withDraft.prompt,
     negativePrompt: withDraft.negativePrompt,
     qualityPreset: withDraft.qualityPreset,
+    transparentBackground: withDraft.transparentBackground,
     ucPreset: withDraft.ucPreset,
     characterPrompts: activeCharacters,
     // 공식 웹과 동일: 자동 Text 블록은 토큰 수에 넣지 않는다.

@@ -11,6 +11,7 @@ const snapshot = {
   prompt: "base",
   negativePrompt: "neg",
   qualityPreset: "none" as const,
+  transparentBackground: false,
   ucPreset: 4 as const,
   characterPrompts: [
     {

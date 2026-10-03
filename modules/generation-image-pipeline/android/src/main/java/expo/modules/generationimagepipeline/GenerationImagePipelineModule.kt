@@ -2,6 +2,8 @@ package expo.modules.generationimagepipeline
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Base64
@@ -183,20 +185,47 @@ class GenerationImagePipelineModule : Module() {
   private fun createThumbnail(original: File, target: File): Boolean {
     var source: Bitmap? = null
     var scaled: Bitmap? = null
+    var flattened: Bitmap? = null
     return try {
       source = BitmapFactory.decodeFile(original.path) ?: return false
       // Aspect-fit: the long side becomes 512px and nothing is cropped.
       val factor = 512.0 / maxOf(source.width, source.height)
       scaled = Bitmap.createScaledBitmap(source, Math.round(source.width * factor).toInt(), Math.round(source.height * factor).toInt(), true)
+      // JPEG has no alpha: transparent areas would turn black, so show them on a checkerboard.
+      flattened = if (scaled.hasAlpha()) onCheckerboard(scaled) else scaled
       target.parentFile?.mkdirs()
-      target.outputStream().use { check(scaled.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
+      target.outputStream().use { check(flattened.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
       true
     } catch (_: Exception) {
       target.delete()
       false
     } finally {
+      if (flattened !== scaled) flattened?.recycle()
       scaled?.recycle()
       if (source !== scaled) source?.recycle()
     }
   }
+
+  private fun onCheckerboard(image: Bitmap): Bitmap {
+    val result = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(result)
+    val paint = Paint()
+    var y = 0
+    while (y < image.height) {
+      var x = 0
+      while (x < image.width) {
+        paint.color = if ((x / CHECKER_SIZE + y / CHECKER_SIZE) % 2 == 0) CHECKER_LIGHT else CHECKER_DARK
+        canvas.drawRect(x.toFloat(), y.toFloat(), (x + CHECKER_SIZE).toFloat(), (y + CHECKER_SIZE).toFloat(), paint)
+        x += CHECKER_SIZE
+      }
+      y += CHECKER_SIZE
+    }
+    canvas.drawBitmap(image, 0f, 0f, null)
+    return result
+  }
 }
+
+// Thumbnail checkerboard for transparent images (tile size in thumbnail pixels).
+private const val CHECKER_SIZE = 16
+private val CHECKER_LIGHT = 0xFF3A3A42.toInt()
+private val CHECKER_DARK = 0xFF2A2A30.toInt()

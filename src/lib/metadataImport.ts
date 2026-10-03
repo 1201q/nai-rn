@@ -34,6 +34,7 @@ export type MetadataImportState = {
   sampler: string;
   varietyPlus: boolean;
   qualityPreset: NonNullable<ParsedNaiMetadata["qualityPreset"]>;
+  transparentBackground: boolean;
   ucPreset: NonNullable<ParsedNaiMetadata["ucPreset"]>;
   seed: number;
 };
@@ -133,6 +134,9 @@ export function buildMetadataImportPatch(
     }
     if (parsed.qualityPreset !== undefined) {
       patch.qualityPreset = parsed.qualityPreset;
+    }
+    if (parsed.transparentBackground !== undefined) {
+      patch.transparentBackground = parsed.transparentBackground;
     }
     if (parsed.ucPreset !== undefined) patch.ucPreset = parsed.ucPreset;
   }

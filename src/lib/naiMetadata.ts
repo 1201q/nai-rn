@@ -15,6 +15,7 @@ import {
   isUcPresetIndex,
   stripAutoTextBlock,
   stripQualityTags,
+  stripTransparentBackgroundTag,
   stripUcPreset,
   type QualityPreset,
   type UcPresetIndex,
@@ -25,6 +26,7 @@ export type ParsedNaiMetadata = {
   prompt?: string;
   negativePrompt?: string;
   qualityPreset?: QualityPreset;
+  transparentBackground?: boolean;
   ucPreset?: UcPresetIndex;
   characters?: CharacterPrompt[];
   // 캐릭터 위치 지정 여부 (v4_prompt.use_coords)
@@ -182,11 +184,19 @@ export function parseNaiMetadata(
   // 프리셋 문자열은 모델마다 다르므로 모델을 먼저 추정한다 (모르면 V4.5 Full 기준).
   const model = mapSourceToModel(raw.Source, raw.Software);
   const presetModel = model ?? "nai-diffusion-4-5-full";
-  // V5가 자동으로 붙인 Text 블록은 생성할 때 다시 붙으므로 떼어낸다.
+  const isV5 = getModelCapabilities(presetModel).v5Request;
+  // V5 투명 배경 옵션은 tag_hint로 남는다. 꺼져 있으면 필드가 없다.
+  const transparentBackground =
+    comment && isV5
+      ? comment.tag_hint_transparent_background === true
+      : undefined;
+  // V5가 자동으로 붙인 Text 블록과 투명 배경 태그는 생성할 때 다시 붙으므로 떼어낸다.
+  const withoutAutoText =
+    rawPrompt !== undefined && isV5 ? stripAutoTextBlock(rawPrompt) : rawPrompt;
   const mergedPrompt =
-    rawPrompt !== undefined && getModelCapabilities(presetModel).v5Request
-      ? stripAutoTextBlock(rawPrompt)
-      : rawPrompt;
+    withoutAutoText !== undefined && transparentBackground
+      ? stripTransparentBackgroundTag(withoutAutoText)
+      : withoutAutoText;
   // V5는 qualityPresetId, 이전 모델은 qualityToggle을 남긴다. 켜져 있으면 Standard/Light는 태그로 구분한다.
   const inferredQuality =
     mergedPrompt !== undefined
@@ -227,6 +237,9 @@ export function parseNaiMetadata(
     );
   }
   if (qualityPreset !== undefined) result.qualityPreset = qualityPreset;
+  if (transparentBackground !== undefined) {
+    result.transparentBackground = transparentBackground;
+  }
   if (ucPreset !== undefined) result.ucPreset = ucPreset;
 
   // Characters
@@ -275,6 +288,7 @@ export function parseNaiMetadata(
     result.sampler !== undefined ||
     result.varietyPlus !== undefined ||
     result.qualityPreset !== undefined ||
+    result.transparentBackground !== undefined ||
     result.ucPreset !== undefined ||
     result.model !== undefined;
 

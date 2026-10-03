@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { getModelCapabilities } from "../../constants/models";
 import { useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
@@ -134,7 +135,14 @@ export const PromptComposerCard = memo(function PromptComposerCard({
   );
   const ucPreset = useGenerationStore((state) => state.ucPreset);
   const setUcPreset = useGenerationStore((state) => state.setUcPreset);
+  const transparentBackground = useGenerationStore(
+    (state) => state.transparentBackground,
+  );
+  const setTransparentBackground = useGenerationStore(
+    (state) => state.setTransparentBackground,
+  );
   const model = useGenerationStore((state) => state.model);
+  const supportsTransparentBackground = getModelCapabilities(model).v5Request;
   const ucPresetOptions = getUcPresetOptions(model);
   const qualityPresetOptions = getQualityPresetOptions(model);
   const [mode, setMode] = useState<PromptChannel>("base");
@@ -252,6 +260,44 @@ export const PromptComposerCard = memo(function PromptComposerCard({
       }}
     />
   );
+  // 공식 웹과 같이 Base Prompt 왼쪽 아래에 둔다 (V5 전용).
+  const renderBaseFooter = () => (
+    <>
+      {supportsTransparentBackground ? (
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="Transparent BG"
+          accessibilityState={{ checked: transparentBackground }}
+          onPress={() => setTransparentBackground(!transparentBackground)}
+          style={({ pressed }) => [
+            styles.transparentToggle,
+            transparentBackground && styles.transparentToggleActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name={transparentBackground ? "checkmark" : "close"}
+            size={10}
+            color={
+              transparentBackground
+                ? tokens.color.accent
+                : tokens.color.textTertiary
+            }
+          />
+          <Text
+            style={[
+              styles.transparentToggleLabel,
+              transparentBackground && styles.transparentToggleLabelActive,
+            ]}
+          >
+            Transparent BG
+          </Text>
+        </Pressable>
+      ) : null}
+      <View style={styles.footerSpacer} />
+      {renderQualitySelect()}
+    </>
+  );
   const renderUcSelect = () => (
     <SheetSelect
       accessibilityLabel="UC Preset"
@@ -301,7 +347,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               onChange={updatePrompt}
               onCommit={commitPrompt}
             />
-            <View style={styles.promptFooter}>{renderQualitySelect()}</View>
+            <View style={styles.promptFooter}>{renderBaseFooter()}</View>
             <PromptTokenCounter
               target={{ scope: "base", channel: "positive" }}
               draftText={promptText}
@@ -452,7 +498,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
           )}
 
           <View style={styles.promptFooter}>
-            {mode === "base" ? renderQualitySelect() : renderUcSelect()}
+            {mode === "base" ? renderBaseFooter() : renderUcSelect()}
           </View>
           <PromptTokenCounter
             target={{
@@ -641,6 +687,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
+  },
+  footerSpacer: {
+    flex: 1,
+  },
+  // Quality Tags 선택(SheetSelect compact)과 같은 크기
+  transparentToggle: {
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: tokens.radius.pill,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: tokens.color.cardAlt,
+  },
+  transparentToggleActive: {
+    borderColor: tokens.color.accent,
+  },
+  transparentToggleLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: 11,
+  },
+  transparentToggleLabelActive: {
+    color: tokens.color.accent,
   },
   promptTokenCounter: {
     flex: 0,

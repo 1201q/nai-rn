@@ -494,21 +494,22 @@ describe("generation queue execution", () => {
       .getState()
       .generateImage();
 
-    useGenerationStore.setState({ storedToken: "token", prompt: "   " });
-    const emptyPromptResult = await useGenerationStore
-      .getState()
-      .generateImage();
-
     expect(missingTokenResult).toEqual({
-      status: "rejected",
-      reason: "validation",
-    });
-    expect(emptyPromptResult).toEqual({
       status: "rejected",
       reason: "validation",
     });
     expect(mockStartGenerationService).not.toHaveBeenCalled();
     expect(useGenerationStore.getState().isLoading).toBe(false);
+  });
+
+  // 공식 웹과 같이 빈 프롬프트로도 생성할 수 있다.
+  test("starts a queue with an empty prompt", async () => {
+    useGenerationStore.setState({ prompt: "   " });
+
+    const result = await useGenerationStore.getState().generateImage();
+
+    expect(result).toEqual({ status: "started" });
+    expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
   });
 
   test("cleans queue state and resources after successful execution", async () => {

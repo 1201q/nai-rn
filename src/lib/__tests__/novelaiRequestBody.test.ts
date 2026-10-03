@@ -294,3 +294,37 @@ test("V4.5 body sends Light as the Standard quality toggle", () => {
   expect(body.input).toBe("1girl, very aesthetic, masterpiece, no text");
   expect(body.parameters).toMatchObject({ qualityToggle: true });
 });
+
+// 웹 요청 캡처(2026-10-03): 투명 배경 옵션은 Quality 태그 뒤에 태그를 붙이고 hint를 보낸다.
+test("V5 body sends the transparent background option", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    prompt: "solo, cat",
+    model: "nai-diffusion-5-full",
+    qualityPreset: "none",
+    transparentBackground: true,
+  });
+
+  expect(body.input).toBe("solo, cat, transparent background");
+  expect(body.parameters).toMatchObject({
+    tag_hint_transparent_background: true,
+    straight_alpha: true,
+  });
+});
+
+test("transparent background is off by default and ignored before V5", () => {
+  const v5 = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-full",
+  }).body;
+  expect(v5.parameters).not.toHaveProperty("tag_hint_transparent_background");
+
+  const v45 = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-4-5-full",
+    qualityPreset: "none",
+    transparentBackground: true,
+  }).body;
+  expect(v45.input).toBe("1girl");
+  expect(v45.parameters).not.toHaveProperty("tag_hint_transparent_background");
+});

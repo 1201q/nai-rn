@@ -32,6 +32,7 @@ function createState(
     sampler: "k_euler_ancestral",
     varietyPlus: true,
     qualityPreset: "standard" as const,
+    transparentBackground: false,
     ucPreset: 1,
     seed: 123,
     ...overrides,

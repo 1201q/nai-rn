@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -35,6 +35,8 @@ jest.mock("../../../store/generationStore", () => {
     qualityPreset: "standard" | "light" | "none";
     ucPreset: 0 | 1 | 3 | 4;
     model: string;
+    transparentBackground: boolean;
+    setTransparentBackground: (value: boolean) => void;
     setPrompt: (value: string) => void;
     setNegativePrompt: (value: string) => void;
     setQualityPreset: (value: "standard" | "light" | "none") => void;
@@ -45,6 +47,9 @@ jest.mock("../../../store/generationStore", () => {
     qualityPreset: "standard" as const,
     ucPreset: 0,
     model: "nai-diffusion-4-5-full",
+    transparentBackground: false,
+    setTransparentBackground: (transparentBackground) =>
+      set({ transparentBackground }),
     setPrompt: (prompt) => set({ prompt }),
     setNegativePrompt: (negativePrompt) => set({ negativePrompt }),
     setQualityPreset: (qualityPreset) => set({ qualityPreset }),
@@ -276,5 +281,33 @@ describe("PromptComposerCard", () => {
 
     await fireEvent.press(getByLabelText("Commit pending input"));
     expect(useGenerationStore.getState().prompt).toBe("latest prompt");
+  });
+});
+
+describe("Transparent BG toggle", () => {
+  afterEach(async () => {
+    await act(() =>
+      useGenerationStore.setState({
+        model: "nai-diffusion-4-5-full",
+        transparentBackground: false,
+      }),
+    );
+  });
+
+  it("is shown only on V5 and toggles the option", async () => {
+    const { getByLabelText, queryByLabelText, rerender } = await render(
+      <PromptComposerCard active />,
+    );
+    expect(queryByLabelText("Transparent BG")).toBeNull();
+
+    await act(() =>
+      useGenerationStore.setState({ model: "nai-diffusion-5-full" }),
+    );
+    await rerender(<PromptComposerCard active />);
+    await fireEvent.press(getByLabelText("Transparent BG"));
+    expect(useGenerationStore.getState().transparentBackground).toBe(true);
+    expect(
+      getByLabelText("Transparent BG").props.accessibilityState,
+    ).toMatchObject({ checked: true });
   });
 });

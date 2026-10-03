@@ -12,6 +12,7 @@ function createState(
     prompt: "prompt",
     negativePrompt: "negative",
     qualityPreset: "standard" as const,
+    transparentBackground: false,
     ucPreset: 1,
     characterPrompts: [],
     characterPromptExpandedIds: [],

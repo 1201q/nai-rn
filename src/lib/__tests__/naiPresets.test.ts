@@ -6,6 +6,7 @@ import {
   mergeUcPreset,
   resolveQualityPresetForModel,
   resolveUcPresetForModel,
+  stripTransparentBackgroundTag,
   stripUcPreset,
 } from "../naiPresets";
 import { getVarietyPlusSigma } from "../novelai";
@@ -209,5 +210,28 @@ describe("Quality Light", () => {
       "None",
     ]);
     expect(labels("nai-diffusion-4-5-full")).toEqual(["Standard", "None"]);
+  });
+});
+
+describe("transparent background tag", () => {
+  it("follows the quality tags and stays before a Text: block", () => {
+    expect(
+      mergeQualityTags("1girl", "standard", "nai-diffusion-5-full", true),
+    ).toBe(
+      "1girl, very aesthetic, masterpiece, no text, transparent background",
+    );
+    expect(
+      mergeQualityTags("1girl, Text: hi", "none", "nai-diffusion-5-full", true),
+    ).toBe("1girl,, transparent background Text: hi");
+  });
+
+  it("strips only a trailing tag", () => {
+    expect(stripTransparentBackgroundTag("1girl, transparent background")).toBe(
+      "1girl",
+    );
+    expect(stripTransparentBackgroundTag("transparent background")).toBe("");
+    expect(stripTransparentBackgroundTag("transparent background, 1girl")).toBe(
+      "transparent background, 1girl",
+    );
   });
 });
