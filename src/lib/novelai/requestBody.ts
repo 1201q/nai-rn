@@ -3,7 +3,6 @@ import {
   type NoiseSchedule,
 } from "../../constants/generation";
 import { getModelCapabilities } from "../../constants/models";
-import { MIN_POSITION_CHARACTERS } from "../characterPosition";
 import { prepareImagePromptCaptions } from "../imagePromptCaptions";
 import {
   type QualityPreset,
@@ -121,8 +120,8 @@ export function getVarietyPlusSigma(
   return baseSigma * Math.sqrt(latentArea / (104 * 152));
 }
 
-// V5 요청의 프리셋 ID와 tag_hint (웹 요청 캡처 2026-10-02).
-// heavy / standard만 캡처로 확인했고 나머지 ID 문자열은 미확인이다.
+// V5 요청의 프리셋 ID와 tag_hint (웹 요청 캡처 2026-10-02, 10-03).
+// UC light만 캡처로 확인하지 못했다 (요청은 거절되지 않음).
 const V5_QUALITY_HINTS: Record<QualityPreset, number> = {
   standard: 1,
   light: 3,
@@ -228,7 +227,8 @@ export function createImageGenerationBody({
   const useCharacterCoords =
     shouldUseV4Prompt &&
     characterPositionEnabled &&
-    characterPrompts.length >= MIN_POSITION_CHARACTERS;
+    characterPrompts.length >=
+      getModelCapabilities(model).minPositionCharacters;
   const preciseStrengthValues =
     preciseReferenceStrengths.length === preciseReferenceImages.length
       ? preciseReferenceStrengths

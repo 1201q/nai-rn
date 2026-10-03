@@ -25,6 +25,8 @@ export type ModelCapabilities = {
   tokenPolicy?: ImagePromptTokenPolicy;
   // 캐릭터 프롬프트 상한 (V5 22명은 공식 문서 기준)
   maxCharacters: number;
+  // 위치 지정이 가능한 최소 캐릭터 수. V4 계열은 2명, V5는 1명부터 (웹 요청 캡처 2026-10-03)
+  minPositionCharacters: number;
   // V5 요청 형식: params_version 4, Karras 고정, 프리셋을 문자열 ID와 tag_hint로 전송
   v5Request: boolean;
 };
@@ -49,6 +51,7 @@ export const MODEL_CAPABILITIES = {
     // 공식 문서 기준 한도 (Full 1471, Curated 703)
     tokenPolicy: { tokenizer: "qwen", maxTokens: 1471 },
     maxCharacters: 22,
+    minPositionCharacters: 1,
     v5Request: true,
   },
   "nai-diffusion-5-curated": {
@@ -62,6 +65,7 @@ export const MODEL_CAPABILITIES = {
     curated: true,
     tokenPolicy: { tokenizer: "qwen", maxTokens: 703 },
     maxCharacters: 22,
+    minPositionCharacters: 1,
     v5Request: true,
   },
   "nai-diffusion-4-5-full": {
@@ -76,6 +80,7 @@ export const MODEL_CAPABILITIES = {
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
+    minPositionCharacters: 2,
     v5Request: false,
   },
   "nai-diffusion-4-5-curated": {
@@ -90,6 +95,7 @@ export const MODEL_CAPABILITIES = {
     varietyPlusBaseSigma: 58,
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
+    minPositionCharacters: 2,
     v5Request: false,
   },
   "nai-diffusion-4-curated-preview": {
@@ -104,6 +110,7 @@ export const MODEL_CAPABILITIES = {
     varietyPlusBaseSigma: 19,
     tokenPolicy: T5_POLICY,
     maxCharacters: 6,
+    minPositionCharacters: 2,
     v5Request: false,
   },
   "nai-diffusion-3": {
@@ -118,6 +125,7 @@ export const MODEL_CAPABILITIES = {
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
     maxCharacters: 6,
+    minPositionCharacters: 2,
     v5Request: false,
   },
   "nai-diffusion-furry-3": {
@@ -132,6 +140,7 @@ export const MODEL_CAPABILITIES = {
     varietyPlusBaseSigma: 19,
     tokenPolicy: CLIP_POLICY,
     maxCharacters: 6,
+    minPositionCharacters: 2,
     v5Request: false,
   },
 } as const satisfies Record<string, ModelCapabilities>;

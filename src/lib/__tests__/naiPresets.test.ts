@@ -63,6 +63,16 @@ describe("V5 presets (official docs 2026-10-02)", () => {
     },
   );
 
+  // 웹 요청 캡처(2026-10-03, V5 Full, UC 비움)의 negative_prompt
+  it("matches the captured Furry Focus and Human Focus UC", () => {
+    expect(mergeUcPreset("", 2, "nai-diffusion-5-full", "solo, cat")).toBe(
+      "nsfw, {worst quality}, distracting watermark, unfinished, bad quality, {widescreen}, upscale, {sequence}, {{grandfathered content}}, blurred foreground, chromatic aberration, sketch, everyone, [sketch background], simple, [flat colors], ych (character), outline, multiple scenes, [[horror (theme)]], comic",
+    );
+    expect(mergeUcPreset("", 3, "nai-diffusion-5-full", "solo, cat")).toBe(
+      `nsfw, ${V45_FULL_HEAVY}, @_@, mismatched pupils, glowing eyes, bad anatomy`,
+    );
+  });
+
   it("prepends nsfw for Full but not for Curated", () => {
     expect(mergeUcPreset("", 0, "nai-diffusion-5-full", "1girl")).toBe(
       `nsfw, ${V45_FULL_HEAVY}`,
@@ -123,6 +133,20 @@ describe("UC preset options per model", () => {
       getUcPresetOptions(model).map((option) => option.label);
 
     expect(labels("nai-diffusion-4-5-full")).toEqual([
+      "Heavy",
+      "Light",
+      "Furry Focus",
+      "Human Focus",
+      "None",
+    ]);
+    expect(labels("nai-diffusion-5-curated")).toEqual([
+      "Heavy",
+      "Light",
+      "Furry Focus",
+      "Human Focus",
+      "None",
+    ]);
+    expect(labels("nai-diffusion-4-5-curated")).toEqual([
       "Heavy",
       "Light",
       "Human Focus",

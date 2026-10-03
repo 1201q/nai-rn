@@ -1,8 +1,6 @@
 import type { CharacterPrompt } from "../types/generation";
 
 export const POSITION_GRID_SIZE = 5;
-// 공식 웹과 동일: V4 계열은 캐릭터가 2명 이상일 때만 위치를 지정한다.
-export const MIN_POSITION_CHARACTERS = 2;
 
 type Position = CharacterPrompt["position"];
 

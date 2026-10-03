@@ -3,10 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getModelCapabilities } from "../../constants/models";
-import {
-  MIN_POSITION_CHARACTERS,
-  hasOverlappingPositions,
-} from "../../lib/characterPosition";
+import { hasOverlappingPositions } from "../../lib/characterPosition";
 import {
   type CharacterPrompt,
   useGenerationStore,
@@ -40,6 +37,9 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   );
   const maxCharacters = useGenerationStore(
     (state) => getModelCapabilities(state.model).maxCharacters,
+  );
+  const minPositionCharacters = useGenerationStore(
+    (state) => getModelCapabilities(state.model).minPositionCharacters,
   );
   const setCharacterPrompts = useGenerationStore(
     (state) => state.setCharacterPrompts,
@@ -161,7 +161,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   const activeCount = characterPrompts.filter(
     (item) => item.enabled && item.prompt.trim(),
   ).length;
-  const canPosition = characterPrompts.length >= MIN_POSITION_CHARACTERS;
+  const canPosition = characterPrompts.length >= minPositionCharacters;
   const customPosition = positionEnabled && canPosition;
   const positionsOverlap =
     customPosition && hasOverlappingPositions(characterPrompts);

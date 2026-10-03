@@ -2,7 +2,6 @@ import { getModelCapabilities } from "../constants/models";
 
 // 공식 웹 클라이언트(2026-09-24 번들)의 모델별 품질 태그 / UC 프리셋과 결합 규칙을 옮겼다.
 export type UcPresetIndex = 0 | 1 | 2 | 3 | 4;
-export type SelectableUcPresetIndex = 0 | 1 | 3 | 4;
 export type QualityPreset = "standard" | "light" | "none";
 
 const DEFAULT_PRESET_MODEL = "nai-diffusion-4-5-full";
@@ -144,11 +143,12 @@ export function resolveQualityPresetForModel(
 }
 
 export const UC_PRESET_OPTIONS: ReadonlyArray<{
-  value: SelectableUcPresetIndex;
+  value: UcPresetIndex;
   label: string;
 }> = [
   { value: 0, label: "Heavy" },
   { value: 1, label: "Light" },
+  { value: 2, label: "Furry Focus" },
   { value: 3, label: "Human Focus" },
   { value: 4, label: "None" },
 ];

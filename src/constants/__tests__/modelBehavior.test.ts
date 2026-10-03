@@ -260,3 +260,11 @@ it("allows 22 characters on V5 and 6 elsewhere", () => {
     MODELS.map(({ value }) => getModelCapabilities(value).maxCharacters),
   ).toEqual([22, 22, 6, 6, 6, 6, 6]);
 });
+
+it("allows positioning a single character only on V5", () => {
+  expect(
+    MODELS.map(
+      ({ value }) => getModelCapabilities(value).minPositionCharacters,
+    ),
+  ).toEqual([1, 1, 2, 2, 2, 2, 2]);
+});

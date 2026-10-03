@@ -373,4 +373,15 @@ describe("CharacterPromptSection character limit", () => {
       ),
     ).toBeTruthy();
   });
+
+  it("allows a custom position for a single character on V5", async () => {
+    useGenerationStore.setState({ model: "nai-diffusion-5-full" } as never);
+    useGenerationStore.getState().setCharacterPrompts(characters(1));
+    const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
+
+    await fireEvent.press(getByLabelText("Custom position"));
+    await fireEvent.press(getByLabelText("Character 1 위치 지정"));
+    expect(useGenerationStore.getState().characterPositionEnabled).toBe(true);
+    expect(mockEditPositions).toHaveBeenLastCalledWith("c0");
+  });
 });

@@ -162,6 +162,50 @@ test("V5 body maps quality None and UC None to their hint ids", () => {
   expect(body.parameters).not.toHaveProperty("skip_cfg_above_sigma");
 });
 
+test.each([
+  [2, "furryFocus", 5],
+  [3, "humanFocus", 4],
+] as const)(
+  "V5 body sends UC preset %s as the captured id and hint",
+  (ucPreset, id, hint) => {
+    const { body } = createImageGenerationBody({
+      ...BASE,
+      model: "nai-diffusion-5-full",
+      ucPreset,
+    });
+
+    expect(body.parameters).toMatchObject({
+      ucPresetId: id,
+      tag_hint_uc_preset: hint,
+    });
+  },
+);
+
+// 웹 요청 캡처(2026-10-03): V5는 캐릭터 1명도 좌표를 보낸다.
+test("V5 body uses custom positions for a single character", () => {
+  const { body } = createImageGenerationBody({
+    ...BASE,
+    model: "nai-diffusion-5-full",
+    characterPrompts: [
+      { prompt: "girl", negativePrompt: "", position: { x: 0.1, y: 0.1 } },
+    ],
+    characterPositionEnabled: true,
+  });
+  const parameters = body.parameters as {
+    use_coords: boolean;
+    v4_prompt: {
+      use_coords: boolean;
+      caption: { char_captions: { centers: { x: number; y: number }[] }[] };
+    };
+  };
+
+  expect(parameters.use_coords).toBe(true);
+  expect(parameters.v4_prompt.use_coords).toBe(true);
+  expect(parameters.v4_prompt.caption.char_captions[0].centers).toEqual([
+    { x: 0.1, y: 0.1 },
+  ]);
+});
+
 test("V5 body replaces DDIM with Euler Ancestral on the Karras schedule", () => {
   const { body } = createImageGenerationBody({
     ...BASE,

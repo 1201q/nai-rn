@@ -20,7 +20,6 @@ import {
   getUcPresetOptions,
   resolveQualityPresetForModel,
   resolveUcPresetForModel,
-  type SelectableUcPresetIndex,
 } from "../../lib/naiPresets";
 import { useGenerationStore } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
@@ -264,7 +263,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
       onOpenChange={(open) => setOpenSelect(open ? "uc" : null)}
       onChange={(label) => {
         const option = ucPresetOptions.find((item) => item.label === label);
-        if (option) setUcPreset(option.value as SelectableUcPresetIndex);
+        if (option) setUcPreset(option.value);
       }}
     />
   );
