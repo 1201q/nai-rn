@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.SystemClock
+import expo.modules.core.interfaces.DoNotStrip
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -21,6 +22,14 @@ internal object NativeUpscaler {
     realcugan: Boolean, paramPath: String, modelPath: String,
     scale: Int, noise: Int, tileSize: Int, input: Bitmap, output: Bitmap,
   ): IntArray?
+
+  // Stops the running job at the next tile row; a no-op when idle.
+  @JvmStatic external fun cancel()
+
+  @Volatile var progressListener: ((Int, Int) -> Unit)? = null
+
+  // Called from native code before each tile row of the final pass.
+  @DoNotStrip @JvmStatic fun onProgress(done: Int, total: Int) { progressListener?.invoke(done, total) }
 }
 
 class ImageUpscalerModule : Module() {
@@ -29,6 +38,15 @@ class ImageUpscalerModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("ImageUpscaler")
+    Events("progress")
+
+    Function("cancel") { NativeUpscaler.cancel() }
+
+    OnCreate {
+      NativeUpscaler.progressListener = { done, total ->
+        sendEvent("progress", mapOf("fraction" to done.toDouble() / total))
+      }
+    }
 
     AsyncFunction("upscale") Coroutine { inputUri: String, model: String, scale: Int, noise: Int, tileSize: Int, format: String ->
       withContext(Dispatchers.Default) { mutex.withLock { upscale(inputUri, model, scale, noise, tileSize, format) } }
@@ -97,6 +115,7 @@ class ImageUpscalerModule : Module() {
       val startedAt = SystemClock.elapsedRealtime()
       val result = NativeUpscaler.upscale(realcugan, param.path, bin.path, scale, noise, tileSize, input, output)
         ?: error("Upscale failed")
+      check(result.isNotEmpty()) { "UPSCALE_CANCELLED" }
       val elapsedMs = SystemClock.elapsedRealtime() - startedAt
 
       // The caller deletes the file once it has saved the result elsewhere.

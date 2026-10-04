@@ -33,6 +33,11 @@ public:
     int tilesize;
     int prepadding;
 
+    // App addition (not in upstream): called before each tile row of the final pass.
+    // Returning false stops the pass and leaves the rest of the output unwritten.
+    bool (*progress)(void* userdata, int done, int total) = 0;
+    void* progress_userdata = 0;
+
 private:
     ncnn::VulkanDevice* vkdev;
     ncnn::Net net;

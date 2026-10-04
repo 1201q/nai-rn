@@ -181,6 +181,7 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
     //#pragma omp parallel for num_threads(2)
     for (int yi = 0; yi < ytiles; yi++)
     {
+        if (progress && !progress(progress_userdata, yi, ytiles)) break;
         const int tile_h_nopad = std::min((yi + 1) * TILE_SIZE_Y, h) - yi * TILE_SIZE_Y;
 
         int prepadding_bottom = prepadding;
@@ -561,6 +562,7 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
     for (int yi = 0; yi < ytiles; yi++)
     {
+        if (progress && !progress(progress_userdata, yi, ytiles)) break;
         const int tile_h_nopad = std::min((yi + 1) * TILE_SIZE_Y, h) - yi * TILE_SIZE_Y;
 
         int prepadding_bottom = prepadding;

@@ -46,12 +46,14 @@ type UpscaleQueueState = {
   items: UpscaleQueueItem[];
   running: boolean;
   stopRequested: boolean;
+  // 처리 중인 장의 진행률 (0~1)
+  progress: number;
   addImages: (images: { uri: string; width: number; height: number }[]) => void;
   removeItem: (id: string) => void;
   clear: () => void;
   // 대기 / 실패 항목을 순서대로 처리하고 결과를 갤러리에 저장한다.
   start: (settings: UpscaleSettings) => Promise<UpscaleStartResult>;
-  // 처리 중인 장이 끝나면 멈춘다.
+  // 처리 중인 장을 취소하고 멈춘다. 취소된 장은 대기로 돌아간다.
   requestStop: () => void;
   // foreground service 태스크에서 호출하는 실제 큐 루프 (백그라운드 실행 보장).
   runQueueTask: () => Promise<void>;
@@ -74,6 +76,7 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
     items: [],
     running: false,
     stopRequested: false,
+    progress: 0,
 
     addImages: (images) =>
       set((state) => ({
@@ -123,7 +126,9 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
     },
 
     requestStop: () => {
-      if (get().running) set({ stopRequested: true });
+      if (!get().running) return;
+      set({ stopRequested: true });
+      imageUpscaler?.cancel();
     },
 
     runQueueTask: async () => {
@@ -136,6 +141,10 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
         (item) => item.status === "pending",
       ).length;
       let done = 0;
+      const progressSubscription = imageUpscaler.addListener(
+        "progress",
+        ({ fraction }) => set({ progress: fraction }),
+      );
 
       try {
         await acquireGenerationWakeLock();
@@ -144,6 +153,7 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
           const item = get().items.find((entry) => entry.status === "pending");
           if (!item) break;
 
+          set({ progress: 0 });
           updateItem(item.id, { status: "running" });
           try {
             const { uri, ...result } = await imageUpscaler.upscale(
@@ -161,15 +171,20 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
             }
             updateItem(item.id, { status: "done", result });
           } catch (error: unknown) {
-            updateItem(item.id, {
-              status: "failed",
-              error: error instanceof Error ? error.message : String(error),
-            });
+            const message =
+              error instanceof Error ? error.message : String(error);
+            updateItem(
+              item.id,
+              message.includes("UPSCALE_CANCELLED")
+                ? { status: "pending" }
+                : { status: "failed", error: message },
+            );
           }
           done += 1;
           void updateUpscaleProgress(done, total);
         }
       } finally {
+        progressSubscription.remove();
         queueRunning = false;
         await releaseGenerationWakeLock();
         await stopUpscaleService();

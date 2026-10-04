@@ -104,9 +104,11 @@ function Chips<T extends string | number>({
   );
 }
 
-function statusText(item: UpscaleQueueItem) {
+function statusText(item: UpscaleQueueItem, progress: number) {
   if (item.status === "pending") return "대기";
-  if (item.status === "running") return "업스케일 중…";
+  if (item.status === "running") {
+    return `업스케일 중… ${Math.round(progress * 100)}%`;
+  }
   if (item.status === "failed") {
     return item.error?.includes("IMAGE_TOO_LARGE")
       ? "실패: 이미지가 너무 큽니다 (결과 최대 4096×4096 상당)"
@@ -129,6 +131,10 @@ function QueueRow({
   item: UpscaleQueueItem;
   onRemove: () => void;
 }) {
+  // 진행 중인 행만 진행률을 구독한다.
+  const progress = useUpscaleQueueStore((state) =>
+    item.status === "running" ? state.progress : 0,
+  );
   return (
     <View style={styles.row}>
       <Image
@@ -148,7 +154,7 @@ function QueueRow({
             item.status === "failed" && styles.rowStatusFailed,
           ]}
         >
-          {statusText(item)}
+          {statusText(item, progress)}
         </Text>
       </View>
       {item.status !== "running" ? (
@@ -318,7 +324,7 @@ export function UpscaleScreen() {
         <View style={styles.action}>
           {busy ? (
             <PrimaryButton
-              label={stopRequested ? "현재 장까지 처리 후 중단…" : "중단"}
+              label={stopRequested ? "중단하는 중…" : "중단"}
               loading
               disabled={stopRequested}
               onPress={requestStop}

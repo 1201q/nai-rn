@@ -30,5 +30,12 @@ export const imageUpscaler =
           tileSize: number,
           format: UpscaleFormat,
         ): Promise<UpscaleResult>;
+        // 처리 중인 작업을 다음 타일 줄에서 멈춘다. upscale은 UPSCALE_CANCELLED로 거부된다.
+        cancel(): void;
+        // 처리 중인 장의 진행률 (0~1). Real-CUGAN의 사전 패스는 포함하지 않는다.
+        addListener(
+          name: "progress",
+          listener: (event: { fraction: number }) => void,
+        ): { remove(): void };
       }>("ImageUpscaler")
     : null;

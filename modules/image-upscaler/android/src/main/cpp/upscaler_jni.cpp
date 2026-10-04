@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <android/bitmap.h>
 
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -47,13 +48,36 @@ int auto_tile_size(bool realcugan, int scale, int gpuid) {
     return 32;
 }
 
+std::atomic<bool> cancelled(false);
+
+struct ProgressTarget {
+    JNIEnv* env;
+    jclass clazz;
+    jmethodID method;
+};
+
+// The engines run their tile loops on the calling thread, so env is valid here.
+bool report_progress(void* userdata, int done, int total) {
+    if (cancelled) return false;
+    auto* target = (ProgressTarget*) userdata;
+    target->env->CallStaticVoidMethod(target->clazz, target->method, done, total);
+    return true;
+}
+
 }  // namespace
 
-// Returns [usedGpu, tileSize], or null when a bitmap could not be locked.
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_imageupscaler_NativeUpscaler_cancel(JNIEnv*, jclass) {
+    cancelled = true;
+}
+
+// Returns [usedGpu, tileSize], an empty array when cancelled (output bitmap untouched),
+// or null when a bitmap could not be locked.
 extern "C" JNIEXPORT jintArray JNICALL
 Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
-        JNIEnv* env, jclass, jboolean realcugan, jstring paramPath, jstring modelPath,
+        JNIEnv* env, jclass clazz, jboolean realcugan, jstring paramPath, jstring modelPath,
         jint scale, jint noise, jint tileSize, jobject inBitmap, jobject outBitmap) {
+    cancelled = false;
     static std::once_flag gpu_once;
     std::call_once(gpu_once, [] { ncnn::create_gpu_instance(); });
 
@@ -87,6 +111,8 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
     }
     AndroidBitmap_unlockPixels(env, inBitmap);
 
+    ProgressTarget target = {env, clazz, env->GetStaticMethodID(clazz, "onProgress", "(II)V")};
+
     ncnn::Mat in(w, h, (void*) rgb.data(), (size_t) 3, 3);
     ncnn::Mat out(w * scale, h * scale, (size_t) 3, 3);
 
@@ -98,6 +124,8 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
         upscaler.tilesize = tile;
         upscaler.prepadding = prepadding(realcugan, scale, noise);
         upscaler.syncgap = 3;
+        upscaler.progress = report_progress;
+        upscaler.progress_userdata = &target;
         upscaler.process(in, out);
     } else {
         Waifu2x upscaler(gpuid, false, threads);
@@ -106,8 +134,12 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
         upscaler.scale = scale;
         upscaler.tilesize = tile;
         upscaler.prepadding = prepadding(realcugan, scale, noise);
+        upscaler.progress = report_progress;
+        upscaler.progress_userdata = &target;
         upscaler.process(in, out);
     }
+
+    if (cancelled) return env->NewIntArray(0);
 
     AndroidBitmapInfo outInfo;
     if (AndroidBitmap_getInfo(env, outBitmap, &outInfo) < 0 ||
