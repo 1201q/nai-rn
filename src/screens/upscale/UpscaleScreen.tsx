@@ -1,12 +1,6 @@
 import { useRef, useState } from "react";
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ImageStyle,
-} from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -14,11 +8,9 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-import {
-  imageUpscaler,
-  type UpscaleEngine,
-  type UpscaleFormat,
-  type UpscaleResult,
+import type {
+  UpscaleFormat,
+  UpscaleModel,
 } from "../../../modules/image-upscaler";
 import { PrimaryButton } from "../../components/common/Buttons";
 import {
@@ -26,27 +18,37 @@ import {
   DetailHeaderOverlay,
 } from "../../components/common/DetailScrollHeader";
 import {
-  requestGallerySavePermission,
-  saveImageToGallery,
-} from "../../lib/gallery";
+  useUpscaleQueueStore,
+  type UpscaleQueueItem,
+} from "../../store/upscaleQueueStore";
 import { tokens } from "../../styles/tokens";
 
-const ENGINES: { value: UpscaleEngine; label: string }[] = [
-  { value: "realcugan", label: "Real-CUGAN" },
-  { value: "waifu2x", label: "waifu2x" },
+const MODELS: { value: UpscaleModel; label: string }[] = [
+  { value: "realcugan-se", label: "CUGAN Standard" },
+  { value: "realcugan-pro", label: "CUGAN Pro" },
+  { value: "waifu2x-cunet", label: "waifu2x CUNet" },
 ];
 
-// 모듈에 번들된 2x 모델 (ImageUpscalerModule.kt의 models와 일치해야 한다)
-const MODELS: Record<UpscaleEngine, { value: string; label: string }[]> = {
-  realcugan: [
-    { value: "up2x-conservative", label: "Conservative" },
-    { value: "up2x-no-denoise", label: "No denoise" },
-  ],
-  waifu2x: [
-    { value: "scale2.0x_model", label: "No denoise" },
-    { value: "noise0_scale2.0x_model", label: "Denoise 0" },
-  ],
+// 모델별 배율 -> 번들된 denoise 단계 (모듈 assets/upscaler-models와 일치해야 한다)
+const NOISE_LEVELS: Record<UpscaleModel, Record<number, number[]>> = {
+  "realcugan-se": { 2: [-1, 0, 1, 2, 3], 3: [-1, 0, 3], 4: [-1, 0, 3] },
+  "realcugan-pro": { 2: [-1, 0, 3], 3: [-1, 0, 3] },
+  "waifu2x-cunet": { 1: [0, 1, 2, 3], 2: [-1, 0, 1, 2, 3] },
 };
+
+function scaleOptions(model: UpscaleModel) {
+  return Object.keys(NOISE_LEVELS[model]).map((scale) => ({
+    value: Number(scale),
+    label: `${scale}x`,
+  }));
+}
+
+function noiseOptions(model: UpscaleModel, scale: number) {
+  return NOISE_LEVELS[model][scale].map((noise) => ({
+    value: noise,
+    label: String(noise),
+  }));
+}
 
 const TILE_SIZES = [
   { value: 0, label: "자동" },
@@ -60,8 +62,6 @@ const FORMATS: { value: UpscaleFormat; label: string }[] = [
   { value: "jpg", label: "JPG" },
   { value: "webp", label: "WebP" },
 ];
-
-type Source = { uri: string; width: number; height: number };
 
 function Chips<T extends string | number>({
   title,
@@ -104,26 +104,63 @@ function Chips<T extends string | number>({
   );
 }
 
-function Preview({
-  uri,
-  width,
-  height,
+function statusText(item: UpscaleQueueItem) {
+  if (item.status === "pending") return "대기";
+  if (item.status === "running") return "업스케일 중…";
+  if (item.status === "failed") {
+    return item.error?.includes("IMAGE_TOO_LARGE")
+      ? "실패: 이미지가 너무 큽니다 (결과 최대 4096×4096 상당)"
+      : `실패: ${item.error}`;
+  }
+  const result = item.result!;
+  return [
+    `${result.width} × ${result.height}`,
+    `${(result.elapsedMs / 1000).toFixed(1)}초`,
+    result.usedGpu ? "GPU" : "CPU",
+    `tile ${result.tileSize}`,
+    `${(result.bytes / 1024 / 1024).toFixed(2)}MB`,
+  ].join(" · ");
+}
+
+function QueueRow({
+  item,
+  onRemove,
 }: {
-  uri: string;
-  width: number;
-  height: number;
+  item: UpscaleQueueItem;
+  onRemove: () => void;
 }) {
-  const frame: ImageStyle = { aspectRatio: width / height };
   return (
-    <View>
+    <View style={styles.row}>
       <Image
-        source={{ uri }}
-        contentFit="contain"
-        style={[styles.preview, frame]}
+        source={{ uri: item.uri }}
+        contentFit="cover"
+        style={styles.thumbnail}
       />
-      <Text style={styles.meta}>
-        {width} × {height}
-      </Text>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>
+          {item.width} × {item.height}
+        </Text>
+        <Text
+          numberOfLines={2}
+          style={[
+            styles.rowStatus,
+            item.status === "done" && styles.rowStatusDone,
+            item.status === "failed" && styles.rowStatusFailed,
+          ]}
+        >
+          {statusText(item)}
+        </Text>
+      </View>
+      {item.status !== "running" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="목록에서 제거"
+          hitSlop={8}
+          onPress={onRemove}
+        >
+          <Ionicons name="close" size={18} color={tokens.color.textTertiary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -132,15 +169,34 @@ export function UpscaleScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scrollY = useRef(new Animated.Value(0)).current;
-  const [source, setSource] = useState<Source | null>(null);
-  const [engine, setEngine] = useState<UpscaleEngine>("realcugan");
-  const [model, setModel] = useState(MODELS.realcugan[0].value);
+  const items = useUpscaleQueueStore((state) => state.items);
+  const busy = useUpscaleQueueStore((state) => state.running);
+  const stopRequested = useUpscaleQueueStore((state) => state.stopRequested);
+  const addImages = useUpscaleQueueStore((state) => state.addImages);
+  const removeItem = useUpscaleQueueStore((state) => state.removeItem);
+  const clear = useUpscaleQueueStore((state) => state.clear);
+  const start = useUpscaleQueueStore((state) => state.start);
+  const requestStop = useUpscaleQueueStore((state) => state.requestStop);
+  const [model, setModel] = useState<UpscaleModel>("realcugan-se");
+  const [scale, setScale] = useState(2);
+  const [noise, setNoise] = useState(-1);
   const [tileSize, setTileSize] = useState(0);
   const [format, setFormat] = useState<UpscaleFormat>("png");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<UpscaleResult | null>(null);
+  const waiting = items.filter(
+    (item) => item.status === "pending" || item.status === "failed",
+  ).length;
+  const finished = items.filter((item) => item.status === "done").length;
 
-  async function pickImage() {
+  // 모델이나 배율이 바뀌면 그 조합에 없는 배율 / denoise는 첫 값으로 되돌린다.
+  function selectModel(nextModel: UpscaleModel, nextScale: number) {
+    const levels = NOISE_LEVELS[nextModel];
+    const validScale = levels[nextScale] ? nextScale : 2;
+    setModel(nextModel);
+    setScale(validScale);
+    if (!levels[validScale].includes(noise)) setNoise(levels[validScale][0]);
+  }
+
+  async function pickImages() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       toast.error("이미지를 선택하려면 사진 접근 권한이 필요합니다.");
@@ -148,55 +204,21 @@ export function UpscaleScreen() {
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      allowsMultipleSelection: true,
       quality: 1,
     });
-    const asset = picked.canceled ? undefined : picked.assets[0];
-    if (!asset) return;
-    setSource({ uri: asset.uri, width: asset.width, height: asset.height });
-    setResult(null);
+    if (picked.canceled) return;
+    addImages(
+      picked.assets.map(({ uri, width, height }) => ({ uri, width, height })),
+    );
   }
 
   async function runUpscale() {
-    if (!source) return;
-    if (!imageUpscaler) {
+    const started = await start({ model, scale, noise, tileSize, format });
+    if (started === "no-module") {
       toast.error("이 빌드에는 업스케일 모듈이 없습니다.");
-      return;
-    }
-    setBusy(true);
-    setResult(null);
-    try {
-      setResult(
-        await imageUpscaler.upscale(
-          source.uri,
-          engine,
-          model,
-          tileSize,
-          format,
-        ),
-      );
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      toast.error(
-        message.includes("IMAGE_TOO_LARGE")
-          ? "이미지가 너무 큽니다. (최대 2048×2048 상당)"
-          : `업스케일에 실패했습니다. ${message}`,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveResult() {
-    if (!result) return;
-    try {
-      if (!(await requestGallerySavePermission())) {
-        toast.error("저장하려면 사진 접근 권한이 필요합니다.");
-        return;
-      }
-      await saveImageToGallery(result.uri);
-      toast.success("갤러리에 저장했습니다.");
-    } catch {
-      toast.error("갤러리에 저장하지 못했습니다.");
+    } else if (started === "no-permission") {
+      toast.error("결과를 저장하려면 사진 접근 권한이 필요합니다.");
     }
   }
 
@@ -221,39 +243,62 @@ export function UpscaleScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="이미지 선택"
-          disabled={busy}
-          onPress={() => void pickImage()}
+          accessibilityLabel="이미지 추가"
+          onPress={() => void pickImages()}
           style={({ pressed }) => [
             styles.picker,
             pressed && styles.pickerPressed,
           ]}
         >
-          {source ? (
-            <Preview {...source} />
-          ) : (
-            <Text style={styles.pickerHint}>
-              저장소에서 이미지를 선택하세요
-            </Text>
-          )}
+          <Text style={styles.pickerHint}>이미지 추가 (여러 장 선택 가능)</Text>
         </Pressable>
 
+        {items.length > 0 ? (
+          <View style={styles.queue}>
+            <View style={styles.queueHeader}>
+              <Text style={styles.optionTitle}>
+                완료 {finished} / {items.length}
+              </Text>
+              {!busy ? (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={clear}
+                >
+                  <Text style={styles.queueClear}>목록 비우기</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {items.map((item) => (
+              <QueueRow
+                key={item.id}
+                item={item}
+                onRemove={() => removeItem(item.id)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         <Chips
-          title="Engine"
-          options={ENGINES}
-          value={engine}
-          disabled={busy}
-          onChange={(next) => {
-            setEngine(next);
-            setModel(MODELS[next][0].value);
-          }}
-        />
-        <Chips
-          title="Model (2x)"
-          options={MODELS[engine]}
+          title="Model"
+          options={MODELS}
           value={model}
           disabled={busy}
-          onChange={setModel}
+          onChange={(next) => selectModel(next, scale)}
+        />
+        <Chips
+          title="Scale"
+          options={scaleOptions(model)}
+          value={scale}
+          disabled={busy}
+          onChange={(next) => selectModel(model, next)}
+        />
+        <Chips
+          title="Denoise"
+          options={noiseOptions(model, scale)}
+          value={noise}
+          disabled={busy}
+          onChange={setNoise}
         />
         <Chips
           title="Tile size"
@@ -271,30 +316,24 @@ export function UpscaleScreen() {
         />
 
         <View style={styles.action}>
-          <PrimaryButton
-            label={busy ? "업스케일 중…" : "업스케일하기"}
-            loading={busy}
-            disabled={!source || busy}
-            onPress={() => void runUpscale()}
-          />
+          {busy ? (
+            <PrimaryButton
+              label={stopRequested ? "현재 장까지 처리 후 중단…" : "중단"}
+              loading
+              disabled={stopRequested}
+              onPress={requestStop}
+            />
+          ) : (
+            <PrimaryButton
+              label={`업스케일하기 (${waiting}장)`}
+              disabled={waiting === 0}
+              onPress={() => void runUpscale()}
+            />
+          )}
         </View>
-
-        {result ? (
-          <View style={styles.result}>
-            <Preview {...result} />
-            <Text style={styles.meta}>
-              {(result.elapsedMs / 1000).toFixed(1)}초 ·{" "}
-              {result.usedGpu ? "GPU (Vulkan)" : "CPU"} · tile {result.tileSize}{" "}
-              · {(result.bytes / 1024 / 1024).toFixed(2)}MB
-            </Text>
-            <View style={styles.action}>
-              <PrimaryButton
-                label="갤러리에 저장"
-                onPress={() => void saveResult()}
-              />
-            </View>
-          </View>
-        ) : null}
+        <Text style={styles.meta}>
+          결과는 한 장이 끝날 때마다 갤러리에 저장됩니다.
+        </Text>
       </Animated.ScrollView>
 
       <DetailHeaderOverlay
@@ -319,8 +358,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.space[10],
   },
   picker: {
-    minHeight: 160,
-    padding: tokens.space[6],
+    height: 64,
     justifyContent: "center",
     borderRadius: tokens.radius.lg,
     borderWidth: 1,
@@ -336,11 +374,53 @@ const styles = StyleSheet.create({
     fontSize: tokens.type.sm,
     textAlign: "center",
   },
-  preview: {
-    width: "100%",
-    maxHeight: 420,
-    alignSelf: "center",
+  queue: {
+    marginTop: tokens.space[8],
+    gap: tokens.space[4],
+  },
+  queueHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  queueClear: {
+    color: tokens.color.accent,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
+  },
+  row: {
+    padding: tokens.space[4],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[6],
     borderRadius: tokens.radius.md,
+    backgroundColor: tokens.color.card,
+  },
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: tokens.radius.sm,
+  },
+  rowText: {
+    flex: 1,
+    minWidth: 0,
+    gap: tokens.space[1],
+  },
+  rowTitle: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.sm,
+  },
+  rowStatus: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type["2xs"],
+  },
+  rowStatusDone: {
+    color: tokens.color.accent,
+  },
+  rowStatusFailed: {
+    color: tokens.color.negative,
   },
   meta: {
     marginTop: tokens.space[4],
@@ -385,8 +465,5 @@ const styles = StyleSheet.create({
     marginTop: tokens.space[10],
     height: 52,
     flexDirection: "row",
-  },
-  result: {
-    marginTop: tokens.space[12],
   },
 });

@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { Platform } from "react-native";
 
-export type UpscaleEngine = "realcugan" | "waifu2x";
+export type UpscaleModel = "realcugan-se" | "realcugan-pro" | "waifu2x-cunet";
 
 // jpg는 품질 95, webp는 손실 품질 90
 export type UpscaleFormat = "png" | "jpg" | "webp";
@@ -23,8 +23,10 @@ export const imageUpscaler =
         // tileSize 0 = 자동
         upscale(
           inputUri: string,
-          engine: UpscaleEngine,
-          model: string,
+          model: UpscaleModel,
+          scale: number,
+          // -1 ~ 3. 모델과 배율마다 번들된 값이 다르다.
+          noise: number,
           tileSize: number,
           format: UpscaleFormat,
         ): Promise<UpscaleResult>;
