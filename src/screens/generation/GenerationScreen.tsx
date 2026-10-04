@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Keyboard,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
 import { StatusBar } from "expo-status-bar";
@@ -43,6 +50,11 @@ import {
   type PromptSheetStage,
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
+
+const MORE_MENU_ITEMS = [
+  { href: "/settings", icon: "settings-outline", label: "설정" },
+  { href: "/upscale", icon: "expand-outline", label: "이미지 업스케일" },
+] as const;
 
 // 사용량 배지(40) + Anlas 표시와의 간격
 const USAGE_BADGE_SLIDE_DISTANCE = 40 + tokens.space[4];
@@ -206,6 +218,7 @@ function GenerationScreenContent() {
   );
   const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
   const [extractedMetadata, setExtractedMetadata] = useState<{
     metadataJson: string;
@@ -387,10 +400,47 @@ function GenerationScreenContent() {
           icon="ellipsis-horizontal"
           label="더 보기"
           size={40}
-          onPress={() => router.navigate("/settings")}
+          onPress={() => setMoreMenuOpen(true)}
           style={styles.moreButton}
         />
       </View>
+
+      <Modal
+        transparent
+        statusBarTranslucent
+        animationType="fade"
+        visible={moreMenuOpen}
+        onRequestClose={() => setMoreMenuOpen(false)}
+      >
+        <Pressable
+          accessibilityLabel="메뉴 닫기"
+          style={StyleSheet.absoluteFill}
+          onPress={() => setMoreMenuOpen(false)}
+        />
+        <View style={[styles.moreMenu, { top: topInset + 54 }]}>
+          {MORE_MENU_ITEMS.map((item) => (
+            <Pressable
+              key={item.href}
+              accessibilityRole="menuitem"
+              onPress={() => {
+                setMoreMenuOpen(false);
+                router.navigate(item.href);
+              }}
+              style={({ pressed }) => [
+                styles.moreMenuItem,
+                pressed && styles.balancePillPressed,
+              ]}
+            >
+              <Ionicons
+                name={item.icon}
+                size={18}
+                color={tokens.color.textSecondary}
+              />
+              <Text style={styles.moreMenuLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </Modal>
 
       <View style={styles.topActionsSpacer} />
       {/* Keep the canvas mounted so its preview and zoom state survive. */}
@@ -526,6 +576,29 @@ const styles = StyleSheet.create({
   moreButton: {
     borderWidth: 0,
     backgroundColor: tokens.color.card,
+  },
+  moreMenu: {
+    position: "absolute",
+    right: tokens.space[8],
+    minWidth: 180,
+    paddingVertical: tokens.space[3],
+    borderRadius: tokens.radius.lg,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.raised,
+    ...tokens.shadow.floatMd,
+  },
+  moreMenuItem: {
+    height: 44,
+    paddingHorizontal: tokens.space[7],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
+  },
+  moreMenuLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.base,
   },
   actionBar: {
     position: "absolute",
