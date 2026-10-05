@@ -19,7 +19,9 @@ export interface TagSuggestion {
 
 // 버전 붙인 파일명: assets/tags.db가 바뀌면 숫자를 올림 -> 앱 업데이트 시
 // SQLite 디렉토리의 낡은 복사본을 재사용하지 않고 새로 복사함.
-const DB_NAME = "tags-v3.db";
+const DB_NAME = "tags-v4.db";
+// 이전 버전 복사본. 기기에 남아 있으면 지움.
+const OLD_DB_NAME = "tags-v3.db";
 
 const MIN_PREFIX = 2;
 
@@ -29,7 +31,11 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = SQLite.importDatabaseFromAssetAsync(DB_NAME, {
       assetId: require("../../assets/tags.db"),
-    }).then(() => SQLite.openDatabaseAsync(DB_NAME));
+    }).then(() => {
+      // 파일이 없으면 reject -> 무시.
+      SQLite.deleteDatabaseAsync(OLD_DB_NAME).catch(() => {});
+      return SQLite.openDatabaseAsync(DB_NAME);
+    });
   }
   return dbPromise;
 }
@@ -49,7 +55,7 @@ interface TagRow {
  * "artist:wlop"을 찾음. 네임스페이스 + 빈 쿼리(예: `artist:`)면 해당 타입의
  * 인기 태그를 브라우징.
  *
- * LIKE '%q%'는 풀 테이블 스캔(20만 행에 ~20ms)이라 입력 디바운스 뒤에선 무방.
+ * LIKE '%q%'는 풀 테이블 스캔(32만 행)이라 입력 디바운스 뒤에선 무방.
  * 느려지면 trigram FTS 인덱스가 더 빠름.
  */
 export async function searchTags(

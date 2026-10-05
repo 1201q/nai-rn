@@ -1,6 +1,7 @@
 // tags.json으로부터 미리 빌드된 SQLite 사전(assets/tags.db)을 생성.
 //
-// 이유: tags.json은 ~28MB / 30만 항목. JS 번들에 import하면 앱 시작마다 배열
+
+// 이유: tags.json은 ~18MB / 32만 항목. JS 번들에 import하면 앱 시작마다 배열
 // 전체를 JS 힙에 파싱함. 대신 SQLite 파일로 동봉하고 필요할 때만 쿼리(검색이
 // 디스크에서 처리됨).
 //
@@ -34,12 +35,10 @@ function main() {
   const db = new DatabaseSync(OUT);
   db.exec("PRAGMA journal_mode = OFF;");
   db.exec("PRAGMA synchronous = OFF;");
-  // `value` 컬럼 제거: 이 사전은 모든 행에서 value === label(검증됨)이라
-  // 두 번 저장하지 않고 런타임에 복원.
-  //
-  // `search_key`는 검색이 매칭하는 대상. artist 라벨은 `artist:` 네임스페이스
-  // 접두사를 가짐(예: "artist:wlop") -> search_key에선 접두사를 떼서 유저가
-  // "wlop"만 쳐도 찾게 함. 표시·삽입은 풀 라벨 그대로.
+  // `label`은 표시·삽입되는 문자열, `search_key`는 검색이 매칭하는 대상.
+  // 원본의 artist 태그엔 접두사가 없음(예: "wlop") -> label엔 `artist:`
+  // 네임스페이스를 붙여 "artist:wlop"으로 삽입되게 하고, search_key는 원본
+  // 그대로 둬서 유저가 "wlop"만 쳐도 찾게 함.
   db.exec(`
     CREATE TABLE tags (
       label      TEXT NOT NULL,
@@ -54,25 +53,20 @@ function main() {
   );
 
   const ARTIST_PREFIX = "artist:";
-  const seen = new Set(); // 중복 제거: 같은 라벨이 여러 타입으로 존재함
   let inserted = 0;
 
   db.exec("BEGIN");
   for (const t of tags) {
-    if (seen.has(t.label)) continue; // 파일이 count 내림차순 -> 첫(최고 count) 항목 유지
-    seen.add(t.label);
+    // meta(highres, commentary 등)는 프롬프트에 쓰이지 않아 제외.
+    if (t.type === "meta") continue;
 
-    const lower = t.label.toLowerCase();
-    const isArtist = lower.startsWith(ARTIST_PREFIX);
-    // 일부 중복 행에서 artist 라벨이 `general`로 잘못 분류됨 -> 보정.
-    const type = isArtist ? "artist" : t.type;
-    const searchKey = isArtist ? lower.slice(ARTIST_PREFIX.length) : lower;
+    const label = t.type === "artist" ? ARTIST_PREFIX + t.value : t.value;
 
-    insert.run(t.label, t.count | 0, type, searchKey);
+    insert.run(label, t.count | 0, t.type, t.value.toLowerCase());
     inserted++;
   }
   db.exec("COMMIT");
-  console.log(`중복 제거 후 ${inserted}개 삽입 (원본 ${tags.length}개).`);
+  console.log(`${inserted}개 삽입 (원본 ${tags.length}개).`);
 
   // 인덱스 없음: substring 검색은 LIKE '%q%'(어떤 인덱스도 못 타는 풀스캔),
   // 네임스페이스 브라우징은 타입별 스캔. 둘 다 입력 디바운스 뒤라 충분히 빠름.
