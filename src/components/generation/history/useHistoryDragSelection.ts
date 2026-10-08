@@ -26,6 +26,8 @@ type DragSelectionOptions = {
   padding: number;
   // 그리드 아래쪽을 가리는 푸터 높이
   bottomInset: number;
+  // 그리드가 처음 마운트될 때의 스크롤 위치
+  initialScrollY: number;
   beginDragSelection: (id: string) => boolean;
   updateDragSelection: (id: string) => void;
   endDragSelection: () => void;
@@ -70,7 +72,7 @@ class HistoryDragSelectionBridge {
 }
 
 export function useHistoryDragSelection(options: DragSelectionOptions) {
-  const { tileSize, columns, padding, bottomInset } = options;
+  const { tileSize, columns, padding, bottomInset, initialScrollY } = options;
   const listRef = useAnimatedRef();
   const metrics = useSharedValue({ tileSize, columns, padding, bottomInset });
   const scrollY = useSharedValue(0);
@@ -86,6 +88,11 @@ export function useHistoryDragSelection(options: DragSelectionOptions) {
   useEffect(() => {
     metrics.value = { tileSize, columns, padding, bottomInset };
   }, [bottomInset, columns, metrics, padding, tileSize]);
+
+  // 열 수가 바뀌어 다시 마운트된 그리드는 스크롤 이벤트 없이 이 위치에서 시작한다.
+  useEffect(() => {
+    scrollY.value = initialScrollY;
+  }, [columns, initialScrollY, scrollY]);
 
   const [bridge] = useState(
     () =>
@@ -222,12 +229,20 @@ export function useHistoryDragSelection(options: DragSelectionOptions) {
   );
 
   const onScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    (event: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize?: { height: number };
+      };
+    }) => {
+      // onContentSizeChange를 넘겨주지 않는 리스트 구현도 있어 여기서도 받는다.
+      const contentSize = event.nativeEvent.contentSize;
+      if (contentSize) contentHeight.value = contentSize.height;
       // 드래그 중에는 직접 정한 위치가 기준이다. 늦게 도착한 이벤트로 되돌리지 않는다.
       if (dragging.value) return;
       scrollY.value = event.nativeEvent.contentOffset.y;
     },
-    [dragging, scrollY],
+    [contentHeight, dragging, scrollY],
   );
 
   const onContentSizeChange = useCallback(

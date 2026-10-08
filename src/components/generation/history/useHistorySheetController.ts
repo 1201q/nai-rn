@@ -12,7 +12,12 @@ import {
   iterateGenerationImageBatches,
   resolveGenerationImageUri,
 } from "../../../lib/generationHistory";
+import { HISTORY_GRID_COLUMN_OPTIONS } from "../../../store/generationOptionsPersistence";
 import { useGenerationStore } from "../../../store/generationStore";
+import {
+  HISTORY_LIST_ENGINES,
+  type HistoryListEngine,
+} from "./HistoryGridList";
 import {
   createHistorySelectionStore,
   isAllSelected,
@@ -59,6 +64,11 @@ export function useHistorySheetController({
   const isViewingActiveGeneration = useGenerationStore(
     (state) => state.isViewingActiveGeneration,
   );
+  const gridColumns = useGenerationStore((state) => state.historyGridColumns);
+  // 열 수를 바꾸면 그리드를 다시 마운트하므로, 보고 있던 항목에서 다시 시작하게 한다.
+  const [gridInitialIndex, setGridInitialIndex] = useState(0);
+  const [listEngine, setListEngine] = useState<HistoryListEngine>("flat");
+  const gridFirstVisibleIndexRef = useRef(0);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selection] = useState(createHistorySelectionStore);
   const [selectingAll, setSelectingAll] = useState(false);
@@ -104,6 +114,39 @@ export function useHistorySheetController({
     () => new Map(generationHistory.map((item, index) => [item.id, index])),
     [generationHistory],
   );
+
+  const setGridFirstVisibleIndex = useCallback((index: number) => {
+    gridFirstVisibleIndexRef.current = index;
+  }, []);
+
+  const resetGridPosition = useCallback(() => {
+    gridFirstVisibleIndexRef.current = 0;
+    setGridInitialIndex(0);
+  }, []);
+
+  const cycleGridColumns = useCallback(() => {
+    const { historyGridColumns, setHistoryGridColumns } =
+      useGenerationStore.getState();
+    const next =
+      HISTORY_GRID_COLUMN_OPTIONS[
+        (HISTORY_GRID_COLUMN_OPTIONS.indexOf(historyGridColumns) + 1) %
+          HISTORY_GRID_COLUMN_OPTIONS.length
+      ];
+    Haptics.selectionAsync().catch(() => {});
+    setGridInitialIndex(gridFirstVisibleIndexRef.current);
+    setHistoryGridColumns(next);
+  }, []);
+
+  const cycleListEngine = useCallback(() => {
+    setGridInitialIndex(gridFirstVisibleIndexRef.current);
+    setListEngine(
+      (current) =>
+        HISTORY_LIST_ENGINES[
+          (HISTORY_LIST_ENGINES.indexOf(current) + 1) %
+            HISTORY_LIST_ENGINES.length
+        ],
+    );
+  }, []);
 
   const exitSelectionMode = useCallback(() => {
     dragSelectionRef.current = null;
@@ -408,6 +451,13 @@ export function useHistorySheetController({
       historyInitialized,
       historyLoadingMore,
       loadMoreHistory,
+      gridColumns,
+      gridInitialIndex,
+      setGridFirstVisibleIndex,
+      resetGridPosition,
+      cycleGridColumns,
+      listEngine,
+      cycleListEngine,
       selectionMode,
       selection,
       busy,
@@ -450,6 +500,13 @@ export function useHistorySheetController({
       selection,
       selectionMode,
       toggleSelectAll,
+      cycleGridColumns,
+      cycleListEngine,
+      listEngine,
+      gridColumns,
+      gridInitialIndex,
+      resetGridPosition,
+      setGridFirstVisibleIndex,
       endDragSelection,
       updateDragSelection,
     ],

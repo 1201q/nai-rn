@@ -23,6 +23,7 @@ test("history tiles show the grid thumbnail", async () => {
         } as GenerationRecord
       }
       index={0}
+      columns={3}
       size={100}
       selectionMode={false}
       selection={createHistorySelectionStore()}

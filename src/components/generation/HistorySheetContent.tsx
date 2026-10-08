@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,7 +8,6 @@ import {
   View,
 } from "react-native";
 import {
-  BottomSheetFlatList,
   BottomSheetFooter,
   TouchableOpacity as BottomSheetTouchableOpacity,
   type BottomSheetFooterProps,
@@ -29,6 +28,7 @@ import {
   GRID_GAP,
   HistorySheetTile,
 } from "./history/HistoryTiles";
+import { HistoryGridList } from "./history/HistoryGridList";
 import { isAllSelected } from "./history/historySelection";
 import { useHistoryDragSelection } from "./history/useHistoryDragSelection";
 import { type HistorySheetController } from "./history/useHistorySheetController";
@@ -52,6 +52,10 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
     selection,
     busy,
     selectingAll,
+    gridColumns,
+    cycleGridColumns,
+    listEngine,
+    cycleListEngine,
     closeSheet,
     exitSelectionMode,
     toggleSelectAll,
@@ -96,15 +100,41 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
           <Text style={styles.cancelText}>취소</Text>
         </BottomSheetTouchableOpacity>
       ) : (
-        <BottomSheetTouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="History 닫기"
-          activeOpacity={tokens.opacity.pressed}
-          onPress={closeSheet}
-          style={styles.closeButton}
-        >
-          <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
-        </BottomSheetTouchableOpacity>
+        <View style={styles.headerButtons}>
+          <BottomSheetTouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="리스트 구현 변경 (비교용)"
+            accessibilityValue={{ text: listEngine }}
+            activeOpacity={tokens.opacity.pressed}
+            onPress={cycleListEngine}
+            style={styles.headerTextButton}
+          >
+            <Text style={styles.cancelText}>{listEngine}</Text>
+          </BottomSheetTouchableOpacity>
+          <BottomSheetTouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="한 줄에 보이는 이미지 수 변경"
+            accessibilityValue={{ text: `${gridColumns}개` }}
+            activeOpacity={tokens.opacity.pressed}
+            onPress={cycleGridColumns}
+            style={styles.closeButton}
+          >
+            <Ionicons
+              name="grid-outline"
+              size={18}
+              color={tokens.color.textPrimary}
+            />
+          </BottomSheetTouchableOpacity>
+          <BottomSheetTouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="History 닫기"
+            activeOpacity={tokens.opacity.pressed}
+            onPress={closeSheet}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
+          </BottomSheetTouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -141,6 +171,11 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     historyInitialized,
     historyLoadingMore,
     loadMoreHistory,
+    gridColumns: columns,
+    listEngine,
+    gridInitialIndex,
+    setGridFirstVisibleIndex,
+    resetGridPosition,
     selectionMode,
     selection,
     busy,
@@ -151,22 +186,46 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     handleTilePress,
     handleActiveGenerationPress,
   } = controller;
-  const tileSize = Math.floor((width - GRID_PADDING * 2 - GRID_GAP * 2) / 3);
+  const tileSize = Math.floor(
+    (width - GRID_PADDING * 2 - GRID_GAP * (columns - 1)) / columns,
+  );
+  const rowHeight = tileSize + GRID_GAP;
   const listData = useMemo<(GenerationRecord | null)[]>(
     () => (isLoading ? [null, ...generationHistory] : generationHistory),
     [generationHistory, isLoading],
   );
   const activeGenerationSelected = isLoading && isViewingActiveGeneration;
+  const initialRow = Math.max(
+    0,
+    Math.min(
+      Math.floor(gridInitialIndex / columns),
+      Math.ceil(listData.length / columns) - 1,
+    ),
+  );
   const dragSelection = useHistoryDragSelection({
     listData,
     tileSize,
-    columns: 3,
+    columns,
     padding: GRID_PADDING,
     bottomInset: actionBarHeight + HISTORY_SELECTION_ACTIONS_HEIGHT,
+    initialScrollY: initialRow > 0 ? GRID_PADDING + initialRow * rowHeight : 0,
     beginDragSelection,
     updateDragSelection,
     endDragSelection,
   });
+
+  const handleScroll = (event: {
+    nativeEvent: { contentOffset: { y: number } };
+  }) => {
+    dragSelection.onScroll(event);
+    const row = Math.floor(
+      Math.max(0, event.nativeEvent.contentOffset.y - GRID_PADDING) / rowHeight,
+    );
+    setGridFirstVisibleIndex(row * columns);
+  };
+
+  // 시트를 닫았다 열면 맨 위에서 시작한다.
+  useEffect(() => resetGridPosition, [resetGridPosition]);
 
   return (
     <GestureDetector gesture={dragSelection.gesture}>
@@ -175,22 +234,23 @@ export const HistorySheetContent = memo(function HistorySheetContent({
         style={styles.gridViewport}
         onLayout={dragSelection.onLayout}
       >
-        <BottomSheetFlatList
-          ref={dragSelection.listRef}
-          // 타입에는 빠져 있지만 BottomSheetFlatList가 JS 스레드에서 호출해 준다.
-          {...{ onScroll: dragSelection.onScroll }}
-          onContentSizeChange={dragSelection.onContentSizeChange}
+        <HistoryGridList
+          // 리스트는 numColumns를 바꿀 수 없어 열 수마다 다시 마운트한다.
+          key={`${listEngine}-${columns}`}
+          engine={listEngine}
+          listRef={dragSelection.listRef}
           data={listData}
-          keyExtractor={(item) => item?.id ?? "active-generation"}
-          numColumns={3}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={9}
-          windowSize={7}
+          extraData={controller}
+          columns={columns}
+          tileSize={tileSize}
+          gridWidth={width - GRID_PADDING * 2}
+          padding={GRID_PADDING}
+          initialRow={initialRow}
+          onScroll={handleScroll}
+          onContentSizeChange={dragSelection.onContentSizeChange}
           onEndReached={() => {
             void loadMoreHistory();
           }}
-          onEndReachedThreshold={0.4}
           contentContainerStyle={[
             styles.gridContent,
             {
@@ -230,10 +290,11 @@ export const HistorySheetContent = memo(function HistorySheetContent({
               </View>
             ) : null
           }
-          renderItem={({ item, index }) =>
+          renderTile={(item, index) =>
             item === null ? (
               <ActiveGenerationTile
                 index={index}
+                columns={columns}
                 size={tileSize}
                 previewUri={streamingPreviewUri}
                 selected={activeGenerationSelected}
@@ -244,6 +305,7 @@ export const HistorySheetContent = memo(function HistorySheetContent({
               <HistorySheetTile
                 item={item}
                 index={index}
+                columns={columns}
                 size={tileSize}
                 selectionMode={selectionMode}
                 selection={selection}
@@ -403,6 +465,11 @@ const styles = StyleSheet.create({
     color: tokens.color.textSecondary,
     fontFamily: tokens.font.semibold,
     fontSize: 14,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   closeButton: {
     width: 38,

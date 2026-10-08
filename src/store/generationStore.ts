@@ -61,6 +61,7 @@ import {
 import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
+  HISTORY_GRID_COLUMN_OPTIONS,
   type PersistedGenerationOptions,
 } from "./generationOptionsPersistence";
 import {
@@ -385,6 +386,8 @@ type GenerationState = {
   setPredictiveBackPreview: (v: boolean) => void;
   sliderHandleOnly: boolean;
   setSliderHandleOnly: (v: boolean) => void;
+  historyGridColumns: number;
+  setHistoryGridColumns: (v: number) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -654,6 +657,12 @@ function loadPersistedOptions(): Partial<GenerationState> {
     }
     if (isBoolean(parsed.sliderHandleOnly)) {
       next.sliderHandleOnly = parsed.sliderHandleOnly;
+    }
+    if (
+      isNumber(parsed.historyGridColumns) &&
+      HISTORY_GRID_COLUMN_OPTIONS.includes(parsed.historyGridColumns)
+    ) {
+      next.historyGridColumns = parsed.historyGridColumns;
     }
     return next;
   } catch {
@@ -931,6 +940,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setPredictiveBackPreview: (v) => set({ predictiveBackPreview: v }),
   sliderHandleOnly: false,
   setSliderHandleOnly: (v) => set({ sliderHandleOnly: v }),
+  historyGridColumns: 3,
+  setHistoryGridColumns: (v) => set({ historyGridColumns: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({

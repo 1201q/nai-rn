@@ -7,6 +7,8 @@ import {
 } from "@testing-library/react-native";
 import { Alert, StyleSheet } from "react-native";
 import { BottomSheetFlatList, BottomSheetFooter } from "@gorhom/bottom-sheet";
+import { LegendList } from "@legendapp/list/react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SharedValue } from "react-native-reanimated";
 import * as MediaLibrary from "expo-media-library";
@@ -40,6 +42,8 @@ type MockHistoryState = {
   isViewingActiveGeneration: boolean;
   selectGeneration: (record: GenerationRecord) => void;
   viewActiveGeneration: () => void;
+  historyGridColumns: number;
+  setHistoryGridColumns: (columns: number) => void;
 };
 
 jest.mock("../../../store/generationStore", () => {
@@ -62,6 +66,9 @@ jest.mock("../../../store/generationStore", () => {
       selectGeneration: (record) =>
         set({ currentGeneration: record, isViewingActiveGeneration: false }),
       viewActiveGeneration: () => set({ isViewingActiveGeneration: true }),
+      historyGridColumns: 3,
+      setHistoryGridColumns: (historyGridColumns) =>
+        set({ historyGridColumns }),
     })),
   };
 });
@@ -74,6 +81,15 @@ jest.mock("@gorhom/bottom-sheet", () => ({
   BottomSheetFlatList: jest.fn(() => null),
   BottomSheetFooter: jest.fn(() => null),
   TouchableOpacity: require("react-native").Pressable,
+  useBottomSheetScrollableCreator: () => () => null,
+}));
+
+jest.mock("@shopify/flash-list", () => ({
+  FlashList: jest.fn(() => null),
+}));
+
+jest.mock("@legendapp/list/react-native", () => ({
+  LegendList: jest.fn(() => null),
 }));
 
 jest.mock("expo-haptics", () => ({
@@ -1143,6 +1159,107 @@ describe("history drag selection", () => {
     expect(stride).toBeLessThan(275);
     expect(controller.selection.getState().ids).toEqual(
       ids(0, 1, 2, 3, 4, 5, 6),
+    );
+  });
+});
+
+describe("history grid columns", () => {
+  function Harness() {
+    const controller = useHistorySheetController({ onClose: jest.fn() });
+    return (
+      <>
+        <HistorySheetHandle controller={controller} />
+        <HistorySheetContent controller={controller} />
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGenerationStore.setState(initialState, true);
+  });
+
+  function latestListProps() {
+    return jest
+      .mocked(BottomSheetFlatList)
+      .mock.calls.at(-1)![0] as unknown as {
+      numColumns: number;
+      initialScrollIndex: number;
+      onScroll: (event: {
+        nativeEvent: { contentOffset: { y: number } };
+      }) => void;
+      getItemLayout: (
+        data: null,
+        index: number,
+      ) => { length: number; offset: number };
+    };
+  }
+
+  test("cycles 3, 4, 5, 6 columns from the header button", async () => {
+    useGenerationStore.setState({ generationHistory: historyRecords(12) });
+    const screen = await render(<Harness />);
+    const button = screen.getByRole("button", {
+      name: "한 줄에 보이는 이미지 수 변경",
+    });
+
+    const seen = [latestListProps().numColumns];
+    for (let press = 0; press < 4; press += 1) {
+      await fireEvent.press(button);
+      seen.push(latestListProps().numColumns);
+    }
+
+    expect(seen).toEqual([3, 4, 5, 6, 3]);
+    expect(useGenerationStore.getState().historyGridColumns).toBe(3);
+  });
+
+  test("keeps the first visible image in view after switching columns", async () => {
+    useGenerationStore.setState({ generationHistory: historyRecords(60) });
+    const screen = await render(<Harness />);
+    expect(latestListProps().initialScrollIndex).toBe(0);
+
+    // 3열에서 다섯 번째 줄(12번 이미지)이 맨 위에 오도록 스크롤한다.
+    const fifthRow = latestListProps().getItemLayout(null, 4);
+    await act(async () => {
+      latestListProps().onScroll({
+        nativeEvent: { contentOffset: { y: fifthRow.offset } },
+      });
+    });
+    await fireEvent.press(
+      screen.getByRole("button", { name: "한 줄에 보이는 이미지 수 변경" }),
+    );
+
+    // 4열에서 12번 이미지는 네 번째 줄에 있다.
+    expect(latestListProps().numColumns).toBe(4);
+    expect(latestListProps().initialScrollIndex).toBe(3);
+  });
+
+  test("switches the list implementation from the header button", async () => {
+    const records = historyRecords(12);
+    useGenerationStore.setState({
+      generationHistory: records,
+      isLoading: true,
+    });
+    const screen = await render(<Harness />);
+    const button = screen.getByRole("button", {
+      name: "리스트 구현 변경 (비교용)",
+    });
+    expect(jest.mocked(BottomSheetFlatList)).toHaveBeenCalled();
+    expect(jest.mocked(FlashList)).not.toHaveBeenCalled();
+
+    await fireEvent.press(button);
+    const flashProps = jest.mocked(FlashList).mock.calls.at(-1)![0];
+    expect(flashProps.numColumns).toBe(3);
+    expect(flashProps.data).toEqual([null, ...records]);
+
+    await fireEvent.press(button);
+    const legendProps = jest.mocked(LegendList).mock.calls.at(-1)![0];
+    // LegendList는 null 아이템을 렌더하지 않는다.
+    expect(legendProps.data).toEqual(["active-generation", ...records]);
+
+    const flatRenders = jest.mocked(BottomSheetFlatList).mock.calls.length;
+    await fireEvent.press(button);
+    expect(jest.mocked(BottomSheetFlatList).mock.calls.length).toBeGreaterThan(
+      flatRenders,
     );
   });
 });

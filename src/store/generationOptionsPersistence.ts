@@ -52,7 +52,10 @@ type StoredGenerationOptions = {
   closeSheetsOnGenerate: boolean;
   predictiveBackPreview: boolean;
   sliderHandleOnly: boolean;
+  historyGridColumns: number;
 };
+
+export const HISTORY_GRID_COLUMN_OPTIONS = [3, 4, 5, 6];
 
 export type PersistedGenerationOptions = Partial<StoredGenerationOptions>;
 
@@ -95,6 +98,7 @@ const PERSISTED_OPTION_KEYS = [
   "closeSheetsOnGenerate",
   "predictiveBackPreview",
   "sliderHandleOnly",
+  "historyGridColumns",
 ] as const satisfies readonly (keyof PersistableGenerationState)[];
 
 export function selectPersistedOptions(
@@ -140,6 +144,7 @@ export function selectPersistedOptions(
     closeSheetsOnGenerate: state.closeSheetsOnGenerate,
     predictiveBackPreview: state.predictiveBackPreview,
     sliderHandleOnly: state.sliderHandleOnly,
+    historyGridColumns: state.historyGridColumns,
   };
 }
 

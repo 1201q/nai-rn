@@ -40,6 +40,7 @@ function createState(
     closeSheetsOnGenerate: true,
     predictiveBackPreview: true,
     sliderHandleOnly: false,
+    historyGridColumns: 3,
     ...overrides,
   };
 }

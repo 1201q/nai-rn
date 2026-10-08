@@ -15,8 +15,12 @@ export const GRID_GAP = 8;
 // 길게 누르기는 그리드의 드래그 선택 제스처가 처리한다. 스크린리더용 진입 경로만 남긴다.
 const LONG_PRESS_ACTIONS = [{ name: "longpress" as const }];
 
+// 타일이 작아지는 5열부터는 모서리와 선택 표시를 줄인다.
+const COMPACT_COLUMNS = 5;
+
 export const ActiveGenerationTile = memo(function ActiveGenerationTile({
   index,
+  columns,
   size,
   previewUri,
   selected,
@@ -24,18 +28,21 @@ export const ActiveGenerationTile = memo(function ActiveGenerationTile({
   onPress,
 }: {
   index: number;
+  columns: number;
   size: number;
   previewUri: string | null;
   selected: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
+  const compact = columns >= COMPACT_COLUMNS;
+
   return (
     <View
       style={{
         width: size,
         height: size,
-        marginRight: index % 3 === 2 ? 0 : GRID_GAP,
+        marginRight: index % columns === columns - 1 ? 0 : GRID_GAP,
         marginBottom: GRID_GAP,
       }}
     >
@@ -48,6 +55,7 @@ export const ActiveGenerationTile = memo(function ActiveGenerationTile({
         style={({ pressed }) => [
           StyleSheet.absoluteFill,
           styles.tile,
+          compact && styles.compactRadius,
           pressed && styles.pressed,
         ]}
       >
@@ -63,7 +71,10 @@ export const ActiveGenerationTile = memo(function ActiveGenerationTile({
           <ActivityIndicator color={tokens.color.textPrimary} />
         </View>
         {selected ? (
-          <View pointerEvents="none" style={styles.currentRing} />
+          <View
+            pointerEvents="none"
+            style={[styles.currentRing, compact && styles.compactRadius]}
+          />
         ) : null}
       </Pressable>
     </View>
@@ -73,6 +84,7 @@ export const ActiveGenerationTile = memo(function ActiveGenerationTile({
 export const HistorySheetTile = memo(function HistorySheetTile({
   item,
   index,
+  columns,
   size,
   selectionMode,
   selection,
@@ -83,6 +95,7 @@ export const HistorySheetTile = memo(function HistorySheetTile({
 }: {
   item: GenerationRecord;
   index: number;
+  columns: number;
   size: number;
   selectionMode: boolean;
   selection: HistorySelectionStore;
@@ -92,13 +105,14 @@ export const HistorySheetTile = memo(function HistorySheetTile({
   onLongPress: (id: string) => void;
 }) {
   const selected = useStore(selection, (state) => state.ids.has(item.id));
+  const compact = columns >= COMPACT_COLUMNS;
 
   return (
     <View
       style={{
         width: size,
         height: size,
-        marginRight: index % 3 === 2 ? 0 : GRID_GAP,
+        marginRight: index % columns === columns - 1 ? 0 : GRID_GAP,
         marginBottom: GRID_GAP,
       }}
     >
@@ -125,6 +139,7 @@ export const HistorySheetTile = memo(function HistorySheetTile({
         style={({ pressed }) => [
           StyleSheet.absoluteFill,
           styles.tile,
+          compact && styles.compactRadius,
           pressed && styles.pressed,
         ]}
       >
@@ -145,23 +160,30 @@ export const HistorySheetTile = memo(function HistorySheetTile({
             pointerEvents="none"
             style={[
               styles.selectionIndicator,
+              compact && styles.selectionIndicatorCompact,
               selected && styles.selectionIndicatorSelected,
             ]}
           >
             {selected ? (
               <Ionicons
                 name="checkmark"
-                size={14}
+                size={compact ? 11 : 14}
                 color={tokens.color.onAccent}
               />
             ) : null}
           </View>
         ) : null}
         {isCurrent ? (
-          <View pointerEvents="none" style={styles.currentRing} />
+          <View
+            pointerEvents="none"
+            style={[styles.currentRing, compact && styles.compactRadius]}
+          />
         ) : null}
         {selected ? (
-          <View pointerEvents="none" style={styles.selectedRing} />
+          <View
+            pointerEvents="none"
+            style={[styles.selectedRing, compact && styles.compactRadius]}
+          />
         ) : null}
       </Pressable>
     </View>
@@ -173,6 +195,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 12,
     backgroundColor: tokens.color.sunken,
+  },
+  compactRadius: {
+    borderRadius: 8,
   },
   generatingIndicator: {
     position: "absolute",
@@ -227,6 +252,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(10,10,12,0.42)",
+  },
+  selectionIndicatorCompact: {
+    top: 4,
+    left: 4,
+    width: 17,
+    height: 17,
   },
   selectionIndicatorSelected: {
     borderColor: tokens.color.accent,
