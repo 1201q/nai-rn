@@ -14,6 +14,8 @@ import {
   type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { useStore } from "zustand";
+import { GestureDetector } from "react-native-gesture-handler";
 
 import {
   GENERATION_ACTION_BAR_CONTENT_HEIGHT,
@@ -27,6 +29,8 @@ import {
   GRID_GAP,
   HistorySheetTile,
 } from "./history/HistoryTiles";
+import { isAllSelected } from "./history/historySelection";
+import { useHistoryDragSelection } from "./history/useHistoryDragSelection";
 import { type HistorySheetController } from "./history/useHistorySheetController";
 
 export {
@@ -45,14 +49,15 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
 }) {
   const {
     selectionMode,
-    selectedCount,
-    allSelected,
+    selection,
     busy,
     selectingAll,
     closeSheet,
     exitSelectionMode,
     toggleSelectAll,
   } = controller;
+  const selectedCount = useStore(selection, (state) => state.ids.size);
+  const allSelected = useStore(selection, isAllSelected);
 
   return (
     <View style={styles.header}>
@@ -137,9 +142,12 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     historyLoadingMore,
     loadMoreHistory,
     selectionMode,
-    selectedIds,
+    selection,
     busy,
     enterSelectionMode,
+    beginDragSelection,
+    updateDragSelection,
+    endDragSelection,
     handleTilePress,
     handleActiveGenerationPress,
   } = controller;
@@ -149,84 +157,108 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     [generationHistory, isLoading],
   );
   const activeGenerationSelected = isLoading && isViewingActiveGeneration;
+  const dragSelection = useHistoryDragSelection({
+    listData,
+    tileSize,
+    columns: 3,
+    padding: GRID_PADDING,
+    bottomInset: actionBarHeight + HISTORY_SELECTION_ACTIONS_HEIGHT,
+    beginDragSelection,
+    updateDragSelection,
+    endDragSelection,
+  });
 
   return (
-    <BottomSheetFlatList
-      data={listData}
-      keyExtractor={(item) => item?.id ?? "active-generation"}
-      numColumns={3}
-      showsVerticalScrollIndicator={false}
-      initialNumToRender={15}
-      maxToRenderPerBatch={9}
-      windowSize={7}
-      onEndReached={() => {
-        void loadMoreHistory();
-      }}
-      onEndReachedThreshold={0.4}
-      contentContainerStyle={[
-        styles.gridContent,
-        {
-          paddingBottom:
-            actionBarHeight +
-            HISTORY_SELECTION_ACTIONS_HEIGHT +
-            HISTORY_SCROLL_BOTTOM_GAP,
-        },
-        listData.length === 0 && styles.emptyGrid,
-      ]}
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          {historyInitialized ? (
-            <>
-              <Text style={styles.emptyTitle}>아직 생성한 이미지가 없어요</Text>
-              <Text style={styles.emptyText}>
-                이미지를 생성하면 여기에 기록이 쌓입니다
-              </Text>
-            </>
-          ) : (
-            <ActivityIndicator
-              accessibilityLabel="History 불러오는 중"
-              color={tokens.color.textMuted}
-            />
-          )}
-        </View>
-      }
-      ListFooterComponent={
-        historyLoadingMore ? (
-          <View style={styles.loadingFooter}>
-            <ActivityIndicator
-              accessibilityLabel="이전 History 불러오는 중"
-              color={tokens.color.textMuted}
-            />
-          </View>
-        ) : null
-      }
-      renderItem={({ item, index }) =>
-        item === null ? (
-          <ActiveGenerationTile
-            index={index}
-            size={tileSize}
-            previewUri={streamingPreviewUri}
-            selected={activeGenerationSelected}
-            disabled={busy || selectionMode}
-            onPress={handleActiveGenerationPress}
-          />
-        ) : (
-          <HistorySheetTile
-            item={item}
-            index={index}
-            size={tileSize}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(item.id)}
-            isCurrent={
-              !activeGenerationSelected && item.id === currentGenerationId
-            }
-            disabled={busy}
-            onPress={handleTilePress}
-            onLongPress={enterSelectionMode}
-          />
-        )
-      }
-    />
+    <GestureDetector gesture={dragSelection.gesture}>
+      <View
+        collapsable={false}
+        style={styles.gridViewport}
+        onLayout={dragSelection.onLayout}
+      >
+        <BottomSheetFlatList
+          ref={dragSelection.listRef}
+          // 타입에는 빠져 있지만 BottomSheetFlatList가 JS 스레드에서 호출해 준다.
+          {...{ onScroll: dragSelection.onScroll }}
+          onContentSizeChange={dragSelection.onContentSizeChange}
+          data={listData}
+          keyExtractor={(item) => item?.id ?? "active-generation"}
+          numColumns={3}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={9}
+          windowSize={7}
+          onEndReached={() => {
+            void loadMoreHistory();
+          }}
+          onEndReachedThreshold={0.4}
+          contentContainerStyle={[
+            styles.gridContent,
+            {
+              paddingBottom:
+                actionBarHeight +
+                HISTORY_SELECTION_ACTIONS_HEIGHT +
+                HISTORY_SCROLL_BOTTOM_GAP,
+            },
+            listData.length === 0 && styles.emptyGrid,
+          ]}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              {historyInitialized ? (
+                <>
+                  <Text style={styles.emptyTitle}>
+                    아직 생성한 이미지가 없어요
+                  </Text>
+                  <Text style={styles.emptyText}>
+                    이미지를 생성하면 여기에 기록이 쌓입니다
+                  </Text>
+                </>
+              ) : (
+                <ActivityIndicator
+                  accessibilityLabel="History 불러오는 중"
+                  color={tokens.color.textMuted}
+                />
+              )}
+            </View>
+          }
+          ListFooterComponent={
+            historyLoadingMore ? (
+              <View style={styles.loadingFooter}>
+                <ActivityIndicator
+                  accessibilityLabel="이전 History 불러오는 중"
+                  color={tokens.color.textMuted}
+                />
+              </View>
+            ) : null
+          }
+          renderItem={({ item, index }) =>
+            item === null ? (
+              <ActiveGenerationTile
+                index={index}
+                size={tileSize}
+                previewUri={streamingPreviewUri}
+                selected={activeGenerationSelected}
+                disabled={busy || selectionMode}
+                onPress={handleActiveGenerationPress}
+              />
+            ) : (
+              <HistorySheetTile
+                item={item}
+                index={index}
+                size={tileSize}
+                selectionMode={selectionMode}
+                selection={selection}
+                isCurrent={
+                  !activeGenerationSelected && item.id === currentGenerationId
+                }
+                disabled={busy}
+                onPress={handleTilePress}
+                onLongPress={enterSelectionMode}
+              />
+            )
+          }
+        />
+      </View>
+    </GestureDetector>
   );
 });
 
@@ -239,13 +271,14 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
   const { actionBarHeight } = useGenerationChromeMetrics();
   const {
     selectionMode,
-    selectedCount,
+    selection,
     busy,
     saving,
     deleting,
     saveSelected,
     deleteSelected,
   } = controller;
+  const hasSelection = useStore(selection, (state) => state.ids.size > 0);
 
   return (
     <BottomSheetFooter
@@ -257,12 +290,12 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="선택 이미지 저장"
-            accessibilityState={{ disabled: selectedCount === 0 || busy }}
-            disabled={selectedCount === 0 || busy}
+            accessibilityState={{ disabled: !hasSelection || busy }}
+            disabled={!hasSelection || busy}
             onPress={() => void saveSelected()}
             style={({ pressed }) => [
               styles.actionButton,
-              (selectedCount === 0 || busy) && styles.disabled,
+              (!hasSelection || busy) && styles.disabled,
               pressed && styles.pressed,
             ]}
           >
@@ -282,12 +315,12 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="선택 이미지 삭제"
-            accessibilityState={{ disabled: selectedCount === 0 || busy }}
-            disabled={selectedCount === 0 || busy}
+            accessibilityState={{ disabled: !hasSelection || busy }}
+            disabled={!hasSelection || busy}
             onPress={() => void deleteSelected()}
             style={({ pressed }) => [
               styles.actionButton,
-              (selectedCount === 0 || busy) && styles.disabled,
+              (!hasSelection || busy) && styles.disabled,
               pressed && styles.pressed,
             ]}
           >
@@ -378,6 +411,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
+  },
+  gridViewport: {
+    flex: 1,
   },
   gridContent: {
     paddingTop: GRID_PADDING,

@@ -17,6 +17,7 @@ import {
   type GenerationRecord,
 } from "../../../lib/generationHistory";
 import { useGenerationStore } from "../../../store/generationStore";
+import { isAllSelected } from "../history/historySelection";
 import {
   HistorySheetContent,
   HistorySheetFooter,
@@ -78,6 +79,46 @@ jest.mock("@gorhom/bottom-sheet", () => ({
 jest.mock("expo-haptics", () => ({
   selectionAsync: jest.fn().mockResolvedValue(undefined),
 }));
+
+type MockPoint = { x: number; y: number };
+const mockPan: Partial<
+  Record<"onStart" | "onUpdate" | "onFinalize", (event: MockPoint) => void>
+> = {};
+jest.mock("react-native-gesture-handler", () => ({
+  Gesture: {
+    Pan: () => {
+      const pan: object = new Proxy(
+        {},
+        {
+          get: (_target, name: keyof typeof mockPan) => (handler: never) => {
+            if (name.startsWith("on")) mockPan[name] = handler;
+            return pan;
+          },
+        },
+      );
+      return pan;
+    },
+  },
+  GestureDetector: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+const mockScrollTo = jest.fn();
+const mockFrame: {
+  callback?: (info: { timeSincePreviousFrame: number | null }) => void;
+} = {};
+jest.mock("react-native-reanimated", () => {
+  const React = require("react") as typeof import("react");
+  return {
+    runOnJS: (callback: unknown) => callback,
+    scrollTo: (...args: unknown[]) => mockScrollTo(...args),
+    useAnimatedRef: () => React.useRef(null),
+    useFrameCallback: (callback: typeof mockFrame.callback) => {
+      mockFrame.callback = callback;
+      return React.useRef({ setActive: jest.fn() }).current;
+    },
+    useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+  };
+});
 
 jest.mock("expo-image", () => ({
   Image: () => null,
@@ -283,8 +324,8 @@ describe("History database-wide selection", () => {
     const records = historyRecords(601);
     storedHistory(records);
     const hook = await renderSelectedHistoryController(records.slice(0, 2));
-    expect(hook.result.current.selectedCount).toBe(601);
-    expect(hook.result.current.allSelected).toBe(true);
+    expect(hook.result.current.selection.getState().ids.size).toBe(601);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(true);
     expect(hook.result.current.generationHistory).toHaveLength(2);
     expect(initialState.loadMoreGenerationHistory).not.toHaveBeenCalled();
 
@@ -309,11 +350,11 @@ describe("History database-wide selection", () => {
     await act(async () => {
       hook.result.current.enterSelectionMode(records[0].id);
     });
-    expect(hook.result.current.allSelected).toBe(false);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(false);
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.selectedCount).toBe(3);
+    expect(hook.result.current.selection.getState().ids.size).toBe(3);
   });
 
   test("preserves unloaded selections across pagination and clears or restores the full selection", async () => {
@@ -323,27 +364,27 @@ describe("History database-wide selection", () => {
     await act(async () => {
       useGenerationStore.setState({ generationHistory: records });
     });
-    expect(hook.result.current.selectedIds).toEqual(
+    expect(hook.result.current.selection.getState().ids).toEqual(
       new Set(records.map((record) => record.id)),
     );
     await act(async () => {
       hook.result.current.handleTilePress(records[3]);
     });
-    expect(hook.result.current.selectedCount).toBe(4);
-    expect(hook.result.current.allSelected).toBe(false);
+    expect(hook.result.current.selection.getState().ids.size).toBe(4);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(false);
     await act(async () => {
       hook.result.current.handleTilePress(records[3]);
     });
-    expect(hook.result.current.allSelected).toBe(true);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(true);
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.selectedCount).toBe(0);
+    expect(hook.result.current.selection.getState().ids.size).toBe(0);
     expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.selectedCount).toBe(5);
+    expect(hook.result.current.selection.getState().ids.size).toBe(5);
   });
 
   test("deletes the confirmed snapshot, including unloaded IDs, without deselected or newly generated images", async () => {
@@ -367,8 +408,10 @@ describe("History database-wide selection", () => {
         ],
       });
     });
-    expect(hook.result.current.selectedIds.has(newest.id)).toBe(false);
-    expect(hook.result.current.selectedCount).toBe(4);
+    expect(hook.result.current.selection.getState().ids.has(newest.id)).toBe(
+      false,
+    );
+    expect(hook.result.current.selection.getState().ids.size).toBe(4);
     await act(async () => {
       getAlertButton(0, 1).onPress?.();
     });
@@ -389,13 +432,15 @@ describe("History database-wide selection", () => {
         generationHistoryIds: records.map((record) => record.id),
       });
     });
-    expect(hook.result.current.selectedCount).toBe(3);
-    expect(hook.result.current.allSelected).toBe(false);
-    expect(hook.result.current.selectedIds.has(newest.id)).toBe(false);
+    expect(hook.result.current.selection.getState().ids.size).toBe(3);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(false);
+    expect(hook.result.current.selection.getState().ids.has(newest.id)).toBe(
+      false,
+    );
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.selectedCount).toBe(4);
+    expect(hook.result.current.selection.getState().ids.size).toBe(4);
   });
 
   test("prunes deleted IDs using the database catalog, not the currently loaded page", async () => {
@@ -407,9 +452,13 @@ describe("History database-wide selection", () => {
         generationHistoryIds: records.slice(0, 4).map((record) => record.id),
       });
     });
-    expect(hook.result.current.selectedCount).toBe(4);
-    expect(hook.result.current.selectedIds.has(records[3].id)).toBe(true);
-    expect(hook.result.current.selectedIds.has(records[4].id)).toBe(false);
+    expect(hook.result.current.selection.getState().ids.size).toBe(4);
+    expect(
+      hook.result.current.selection.getState().ids.has(records[3].id),
+    ).toBe(true);
+    expect(
+      hook.result.current.selection.getState().ids.has(records[4].id),
+    ).toBe(false);
     await act(async () => {
       await hook.result.current.saveSelected();
     });
@@ -422,8 +471,8 @@ describe("History database-wide selection", () => {
         generationHistoryIds: [],
       });
     });
-    expect(hook.result.current.selectedCount).toBe(0);
-    expect(hook.result.current.allSelected).toBe(false);
+    expect(hook.result.current.selection.getState().ids.size).toBe(0);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(false);
   });
 
   test("locks competing actions synchronously while querying all IDs", async () => {
@@ -449,7 +498,7 @@ describe("History database-wide selection", () => {
     expect(mockAlert).not.toHaveBeenCalled();
     expect(hook.result.current.selectingAll).toBe(true);
     expect(hook.result.current.busy).toBe(true);
-    expect(hook.result.current.selectedCount).toBe(1);
+    expect(hook.result.current.selection.getState().ids.size).toBe(1);
     await act(async () => {
       pending.resolve([generation.id]);
       await selecting;
@@ -491,7 +540,7 @@ describe("History database-wide selection", () => {
       pending.resolve([generation.id]);
       await selecting;
     });
-    expect(hook.result.current.selectedCount).toBe(0);
+    expect(hook.result.current.selection.getState().ids.size).toBe(0);
   });
 
   test("ignores a failed query after unmount", async () => {
@@ -528,7 +577,7 @@ describe("History database-wide selection", () => {
       hook.result.current.handleTilePress(records[0]);
       hook.result.current.enterSelectionMode(records[0].id);
     });
-    expect(hook.result.current.selectedCount).toBe(3);
+    expect(hook.result.current.selection.getState().ids.size).toBe(3);
     expect(mockLoadHistoryIds).toHaveBeenCalledTimes(1);
     await act(async () => {
       pending.resolve(grantedPermission);
@@ -563,7 +612,7 @@ describe("History database-wide selection", () => {
         await selecting;
       });
       expect(hook.result.current.selectionMode).toBe(false);
-      expect(hook.result.current.selectedCount).toBe(0);
+      expect(hook.result.current.selection.getState().ids.size).toBe(0);
       expect(mockAlert).not.toHaveBeenCalled();
     },
   );
@@ -598,20 +647,22 @@ describe("History database-wide selection", () => {
       oldRequest.resolve([records[0].id]);
       await oldSelecting;
     });
-    expect(hook.result.current.selectedIds).toEqual(new Set([records[1].id]));
+    expect(hook.result.current.selection.getState().ids).toEqual(
+      new Set([records[1].id]),
+    );
     expect(hook.result.current.selectingAll).toBe(true);
     await act(async () => {
       newRequest.resolve(records.map((record) => record.id));
       await newSelecting;
     });
-    expect(hook.result.current.selectedCount).toBe(2);
+    expect(hook.result.current.selection.getState().ids.size).toBe(2);
     expect(hook.result.current.busy).toBe(false);
   });
 
   test("keeps the previous selection on ID lookup failure and supports retry or an empty database", async () => {
     mockLoadHistoryIds.mockRejectedValueOnce(new Error("query failed"));
     const hook = await renderSelectedHistoryController();
-    expect(hook.result.current.selectedCount).toBe(1);
+    expect(hook.result.current.selection.getState().ids.size).toBe(1);
     expect(hook.result.current.busy).toBe(false);
     expect(mockToastError).toHaveBeenCalledWith(
       "History 목록을 불러오지 못했습니다. 다시 시도해 주세요.",
@@ -620,7 +671,7 @@ describe("History database-wide selection", () => {
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.allSelected).toBe(true);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(true);
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
@@ -628,8 +679,8 @@ describe("History database-wide selection", () => {
     await act(async () => {
       await hook.result.current.toggleSelectAll();
     });
-    expect(hook.result.current.selectedCount).toBe(0);
-    expect(hook.result.current.allSelected).toBe(false);
+    expect(hook.result.current.selection.getState().ids.size).toBe(0);
+    expect(isAllSelected(hook.result.current.selection.getState())).toBe(false);
   });
 
   test("counts missing DB paths as failures and continues saving", async () => {
@@ -709,7 +760,7 @@ describe("History bulk saving", () => {
         `${count}개의 이미지를 저장했습니다.`,
       );
       expect(mockAlert).not.toHaveBeenCalled();
-      expect(hook.result.current.selectedCount).toBe(count);
+      expect(hook.result.current.selection.getState().ids.size).toBe(count);
       expect(hook.result.current.busy).toBe(false);
     },
   );
@@ -767,7 +818,7 @@ describe("History bulk saving", () => {
     );
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(hook.result.current.busy).toBe(false);
-    expect(hook.result.current.selectedCount).toBe(7);
+    expect(hook.result.current.selection.getState().ids.size).toBe(7);
   });
 
   test("blocks repeated saves and deletion before the first rerender", async () => {
@@ -931,7 +982,9 @@ describe("History deletion confirmation", () => {
 
     expect(mockDeleteGenerations).not.toHaveBeenCalled();
     expect(hook.result.current.selectionMode).toBe(true);
-    expect(hook.result.current.selectedIds.has(generation.id)).toBe(true);
+    expect(
+      hook.result.current.selection.getState().ids.has(generation.id),
+    ).toBe(true);
     expect(hook.result.current.busy).toBe(false);
   });
 
@@ -987,6 +1040,109 @@ describe("History deletion confirmation", () => {
     // Only the confirmation uses an alert.
     expect(mockAlert).toHaveBeenCalledTimes(1);
     expect(hook.result.current.selectionMode).toBe(true);
-    expect(hook.result.current.selectedIds.has(generation.id)).toBe(true);
+    expect(
+      hook.result.current.selection.getState().ids.has(generation.id),
+    ).toBe(true);
+  });
+});
+
+describe("history drag selection", () => {
+  let controller: ReturnType<typeof useHistorySheetController>;
+
+  function Harness() {
+    controller = useHistorySheetController({ onClose: jest.fn() });
+    return <HistorySheetContent controller={controller} />;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGenerationStore.setState(initialState, true);
+  });
+
+  async function renderGrid(count: number) {
+    const records = historyRecords(count);
+    useGenerationStore.setState({ generationHistory: records });
+    await render(<Harness />);
+    const listProps = jest.mocked(BottomSheetFlatList).mock.calls[0][0];
+    const renderItem = listProps.renderItem as (info: {
+      item: GenerationRecord;
+      index: number;
+    }) => React.ReactElement<{ size: number }>;
+    const size = renderItem({ item: records[0], index: 0 }).props.size;
+    const stride = size + 8;
+    const point = (index: number) => ({
+      x: 12 + (index % 3) * stride + size / 2,
+      y: 12 + Math.floor(index / 3) * stride + size / 2,
+    });
+    const drag = async (...points: MockPoint[]) => {
+      await act(async () => {
+        mockPan.onStart?.(points[0]);
+        points.slice(1).forEach((next) => mockPan.onUpdate?.(next));
+        mockPan.onFinalize?.(points[points.length - 1]);
+      });
+    };
+    const ids = (...indexes: number[]) =>
+      new Set(indexes.map((index) => records[index].id));
+    return { records, listProps, point, drag, ids };
+  }
+
+  test("selects the range between the long-pressed tile and the finger", async () => {
+    const { point, drag, ids } = await renderGrid(12);
+
+    await drag(point(1), point(7));
+    expect(controller.selectionMode).toBe(true);
+    expect(controller.selection.getState().ids).toEqual(
+      ids(1, 2, 3, 4, 5, 6, 7),
+    );
+
+    // 선택된 타일에서 시작하면 해제하고, 범위를 줄이면 지나온 타일이 원래대로 돌아간다.
+    const listRenders = jest.mocked(BottomSheetFlatList).mock.calls.length;
+    await drag(point(7), point(3), point(5));
+    expect(controller.selection.getState().ids).toEqual(ids(1, 2, 3, 4));
+    // 선택만 바뀔 때는 그리드를 다시 렌더링하지 않는다.
+    expect(jest.mocked(BottomSheetFlatList).mock.calls).toHaveLength(
+      listRenders,
+    );
+  });
+
+  test("ignores a long press outside the tiles", async () => {
+    const { point, drag } = await renderGrid(2);
+
+    await drag(point(5), point(0));
+    expect(controller.selectionMode).toBe(false);
+  });
+
+  test("scrolls the grid while the finger stays near the bottom edge", async () => {
+    const { listProps, point, ids } = await renderGrid(60);
+    const stride = point(3).y - point(0).y;
+    await act(async () => {
+      (
+        listProps.onContentSizeChange as (width: number, height: number) => void
+      )(0, stride * 20);
+    });
+
+    await act(async () => {
+      mockPan.onStart?.(point(0));
+      // 테스트에서는 뷰포트 높이가 0이라 어느 위치든 아래 가장자리 밖이다.
+      mockPan.onUpdate?.(point(3));
+    });
+    expect(controller.selection.getState().ids).toEqual(ids(0, 1, 2, 3));
+
+    // 최고 속도(초당 1100px)로 50ms씩 5프레임 = 275px, 한 줄 넘게 내려간다.
+    await act(async () => {
+      for (let frame = 0; frame < 5; frame += 1) {
+        mockFrame.callback?.({ timeSincePreviousFrame: 50 });
+      }
+    });
+    expect(mockScrollTo).toHaveBeenLastCalledWith(
+      expect.anything(),
+      0,
+      275,
+      false,
+    );
+    expect(stride).toBeLessThan(275);
+    expect(controller.selection.getState().ids).toEqual(
+      ids(0, 1, 2, 3, 4, 5, 6),
+    );
   });
 });

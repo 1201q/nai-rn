@@ -2,14 +2,18 @@ import { memo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image as ExpoImage } from "expo-image";
+import { useStore } from "zustand";
 
 import {
   type GenerationRecord,
   resolveGenerationThumbnailUri,
 } from "../../../lib/generationHistory";
 import { tokens } from "../../../styles/tokens";
+import type { HistorySelectionStore } from "./historySelection";
 
 export const GRID_GAP = 8;
+// 길게 누르기는 그리드의 드래그 선택 제스처가 처리한다. 스크린리더용 진입 경로만 남긴다.
+const LONG_PRESS_ACTIONS = [{ name: "longpress" as const }];
 
 export const ActiveGenerationTile = memo(function ActiveGenerationTile({
   index,
@@ -71,7 +75,7 @@ export const HistorySheetTile = memo(function HistorySheetTile({
   index,
   size,
   selectionMode,
-  selected,
+  selection,
   isCurrent,
   disabled,
   onPress,
@@ -81,12 +85,14 @@ export const HistorySheetTile = memo(function HistorySheetTile({
   index: number;
   size: number;
   selectionMode: boolean;
-  selected: boolean;
+  selection: HistorySelectionStore;
   isCurrent: boolean;
   disabled: boolean;
   onPress: (item: GenerationRecord) => void;
   onLongPress: (id: string) => void;
 }) {
+  const selected = useStore(selection, (state) => state.ids.has(item.id));
+
   return (
     <View
       style={{
@@ -112,10 +118,10 @@ export const HistorySheetTile = memo(function HistorySheetTile({
           selected: selectionMode ? selected : undefined,
           disabled,
         }}
+        accessibilityActions={LONG_PRESS_ACTIONS}
+        onAccessibilityAction={() => onLongPress(item.id)}
         disabled={disabled}
-        delayLongPress={180}
         onPress={() => onPress(item)}
-        onLongPress={() => onLongPress(item.id)}
         style={({ pressed }) => [
           StyleSheet.absoluteFill,
           styles.tile,
