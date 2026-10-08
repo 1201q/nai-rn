@@ -9,11 +9,8 @@ import { LegendList } from "@legendapp/list/react-native";
 import { FlashList } from "@shopify/flash-list";
 
 import type { GenerationRecord } from "../../../lib/generationHistory";
+import type { HistoryListEngine } from "../../../store/generationOptionsPersistence";
 import { GRID_GAP } from "./HistoryTiles";
-
-// 성능을 비교하려고 둔 리스트 구현. 앱을 켜면 항상 flat에서 시작한다.
-export const HISTORY_LIST_ENGINES = ["flat", "flash", "legend"] as const;
-export type HistoryListEngine = (typeof HISTORY_LIST_ENGINES)[number];
 
 type HistoryGridItem = GenerationRecord | null;
 // LegendList는 null 아이템을 렌더하지 않아 생성 중 타일을 문자열로 표시한다.
@@ -161,7 +158,11 @@ function LegendGrid(props: RecyclerGridProps) {
       numColumns={columns}
       initialScrollIndex={initialRow > 0 ? initialRow * columns : undefined}
       showsVerticalScrollIndicator={false}
-      onEndReachedThreshold={0.4}
+      // LegendList는 끝 도달을 한 번 알리면, 시작과 끝 양쪽에서 임계값의 1.3배 넘게
+      // 벗어나야 다시 알린다. 불러온 페이지가 짧으면 그만큼 벗어날 수 없어
+      // 다음 페이지를 못 불러오므로, 시작 쪽 감지를 끄고 끝 쪽 임계값을 줄인다.
+      onStartReachedThreshold={0}
+      onEndReachedThreshold={0.2}
       renderItem={({ item, index }) => (
         <View style={{ marginLeft: (index % columns) * shift }}>
           {renderTile(typeof item === "string" ? null : item, index)}
