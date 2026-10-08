@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   type ComponentRef,
 } from "react";
@@ -21,6 +22,7 @@ import {
 } from "react-native";
 
 import { parsePromptHighlights } from "../../lib/promptHighlight";
+import { usePromptChunkStore } from "../../store/promptChunkStore";
 import { tokens } from "../../styles/tokens";
 
 const promptMarkdownStyle: MarkdownStyle = {
@@ -42,6 +44,11 @@ const promptMarkdownStyle: MarkdownStyle = {
   syntax: {
     color: "#adb5bd",
   },
+  // Prompt Chunk 참조의 `!macro:`와 끝의 `!`를 안 보이게 줄이는 데 쓴다.
+  emoji: {
+    fontSize: 0.5,
+    fontFamily: tokens.font.regular,
+  },
 };
 
 interface MarkdownRangeBackgroundColor {
@@ -55,9 +62,22 @@ type PromptMarkdownRange = MarkdownRange & {
   backgroundColor?: MarkdownRangeBackgroundColor;
   foregroundColor?: MarkdownRangeBackgroundColor;
   fontFamily?: string;
+  // Android: 커서가 안에 놓이지 않고 일부만 지워도 전체가 지워지는 구간.
+  atomic?: boolean;
 };
 
 const RANDOMIZER_FONT_FAMILY = tokens.font.medium;
+const CHUNK_PREFIX_LENGTH = "!macro:".length;
+const CHUNK_BACKGROUND_ALPHA = 0.3;
+const CHUNK_MISSING_BACKGROUND = {
+  red: 239,
+  green: 110,
+  blue: 110,
+  alpha: 0.3,
+};
+const CHUNK_HIDDEN_COLOR = { red: 0, green: 0, blue: 0, alpha: 0 };
+
+type PromptChunkColors = Record<string, MarkdownRangeBackgroundColor>;
 
 function weightedBackgroundColor(weight: number): MarkdownRangeBackgroundColor {
   "worklet";
@@ -70,7 +90,8 @@ function weightedBackgroundColor(weight: number): MarkdownRangeBackgroundColor {
     : { red: 110, green: 44, blue: 28, alpha };
 }
 
-export function promptMarkdownParser(input: string): PromptMarkdownRange[] {
+// worklet은 호이스팅되지 않으므로 아래 parser보다 먼저 선언한다.
+function parsePromptSyntaxRanges(input: string): PromptMarkdownRange[] {
   "worklet";
 
   const ranges: PromptMarkdownRange[] = [];
@@ -119,6 +140,55 @@ export function promptMarkdownParser(input: string): PromptMarkdownRange[] {
   return ranges;
 }
 
+// parser는 UI 스레드 worklet이라 store를 읽을 수 없다. 이름별 색을 만들 때 넘긴다.
+export function createPromptMarkdownParser(chunkColors: PromptChunkColors) {
+  return function promptMarkdownParser(input: string): PromptMarkdownRange[] {
+    "worklet";
+
+    const ranges = parsePromptSyntaxRanges(input);
+    const reference = /!macro:([^!]+)!/g;
+    let match = reference.exec(input);
+    while (match !== null) {
+      const start = match.index;
+      const length = match[0].length;
+      const color = chunkColors[match[1].trim()];
+      if (color === undefined) {
+        // 없는 chunk는 원문을 그대로 보여 고칠 수 있게 한다.
+        ranges.push({
+          type: "mention-user",
+          start,
+          length,
+          backgroundColor: CHUNK_MISSING_BACKGROUND,
+        });
+      } else {
+        ranges.push({
+          type: "mention-user",
+          start,
+          length,
+          backgroundColor: color,
+          atomic: true,
+        });
+        ranges.push({
+          type: "emoji",
+          start,
+          length: CHUNK_PREFIX_LENGTH,
+          foregroundColor: CHUNK_HIDDEN_COLOR,
+        });
+        ranges.push({
+          type: "emoji",
+          start: start + length - 1,
+          length: 1,
+          foregroundColor: CHUNK_HIDDEN_COLOR,
+        });
+      }
+      match = reference.exec(input);
+    }
+    return ranges;
+  };
+}
+
+export const promptMarkdownParser = createPromptMarkdownParser({});
+
 export type PromptHighlightTextInputHandle = ComponentRef<
   typeof MarkdownTextInput
 >;
@@ -141,6 +211,20 @@ export const PromptHighlightTextInput = forwardRef<
   const bottomSheet = useBottomSheetInternal(true);
   const animatedKeyboardState = bottomSheet?.animatedKeyboardState;
   const textInputNodesRef = bottomSheet?.textInputNodesRef;
+  const chunks = usePromptChunkStore((state) => state.chunks);
+  const parser = useMemo(() => {
+    const colors: PromptChunkColors = {};
+    for (const chunk of chunks) {
+      const value = Number.parseInt(chunk.color.slice(1), 16);
+      colors[chunk.name] = {
+        red: (value >> 16) & 255,
+        green: (value >> 8) & 255,
+        blue: value & 255,
+        alpha: CHUNK_BACKGROUND_ALPHA,
+      };
+    }
+    return createPromptMarkdownParser(colors);
+  }, [chunks]);
 
   const handleFocus = useCallback(
     (event: FocusEvent) => {
@@ -214,7 +298,7 @@ export const PromptHighlightTextInput = forwardRef<
       markdownStyle={promptMarkdownStyle}
       onBlur={handleBlur}
       onFocus={handleFocus}
-      parser={promptMarkdownParser}
+      parser={parser}
       textBreakStrategy="simple"
     />
   );

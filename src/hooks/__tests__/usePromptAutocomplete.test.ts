@@ -6,7 +6,12 @@ import type {
 } from "react-native";
 
 import { usePromptAutocomplete } from "../usePromptAutocomplete";
+import {
+  clearPromptInsertTarget,
+  getPromptInsertTarget,
+} from "../../lib/promptInsertTarget";
 import { searchTags, type TagSuggestion } from "../../lib/tagDb";
+import { usePromptChunkStore } from "../../store/promptChunkStore";
 
 const mockActions = {
   isActive: jest.fn(() => true),
@@ -19,6 +24,9 @@ jest.mock("../../context/SuggestionBarContext", () => ({
   useSuggestionBarActions: () => mockActions,
 }));
 jest.mock("../../lib/tagDb", () => ({ searchTags: jest.fn() }));
+jest.mock("../../lib/storage", () => ({
+  storage: { getString: jest.fn(() => undefined), set: jest.fn() },
+}));
 
 const suggestion: TagSuggestion = {
   label: "simple background",
@@ -399,5 +407,200 @@ describe("usePromptAutocomplete", () => {
       await jest.advanceTimersByTimeAsync(150);
     });
     expect(searchTags).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("prompt chunk insert target", () => {
+  const insertTarget = { scope: "base", channel: "positive" } as const;
+
+  async function setupTarget() {
+    const inputRef = { current: { focus: jest.fn() } };
+    return renderHook(() => {
+      const [value, setValue] = useState("simple, smile");
+      return usePromptAutocomplete({
+        value,
+        onChangeText: setValue,
+        inputRef,
+        channel: "base",
+        insertTarget,
+      });
+    });
+  }
+
+  beforeEach(() => clearPromptInsertTarget());
+
+  it("remembers the caret that arrived just before focus and follows it", async () => {
+    const { result } = await setupTarget();
+    await act(() => result.current.handleSelectionChange(selectionEvent(6)));
+    expect(getPromptInsertTarget()).toBeNull();
+
+    await act(() => result.current.activateSuggestions());
+    expect(getPromptInsertTarget()).toEqual({
+      target: insertTarget,
+      offset: 6,
+    });
+
+    await act(() => result.current.handleSelectionChange(selectionEvent(2)));
+    expect(getPromptInsertTarget()?.offset).toBe(2);
+  });
+
+  it("keeps the last caret after blur", async () => {
+    const { result } = await setupTarget();
+    await act(() => result.current.activateSuggestions());
+    await act(() => result.current.handleSelectionChange(selectionEvent(4)));
+    await act(() => result.current.deactivateSuggestions());
+    await act(() => result.current.handleSelectionChange(selectionEvent(0)));
+
+    expect(getPromptInsertTarget()).toEqual({
+      target: insertTarget,
+      offset: 4,
+    });
+  });
+});
+
+describe("prompt chunk suggestions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    usePromptChunkStore.setState({
+      categories: [],
+      chunks: [
+        {
+          id: "1",
+          name: "Style",
+          content: "oil",
+          color: "#EF4444",
+          categoryId: null,
+        },
+        {
+          id: "2",
+          name: "Scene",
+          content: "night",
+          color: "#6B7280",
+          categoryId: null,
+        },
+      ],
+    });
+  });
+
+  it("offers chunks for @query without searching tags and replaces the query", async () => {
+    const { result } = await setup("1girl, ");
+    await act(() => result.current.handleSelectionChange(selectionEvent(7)));
+    await act(() => result.current.handleChangeText("1girl, @st"));
+
+    const [, suggestions, pick] = mockActions.setSuggestions.mock.calls[0];
+    expect(suggestions).toEqual([
+      {
+        type: "chunk",
+        label: "Style",
+        value: "!macro:Style!",
+        color: "#EF4444",
+      },
+    ]);
+    expect(searchTags).not.toHaveBeenCalled();
+
+    await act(() => pick(suggestions[0]));
+    expect(result.current.value).toBe("1girl, !macro:Style!, ");
+    expect(result.current.selection).toEqual({ start: 22, end: 22 });
+  });
+
+  it("lists every chunk for a bare @ and shows nothing when none match", async () => {
+    const { result } = await setup("");
+    await act(() => result.current.handleChangeText("@"));
+    expect(mockActions.setSuggestions.mock.calls[0][1]).toHaveLength(2);
+
+    mockActions.setSuggestions.mockClear();
+    await act(() => result.current.handleChangeText("@zzz"));
+    expect(mockActions.setSuggestions).not.toHaveBeenCalled();
+    expect(searchTags).not.toHaveBeenCalled();
+  });
+});
+
+describe("prompt chunk references behave like chips", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    usePromptChunkStore.setState({
+      categories: [],
+      chunks: [
+        {
+          id: "1",
+          name: "Style",
+          content: "oil",
+          color: "#EF4444",
+          categoryId: null,
+        },
+      ],
+    });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("pushes a caret that lands inside a reference to its edge", async () => {
+    const { result } = await setup("a, !macro:Style!, b");
+    await act(() => result.current.handleSelectionChange(selectionEvent(14)));
+    expect(result.current.selection).toBeUndefined();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(result.current.selection).toEqual({ start: 16, end: 16 });
+
+    // native가 따라오면 더 붙잡지 않는다.
+    await act(() => result.current.handleSelectionChange(selectionEvent(16)));
+    expect(result.current.selection).toBeUndefined();
+  });
+
+  it("deletes the whole reference on backspace at its end", async () => {
+    const { result } = await setup("a, !macro:Style!, b");
+    await act(() => result.current.handleSelectionChange(selectionEvent(16)));
+    await act(() => result.current.handleChangeText("a, !macro:Style, b"));
+
+    expect(result.current.value).toBe("a, , b");
+    expect(result.current.selection).toEqual({ start: 3, end: 3 });
+  });
+
+  it("leaves a reference to an unknown chunk editable", async () => {
+    const { result } = await setup("a, !macro:Gone!, b");
+    await act(() => result.current.handleSelectionChange(selectionEvent(12)));
+    expect(result.current.selection).toBeUndefined();
+
+    await act(() => result.current.handleChangeText("a, !macro:Gon!, b"));
+    expect(result.current.value).toBe("a, !macro:Gon!, b");
+  });
+});
+
+describe("backspace at the end of a prompt chunk on Android", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    usePromptChunkStore.setState({
+      categories: [],
+      chunks: [
+        {
+          id: "1",
+          name: "Style",
+          content: "oil",
+          color: "#EF4444",
+          categoryId: null,
+        },
+      ],
+    });
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("does not move the caret between the caret event and the text change", async () => {
+    const { result } = await setup("a, !macro:Style!, b");
+    await act(() => result.current.handleSelectionChange(selectionEvent(16)));
+
+    // 커서 이벤트가 먼저, 글자 변경이 바로 뒤에 온다.
+    await act(() => result.current.handleSelectionChange(selectionEvent(15)));
+    expect(result.current.selection).toBeUndefined();
+    await act(() => result.current.handleChangeText("a, !macro:Style, b"));
+
+    expect(result.current.value).toBe("a, , b");
+    expect(result.current.selection).toEqual({ start: 3, end: 3 });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(result.current.value).toBe("a, , b");
+    expect(result.current.selection).toEqual({ start: 3, end: 3 });
   });
 });

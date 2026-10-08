@@ -13,6 +13,9 @@ import { searchTags, type TagSuggestion } from "../../lib/tagDb";
 import { usePromptAutocomplete } from "../usePromptAutocomplete";
 
 jest.mock("../../lib/tagDb", () => ({ searchTags: jest.fn() }));
+jest.mock("../../lib/storage", () => ({
+  storage: { getString: jest.fn(() => undefined), set: jest.fn() },
+}));
 
 const suggestion: TagSuggestion = {
   label: "simple background",

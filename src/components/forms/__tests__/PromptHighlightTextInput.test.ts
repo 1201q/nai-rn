@@ -5,7 +5,14 @@ jest.mock("@gorhom/bottom-sheet", () => ({
   useBottomSheetInternal: () => null,
 }));
 
-import { promptMarkdownParser } from "../PromptHighlightTextInput";
+jest.mock("../../../lib/storage", () => ({
+  storage: { getString: jest.fn(() => undefined), set: jest.fn() },
+}));
+
+import {
+  createPromptMarkdownParser,
+  promptMarkdownParser,
+} from "../PromptHighlightTextInput";
 
 describe("promptMarkdownParser", () => {
   it("uses the effective weight to vary the background opacity", () => {
@@ -85,6 +92,46 @@ describe("promptMarkdownParser", () => {
         length: 1,
         foregroundColor: { red: 245, green: 243, blue: 194, alpha: 1 },
         fontFamily: "Pretendard-Medium",
+      },
+    ]);
+  });
+});
+
+describe("prompt chunk references", () => {
+  const color = { red: 239, green: 68, blue: 68, alpha: 0.3 };
+  const parser = createPromptMarkdownParser({ Style: color });
+
+  it("draws a stored chunk as a chip and hides the syntax around its name", () => {
+    expect(parser("a, !macro:Style!")).toEqual([
+      {
+        type: "mention-user",
+        start: 3,
+        length: 13,
+        backgroundColor: color,
+        atomic: true,
+      },
+      {
+        type: "emoji",
+        start: 3,
+        length: 7,
+        foregroundColor: { red: 0, green: 0, blue: 0, alpha: 0 },
+      },
+      {
+        type: "emoji",
+        start: 15,
+        length: 1,
+        foregroundColor: { red: 0, green: 0, blue: 0, alpha: 0 },
+      },
+    ]);
+  });
+
+  it("marks an unknown chunk without hiding its text", () => {
+    expect(parser("!macro:Gone!")).toEqual([
+      {
+        type: "mention-user",
+        start: 0,
+        length: 12,
+        backgroundColor: { red: 239, green: 110, blue: 110, alpha: 0.3 },
       },
     ]);
   });

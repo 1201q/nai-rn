@@ -1,5 +1,5 @@
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
-index ffd3220..92dff42 100644
+index ffd3220..5f2d9ba 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
 @@ -75,16 +75,22 @@ public class MarkdownFormatter {
@@ -28,7 +28,7 @@ index ffd3220..92dff42 100644
          break;
        case "syntax":
          setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getSyntaxColor()), start, end);
-@@ -125,6 +131,13 @@ public class MarkdownFormatter {
+@@ -125,6 +131,16 @@ public class MarkdownFormatter {
          setSpan(ssb, span, start, end);
          break;
      }
@@ -39,11 +39,14 @@ index ffd3220..92dff42 100644
 +    if (markdownRange.getFontFamily() != null) {
 +      setSpan(ssb, new MarkdownFontFamilySpan(markdownRange.getFontFamily(), mAssetManager), start, end);
 +    }
++    if (markdownRange.isAtomic()) {
++      setSpan(ssb, new MarkdownAtomicSpan(), start, end);
++    }
    }
  
    private void setSpan(@NonNull SpannableStringBuilder ssb, @NonNull MarkdownSpan span, int start, int end) {
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
-index 3e108db..d1e8553 100644
+index 3e108db..0ad513c 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
 @@ -1,6 +1,9 @@
@@ -56,13 +59,14 @@ index 3e108db..d1e8553 100644
  
  import com.facebook.react.bridge.ReactContext;
  import com.facebook.react.util.RNLog;
-@@ -63,10 +66,21 @@ public class MarkdownParser {
+@@ -63,10 +66,23 @@ public class MarkdownParser {
            int start = range.getInt("start");
            int length = range.getInt("length");
            int depth = range.optInt("depth", 1);
 +          Integer backgroundColor = parseColor(range, "backgroundColor");
 +          Integer foregroundColor = parseColor(range, "foregroundColor");
 +          String fontFamily = range.optString("fontFamily", null);
++          boolean atomic = range.optBoolean("atomic", false);
            if (length == 0 || start + length > text.length()) {
              continue;
            }
@@ -74,12 +78,13 @@ index 3e108db..d1e8553 100644
 +            depth,
 +            backgroundColor,
 +            foregroundColor,
-+            fontFamily
++            fontFamily,
++            atomic
 +          ));
          }
        } catch (JSONException e) {
          RNLog.w(mReactContext, "[react-native-live-markdown] Incorrect schema of worklet parser output: " + e.getMessage());
-@@ -86,4 +100,14 @@ public class MarkdownParser {
+@@ -86,4 +102,14 @@ public class MarkdownParser {
        Systrace.endSection(0);
      }
    }
@@ -95,7 +100,7 @@ index 3e108db..d1e8553 100644
 +  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
-index 1fda115..fd7ae64 100644
+index 1fda115..5fe3439 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
 @@ -1,6 +1,7 @@
@@ -106,13 +111,14 @@ index 1fda115..fd7ae64 100644
  
  public class MarkdownRange {
    private final @NonNull String mType;
-@@ -8,13 +9,27 @@ public class MarkdownRange {
+@@ -8,13 +9,30 @@ public class MarkdownRange {
    private final int mEnd;
    private final int mLength;
    private final int mDepth;
 +  private final @Nullable Integer mBackgroundColor;
 +  private final @Nullable Integer mForegroundColor;
 +  private final @Nullable String mFontFamily;
++  private final boolean mAtomic;
  
 -  public MarkdownRange(@NonNull String type, int start, int length, int depth) {
 +  public MarkdownRange(
@@ -122,7 +128,8 @@ index 1fda115..fd7ae64 100644
 +    int depth,
 +    @Nullable Integer backgroundColor,
 +    @Nullable Integer foregroundColor,
-+    @Nullable String fontFamily
++    @Nullable String fontFamily,
++    boolean atomic
 +  ) {
      mType = type;
      mStart = start;
@@ -132,10 +139,11 @@ index 1fda115..fd7ae64 100644
 +    mBackgroundColor = backgroundColor;
 +    mForegroundColor = foregroundColor;
 +    mFontFamily = fontFamily;
++    mAtomic = atomic;
    }
  
    public String getType() {
-@@ -36,4 +51,16 @@ public class MarkdownRange {
+@@ -36,4 +54,20 @@ public class MarkdownRange {
    public int getDepth() {
      return mDepth;
    }
@@ -151,48 +159,145 @@ index 1fda115..fd7ae64 100644
 +  public @Nullable String getFontFamily() {
 +    return mFontFamily;
 +  }
++
++  public boolean isAtomic() {
++    return mAtomic;
++  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
-index 69427e8..fa2f6a8 100644
+index 69427e8..ead3010 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
-@@ -1,6 +1,7 @@
+@@ -1,8 +1,14 @@
  package com.expensify.livemarkdown;
  
  import android.content.Context;
 +import android.graphics.Canvas;
  import android.text.Editable;
++import android.text.Layout;
++import android.text.Selection;
++import android.text.SpanWatcher;
++import android.text.Spannable;
  import android.text.SpannableStringBuilder;
++import android.text.Spanned;
  import android.text.TextWatcher;
-@@ -10,6 +11,7 @@ import android.view.View;
+ 
+ import android.view.View;
+@@ -10,6 +16,8 @@ import android.view.View;
  import com.facebook.react.bridge.ReactContext;
  import com.facebook.react.views.textinput.ReactEditText;
  import com.facebook.react.views.view.ReactViewGroup;
++import com.expensify.livemarkdown.spans.MarkdownAtomicSpan;
 +import com.expensify.livemarkdown.spans.MarkdownBackgroundSpan;
  
  public class MarkdownTextInputDecoratorView extends ReactViewGroup {
  
-@@ -26,6 +28,8 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
-   private ReactEditText mReactEditText;
+@@ -27,6 +35,83 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
  
    private TextWatcher mTextWatcher;
-+
-+  private boolean mReadonlySelectionConfigured;
  
++  private boolean mReadonlySelectionConfigured;
++
++  private boolean mSnappingSelection;
++
++  // Keeps a collapsed caret out of atomic ranges. The move happens inside the
++  // selection change itself, so JS never has to correct the caret afterwards.
++  private final SpanWatcher mSelectionWatcher = new SpanWatcher() {
++    @Override
++    public void onSpanAdded(Spannable text, Object what, int start, int end) {
++    }
++
++    @Override
++    public void onSpanRemoved(Spannable text, Object what, int start, int end) {
++    }
++
++    @Override
++    public void onSpanChanged(Spannable text, Object what, int ostart, int oend, int nstart, int nend) {
++      if (what != Selection.SELECTION_END || mSnappingSelection) {
++        return;
++      }
++
++      int caret = Selection.getSelectionEnd(text);
++      if (caret < 0 || caret != Selection.getSelectionStart(text)) {
++        return;
++      }
++
++      for (MarkdownAtomicSpan span : text.getSpans(caret, caret, MarkdownAtomicSpan.class)) {
++        int spanStart = text.getSpanStart(span);
++        int spanEnd = text.getSpanEnd(span);
++        if (spanStart < caret && caret < spanEnd) {
++          mSnappingSelection = true;
++          try {
++            Selection.setSelection(text, atomicCaretTarget(ostart, caret, spanStart, spanEnd));
++          } finally {
++            mSnappingSelection = false;
++          }
++          return;
++        }
++      }
++    }
++  };
++
++  // Stepping in from one edge crosses to the other; otherwise use the nearer edge on screen.
++  private int atomicCaretTarget(int previous, int caret, int spanStart, int spanEnd) {
++    if (previous == spanEnd) {
++      return spanStart;
++    }
++    if (previous == spanStart) {
++      return spanEnd;
++    }
++
++    Layout layout = mReactEditText != null ? mReactEditText.getLayout() : null;
++    if (layout == null || layout.getLineForOffset(spanStart) != layout.getLineForOffset(spanEnd)) {
++      return spanStart;
++    }
++    float x = layout.getPrimaryHorizontal(caret);
++    float startX = layout.getPrimaryHorizontal(spanStart);
++    float endX = layout.getPrimaryHorizontal(spanEnd);
++    return Math.abs(x - startX) <= Math.abs(endX - x) ? spanStart : spanEnd;
++  }
++
++  private void watchSelection() {
++    if (mReactEditText == null) {
++      return;
++    }
++    Editable editable = mReactEditText.getText();
++    if (editable != null && editable.getSpanStart(mSelectionWatcher) < 0) {
++      editable.setSpan(mSelectionWatcher, 0, editable.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
++    }
++  }
++
++  private void onFormatted() {
++    // Replacing the whole text drops the watcher, so make sure it is still attached.
++    watchSelection();
++    postInvalidateOnAnimation();
++  }
++
    @Override
    protected void onAttachedToWindow() {
-@@ -37,8 +39,9 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+     super.onAttachedToWindow();
+@@ -37,8 +122,9 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
        mMarkdownUtils.setMarkdownStyle(mMarkdownStyle);
        mMarkdownUtils.setParserId(mParserId);
        mReactEditText = (ReactEditText) child;
 -      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils);
-+      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils, this::postInvalidateOnAnimation);
++      mTextWatcher = new MarkdownTextWatcher(mMarkdownUtils, this::onFormatted);
        mReactEditText.addTextChangedListener(mTextWatcher);
 +      configureReadonlySelection();
        applyNewStyles();
      }
    }
-@@ -54,6 +57,39 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+@@ -48,12 +134,49 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+     super.onDetachedFromWindow();
+     if (mReactEditText != null) {
+       mReactEditText.removeTextChangedListener(mTextWatcher);
++      Editable editable = mReactEditText.getText();
++      if (editable != null) {
++        editable.removeSpan(mSelectionWatcher);
++      }
+       mReactEditText = null;
+       mTextWatcher = null;
+       mMarkdownUtils = null;
      }
    }
  
@@ -232,7 +337,7 @@ index 69427e8..fa2f6a8 100644
    protected void setMarkdownStyle(MarkdownStyle markdownStyle) {
      mMarkdownStyle = markdownStyle;
      if (mMarkdownUtils != null) {
-@@ -72,10 +110,36 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
+@@ -72,10 +195,36 @@ public class MarkdownTextInputDecoratorView extends ReactViewGroup {
  
    protected void applyNewStyles() {
      if (mReactEditText != null && mMarkdownUtils != null) {
@@ -240,7 +345,7 @@ index 69427e8..fa2f6a8 100644
        Editable editable = mReactEditText.getText();
        if (editable instanceof SpannableStringBuilder ssb) {
          mMarkdownUtils.applyMarkdownFormatting(ssb);
-+        postInvalidateOnAnimation();
++        onFormatted();
        }
      }
    }
@@ -270,14 +375,28 @@ index 69427e8..fa2f6a8 100644
 +  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
-index d182be1..2a21cc9 100644
+index d182be1..5453d0f 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextWatcher.java
-@@ -8,9 +8,11 @@ import androidx.annotation.NonNull;
+@@ -2,20 +2,44 @@ package com.expensify.livemarkdown;
  
+ import android.text.Editable;
+ import android.text.SpannableStringBuilder;
++import android.text.Spanned;
+ import android.text.TextWatcher;
+ 
+ import androidx.annotation.NonNull;
+ 
++import com.expensify.livemarkdown.spans.MarkdownAtomicSpan;
++
++import java.util.ArrayList;
++import java.util.List;
++
  public class MarkdownTextWatcher implements TextWatcher {
    private final @NonNull MarkdownUtils mMarkdownUtils;
 +  private final @NonNull Runnable mOnFormatted;
++  // Atomic spans that the pending deletion only partly covers.
++  private final @NonNull List<MarkdownAtomicSpan> mBrokenAtomicSpans = new ArrayList<>();
  
 -  public MarkdownTextWatcher(@NonNull MarkdownUtils markdownUtils) {
 +  public MarkdownTextWatcher(@NonNull MarkdownUtils markdownUtils, @NonNull Runnable onFormatted) {
@@ -286,14 +405,73 @@ index d182be1..2a21cc9 100644
    }
  
    @Override
-@@ -27,6 +29,7 @@ public class MarkdownTextWatcher implements TextWatcher {
+   public void beforeTextChanged(CharSequence s, int start, int count, int after) {
++    mBrokenAtomicSpans.clear();
++    if (count == 0 || after != 0 || !(s instanceof Spanned spanned)) {
++      return;
++    }
+ 
++    int end = start + count;
++    for (MarkdownAtomicSpan span : spanned.getSpans(start, end, MarkdownAtomicSpan.class)) {
++      int spanStart = spanned.getSpanStart(span);
++      int spanEnd = spanned.getSpanEnd(span);
++      boolean overlaps = start < spanEnd && end > spanStart;
++      boolean covers = start <= spanStart && end >= spanEnd;
++      if (overlaps && !covers) {
++        mBrokenAtomicSpans.add(span);
++      }
++    }
+   }
+ 
+   @Override
+@@ -25,8 +49,33 @@ public class MarkdownTextWatcher implements TextWatcher {
+ 
+   @Override
    public void afterTextChanged(Editable editable) {
++    deleteBrokenAtomicSpans(editable);
      if (editable instanceof SpannableStringBuilder ssb) {
        mMarkdownUtils.applyMarkdownFormatting(ssb);
 +      mOnFormatted.run();
++    }
++  }
++
++  // Finish the deletion here, before the next frame, so the half-deleted text is never drawn.
++  private void deleteBrokenAtomicSpans(Editable editable) {
++    if (mBrokenAtomicSpans.isEmpty()) {
++      return;
++    }
++
++    // Read every range first: the nested change below reformats and drops the spans.
++    List<int[]> ranges = new ArrayList<>();
++    for (MarkdownAtomicSpan span : mBrokenAtomicSpans) {
++      int spanStart = editable.getSpanStart(span);
++      int spanEnd = editable.getSpanEnd(span);
++      if (spanStart >= 0 && spanEnd > spanStart) {
++        ranges.add(new int[] {spanStart, spanEnd});
++      }
++    }
++    mBrokenAtomicSpans.clear();
++
++    ranges.sort((a, b) -> Integer.compare(b[0], a[0]));
++    for (int[] range : ranges) {
++      editable.delete(range[0], range[1]);
      }
    }
  }
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownAtomicSpan.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownAtomicSpan.java
+new file mode 100644
+index 0000000..1888761
+--- /dev/null
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownAtomicSpan.java
+@@ -0,0 +1,8 @@
++package com.expensify.livemarkdown.spans;
++
++/**
++ * Marks a range that the input treats as one unit: the caret cannot rest inside
++ * it and deleting any part of it deletes all of it. It draws nothing.
++ */
++public class MarkdownAtomicSpan implements MarkdownSpan {
++}
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
 index 557fc71..df70b80 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java

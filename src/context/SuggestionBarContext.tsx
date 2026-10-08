@@ -11,12 +11,17 @@ import {
 import { Keyboard } from "react-native";
 import type { TagSuggestion } from "../lib/tagDb";
 
+// 추천 바에 올라가는 항목. chunk는 `@` 검색 결과이고 value는 삽입할 참조다.
+export type PromptSuggestion =
+  | TagSuggestion
+  | { type: "chunk"; label: string; value: string; color: string };
+
 type SuggestionBarActions = {
-  pickRef: React.MutableRefObject<((item: TagSuggestion) => void) | null>;
+  pickRef: React.MutableRefObject<((item: PromptSuggestion) => void) | null>;
   setSuggestions: (
     owner: symbol,
-    s: TagSuggestion[],
-    pick: (item: TagSuggestion) => void,
+    s: PromptSuggestion[],
+    pick: (item: PromptSuggestion) => void,
   ) => void;
   clearSuggestions: (owner: symbol) => void;
   setActive: (owner: symbol, active: boolean) => void;
@@ -24,21 +29,21 @@ type SuggestionBarActions = {
 };
 
 const ActionsContext = createContext<SuggestionBarActions | null>(null);
-const DataContext = createContext<TagSuggestion[]>([]);
+const DataContext = createContext<PromptSuggestion[]>([]);
 const ActiveContext = createContext(false);
 
 export function SuggestionBarProvider({ children }: { children: ReactNode }) {
-  const [suggestions, setSuggestionsState] = useState<TagSuggestion[]>([]);
+  const [suggestions, setSuggestionsState] = useState<PromptSuggestion[]>([]);
   const [active, setActiveState] = useState(false);
   const ownerRef = useRef<symbol | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const pickRef = useRef<((item: TagSuggestion) => void) | null>(null);
+  const pickRef = useRef<((item: PromptSuggestion) => void) | null>(null);
 
   const setSuggestions = useCallback(
     (
       owner: symbol,
-      s: TagSuggestion[],
-      pick: (item: TagSuggestion) => void,
+      s: PromptSuggestion[],
+      pick: (item: PromptSuggestion) => void,
     ) => {
       if (ownerRef.current !== owner) return;
       setSuggestionsState(s);

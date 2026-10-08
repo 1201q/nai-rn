@@ -136,6 +136,11 @@ export const CharacterPromptEditorCard = memo(
       value: activeText,
       onChangeText: updateActiveText,
       inputRef: promptInputRef,
+      insertTarget: {
+        scope: "character",
+        characterId: item.id,
+        channel: mode === "base" ? "positive" : "negative",
+      },
     });
 
     const commitName = useCallback(() => {

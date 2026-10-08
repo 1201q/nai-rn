@@ -45,6 +45,8 @@ const PROMPT_KEYBOARD_GAP = 12;
 const PROMPT_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
+const BASE_POSITIVE = { scope: "base", channel: "positive" } as const;
+const BASE_NEGATIVE = { scope: "base", channel: "negative" } as const;
 
 function PromptDraftInput({
   channel,
@@ -67,6 +69,7 @@ function PromptDraftInput({
     value,
     onChangeText: onChange,
     inputRef,
+    insertTarget: channel === "base" ? BASE_POSITIVE : BASE_NEGATIVE,
   });
   const inputCommit = useGenerationInputCommitRegistration(onCommit);
 
