@@ -15,6 +15,7 @@ import { PortalHost } from "@gorhom/portal";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
 import {
   DETAIL_FIXED_HEADER_CONTENT_OFFSET,
@@ -23,6 +24,7 @@ import {
 import { Toggle } from "../../components/forms/FormControls";
 import { SheetSelect } from "../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
+import { seedDevHistory } from "../../lib/devHistorySeed";
 import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 import {
@@ -44,6 +46,7 @@ const IMAGE_FORMAT_LABELS = IMAGE_FORMATS.map((format) => format.label);
 // NovelAI 구독 tier (0~3)
 const TIER_NAMES = ["PAPER", "TABLET", "SCROLL", "OPUS"];
 const SELECT_PORTAL_HOST = "app-settings-select-overlay";
+const DEV_HISTORY_SEED_COUNT = 200;
 
 function maskToken(token: string) {
   return `${token.slice(0, 4)}••••••••${token.slice(-4)}`;
@@ -114,11 +117,30 @@ export function AppSettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [helpKey, setHelpKey] = useState<SettingsHelpKey | null>(null);
+  const [isSeedingHistory, setIsSeedingHistory] = useState(false);
 
   const showEditor = !storedToken || isEditing;
 
   function toggleHelp(next: SettingsHelpKey) {
     setHelpKey((current) => (current === next ? null : next));
+  }
+
+  async function handleSeedHistory() {
+    setIsSeedingHistory(true);
+    try {
+      const records = await seedDevHistory(DEV_HISTORY_SEED_COUNT);
+      useGenerationStore.setState((state) => ({
+        generationHistory: [...records.reverse(), ...state.generationHistory],
+        generationHistoryIds: null,
+        generationHistoryRevision: state.generationHistoryRevision + 1,
+        currentGeneration: state.currentGeneration ?? records[0],
+      }));
+      toast.success(`더미 이미지 ${records.length}장을 추가했습니다.`);
+    } catch {
+      toast.error("더미 이미지를 추가하지 못했습니다.");
+    } finally {
+      setIsSeedingHistory(false);
+    }
   }
 
   async function handleSaveToken() {
@@ -460,6 +482,33 @@ export function AppSettingsScreen() {
                 value={predictiveBackPreview}
                 onChange={setPredictiveBackPreview}
               />
+            </View>
+          ) : null}
+
+          {__DEV__ ? (
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>
+                  History 더미 이미지 (개발용)
+                </Text>
+                <Text style={styles.optionDescription}>
+                  History 그리드 테스트용 단색 이미지 {DEV_HISTORY_SEED_COUNT}
+                  장을 추가합니다. 개발 빌드에서만 보입니다.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="History 더미 이미지 추가"
+                accessibilityState={{ disabled: isSeedingHistory }}
+                disabled={isSeedingHistory}
+                onPress={() => void handleSeedHistory()}
+              >
+                {isSeedingHistory ? (
+                  <ActivityIndicator color={tokens.color.accent} size="small" />
+                ) : (
+                  <Text style={styles.tokenAction}>추가</Text>
+                )}
+              </Pressable>
             </View>
           ) : null}
         </Animated.ScrollView>

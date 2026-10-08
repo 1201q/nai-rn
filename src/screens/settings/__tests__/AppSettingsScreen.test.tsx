@@ -58,6 +58,14 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
+jest.mock("sonner-native", () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
+}));
+
+jest.mock("../../../lib/devHistorySeed", () => ({
+  seedDevHistory: jest.fn(),
+}));
+
 jest.mock("../../../components/forms/SheetSliderControls", () => ({
   SheetSliderControls: (props: unknown) => {
     mockSliderControlsProps(props);
