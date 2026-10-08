@@ -37,6 +37,10 @@ import {
 import { estimateAnlasCost } from "../lib/anlasCost";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
+import {
+  describePromptChunkErrors,
+  resolvePromptChunks,
+} from "../lib/promptChunks";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
 import {
@@ -108,6 +112,7 @@ import {
   type ModelSettings,
 } from "../constants/models";
 import type { CharacterPrompt, I2ISourceImage } from "../types/generation";
+import { usePromptChunkStore } from "./promptChunkStore";
 
 export type { CharacterPrompt };
 
@@ -1134,10 +1139,34 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     // 디바운스 동기화 전에 전송될 수 있으므로, 호출 측이 최신 텍스트를 직접 넘길 수 있게 함.
-    const effPrompt = (overrides?.prompt ?? s.prompt).trim();
-    const effNegativePrompt = (
-      overrides?.negativePrompt ?? s.negativePrompt
-    ).trim();
+    // Prompt Chunk 참조는 여기서 한 번만 펼친다. 큐에는 펼친 문자열만 들어가므로
+    // 배치 도중 chunk를 고쳐도 진행 중인 요청은 바뀌지 않는다.
+    const { chunks } = usePromptChunkStore.getState();
+    const chunkErrors: string[] = [];
+    const expandChunks = (text: string) => {
+      const resolution = resolvePromptChunks(text, chunks);
+      const error = describePromptChunkErrors(resolution);
+      if (error) chunkErrors.push(error);
+      return resolution.text.trim();
+    };
+    const effPrompt = expandChunks(overrides?.prompt ?? s.prompt);
+    const effNegativePrompt = expandChunks(
+      overrides?.negativePrompt ?? s.negativePrompt,
+    );
+    const effCharacterPrompts = resolveActiveCharacterPrompts(
+      s.characterPrompts,
+      s.model,
+    ).map((item) => ({
+      ...item,
+      prompt: expandChunks(item.prompt),
+      negativePrompt: expandChunks(item.negativePrompt),
+    }));
+    if (chunkErrors.length > 0) {
+      set({
+        message: `Prompt Chunk 참조를 확인하세요. ${[...new Set(chunkErrors)].join(" / ")}`,
+      });
+      return rejectGenerationStart("validation");
+    }
 
     if (s.resolution.width * s.resolution.height > MAX_GENERATION_PIXELS) {
       set({
@@ -1411,10 +1440,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       token: s.storedToken,
       prompt: effPrompt,
       negativePrompt: effNegativePrompt,
-      characterPrompts: resolveActiveCharacterPrompts(
-        s.characterPrompts,
-        s.model,
-      ),
+      characterPrompts: effCharacterPrompts,
       opts: {
         model: s.model,
         width,

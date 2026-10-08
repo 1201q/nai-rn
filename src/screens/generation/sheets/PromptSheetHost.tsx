@@ -33,6 +33,7 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
+import { PromptChunksSheetContent } from "../../../components/generation/PromptChunksSheetContent";
 import { PromptSheetContent } from "../../../components/generation/PromptSheetContent";
 import { ReferenceImagesSheetContent } from "../../../components/generation/ReferenceImagesSheetContent";
 import { useGenerationInputCommit } from "../../../context/GenerationInputCommitContext";
@@ -264,10 +265,9 @@ export function PromptSheetHost({
 
   function useStaticPageFocus(effect: EffectCallback) {
     useEffect(() => {
-      // Scrollable pages register themselves; only the empty page is a View.
-      if (promptTab === "chunks" || promptStage === "collapsed")
-        return effect();
-    }, [effect, promptTab, promptStage]);
+      // Scrollable pages register themselves while the sheet is open.
+      if (promptStage === "collapsed") return effect();
+    }, [effect, promptStage]);
   }
   const referenceCount = useGenerationStore(
     (state) =>
@@ -458,7 +458,10 @@ export function PromptSheetHost({
                             onMetadataExtract={onMetadataExtract}
                           />
                         ) : (
-                          <View style={styles.emptyPromptPage} />
+                          <PromptChunksSheetContent
+                            active={active}
+                            sheetHiddenHeight={sheetHiddenHeight}
+                          />
                         )}
                       </View>
                     );
@@ -582,9 +585,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
-  },
-  emptyPromptPage: {
-    flex: 1,
   },
   pressed: {
     opacity: tokens.opacity.pressed,

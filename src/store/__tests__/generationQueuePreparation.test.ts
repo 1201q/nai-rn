@@ -26,6 +26,7 @@ import {
   saveEncodedVibeReference,
 } from "../../lib/vibeReferences";
 import { useGenerationStore } from "../generationStore";
+import { usePromptChunkStore } from "../promptChunkStore";
 import {
   acquireGenerationWakeLock,
   releaseGenerationWakeLock,
@@ -512,6 +513,63 @@ describe("generation queue execution", () => {
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
   });
 
+  test("expands prompt chunks once when the queue is created", async () => {
+    usePromptChunkStore.setState({
+      chunks: [
+        {
+          id: "1",
+          name: "Style",
+          content: "oil, !macro:Tone!",
+          color: "#6B7280",
+          categoryId: null,
+        },
+        {
+          id: "2",
+          name: "Tone",
+          content: "warm",
+          color: "#6B7280",
+          categoryId: null,
+        },
+      ],
+      categories: [],
+    });
+    useGenerationStore.setState({
+      prompt: "1girl, !macro:Style!",
+      negativePrompt: "!macro:Tone!",
+      characterPrompts: [
+        {
+          id: "c1",
+          prompt: "girl, !macro:Tone!",
+          negativePrompt: "!macro:Style!",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
+    });
+
+    await useGenerationStore.getState().generateImage();
+    // 큐가 만들어진 뒤의 수정은 진행 중인 배치에 반영되지 않는다.
+    usePromptChunkStore.setState({ chunks: [], categories: [] });
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream.mock.calls[0][0]).toMatchObject({
+      prompt: "1girl, oil, warm",
+      negativePrompt: "warm",
+      characterPrompts: [{ prompt: "girl, warm", negativePrompt: "oil, warm" }],
+    });
+  });
+
+  test("rejects generation when a prompt chunk reference cannot be resolved", async () => {
+    usePromptChunkStore.setState({ chunks: [], categories: [] });
+    useGenerationStore.setState({ prompt: "1girl, !macro:Gone!" });
+
+    const result = await useGenerationStore.getState().generateImage();
+
+    expect(result).toEqual({ status: "rejected", reason: "validation" });
+    expect(mockStartGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().message).toContain("Gone");
+  });
+
   test("cleans queue state and resources after successful execution", async () => {
     const onSuccess = jest.fn();
 
@@ -777,15 +835,16 @@ test("restores current options while ignoring removed legacy settings", () => {
     const { storage } =
       require("../../lib/storage") as typeof import("../../lib/storage");
     const resolution = { label: "Custom 960x1280", width: 960, height: 1280 };
-    jest.mocked(storage.getString).mockReturnValueOnce(
-      JSON.stringify({
-        resolution,
-        batchCount: 4,
-        prompt: "retained prompt",
-        customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
-        vibeReferenceExpandedIds: ["old-vibe"],
-        preciseReferenceExpandedIds: ["old-precise"],
-      }),
+    const stored = JSON.stringify({
+      resolution,
+      batchCount: 4,
+      prompt: "retained prompt",
+      customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
+      vibeReferenceExpandedIds: ["old-vibe"],
+      preciseReferenceExpandedIds: ["old-precise"],
+    });
+    (storage.getString as jest.Mock).mockImplementation((key: string) =>
+      key === "nai_generation_options_v1" ? stored : undefined,
     );
     const { useGenerationStore: restoredStore } =
       require("../generationStore") as typeof import("../generationStore");

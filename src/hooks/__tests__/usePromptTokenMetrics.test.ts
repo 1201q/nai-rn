@@ -10,11 +10,17 @@ const mockStoreState = {
   ucPreset: 4,
   characterPrompts: [],
 };
+const mockChunkState = { chunks: [] };
 const mockCalculate = jest.fn();
 
 jest.mock("../../store/generationStore", () => ({
   useGenerationStore: (selector: (state: typeof mockStoreState) => unknown) =>
     selector(mockStoreState),
+}));
+
+jest.mock("../../store/promptChunkStore", () => ({
+  usePromptChunkStore: (selector: (state: { chunks: never[] }) => unknown) =>
+    selector(mockChunkState),
 }));
 
 jest.mock("../../lib/promptTokens/metrics", () => ({

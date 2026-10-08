@@ -149,6 +149,21 @@ jest.mock("../../../components/generation/ReferenceImagesSheetContent", () => {
     },
   };
 });
+jest.mock("../../../components/generation/PromptChunksSheetContent", () => {
+  const React = require("react") as typeof import("react");
+  return {
+    PromptChunksSheetContent: function MockChunksContent({
+      active,
+    }: {
+      active: boolean;
+    }) {
+      React.useEffect(() => {
+        if (active) mockScrollableRegistration("chunks-scroll");
+      }, [active]);
+      return null;
+    },
+  };
+});
 jest.mock("../../../components/generation/PromptSheetContent", () => {
   const React = require("react") as typeof import("react");
   const { TextInput } =
@@ -1045,7 +1060,9 @@ describe("generation sheet accessibility visibility", () => {
       "reference-scroll",
     );
     await fireEvent.press(screen.getByRole("tab", { name: "Chunks" }));
-    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("view");
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith(
+      "chunks-scroll",
+    );
     await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
     expect(mockScrollableRegistration).toHaveBeenLastCalledWith(
       "prompt-scroll",
