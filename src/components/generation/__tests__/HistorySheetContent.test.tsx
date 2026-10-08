@@ -44,6 +44,8 @@ type MockHistoryState = {
   viewActiveGeneration: () => void;
   historyGridColumns: number;
   setHistoryGridColumns: (columns: number) => void;
+  historyListEngine: "flat" | "flash" | "legend";
+  setHistoryListEngine: (engine: "flat" | "flash" | "legend") => void;
 };
 
 jest.mock("../../../store/generationStore", () => {
@@ -69,6 +71,8 @@ jest.mock("../../../store/generationStore", () => {
       historyGridColumns: 3,
       setHistoryGridColumns: (historyGridColumns) =>
         set({ historyGridColumns }),
+      historyListEngine: "flat",
+      setHistoryListEngine: (historyListEngine) => set({ historyListEngine }),
     })),
   };
 });

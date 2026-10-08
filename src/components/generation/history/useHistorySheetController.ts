@@ -12,12 +12,11 @@ import {
   iterateGenerationImageBatches,
   resolveGenerationImageUri,
 } from "../../../lib/generationHistory";
-import { HISTORY_GRID_COLUMN_OPTIONS } from "../../../store/generationOptionsPersistence";
-import { useGenerationStore } from "../../../store/generationStore";
 import {
+  HISTORY_GRID_COLUMN_OPTIONS,
   HISTORY_LIST_ENGINES,
-  type HistoryListEngine,
-} from "./HistoryGridList";
+} from "../../../store/generationOptionsPersistence";
+import { useGenerationStore } from "../../../store/generationStore";
 import {
   createHistorySelectionStore,
   isAllSelected,
@@ -67,7 +66,7 @@ export function useHistorySheetController({
   const gridColumns = useGenerationStore((state) => state.historyGridColumns);
   // 열 수를 바꾸면 그리드를 다시 마운트하므로, 보고 있던 항목에서 다시 시작하게 한다.
   const [gridInitialIndex, setGridInitialIndex] = useState(0);
-  const [listEngine, setListEngine] = useState<HistoryListEngine>("flat");
+  const listEngine = useGenerationStore((state) => state.historyListEngine);
   const gridFirstVisibleIndexRef = useRef(0);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selection] = useState(createHistorySelectionStore);
@@ -138,13 +137,14 @@ export function useHistorySheetController({
   }, []);
 
   const cycleListEngine = useCallback(() => {
+    const { historyListEngine, setHistoryListEngine } =
+      useGenerationStore.getState();
     setGridInitialIndex(gridFirstVisibleIndexRef.current);
-    setListEngine(
-      (current) =>
-        HISTORY_LIST_ENGINES[
-          (HISTORY_LIST_ENGINES.indexOf(current) + 1) %
-            HISTORY_LIST_ENGINES.length
-        ],
+    setHistoryListEngine(
+      HISTORY_LIST_ENGINES[
+        (HISTORY_LIST_ENGINES.indexOf(historyListEngine) + 1) %
+          HISTORY_LIST_ENGINES.length
+      ],
     );
   }, []);
 

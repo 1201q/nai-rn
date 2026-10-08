@@ -62,6 +62,8 @@ import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
   HISTORY_GRID_COLUMN_OPTIONS,
+  HISTORY_LIST_ENGINES,
+  type HistoryListEngine,
   type PersistedGenerationOptions,
 } from "./generationOptionsPersistence";
 import {
@@ -388,6 +390,8 @@ type GenerationState = {
   setSliderHandleOnly: (v: boolean) => void;
   historyGridColumns: number;
   setHistoryGridColumns: (v: number) => void;
+  historyListEngine: HistoryListEngine;
+  setHistoryListEngine: (v: HistoryListEngine) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -664,6 +668,10 @@ function loadPersistedOptions(): Partial<GenerationState> {
     ) {
       next.historyGridColumns = parsed.historyGridColumns;
     }
+    const historyListEngine = HISTORY_LIST_ENGINES.find(
+      (engine) => engine === parsed.historyListEngine,
+    );
+    if (historyListEngine) next.historyListEngine = historyListEngine;
     return next;
   } catch {
     return {};
@@ -942,6 +950,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setSliderHandleOnly: (v) => set({ sliderHandleOnly: v }),
   historyGridColumns: 3,
   setHistoryGridColumns: (v) => set({ historyGridColumns: v }),
+  historyListEngine: "flat",
+  setHistoryListEngine: (v) => set({ historyListEngine: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
