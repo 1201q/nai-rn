@@ -485,32 +485,30 @@ export function AppSettingsScreen() {
             </View>
           ) : null}
 
-          {__DEV__ ? (
-            <View style={[styles.option, styles.optionRow]}>
-              <View style={styles.optionText}>
-                <Text style={styles.optionTitle}>
-                  History 더미 이미지 (개발용)
-                </Text>
-                <Text style={styles.optionDescription}>
-                  History 그리드 테스트용 단색 이미지 {DEV_HISTORY_SEED_COUNT}
-                  장을 추가합니다. 개발 빌드에서만 보입니다.
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="History 더미 이미지 추가"
-                accessibilityState={{ disabled: isSeedingHistory }}
-                disabled={isSeedingHistory}
-                onPress={() => void handleSeedHistory()}
-              >
-                {isSeedingHistory ? (
-                  <ActivityIndicator color={tokens.color.accent} size="small" />
-                ) : (
-                  <Text style={styles.tokenAction}>추가</Text>
-                )}
-              </Pressable>
+          <View style={[styles.option, styles.optionRow]}>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>
+                History 더미 이미지 (테스트용)
+              </Text>
+              <Text style={styles.optionDescription}>
+                History 그리드 테스트용 단색 이미지 {DEV_HISTORY_SEED_COUNT}
+                장을 추가합니다.
+              </Text>
             </View>
-          ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="History 더미 이미지 추가"
+              accessibilityState={{ disabled: isSeedingHistory }}
+              disabled={isSeedingHistory}
+              onPress={() => void handleSeedHistory()}
+            >
+              {isSeedingHistory ? (
+                <ActivityIndicator color={tokens.color.accent} size="small" />
+              ) : (
+                <Text style={styles.tokenAction}>추가</Text>
+              )}
+            </Pressable>
+          </View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
 

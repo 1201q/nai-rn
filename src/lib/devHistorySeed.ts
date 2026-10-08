@@ -78,7 +78,7 @@ function hueToRgb(hue: number): [number, number, number] {
   return [channel(0), channel(8), channel(4)];
 }
 
-// 개발용: History 그리드 테스트에 쓸 단색 이미지를 실제 저장 경로로 넣는다.
+// 테스트용: History 그리드 테스트에 쓸 단색 이미지를 실제 저장 경로로 넣는다.
 export async function seedDevHistory(count: number) {
   const records = [];
   for (let index = 0; index < count; index += 1) {
