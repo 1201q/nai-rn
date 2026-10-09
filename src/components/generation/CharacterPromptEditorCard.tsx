@@ -71,6 +71,7 @@ export const CharacterPromptEditorCard = memo(
     positionEnabled,
     canEditPosition,
     canMoveDown,
+    ucLocked,
     onToggleExpanded,
     onBeginEditing,
     onUpdate,
@@ -86,6 +87,8 @@ export const CharacterPromptEditorCard = memo(
     positionEnabled: boolean;
     canEditPosition: boolean;
     canMoveDown: boolean;
+    // true면 UC 탭을 숨긴다 (Effort Medium). 입력해 둔 UC는 지우지 않는다.
+    ucLocked: boolean;
     onToggleExpanded: (id: string) => void;
     onBeginEditing: (id: string | null) => void;
     onUpdate: (
@@ -106,7 +109,8 @@ export const CharacterPromptEditorCard = memo(
     const nameFocusedRef = useRef(false);
     const promptFocusedRef = useRef(false);
     const [nameText, setNameText] = useState(item.name ?? "");
-    const [mode, setMode] = useState<CharacterPromptMode>("base");
+    const [selectedMode, setMode] = useState<CharacterPromptMode>("base");
+    const mode = ucLocked ? "base" : selectedMode;
     const [promptText, setPromptText] = useState(item.prompt);
     const [negativeText, setNegativeText] = useState(item.negativePrompt);
     const [promptHeight, setPromptHeight] = useState(EDITOR_MIN_HEIGHT);
@@ -423,6 +427,7 @@ export const CharacterPromptEditorCard = memo(
                   style={({ pressed }) => [
                     styles.modeTab,
                     mode === "negative" && styles.modeTabActive,
+                    ucLocked && styles.hidden,
                     pressed && styles.pressed,
                   ]}
                 >
@@ -666,6 +671,9 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: 14,
     lineHeight: 21,
+  },
+  hidden: {
+    display: "none",
   },
   pressed: {
     opacity: tokens.opacity.pressed,

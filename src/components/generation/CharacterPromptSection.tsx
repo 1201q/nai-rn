@@ -50,6 +50,9 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   const freePlacement = useGenerationStore(
     (state) => getModelCapabilities(state.model).v5Request,
   );
+  const ucLocked = useGenerationStore(
+    (state) => getModelCapabilities(state.model).fixedSettings !== undefined,
+  );
   const setCharacterPrompts = useGenerationStore(
     (state) => state.setCharacterPrompts,
   );
@@ -305,6 +308,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
           positionEnabled={customPosition}
           canEditPosition={canPosition}
           canMoveDown={index < characterPrompts.length - 1}
+          ucLocked={ucLocked}
           onToggleExpanded={toggleExpanded}
           onBeginEditing={onEditingCharacterChange}
           onUpdate={updateCharacter}

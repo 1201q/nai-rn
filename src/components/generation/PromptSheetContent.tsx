@@ -148,8 +148,13 @@ export const PromptComposerCard = memo(function PromptComposerCard({
   const supportsTransparentBackground = getModelCapabilities(model).v5Request;
   const ucPresetOptions = getUcPresetOptions(model);
   const qualityPresetOptions = getQualityPresetOptions(model);
-  const [mode, setMode] = useState<PromptChannel>("base");
-  const [split, setSplit] = useState(false);
+  // 공식 웹과 동일: 고정 설정 모델(Effort Medium)은 UC를 쓸 수 없어 Base Prompt만 보여준다.
+  // 선택 상태와 입력한 UC는 남겨 두어 High로 돌아가면 그대로 보인다.
+  const ucLocked = getModelCapabilities(model).fixedSettings !== undefined;
+  const [selectedMode, setMode] = useState<PromptChannel>("base");
+  const [splitSelected, setSplit] = useState(false);
+  const mode = ucLocked ? "base" : selectedMode;
+  const split = splitSelected && !ucLocked;
   const [promptText, setPromptText] = useState(prompt);
   const [negativeText, setNegativeText] = useState(negativePrompt);
   const [promptHeight, setPromptHeight] = useState(MERGED_MIN_HEIGHT);
@@ -435,6 +440,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               style={[
                 styles.modeChip,
                 mode === "negative" && styles.modeChipActive,
+                ucLocked && styles.hidden,
               ]}
             >
               <Pressable
@@ -734,6 +740,9 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: 15,
     lineHeight: PROMPT_LINE_HEIGHT,
+  },
+  hidden: {
+    display: "none",
   },
   pressed: {
     opacity: tokens.opacity.pressed,

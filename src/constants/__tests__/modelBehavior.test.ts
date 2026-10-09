@@ -10,6 +10,7 @@ import {
 } from "../../lib/novelai";
 import {
   DEFAULT_MODEL,
+  getEffortModels,
   getImagePromptTokenPolicy,
   getModelCapabilities,
   MODELS,
@@ -30,6 +31,15 @@ type ExpectedBehavior = {
 
 const EXPECTED: Record<string, ExpectedBehavior> = {
   "nai-diffusion-5-full": {
+    v4Prompt: true,
+    autoSmea: false,
+    nativeScheduleReplaced: true,
+    addsNsfwToUc: true,
+    vibeAnlasCost: 0,
+    tokenizer: "qwen",
+    maxTokens: 1471,
+  },
+  "nai-diffusion-5-full-medium": {
     v4Prompt: true,
     autoSmea: false,
     nativeScheduleReplaced: true,
@@ -216,6 +226,7 @@ it("forces the Karras schedule and params_version 4 only for V5", () => {
     ]),
   ).toEqual([
     ["nai-diffusion-5-full", "karras", 4],
+    ["nai-diffusion-5-full-medium", "karras", 4],
     ["nai-diffusion-5-curated", "karras", 4],
     ["nai-diffusion-4-5-full", "exponential", 3],
     ["nai-diffusion-4-5-curated", "exponential", 3],
@@ -238,6 +249,7 @@ it("supports Vibe Transfer on V4+ and Precise Reference only on V4.5", () => {
     ]),
   ).toEqual([
     ["nai-diffusion-5-full", false, false],
+    ["nai-diffusion-5-full-medium", false, false],
     ["nai-diffusion-5-curated", false, false],
     ["nai-diffusion-4-5-full", true, true],
     ["nai-diffusion-4-5-curated", true, true],
@@ -258,7 +270,7 @@ it("uses the default request shape without references for unknown models", () =>
 it("allows 22 characters on V5 and 6 elsewhere", () => {
   expect(
     MODELS.map(({ value }) => getModelCapabilities(value).maxCharacters),
-  ).toEqual([22, 22, 6, 6, 6, 6, 6]);
+  ).toEqual([22, 22, 22, 6, 6, 6, 6, 6]);
 });
 
 it("allows positioning a single character only on V5", () => {
@@ -266,7 +278,7 @@ it("allows positioning a single character only on V5", () => {
     MODELS.map(
       ({ value }) => getModelCapabilities(value).minPositionCharacters,
     ),
-  ).toEqual([1, 1, 2, 2, 2, 2, 2]);
+  ).toEqual([1, 1, 1, 2, 2, 2, 2, 2]);
 });
 
 it("starts each model with its default steps and CFG", () => {
@@ -278,6 +290,7 @@ it("starts each model with its default steps and CFG", () => {
     }),
   ).toEqual([
     [23, 7],
+    [14, 7],
     [23, 7],
     [23, 5],
     [23, 5],
@@ -285,4 +298,23 @@ it("starts each model with its default steps and CFG", () => {
     [23, 5],
     [23, 6.2],
   ]);
+});
+
+it("offers Effort only for V5 Full and fixes the Medium settings", () => {
+  const pair = {
+    high: "nai-diffusion-5-full",
+    medium: "nai-diffusion-5-full-medium",
+  };
+  expect(MODELS.map(({ value }) => getEffortModels(value))).toEqual([
+    pair,
+    pair,
+    ...Array(6).fill(undefined),
+  ]);
+  expect(getModelCapabilities(pair.high).fixedSettings).toBeUndefined();
+  expect(getModelCapabilities(pair.medium).fixedSettings).toEqual({
+    steps: 14,
+    sampler: "k_euler_ancestral",
+    promptGuidanceRescale: 0,
+    ucPreset: 0,
+  });
 });

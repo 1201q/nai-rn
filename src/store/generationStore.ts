@@ -107,6 +107,7 @@ import {
 import {
   DEFAULT_MODEL,
   getDefaultModelSettings,
+  getEffortModels,
   getModelCapabilities,
   MAX_STORED_CHARACTER_PROMPTS,
   type ModelSettings,
@@ -225,9 +226,18 @@ function switchModelSettings(
       varietyPlus: state.varietyPlus,
     },
   };
+  const effortModels = getEffortModels(nextModel);
   return {
     settingsByModel,
     ...(settingsByModel[nextModel] ?? getDefaultModelSettings(nextModel)),
+    // 공식 웹과 동일: Effort만 바꾸면 steps, sampler, schedule, rescale 외의 설정은 그대로 가져간다.
+    ...(effortModels && effortModels === getEffortModels(state.model)
+      ? {
+          resolution: state.resolution,
+          promptGuidance: state.promptGuidance,
+          varietyPlus: state.varietyPlus,
+        }
+      : {}),
   };
 }
 
@@ -1149,17 +1159,21 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       if (error) chunkErrors.push(error);
       return resolution.text.trim();
     };
+    // 고정 설정이 있는 모델(Effort Medium)은 저장된 값 대신 고정값으로 생성하고 사용자 UC를 보내지 않는다.
+    // 저장된 값은 그대로 두어 High로 돌아가면 다시 쓰인다.
+    const fixedSettings = getModelCapabilities(s.model).fixedSettings;
+    const steps = fixedSettings?.steps ?? s.steps;
     const effPrompt = expandChunks(overrides?.prompt ?? s.prompt);
-    const effNegativePrompt = expandChunks(
-      overrides?.negativePrompt ?? s.negativePrompt,
-    );
+    const effNegativePrompt = fixedSettings
+      ? ""
+      : expandChunks(overrides?.negativePrompt ?? s.negativePrompt);
     const effCharacterPrompts = resolveActiveCharacterPrompts(
       s.characterPrompts,
       s.model,
     ).map((item) => ({
       ...item,
       prompt: expandChunks(item.prompt),
-      negativePrompt: expandChunks(item.negativePrompt),
+      negativePrompt: fixedSettings ? "" : expandChunks(item.negativePrompt),
     }));
     if (chunkErrors.length > 0) {
       set({
@@ -1456,6 +1470,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         transparentBackground: s.transparentBackground,
         ucPreset: s.ucPreset,
         characterPositionEnabled: s.characterPositionEnabled,
+        ...fixedSettings,
         ...(vibeEncodedImages
           ? {
               vibeEncodedImages,
@@ -1489,7 +1504,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       message: null,
       queueTotal: total,
       queueIndex: 0,
-      queueSteps: s.steps,
+      queueSteps: steps,
       streamingPreviewUri: null,
       streamingStep: null,
       streamingGenerationId: null,
@@ -1499,7 +1514,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
     // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
     // 또는 비-Android면 직접 구동(포그라운드 한정).
-    const serviceStarted = await startGenerationService(total, s.steps);
+    const serviceStarted = await startGenerationService(total, steps);
     if (!serviceStarted) {
       void get().runQueueTask();
     }
@@ -1686,7 +1701,7 @@ export const selectAnlasCost = (s: GenerationState): number | null => {
     model: s.model,
     width: s.resolution.width,
     height: s.resolution.height,
-    steps: s.steps,
+    steps: getModelCapabilities(s.model).fixedSettings?.steps ?? s.steps,
     strength: isI2I ? s.i2iStrength : 1,
     smea: shouldUseAutoSmea(
       s.model,

@@ -36,11 +36,16 @@ export type AnlasCostInput = {
 
 export function estimateAnlasCost(input: AnlasCostInput): number {
   const px = input.width * input.height;
+  const capabilities = getModelCapabilities(input.model);
   const base = Math.ceil(
-    2.951823174884865e-6 * px + 5.753298233447344e-7 * px * input.steps,
+    2.951823174884865e-6 * px +
+      5.753298233447344e-7 *
+        px *
+        input.steps *
+        (capabilities.stepsCostScale ?? 1),
   );
   const smeaMultiplier = input.smea ? SMEA_MULTIPLIER : 1;
-  const isV5 = getModelCapabilities(input.model).v5Request;
+  const isV5 = capabilities.v5Request;
   // V5 배율은 올림한 base에 곱한다 (실측과 일치하는 순서).
   const perImage = Math.max(
     Math.ceil(
@@ -58,7 +63,7 @@ export function estimateAnlasCost(input: AnlasCostInput): number {
     input.steps <= OPUS_FREE_MAX_STEPS &&
     (!isV5 || input.usageNegative === false);
 
-  const supportsVibe = getModelCapabilities(input.model).vibeTransfer;
+  const supportsVibe = capabilities.vibeTransfer;
   const vibeExtra = supportsVibe
     ? Math.max(0, input.activeVibeCount - VIBE_FREE_COUNT) * VIBE_EXTRA_COST
     : 0;

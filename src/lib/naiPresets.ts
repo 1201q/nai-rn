@@ -9,6 +9,7 @@ const SEPARATOR = ", ";
 
 const QUALITY_SUFFIXES: Record<string, string> = {
   "nai-diffusion-5-full": "very aesthetic, masterpiece, no text",
+  "nai-diffusion-5-full-medium": "very aesthetic, masterpiece, no text",
   "nai-diffusion-5-curated": "very aesthetic, masterpiece, no text",
   "nai-diffusion-4-5-full": "very aesthetic, masterpiece, no text",
   "nai-diffusion-4-5-curated":
@@ -22,6 +23,7 @@ const QUALITY_SUFFIXES: Record<string, string> = {
 // Light Quality는 V5에만 있다 (공식 문서 2026-10-02).
 const LIGHT_QUALITY_SUFFIXES: Record<string, string> = {
   "nai-diffusion-5-full": "very aesthetic, amazing quality, no text",
+  "nai-diffusion-5-full-medium": "very aesthetic, amazing quality, no text",
   "nai-diffusion-5-curated": "very aesthetic, amazing quality, no text",
 };
 
@@ -46,6 +48,7 @@ const V5_UC_PRESETS: Partial<Record<UcPresetIndex, string>> = {
 
 const UC_PRESETS: Record<string, Partial<Record<UcPresetIndex, string>>> = {
   "nai-diffusion-5-full": V5_UC_PRESETS,
+  "nai-diffusion-5-full-medium": V5_UC_PRESETS,
   "nai-diffusion-5-curated": V5_UC_PRESETS,
   "nai-diffusion-4-5-full": V45_FULL_UC_PRESETS,
   "nai-diffusion-4-5-curated": {

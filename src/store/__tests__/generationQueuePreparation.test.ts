@@ -503,6 +503,46 @@ describe("generation queue execution", () => {
     expect(useGenerationStore.getState().isLoading).toBe(false);
   });
 
+  test("generates Effort Medium with its fixed settings and without user UC", async () => {
+    useGenerationStore.setState({
+      model: "nai-diffusion-5-full-medium",
+      steps: 30,
+      sampler: "k_euler",
+      promptGuidanceRescale: 0.3,
+      ucPreset: 4,
+      negativePrompt: "user uc",
+      characterPrompts: [
+        {
+          id: "a",
+          prompt: "girl",
+          negativePrompt: "character uc",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
+    });
+
+    await useGenerationStore.getState().generateImage();
+    expect(mockStartGenerationService).toHaveBeenCalledWith(1, 14);
+    expect(useGenerationStore.getState().queueSteps).toBe(14);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream.mock.calls[0][0]).toMatchObject({
+      model: "nai-diffusion-5-full-medium",
+      steps: 14,
+      sampler: "k_euler_ancestral",
+      promptGuidanceRescale: 0,
+      ucPreset: 0,
+      negativePrompt: "",
+      characterPrompts: [{ prompt: "girl", negativePrompt: "" }],
+    });
+    // 저장된 값은 High로 돌아갈 때 쓰도록 남겨 둔다.
+    expect(useGenerationStore.getState()).toMatchObject({
+      ucPreset: 4,
+      negativePrompt: "user uc",
+    });
+  });
+
   // 공식 웹과 같이 빈 프롬프트로도 생성할 수 있다.
   test("starts a queue with an empty prompt", async () => {
     useGenerationStore.setState({ prompt: "   " });
@@ -965,6 +1005,35 @@ describe("per-model generation settings", () => {
       steps: 30,
       promptGuidanceRescale: 0.1,
       sampler: "k_euler",
+    });
+  });
+
+  it("carries the shared values across an Effort switch and restores the rest", () => {
+    const MEDIUM = "nai-diffusion-5-full-medium";
+    useGenerationStore.getState().setModel(V5);
+    useGenerationStore.getState().setSteps(30);
+    useGenerationStore.getState().setSampler("k_euler");
+    useGenerationStore.getState().setPromptGuidanceRescale(0.1);
+    useGenerationStore.getState().setResolution(SQUARE);
+    useGenerationStore.getState().setPromptGuidance(6);
+
+    useGenerationStore.getState().setModel(MEDIUM);
+    expect(sampling()).toEqual({
+      ...V5_DEFAULT,
+      steps: 14,
+      resolution: SQUARE,
+      promptGuidance: 6,
+    });
+
+    useGenerationStore.getState().setPromptGuidance(4);
+    useGenerationStore.getState().setModel(V5);
+    expect(sampling()).toEqual({
+      ...V5_DEFAULT,
+      steps: 30,
+      sampler: "k_euler",
+      promptGuidanceRescale: 0.1,
+      resolution: SQUARE,
+      promptGuidance: 4,
     });
   });
 

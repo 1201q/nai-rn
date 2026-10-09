@@ -125,6 +125,19 @@ describe("estimateAnlasCost for V5", () => {
     expect(estimateAnlasCost(v5({ width, height, steps }))).toBe(cost);
   });
 
+  // 웹 번들 비용 함수의 실행 결과: docs/2026-10-09-novelai-v5-medium-high-effort-research.md §8.3
+  test.each([
+    [832, 1216, 17],
+    [1024, 1024, 18],
+    [1024, 1536, 26],
+  ])("Effort Medium %sx%s · 14 steps costs %s", (width, height, cost) => {
+    expect(
+      estimateAnlasCost(
+        v5({ model: "nai-diffusion-5-full-medium", width, height, steps: 14 }),
+      ),
+    ).toBe(cost);
+  });
+
   test("Opus is free only while the usage limit is known to remain", () => {
     expect(estimateAnlasCost(v5({ tier: 3, usageNegative: false }))).toBe(0);
     expect(estimateAnlasCost(v5({ tier: 3, usageNegative: true }))).toBe(30);

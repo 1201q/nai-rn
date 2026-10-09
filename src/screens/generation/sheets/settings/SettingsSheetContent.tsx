@@ -11,7 +11,11 @@ import {
   NOISE_SCHEDULES,
   SAMPLERS,
 } from "../../../../constants/generation";
-import { getModelCapabilities, MODELS } from "../../../../constants/models";
+import {
+  getEffortModels,
+  getModelCapabilities,
+  MODELS,
+} from "../../../../constants/models";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { resolveNoiseSchedule, resolveSampler } from "../../../../lib/novelai";
 import { useGenerationStore } from "../../../../store/generationStore";
@@ -35,7 +39,14 @@ const SETTINGS_KEYBOARD_GAP = 12;
 const SETTINGS_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 
-const MODEL_OPTIONS = MODELS.map((option) => option.label);
+// 공식 웹과 동일: Effort Medium 모델은 선택지에 넣지 않고 Effort로 고른다.
+const MODEL_OPTIONS = MODELS.filter(
+  (option) => getEffortModels(option.value)?.medium !== option.value,
+).map((option) => option.label);
+const EFFORT_OPTIONS = [
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+] as const;
 const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
 const SAMPLER_OPTIONS = SAMPLERS.map((option) => option.label);
 // 공식 웹과 동일: V5에는 DDIM이 없다.
@@ -100,9 +111,13 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [active]);
 
+  const effortModels = getEffortModels(model);
+  // Medium이어도 모델 선택에는 High 모델(V5 Full)로 표시한다.
+  const pickerModel = effortModels?.high ?? model;
   const modelLabel =
-    MODELS.find((option) => option.value === model)?.label ?? model;
+    MODELS.find((option) => option.value === pickerModel)?.label ?? pickerModel;
   const capabilities = getModelCapabilities(model);
+  const fixedSettings = capabilities.fixedSettings;
   const displaySampler = resolveSampler(model, sampler);
   const samplerLabel =
     SAMPLERS.find((option) => option.value === displaySampler)?.label ??
@@ -127,7 +142,7 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
 
   function changeModel(label: string) {
     const option = MODELS.find((candidate) => candidate.label === label);
-    if (option) setModel(option.value);
+    if (option && option.value !== pickerModel) setModel(option.value);
   }
 
   function changeResolutionPreset(preset: string) {
@@ -178,6 +193,48 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
         open={openSelect === "model"}
         onOpenChange={(open) => setSelectOpen("model", open)}
       />
+
+      {effortModels ? (
+        <View style={styles.effortField}>
+          <View style={styles.effortRow}>
+            <Text style={styles.settingsFieldLabel}>Effort</Text>
+            <View style={styles.effortControl}>
+              {EFFORT_OPTIONS.map((option) => {
+                const selected = effortModels[option.value] === model;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${option.label} effort`}
+                    accessibilityState={{ selected }}
+                    onPress={() => setModel(effortModels[option.value])}
+                    style={({ pressed }) => [
+                      styles.orientationButton,
+                      selected && styles.orientationButtonSelected,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.effortLabel,
+                        selected && styles.effortLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          {fixedSettings ? (
+            <Text style={styles.effortDescription}>
+              Medium은 비용이 적은 대신 Steps 14, Euler Ancestral, UC Preset
+              Heavy로 고정되고 Undesired Content를 쓸 수 없습니다.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.settingsSection}>
         <Text style={styles.settingsEyebrow}>IMAGE SETTINGS</Text>
@@ -235,19 +292,22 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
 
       <View style={styles.settingsSectionWide}>
         <Text style={styles.settingsEyebrow}>AI SETTINGS</Text>
-        <SettingsSlider
-          active={active}
-          label="Steps"
-          helpKey="steps"
-          helpOpen={helpKey === "steps"}
-          value={steps}
-          min={1}
-          max={50}
-          step={1}
-          precision={0}
-          onHelpToggle={() => toggleHelp("steps")}
-          onChange={setSteps}
-        />
+        {/* 공식 웹과 동일: 고정되는 설정(Steps, Sampler, Rescale)은 보여주지 않는다. */}
+        {fixedSettings ? null : (
+          <SettingsSlider
+            active={active}
+            label="Steps"
+            helpKey="steps"
+            helpOpen={helpKey === "steps"}
+            value={steps}
+            min={1}
+            max={50}
+            step={1}
+            precision={0}
+            onHelpToggle={() => toggleHelp("steps")}
+            onChange={setSteps}
+          />
+        )}
         <SettingsSlider
           active={active}
           label="Prompt Guidance"
@@ -283,21 +343,26 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
             <Text style={styles.settingsFieldLabel}>Seed</Text>
             <SettingsSeedInput active={active} />
           </View>
-          <SheetSelect
-            label="Sampler"
-            value={samplerLabel}
-            options={
-              capabilities.v5Request ? V5_SAMPLER_OPTIONS : SAMPLER_OPTIONS
-            }
-            onChange={changeSampler}
-            open={openSelect === "sampler"}
-            onOpenChange={(open) => setSelectOpen("sampler", open)}
-            style={styles.aiColumn}
-          />
+          {fixedSettings ? null : (
+            <SheetSelect
+              label="Sampler"
+              value={samplerLabel}
+              options={
+                capabilities.v5Request ? V5_SAMPLER_OPTIONS : SAMPLER_OPTIONS
+              }
+              onChange={changeSampler}
+              open={openSelect === "sampler"}
+              onOpenChange={(open) => setSelectOpen("sampler", open)}
+              style={styles.aiColumn}
+            />
+          )}
         </View>
       </View>
 
-      <View style={styles.settingsSectionWide}>
+      {/* Medium은 Rescale이 없고 V5라 Schedule도 없어 남는 항목이 없다. */}
+      <View
+        style={[styles.settingsSectionWide, fixedSettings && styles.hidden]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Advanced Settings"
@@ -412,6 +477,40 @@ const styles = StyleSheet.create({
   },
   orientationButtonSelected: {
     backgroundColor: tokens.color.toast,
+  },
+  effortField: {
+    gap: 9,
+  },
+  effortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  effortControl: {
+    height: 46,
+    flex: 1,
+    padding: 4,
+    flexDirection: "row",
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: tokens.color.sunken,
+  },
+  effortLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: 13,
+  },
+  effortLabelSelected: {
+    color: tokens.color.textPrimary,
+  },
+  effortDescription: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  hidden: {
+    display: "none",
   },
   varietyControl: {
     flexShrink: 0,

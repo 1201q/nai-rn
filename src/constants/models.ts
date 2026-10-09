@@ -3,6 +3,7 @@ import {
   type NaiResolution,
   type NoiseSchedule,
 } from "./generation";
+import type { UcPresetIndex } from "../lib/naiPresets";
 
 export type ImagePromptTokenizerType = "t5" | "clip" | "qwen";
 
@@ -39,6 +40,16 @@ export type ModelCapabilities = {
   defaultPromptGuidance: number;
   // V5 요청 형식: params_version 4, Karras 고정, 프리셋을 문자열 ID와 tag_hint로 전송
   v5Request: boolean;
+  // 있으면 저장된 값과 상관없이 이 값으로 생성하고, 사용자 UC는 보내지 않는다 (V5 Full Medium).
+  // Rescale은 미지원이라 0으로 맞춘다.
+  fixedSettings?: {
+    steps: number;
+    sampler: string;
+    promptGuidanceRescale: number;
+    ucPreset: UcPresetIndex;
+  };
+  // 비용 산식의 steps 항에 곱하는 보정값 (웹 번들 2026-10-09). 실제 서버 차감은 확인하지 못했다.
+  stepsCostScale?: number;
 };
 
 const T5_POLICY: ImagePromptTokenPolicy = { tokenizer: "t5", maxTokens: 512 };
@@ -65,6 +76,31 @@ export const MODEL_CAPABILITIES = {
     defaultSteps: 23,
     defaultPromptGuidance: 7,
     v5Request: true,
+  },
+  // V5 Full의 Effort Medium (증류 모델). 모델 선택지에는 넣지 않고 Effort로 고른다.
+  // 근거: docs/2026-10-09-novelai-v5-medium-high-effort-research.md
+  "nai-diffusion-5-full-medium": {
+    label: "V5 Full Medium",
+    description: "V5 Full의 Medium Effort, 비용이 적고 일부 설정이 고정됨",
+    v4Prompt: true,
+    vibeTransfer: false,
+    preciseReference: false,
+    autoSmea: false,
+    nativeNoiseSchedule: false,
+    curated: false,
+    tokenPolicy: { tokenizer: "qwen", maxTokens: 1471 },
+    maxCharacters: 22,
+    minPositionCharacters: 1,
+    defaultSteps: 14,
+    defaultPromptGuidance: 7,
+    v5Request: true,
+    fixedSettings: {
+      steps: 14,
+      sampler: "k_euler_ancestral",
+      promptGuidanceRescale: 0,
+      ucPreset: 0,
+    },
+    stepsCostScale: 1 / 1.06521739,
   },
   "nai-diffusion-5-curated": {
     label: "V5 Curated",
@@ -185,6 +221,18 @@ export const MODELS = Object.entries(MODEL_CAPABILITIES).map(
     description: capabilities.description,
   }),
 );
+
+// Effort는 요청 필드가 아니라 모델 ID로 고른다 (High = 기존 모델).
+const EFFORT_MODELS: readonly { high: ModelId; medium: ModelId }[] = [
+  { high: "nai-diffusion-5-full", medium: "nai-diffusion-5-full-medium" },
+];
+
+// Effort를 고를 수 있는 모델이면 High/Medium 모델 쌍을 돌려준다.
+export function getEffortModels(model: string) {
+  return EFFORT_MODELS.find(
+    (item) => item.high === model || item.medium === model,
+  );
+}
 
 export function isKnownModel(model: string): model is ModelId {
   return Object.prototype.hasOwnProperty.call(MODEL_CAPABILITIES, model);
