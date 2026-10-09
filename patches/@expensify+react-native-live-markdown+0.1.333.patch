@@ -1,34 +1,39 @@
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
-index ffd3220..5f2d9ba 100644
+index ffd3220..7e3ab93 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownFormatter.java
-@@ -75,16 +75,22 @@ public class MarkdownFormatter {
+@@ -7,6 +7,7 @@ import android.text.Spanned;
+ import androidx.annotation.NonNull;
+ 
+ import com.expensify.livemarkdown.spans.*;
++import com.facebook.react.uimanager.PixelUtil;
+ import com.facebook.react.views.text.internal.span.CustomLineHeightSpan;
+ import com.facebook.systrace.Systrace;
+ 
+@@ -75,16 +76,19 @@ public class MarkdownFormatter {
          break;
        case "mention-here":
          setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionHereColor()), start, end);
 -        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionHereBackgroundColor(), markdownStyle.getMentionHereBorderRadius(), start, end), start, end);
-+        setSpan(ssb, new MarkdownBackgroundSpan(
-+          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionHereBackgroundColor(),
-+          markdownStyle.getMentionHereBorderRadius(), start, end), start, end);
++        setSpan(ssb, createBackgroundSpan(markdownRange,
++          markdownStyle.getMentionHereBackgroundColor(), markdownStyle.getMentionHereBorderRadius()), start, end);
          break;
        case "mention-user":
          // TODO: change mention color when it mentions current user
          setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionUserColor()), start, end);
 -        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionUserBackgroundColor(), markdownStyle.getMentionUserBorderRadius(), start, end), start, end);
-+        setSpan(ssb, new MarkdownBackgroundSpan(
-+          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionUserBackgroundColor(),
-+          markdownStyle.getMentionUserBorderRadius(), start, end), start, end);
++        setSpan(ssb, createBackgroundSpan(markdownRange,
++          markdownStyle.getMentionUserBackgroundColor(), markdownStyle.getMentionUserBorderRadius()), start, end);
          break;
        case "mention-report":
          setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getMentionReportColor()), start, end);
 -        setSpan(ssb, new MarkdownBackgroundSpan(markdownStyle.getMentionReportBackgroundColor(), markdownStyle.getMentionReportBorderRadius(), start, end), start, end);
-+        setSpan(ssb, new MarkdownBackgroundSpan(
-+          markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : markdownStyle.getMentionReportBackgroundColor(),
-+          markdownStyle.getMentionReportBorderRadius(), start, end), start, end);
++        setSpan(ssb, createBackgroundSpan(markdownRange,
++          markdownStyle.getMentionReportBackgroundColor(), markdownStyle.getMentionReportBorderRadius()), start, end);
          break;
        case "syntax":
          setSpan(ssb, new MarkdownForegroundColorSpan(markdownStyle.getSyntaxColor()), start, end);
-@@ -125,6 +131,16 @@ public class MarkdownFormatter {
+@@ -125,6 +129,29 @@ public class MarkdownFormatter {
          setSpan(ssb, span, start, end);
          break;
      }
@@ -39,14 +44,27 @@ index ffd3220..5f2d9ba 100644
 +    if (markdownRange.getFontFamily() != null) {
 +      setSpan(ssb, new MarkdownFontFamilySpan(markdownRange.getFontFamily(), mAssetManager), start, end);
 +    }
++    if (markdownRange.getSpacer() != null) {
++      setSpan(ssb, new MarkdownSpacerSpan(PixelUtil.toPixelFromDIP(markdownRange.getSpacer())), start, end);
++    }
 +    if (markdownRange.isAtomic()) {
 +      setSpan(ssb, new MarkdownAtomicSpan(), start, end);
 +    }
++  }
++
++  private MarkdownBackgroundSpan createBackgroundSpan(@NonNull MarkdownRange markdownRange, int styleBackgroundColor, float styleBorderRadius) {
++    return new MarkdownBackgroundSpan(
++      markdownRange.getBackgroundColor() != null ? markdownRange.getBackgroundColor() : styleBackgroundColor,
++      markdownRange.getBorderRadius() != null ? PixelUtil.toPixelFromDIP(markdownRange.getBorderRadius()) : styleBorderRadius,
++      markdownRange.getBorderColor(),
++      PixelUtil.toPixelFromDIP(markdownRange.getVerticalOutset()),
++      markdownRange.getStart(),
++      markdownRange.getEnd());
    }
  
    private void setSpan(@NonNull SpannableStringBuilder ssb, @NonNull MarkdownSpan span, int start, int end) {
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
-index 3e108db..0ad513c 100644
+index 3e108db..9652658 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownParser.java
 @@ -1,6 +1,9 @@
@@ -59,7 +77,7 @@ index 3e108db..0ad513c 100644
  
  import com.facebook.react.bridge.ReactContext;
  import com.facebook.react.util.RNLog;
-@@ -63,10 +66,23 @@ public class MarkdownParser {
+@@ -63,10 +66,31 @@ public class MarkdownParser {
            int start = range.getInt("start");
            int length = range.getInt("length");
            int depth = range.optInt("depth", 1);
@@ -67,6 +85,10 @@ index 3e108db..0ad513c 100644
 +          Integer foregroundColor = parseColor(range, "foregroundColor");
 +          String fontFamily = range.optString("fontFamily", null);
 +          boolean atomic = range.optBoolean("atomic", false);
++          Integer borderColor = parseColor(range, "borderColor");
++          Float borderRadius = range.has("borderRadius") ? (float) range.getDouble("borderRadius") : null;
++          float verticalOutset = (float) range.optDouble("verticalOutset", 0);
++          Float spacer = range.has("spacer") ? (float) range.getDouble("spacer") : null;
            if (length == 0 || start + length > text.length()) {
              continue;
            }
@@ -79,12 +101,16 @@ index 3e108db..0ad513c 100644
 +            backgroundColor,
 +            foregroundColor,
 +            fontFamily,
-+            atomic
++            atomic,
++            borderColor,
++            borderRadius,
++            verticalOutset,
++            spacer
 +          ));
          }
        } catch (JSONException e) {
          RNLog.w(mReactContext, "[react-native-live-markdown] Incorrect schema of worklet parser output: " + e.getMessage());
-@@ -86,4 +102,14 @@ public class MarkdownParser {
+@@ -86,4 +110,14 @@ public class MarkdownParser {
        Systrace.endSection(0);
      }
    }
@@ -100,7 +126,7 @@ index 3e108db..0ad513c 100644
 +  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
-index 1fda115..5fe3439 100644
+index 1fda115..0525317 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownRange.java
 @@ -1,6 +1,7 @@
@@ -111,7 +137,7 @@ index 1fda115..5fe3439 100644
  
  public class MarkdownRange {
    private final @NonNull String mType;
-@@ -8,13 +9,30 @@ public class MarkdownRange {
+@@ -8,13 +9,42 @@ public class MarkdownRange {
    private final int mEnd;
    private final int mLength;
    private final int mDepth;
@@ -119,6 +145,10 @@ index 1fda115..5fe3439 100644
 +  private final @Nullable Integer mForegroundColor;
 +  private final @Nullable String mFontFamily;
 +  private final boolean mAtomic;
++  private final @Nullable Integer mBorderColor;
++  private final @Nullable Float mBorderRadius;
++  private final float mVerticalOutset;
++  private final @Nullable Float mSpacer;
  
 -  public MarkdownRange(@NonNull String type, int start, int length, int depth) {
 +  public MarkdownRange(
@@ -129,7 +159,11 @@ index 1fda115..5fe3439 100644
 +    @Nullable Integer backgroundColor,
 +    @Nullable Integer foregroundColor,
 +    @Nullable String fontFamily,
-+    boolean atomic
++    boolean atomic,
++    @Nullable Integer borderColor,
++    @Nullable Float borderRadius,
++    float verticalOutset,
++    @Nullable Float spacer
 +  ) {
      mType = type;
      mStart = start;
@@ -140,10 +174,14 @@ index 1fda115..5fe3439 100644
 +    mForegroundColor = foregroundColor;
 +    mFontFamily = fontFamily;
 +    mAtomic = atomic;
++    mBorderColor = borderColor;
++    mBorderRadius = borderRadius;
++    mVerticalOutset = verticalOutset;
++    mSpacer = spacer;
    }
  
    public String getType() {
-@@ -36,4 +54,20 @@ public class MarkdownRange {
+@@ -36,4 +66,39 @@ public class MarkdownRange {
    public int getDepth() {
      return mDepth;
    }
@@ -162,6 +200,25 @@ index 1fda115..5fe3439 100644
 +
 +  public boolean isAtomic() {
 +    return mAtomic;
++  }
++
++  public @Nullable Integer getBorderColor() {
++    return mBorderColor;
++  }
++
++  // In dp. Null means the radius of the range type's style.
++  public @Nullable Float getBorderRadius() {
++    return mBorderRadius;
++  }
++
++  // In dp. Grows the background above and below the text.
++  public float getVerticalOutset() {
++    return mVerticalOutset;
++  }
++
++  // In dp. When set, the range is drawn as an empty gap of this width instead of its text.
++  public @Nullable Float getSpacer() {
++    return mSpacer;
 +  }
  }
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/MarkdownTextInputDecoratorView.java
@@ -517,10 +574,10 @@ index 0000000..1888761
 +public class MarkdownAtomicSpan implements MarkdownSpan {
 +}
 diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
-index 557fc71..df70b80 100644
+index 557fc71..3547756 100644
 --- a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
 +++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownBackgroundSpan.java
-@@ -4,29 +4,31 @@ import android.graphics.Canvas;
+@@ -4,29 +4,55 @@ import android.graphics.Canvas;
  import android.graphics.Paint;
  import android.graphics.Path;
  import android.graphics.RectF;
@@ -532,24 +589,51 @@ index 557fc71..df70b80 100644
  
  import androidx.annotation.ColorInt;
  import androidx.annotation.NonNull;
- 
-+import com.facebook.react.views.textinput.ReactEditText;
++import androidx.annotation.Nullable;
 +
++import com.facebook.react.uimanager.PixelUtil;
++import com.facebook.react.views.textinput.ReactEditText;
+ 
  public class MarkdownBackgroundSpan implements MarkdownSpan, LineBackgroundSpan {
  
 -  private final int backgroundColor;
    private final int mentionStart;
    private final int mentionEnd;
    private final float borderRadius;
- 
+-
 -  private StaticLayout layout;
 -  private Path backgroundPath;
+-
+-  public MarkdownBackgroundSpan(@ColorInt int backgroundColor, float borderRadius, int mentionStart, int mentionEnd) {
+-    this.backgroundColor = backgroundColor;
++  private final float verticalOutset;
++
 +  private final Path backgroundPath;
 +  private final Paint backgroundPaint;
- 
-   public MarkdownBackgroundSpan(@ColorInt int backgroundColor, float borderRadius, int mentionStart, int mentionEnd) {
--    this.backgroundColor = backgroundColor;
++  // Only set for ranges with a border.
++  private final @Nullable Path borderPath;
++  private final @Nullable Paint borderPaint;
++
++  public MarkdownBackgroundSpan(
++    @ColorInt int backgroundColor,
++    float borderRadius,
++    @Nullable Integer borderColor,
++    float verticalOutset,
++    int mentionStart,
++    int mentionEnd
++  ) {
      this.borderRadius = borderRadius;
++    this.verticalOutset = verticalOutset;
++    if (borderColor != null) {
++      this.borderPath = new Path();
++      this.borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
++      this.borderPaint.setStyle(Paint.Style.STROKE);
++      this.borderPaint.setStrokeWidth(PixelUtil.toPixelFromDIP(1));
++      this.borderPaint.setColor(borderColor);
++    } else {
++      this.borderPath = null;
++      this.borderPaint = null;
++    }
      this.mentionStart = mentionStart;
      this.mentionEnd = mentionEnd;
      this.backgroundPath = new Path();
@@ -558,7 +642,7 @@ index 557fc71..df70b80 100644
    }
  
    @Override
-@@ -43,37 +45,76 @@ public class MarkdownBackgroundSpan implements MarkdownSpan, LineBackgroundSpan
+@@ -43,37 +69,85 @@ public class MarkdownBackgroundSpan implements MarkdownSpan, LineBackgroundSpan
      int end,
      int lnum
    ) {
@@ -568,27 +652,13 @@ index 557fc71..df70b80 100644
 -      int currentLineEnd = lineText.length();
 -      // Create layout for the current line only
 -      layout = StaticLayout.Builder.obtain(lineText, currentLineStart, currentLineEnd, (TextPaint) paint, right).build();
--
--      int relativeMentionStart = mentionStart - start;
--      int relativeMentionEnd = mentionEnd - start;
--
--      boolean mentionStartsInCurrentLine = currentLineStart <= relativeMentionStart;
--      boolean mentionEndsInCurrentLine = currentLineEnd >= relativeMentionEnd;
--
--      float startX = layout.getPrimaryHorizontal(mentionStartsInCurrentLine ? relativeMentionStart: currentLineStart);
--      float endX = layout.getPrimaryHorizontal(mentionEndsInCurrentLine ? relativeMentionEnd : currentLineEnd);
--
--      Paint.FontMetrics fm = paint.getFontMetrics();
--      float startY = baseline + fm.ascent;
--      float endY = baseline + fm.descent;
 +    // Intentionally empty. Android draws the native caret before LineBackgroundSpans,
 +    // so drawing here would cover it. The decorator draws these backgrounds before
 +    // dispatching the ReactEditText instead.
 +  }
  
--      RectF lineRect = new RectF(startX, startY, endX, endY);
--      backgroundPath.reset();
--      backgroundPath.addRoundRect(lineRect, createRadii(mentionStartsInCurrentLine, mentionEndsInCurrentLine), Path.Direction.CW);
+-      int relativeMentionStart = mentionStart - start;
+-      int relativeMentionEnd = mentionEnd - start;
 +  public void drawBehindTextInput(
 +    @NonNull Canvas canvas,
 +    @NonNull ReactEditText editText
@@ -597,29 +667,39 @@ index 557fc71..df70b80 100644
 +    Editable editable = editText.getText();
 +    if (layout == null || editable == null || editable.length() == 0) {
 +      return;
-     }
++    }
  
--    int originalColor = paint.getColor();
--    paint.setColor(backgroundColor);
+-      boolean mentionStartsInCurrentLine = currentLineStart <= relativeMentionStart;
+-      boolean mentionEndsInCurrentLine = currentLineEnd >= relativeMentionEnd;
 +    int rangeStart = Math.max(0, Math.min(mentionStart, editable.length()));
 +    int rangeEnd = Math.max(rangeStart, Math.min(mentionEnd, editable.length()));
 +    if (rangeStart == rangeEnd) {
 +      return;
 +    }
  
--    canvas.drawPath(backgroundPath, paint);
+-      float startX = layout.getPrimaryHorizontal(mentionStartsInCurrentLine ? relativeMentionStart: currentLineStart);
+-      float endX = layout.getPrimaryHorizontal(mentionEndsInCurrentLine ? relativeMentionEnd : currentLineEnd);
 +    int startLine = layout.getLineForOffset(rangeStart);
 +    int endLine = layout.getLineForOffset(rangeEnd - 1);
 +    Paint.FontMetrics fontMetrics = editText.getPaint().getFontMetrics();
-+
+ 
+-      Paint.FontMetrics fm = paint.getFontMetrics();
+-      float startY = baseline + fm.ascent;
+-      float endY = baseline + fm.descent;
 +    int saveCount = canvas.save();
 +    canvas.clipRect(0, 0, editText.getWidth(), editText.getHeight());
 +    canvas.translate(
 +      editText.getCompoundPaddingLeft() - editText.getScrollX(),
 +      editText.getExtendedPaddingTop() - editText.getScrollY()
 +    );
-+
+ 
+-      RectF lineRect = new RectF(startX, startY, endX, endY);
+-      backgroundPath.reset();
+-      backgroundPath.addRoundRect(lineRect, createRadii(mentionStartsInCurrentLine, mentionEndsInCurrentLine), Path.Direction.CW);
 +    backgroundPath.reset();
++    if (borderPath != null) {
++      borderPath.reset();
++    }
 +    for (int line = startLine; line <= endLine; line++) {
 +      int lineStart = layout.getLineStart(line);
 +      int lineEnd = layout.getLineEnd(line);
@@ -644,23 +724,73 @@ index 557fc71..df70b80 100644
 +      float baseline = layout.getLineBaseline(line);
 +      RectF lineRect = new RectF(
 +        left,
-+        baseline + fontMetrics.ascent,
++        baseline + fontMetrics.ascent - verticalOutset,
 +        right,
-+        baseline + fontMetrics.descent
++        baseline + fontMetrics.descent + verticalOutset
 +      );
-+      backgroundPath.addRoundRect(
-+        lineRect,
-+        createRadii(startsRange, endsRange),
-+        Path.Direction.CW
-+      );
-+    }
++      float[] radii = createRadii(startsRange, endsRange);
++      backgroundPath.addRoundRect(lineRect, radii, Path.Direction.CW);
++      if (borderPath != null && borderPaint != null) {
++        // Keep the stroke inside the background.
++        float inset = borderPaint.getStrokeWidth() / 2;
++        lineRect.inset(inset, inset);
++        borderPath.addRoundRect(lineRect, radii, Path.Direction.CW);
++      }
+     }
  
+-    int originalColor = paint.getColor();
+-    paint.setColor(backgroundColor);
+-
+-    canvas.drawPath(backgroundPath, paint);
+-
 -    paint.setColor(originalColor);
 +    canvas.drawPath(backgroundPath, backgroundPaint);
++    if (borderPath != null && borderPaint != null) {
++      canvas.drawPath(borderPath, borderPaint);
++    }
 +    canvas.restoreToCount(saveCount);
    }
  
    private float[] createRadii(boolean roundedLeft, boolean roundedRight) {
+diff --git a/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownSpacerSpan.java b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownSpacerSpan.java
+new file mode 100644
+index 0000000..52c7ce3
+--- /dev/null
++++ b/node_modules/@expensify/react-native-live-markdown/android/src/main/java/com/expensify/livemarkdown/spans/MarkdownSpacerSpan.java
+@@ -0,0 +1,33 @@
++package com.expensify.livemarkdown.spans;
++
++import android.graphics.Canvas;
++import android.graphics.Paint;
++import android.text.style.ReplacementSpan;
++
++import androidx.annotation.NonNull;
++import androidx.annotation.Nullable;
++
++/**
++ * Hides its text and takes a fixed width instead. The text stays in the input,
++ * so it is still copied, selected and deleted as usual.
++ */
++public class MarkdownSpacerSpan extends ReplacementSpan implements MarkdownSpan {
++  private final int mWidth;
++
++  public MarkdownSpacerSpan(float width) {
++    mWidth = Math.round(width);
++  }
++
++  @Override
++  public int getSize(@NonNull Paint paint, CharSequence text, int start, int end, @Nullable Paint.FontMetricsInt fm) {
++    if (fm != null) {
++      // Keep the metrics of the surrounding text so the line does not change height.
++      paint.getFontMetricsInt(fm);
++    }
++    return mWidth;
++  }
++
++  @Override
++  public void draw(@NonNull Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, @NonNull Paint paint) {
++  }
++}
 diff --git a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm b/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm
 index 350653c..aa0476b 100644
 --- a/node_modules/@expensify/react-native-live-markdown/apple/MarkdownFormatter.mm
