@@ -1,0 +1,368 @@
+/* Visual refinement and compact prompt sheet headers. */
+:root {
+  --app: #111217;
+  --card: #1d1e25;
+  --alt: #191a21;
+  --sunken: #15161c;
+  --raised: #282a33;
+  --toast: #30323c;
+  --prompt-surface: #14151b;
+  --prompt-border: #32343e;
+  --accent: #f3c85d;
+  --on-accent: #211a0c;
+  --text: #f3f2ee;
+  --secondary: #d2d2db;
+  --tertiary: #a09fab;
+  --muted: #898894;
+  --negative: #eaa2a6;
+  --border: rgba(220, 223, 245, 0.09);
+  --finish-edge: rgba(236, 239, 255, 0.07);
+  --finish-accent: rgba(243, 200, 93, 0.1);
+  --finish-focus: rgba(243, 200, 93, 0.45);
+  --panel-edge-top: #3b3d47;
+  --panel-edge-side: #30323c;
+  --panel-edge-bottom: #252730;
+  --panel-surface: linear-gradient(180deg, #1c1e26, #16171e);
+  --panel-header: linear-gradient(180deg, #292b35, #22242d);
+  --panel-shadow: inset 0 1px 0 rgba(236, 239, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.phone {
+  box-shadow:
+    0 0 0 1px rgba(236, 239, 255, 0.1),
+    0 28px 80px #0009;
+}
+.home-indicator {
+  opacity: 0.7;
+}
+.sheet {
+  background: linear-gradient(180deg, #1d1e26 0, var(--alt) 170px);
+  box-shadow:
+    inset 0 1px 0 rgba(236, 239, 255, 0.09),
+    0 -16px 40px #0006;
+}
+.handle span {
+  background: #4c4d59;
+}
+.sheet-header {
+  border-bottom-color: rgba(220, 223, 245, 0.07);
+}
+.sheet-header,
+.sheet.collapsed .preview {
+  height: 44px;
+}
+.sheet.collapsed {
+  height: calc(var(--bar) + 64px);
+}
+.sheet.collapsed .preview {
+  flex-shrink: 0;
+}
+.canvas-section {
+  bottom: calc(var(--bar) + 64px);
+}
+.actionbar {
+  background: #191a21;
+  border-top-color: rgba(220, 223, 245, 0.1);
+  box-shadow: 0 -6px 18px rgba(10, 11, 16, 0.22);
+}
+.placeholder {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 12.14px,
+    rgba(208, 210, 232, 0.034) 12.14px 14.14px
+  );
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px rgba(220, 223, 245, 0.035);
+}
+.balance,
+.round,
+.toolbar,
+.usage {
+  box-shadow:
+    inset 0 1px 0 var(--finish-edge),
+    0 6px 16px #0004;
+}
+.toolbar {
+  background: rgba(35, 36, 45, 0.96);
+}
+.toolbar .tool-toggle {
+  background: #2b2c36;
+  box-shadow: inset 1px 0 0 rgba(236, 239, 255, 0.05);
+}
+.round,
+.close,
+.square,
+.action-icon,
+.seed-action,
+.help {
+  background: linear-gradient(180deg, #2b2d37, #242630);
+  box-shadow: inset 0 1px 0 var(--finish-edge);
+}
+.help {
+  color: #aaa9b4;
+}
+.generate,
+.save,
+.position-save,
+.import-button,
+.form-actions .primary {
+  background: linear-gradient(180deg, #f6d175, var(--accent));
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 229, 0.4),
+    0 3px 10px #0002;
+}
+.action-icon.selected {
+  background: var(--finish-accent);
+  border-color: rgba(243, 200, 93, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(243, 200, 93, 0.05);
+}
+.action-icon.selected .icon {
+  color: var(--accent);
+}
+.tabs button {
+  color: var(--tertiary);
+}
+.tabs button.selected {
+  color: var(--text);
+}
+.tabs button.selected:after {
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(243, 200, 93, 0.15);
+}
+.tab-badge {
+  color: #d7d6df;
+  background: #30313c;
+  box-shadow: inset 0 1px 0 var(--finish-edge);
+}
+.prompt-card,
+.character-card,
+.reference-card,
+.character-section {
+  border-color: var(--panel-edge-top) var(--panel-edge-side)
+    var(--panel-edge-bottom);
+  background: var(--panel-surface);
+  box-shadow: var(--panel-shadow);
+}
+.import-card {
+  border-color: var(--prompt-border);
+  box-shadow: inset 0 1px 0 rgba(236, 239, 255, 0.025);
+}
+.character-section,
+.reference-card:not(.filled-card) {
+  background: linear-gradient(180deg, #252730, #1d1f27);
+}
+.character-head,
+.metadata-character-head,
+.reference-group > .reference-head {
+  background: var(--panel-header);
+  box-shadow: inset 0 1px 0 rgba(236, 239, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+.character-action {
+  border-left-color: rgba(220, 223, 245, 0.055);
+}
+.character-action.active,
+.reference-enable.active {
+  background: linear-gradient(180deg, #353742, #2b2d37);
+  box-shadow: inset 0 1px 0 rgba(236, 239, 255, 0.05);
+}
+.character-head .number {
+  background: #191b22;
+  color: #b8b7c2;
+  box-shadow: inset 0 0 0 1px rgba(236, 239, 255, 0.05);
+}
+.character-head .number.positioned {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.reference-group > .reference-head {
+  border-color: var(--panel-edge-top) var(--panel-edge-side)
+    var(--panel-edge-bottom);
+}
+.reference-group .filled-card {
+  background: var(--panel-surface);
+}
+.reference-item {
+  background: transparent;
+}
+.reference-thumbnail img {
+  border-color: var(--panel-edge-bottom) var(--panel-edge-side)
+    var(--panel-edge-top);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.normalize {
+  border-top-color: rgba(220, 223, 245, 0.06);
+}
+.reference-head > .icon {
+  color: #b4b3bf;
+}
+.reference-cost {
+  background: #242630;
+  color: #b5b4c0;
+  box-shadow: inset 0 0 0 1px var(--finish-edge);
+}
+.select,
+.dimensions,
+.seed {
+  background: linear-gradient(180deg, #2a2c36, #252730);
+  box-shadow:
+    inset 0 1px 0 var(--finish-edge),
+    inset 0 0 0 1px rgba(236, 239, 255, 0.03);
+}
+.select .icon {
+  color: #a7a6b2;
+}
+.slider-value,
+.form-input,
+.token-shell {
+  background: #17181f;
+  border-color: #343641;
+  box-shadow: inset 0 1px 3px #0002;
+}
+.slider-value {
+  font-variant-numeric: tabular-nums;
+}
+.segmented {
+  background: #15161d;
+  box-shadow: inset 0 0 0 1px rgba(236, 239, 255, 0.045);
+}
+.segmented button.selected,
+.mode.selected,
+.mode-group.selected {
+  background: #30323d;
+  box-shadow:
+    inset 0 1px 0 rgba(236, 239, 255, 0.08),
+    0 2px 4px #0002;
+}
+.mode-group.selected .mode {
+  background: none;
+  box-shadow: none;
+}
+.compact {
+  color: #afadba;
+  background: #23242d;
+  box-shadow: inset 0 0 0 1px rgba(236, 239, 255, 0.055);
+}
+.eyebrow {
+  color: #aeacb8;
+}
+.token-bar {
+  background: #111319;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(236, 239, 255, 0.045);
+}
+.toggle {
+  background: #343640;
+  box-shadow: inset 0 0 0 1px rgba(236, 239, 255, 0.06);
+}
+.toggle span {
+  background: #c7c6cf;
+  box-shadow: 0 1px 3px #0004;
+}
+.toggle.on {
+  background: var(--accent);
+}
+.toggle.on span {
+  background: var(--on-accent);
+}
+.history-tile {
+  background: #15161d;
+  box-shadow: inset 0 0 0 1px var(--finish-edge);
+}
+.metadata-cell {
+  background: #23242d;
+  box-shadow: inset 0 1px 0 var(--finish-edge);
+}
+.metadata-cell small {
+  color: #a09daa;
+}
+.option {
+  border-top-color: rgba(220, 223, 245, 0.08);
+}
+.option p,
+.account p,
+.security,
+.reference-note,
+.import-character-mode p {
+  color: var(--tertiary);
+}
+.tier {
+  border-color: rgba(243, 200, 93, 0.4);
+  background: rgba(243, 200, 93, 0.045);
+}
+.import-card.selected {
+  border-color: rgba(243, 200, 93, 0.3);
+  background: linear-gradient(
+    120deg,
+    rgba(243, 200, 93, 0.045),
+    var(--card) 75%
+  );
+}
+.picker-options {
+  background: #20212a;
+  border-color: #424450;
+  box-shadow:
+    0 12px 32px #0007,
+    inset 0 1px 0 var(--finish-edge);
+}
+.picker-options button.selected {
+  background: var(--finish-accent);
+}
+.settings-tooltip,
+#toast {
+  background: #30323c;
+  box-shadow:
+    inset 0 0 0 1px rgba(236, 239, 255, 0.09),
+    0 10px 24px #0005;
+}
+
+/* Feedback changes paint only; control positions and sizes stay fixed. */
+.phone button,
+.phone input,
+.prompt-card {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease;
+}
+.phone button:active:not(:disabled) {
+  opacity: 0.85;
+}
+.phone button:focus-visible {
+  outline: 2px solid var(--finish-focus);
+  outline-offset: 2px;
+}
+.prompt-card:focus-within,
+.character-card:focus-within {
+  border-color: var(--finish-focus);
+}
+.slider-value:focus,
+.form-input:focus,
+.token-shell:focus-within,
+.seed:focus-within,
+.dimensions:focus-within {
+  border-color: var(--finish-focus);
+  box-shadow: inset 0 0 0 1px rgba(243, 200, 93, 0.15);
+}
+@media (hover: hover) {
+  .phone .select:hover,
+  .phone .round:hover,
+  .phone .close:hover,
+  .phone .square:hover,
+  .phone .action-icon:not(.selected):hover {
+    box-shadow: inset 0 0 0 1px rgba(236, 239, 255, 0.12);
+  }
+  .phone .picker-options button:hover {
+    background: #2a2c36;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone button,
+  .phone input,
+  .prompt-card {
+    transition: none;
+  }
+}

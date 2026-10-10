@@ -1,0 +1,637 @@
+/* Experimental design layer. Loaded after styles.css and details.css.
+   Layout is untouched; remove the <link> in index.html to get the current app back. */
+
+/* 1. Surfaces: wider, evenly spaced steps so each level is distinguishable.
+      app < sheet(alt) < card < raised(control) < toast(selected); sunken = typing wells. */
+:root {
+  --app: #0c0c0f;
+  --alt: #151518;
+  --card: #1c1c21;
+  --sunken: #0e0e11;
+  --raised: #25252b;
+  --toast: #34343c;
+  --prompt-surface: #0e0e11;
+  --prompt-border: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f3f3f5;
+  --secondary: #cdcdd3;
+  --tertiary: #a0a0a9;
+  --muted: #85858f;
+  --r-s: 8px;
+  --r-m: 12px;
+  --r-l: 16px;
+  --slider-fill: #e9e9ec;
+  --slider-track: var(--toast);
+}
+.phone {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2. Flat chrome: hairlines instead of drop shadows on the canvas controls. */
+.balance,
+.usage,
+.round {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.toolbar {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.toolbar .tool-toggle {
+  background: var(--raised);
+}
+.sheet {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 -18px 44px #0008;
+}
+
+/* 3. Accent is reserved for the primary action and on-states.
+      Sliders and "which sheet is open" use neutral emphasis instead. */
+.action-icon.selected {
+  border-color: transparent;
+  background: var(--toast);
+}
+input[type="range"],
+.slider-controls input[type="range"] {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--slider-fill) 0 var(--percent),
+    var(--slider-track) var(--percent) 100%
+  );
+}
+input[type="range"]::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.token-bar {
+  background: var(--raised);
+}
+
+/* 4. One radius scale: 8 (inner/small), 12 (controls), 16 (cards). */
+.select,
+.seed,
+.segmented,
+.resolution-controls .segmented,
+.generate,
+.action-icon,
+.square,
+.token-shell,
+.form-input,
+.form-actions button {
+  border-radius: var(--r-m);
+}
+.segmented button,
+.character-section .segmented button,
+.seed-action,
+.slider-value,
+.dimensions,
+.mode,
+.mode-group,
+.chunk-chip,
+.chunk-option,
+.chunk-category,
+.position-chip,
+.reference-cost {
+  border-radius: var(--r-s);
+}
+.prompt-card,
+.character-section,
+.import-button {
+  border-radius: var(--r-l);
+}
+
+/* 5. Type: labels step back so values lead; fewer competing sizes. */
+.sheet-header h2 {
+  font-size: 20px;
+}
+.field > label,
+.field-label,
+.slider-label {
+  font-size: 13px;
+  color: var(--tertiary);
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.7px;
+  color: var(--muted);
+}
+.tabs button {
+  color: var(--tertiary);
+}
+.account-title,
+.option h3 {
+  font-size: 15px;
+}
+.account p,
+.option p,
+.security {
+  color: var(--tertiary);
+}
+
+/* 6. Control details. */
+.toggle {
+  background: var(--toast);
+}
+.toggle span {
+  background: var(--secondary);
+}
+.help {
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  color: var(--tertiary);
+}
+.settings-page .slider-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tabs-header .close,
+.metadata-header .close {
+  align-self: center;
+  margin: 0 0 0 4px;
+}
+.character-section {
+  border: 0;
+}
+.character-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--prompt-border);
+}
+
+/* 7. Character header: number, name, enable switch, more menu, expand. */
+.character-action {
+  border-left: 0;
+}
+.toggle.small {
+  width: 36px;
+  height: 22px;
+  align-self: center;
+  margin: 0 6px;
+}
+.toggle.small span {
+  width: 16px;
+  height: 16px;
+}
+.toggle.small.on span {
+  transform: translateX(14px);
+}
+.character-menu button.destructive {
+  color: var(--negative);
+}
+
+/* 8. Metadata sheet: read-only content, everything visible and copyable. */
+#app[data-screen="metadata"] .sheet-scroll:has(.meta-import),
+#app[data-screen="metadata"] .sheet-scroll:has(.import-confirm) {
+  gap: 24px;
+  padding-bottom: calc(var(--bar) + 12px);
+}
+.meta-card {
+  flex-shrink: 0;
+  padding: 2px 16px;
+  border-radius: var(--r-l);
+  background: var(--card);
+}
+.meta-card h4 {
+  margin: 0;
+  padding: 14px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.meta-block {
+  padding: 8px 0 14px;
+}
+.meta-block + .meta-block {
+  border-top: 1px solid var(--border);
+}
+.meta-block-head {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tertiary);
+}
+.meta-copy {
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  display: grid;
+  place-items: center;
+  color: var(--tertiary);
+}
+.meta-copy .icon {
+  font-size: 16px;
+}
+.readonly-prompt {
+  min-height: 0;
+}
+.readonly-prompt.empty {
+  color: var(--muted);
+}
+.meta-row {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  text-align: left;
+}
+.meta-row + .meta-row {
+  border-top: 1px solid var(--border);
+}
+.meta-row span:first-child {
+  color: var(--tertiary);
+}
+.meta-row b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.meta-row b .icon {
+  font-size: 14px;
+  color: var(--tertiary);
+}
+.meta-import,
+.import-confirm {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--r-m);
+  background: var(--toast);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* 9. Import: one checklist showing the values that will be applied. */
+.sheet-back {
+  width: 28px;
+  height: 38px;
+  margin-left: -4px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--tertiary);
+}
+.import-lead {
+  margin: 0 4px -8px;
+}
+.import-item + .import-item {
+  border-top: 1px solid var(--border);
+}
+.import-row {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.import-row strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+}
+.import-preview {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.import-row .import-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+.meta-card .import-character-mode {
+  padding: 0 0 14px 34px;
+}
+.import-confirm {
+  background: var(--text);
+  color: var(--app);
+}
+.import-confirm:disabled {
+  opacity: 1;
+  background: var(--toast);
+  color: var(--muted);
+}
+
+/* 10. Prompt tabs: first label starts at 19px. */
+.tabs-header {
+  padding-left: 7px;
+}
+.sheet-header:not(.tabs-header) {
+  padding-left: 18px;
+}
+
+/* 11. Sheet headers: one height (handle 17px + 48px) open and collapsed, so the
+       collapsed strip is exactly the header of the open sheet. */
+:root {
+  --sheet-header: 44px;
+  --sheet-peek: calc(17px + var(--sheet-header));
+}
+.sheet-header,
+.sheet.collapsed .preview {
+  height: var(--sheet-header);
+}
+.sheet.collapsed {
+  height: calc(var(--bar) + var(--sheet-peek));
+}
+.canvas-section,
+.position-area {
+  bottom: calc(var(--bar) + var(--sheet-peek));
+}
+
+/* 12. One header button size across every sheet. */
+.sheet-header .close {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+}
+.sheet-header .close .icon,
+.sheet-header:not(.tabs-header):not(.metadata-header) .close .icon {
+  font-size: 20px;
+}
+
+/* 13. Action bar side inset. */
+.actionbar {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+/* 14. Reference Images: same enable switch as the character header, quieter
+       item actions, and a divider under the Normalize row. */
+.reference-actions {
+  align-items: center;
+  justify-content: space-between;
+}
+.reference-delete {
+  width: 32px;
+  height: 32px;
+}
+.reference-actions .toggle.small {
+  margin: 0 2px 0 0;
+}
+.reference-thumbnail img {
+  border-radius: var(--r-s);
+}
+.reference-thumbnail img.disabled {
+  opacity: 0.4;
+}
+.normalize {
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+}
+.reference-item .slider-value {
+  width: 56px;
+}
+.reference-item .slider-controls {
+  gap: 12px;
+}
+
+/* 15. Chunks: content is bare text, not cards, so it gets a wider 18px inset;
+       the last header icon lines up with the sheet close button. */
+#app[data-screen="chunks"] .sheet-scroll {
+  padding-left: 18px;
+  padding-right: 18px;
+}
+.chunks-header button:last-child {
+  margin-right: -5px;
+}
+
+/* 16. Token meter: taller bar on a visible track, this field in accent over
+       the total in grey. */
+.token-meter {
+  width: 100%;
+  height: 24px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+}
+.character-footer .token-meter {
+  margin-top: 0;
+}
+.token-meter .token-bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  margin: 0;
+  border-radius: 3px;
+  background: var(--raised);
+}
+.token-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 6px;
+  border-radius: 3px;
+}
+.token-bar i.total {
+  background: #73737f;
+}
+.token-bar i.field {
+  background: var(--accent);
+  box-shadow: 2px 0 0 var(--prompt-surface);
+}
+.token-meter.over i.field {
+  background: var(--negative);
+}
+
+/* 17. Prompt card and Character Prompts block. */
+.character-section h3 {
+  font-size: 15px;
+}
+.character-section .subtle {
+  font-size: 13px;
+  font-weight: 500;
+}
+/* the grid button is an action, not a third choice */
+.segmented [data-action="position"] {
+  flex: 0 0 40px;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--secondary);
+}
+.segmented [data-action="position"] .icon {
+  font-size: 17px;
+}
+/* same space under the meter as in the character cards */
+.prompt-panel,
+.prompt-panel.split-panel {
+  padding-bottom: 5px;
+}
+
+/* 18. Settings: a lone field in a two-column row (Seed on V5 Full Medium)
+       keeps its half width instead of stretching. */
+.columns > :only-child {
+  flex: 0 0 calc(50% - 6px);
+}
+.field > .segmented {
+  flex: none;
+}
+.field > .description {
+  margin: -2px 0 0;
+}
+.dimension-swap {
+  color: var(--tertiary);
+}
+
+/* 19. Dropdowns: group headings (Recommended / Legacy / Others). */
+.picker-group {
+  padding: 12px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.picker-group:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* 20. Variety+: an on/off chip like the official UI (x when off, check and a
+       filled background when on) instead of a switch. */
+.toggle-chip {
+  height: 26px;
+  margin: -4px 0;
+  padding: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tertiary);
+}
+.toggle-chip .icon {
+  font-size: 12px;
+}
+.toggle-chip.on {
+  background: var(--toast);
+  box-shadow: none;
+  color: var(--text);
+}
+.toggle-chip.on .icon {
+  color: var(--accent);
+}
+
+/* 21. Effort (V5 Full) is a compact row under the Model dropdown. */
+.field-head {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field-head label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tertiary);
+}
+.segmented.mini {
+  flex: none;
+  height: 28px;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--r-s);
+}
+.segmented.mini button {
+  flex: none;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+
+
+
+/* 22. Sheet header: no divider at rest; a plain hairline appears once content
+       has scrolled under the header. */
+.sheet-header {
+  border-bottom-color: transparent;
+  transition: border-color 0.15s;
+}
+.sheet.scrolled .sheet-header {
+  border-bottom-color: var(--border);
+}
+
+/* 23. History grid: rows keep their tile height when the list is longer than
+       the sheet, so the grid scrolls instead of squeezing rows together. */
+.history-grid {
+  grid-auto-rows: max-content;
+}
+
+/* 24. History selection mode: actions float in a pill over the grid, and the
+       grid darkens toward the bottom so the pill stays readable over images. */
+.selection-actions {
+  height: 120px;
+  padding: 0 0 14px;
+  justify-content: center;
+  align-items: flex-end;
+  border-top: 0;
+  background: linear-gradient(transparent, rgba(8, 8, 10, 0.55) 55%, rgba(8, 8, 10, 0.9));
+  pointer-events: none;
+}
+.selection-pill {
+  height: 52px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--raised);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+.selection-pill .selection-action {
+  border-radius: 50%;
+}
+.selection-pill [data-action="delete-history"] {
+  color: var(--negative);
+}
+
+/* 25. Metadata / Import: content fades into the sheet colour under the
+       floating button (no darkening). */
+#app[data-screen="metadata"] .sheet.utility::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--bar);
+  z-index: 1;
+  height: 120px;
+  background: linear-gradient(rgba(21, 21, 24, 0), rgba(21, 21, 24, 0.7) 55%, rgba(21, 21, 24, 0.96));
+  pointer-events: none;
+}
+.meta-import,
+.import-confirm {
+  z-index: 2;
+}
