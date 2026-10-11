@@ -10,22 +10,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Portal } from "@gorhom/portal";
-import Reanimated, {
-  cancelAnimation,
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import Reanimated from "react-native-reanimated";
 
-import type { PredictiveBackEvent } from "../../native/predictiveBack";
-import {
-  PREDICTIVE_BACK_CANCEL_SPRING,
-  PREDICTIVE_BACK_MIN_SCALE,
-  PREDICTIVE_BACK_SCALE_STOP,
-} from "../../native/predictiveBackStyle";
-import { useBackHandler } from "../../native/useBackHandler";
+import { usePopoverBackHandler } from "../../native/usePopoverBackHandler";
 import { tokens } from "../../styles/tokens";
 
 const NATIVE_RESPONDER_BLOCKER = { blockNativeResponder: true } as const;
@@ -69,7 +56,6 @@ export function SheetSelect({
   } | null>(null);
   const triggerRef = useRef<View>(null);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const predictiveBackProgress = useSharedValue(0);
   const open = controlledOpen ?? internalOpen;
 
   const setOpen = useCallback(
@@ -80,6 +66,10 @@ export function SheetSelect({
     [controlledOpen, onOpenChange],
   );
   const closeSelect = useCallback(() => setOpen(false), [setOpen]);
+  const { popoverStyle, resetPredictiveBack } = usePopoverBackHandler(
+    open,
+    closeSelect,
+  );
   const toggleSelect = useCallback(() => {
     if (open) {
       closeSelect();
@@ -87,12 +77,11 @@ export function SheetSelect({
     }
 
     triggerRef.current?.measureInWindow((x, y, width, height) => {
-      cancelAnimation(predictiveBackProgress);
-      predictiveBackProgress.value = 0;
+      resetPredictiveBack();
       setAnchor({ x, y, width, height });
       setOpen(true);
     });
-  }, [closeSelect, open, predictiveBackProgress, setOpen]);
+  }, [closeSelect, open, resetPredictiveBack, setOpen]);
   const selectOption = useCallback(
     (option: string) => {
       onChange(option);
@@ -100,35 +89,6 @@ export function SheetSelect({
     },
     [closeSelect, onChange],
   );
-  const trackPredictiveBack = useCallback(
-    (event: PredictiveBackEvent) => {
-      cancelAnimation(predictiveBackProgress);
-      predictiveBackProgress.value = event.progress;
-    },
-    [predictiveBackProgress],
-  );
-  const cancelPredictiveBack = useCallback(() => {
-    predictiveBackProgress.value = withSpring(0, PREDICTIVE_BACK_CANCEL_SPRING);
-  }, [predictiveBackProgress]);
-  const predictiveOptionsStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: interpolate(
-          predictiveBackProgress.value,
-          [0, PREDICTIVE_BACK_SCALE_STOP],
-          [1, PREDICTIVE_BACK_MIN_SCALE],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-  }));
-
-  useBackHandler(open, {
-    onBack: closeSelect,
-    onStart: trackPredictiveBack,
-    onProgress: trackPredictiveBack,
-    onCancel: cancelPredictiveBack,
-  });
 
   const optionsWidth = Math.min(
     Math.max(anchor?.width ?? 0, OPTIONS_MIN_WIDTH),
@@ -208,7 +168,7 @@ export function SheetSelect({
                   left: optionsLeft,
                   width: optionsWidth,
                 },
-                predictiveOptionsStyle,
+                popoverStyle,
               ]}
             >
               {options.map((option) => {

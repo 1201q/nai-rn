@@ -1,0 +1,15 @@
+diff --git a/node_modules/expo-blur/android/src/main/java/expo/modules/blur/ExpoBlurView.kt b/node_modules/expo-blur/android/src/main/java/expo/modules/blur/ExpoBlurView.kt
+index 71344c8..ea1813f 100644
+--- a/node_modules/expo-blur/android/src/main/java/expo/modules/blur/ExpoBlurView.kt
++++ b/node_modules/expo-blur/android/src/main/java/expo/modules/blur/ExpoBlurView.kt
+@@ -159,7 +159,9 @@ class ExpoBlurView(context: Context, appContext: AppContext) : ExpoView(context,
+     val dimezisBlurTarget = blurTarget?.blurTargetView
+       ?: throw BlurViewConfigurationException("The BlurView targeting blur target with id: $blurTargetId couldn't find the target")
+ 
+-    blurView.setupWith(dimezisBlurTarget)
++    // nai-rn patch: same as setupWith(target) but with the blue-noise overlay turned off
++    // (scaleFactor 4f is the library default).
++    blurView.setupWith(dimezisBlurTarget, 4f, false)
+       .setFrameClearDrawable(decorView.background)
+       .setBlurRadius(blurRadius / blurReduction)
+ 

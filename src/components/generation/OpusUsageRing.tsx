@@ -1,5 +1,5 @@
-import { memo, useEffect } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { memo, useEffect, type RefObject } from "react";
+import { Pressable, StyleSheet, Text, type View } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,6 +8,7 @@ import Reanimated, {
 import Svg, { Circle } from "react-native-svg";
 import { toast } from "sonner-native";
 
+import { GlassBackground } from "../common/GlassBackground";
 import { formatUsageMessage } from "../../lib/opusUsage";
 import { tokens } from "../../styles/tokens";
 
@@ -26,12 +27,14 @@ export const OpusUsageRing = memo(function OpusUsageRing({
   nextPercentAt,
   visible,
   slideDistance,
+  blurTarget,
 }: {
   percent: number;
   exhausted: boolean;
   nextPercentAt?: number;
   visible: boolean;
   slideDistance: number;
+  blurTarget: RefObject<View | null>;
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const color = exhausted ? tokens.color.negative : tokens.color.accent;
@@ -60,6 +63,7 @@ export const OpusUsageRing = memo(function OpusUsageRing({
         onPress={() => toast(formatUsageMessage(clamped, nextPercentAt))}
         style={({ pressed }) => [styles.badge, pressed && styles.pressed]}
       >
+        <GlassBackground blurTarget={blurTarget} />
         <Svg
           accessible={false}
           width={RING_SIZE}
@@ -101,9 +105,8 @@ const styles = StyleSheet.create({
     height: BADGE_SIZE,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.card,
-    ...tokens.shadow.floatMd,
   },
   pressed: {
     opacity: tokens.opacity.pressed,

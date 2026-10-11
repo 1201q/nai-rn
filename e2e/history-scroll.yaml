@@ -1,0 +1,44 @@
+# History 그리드 스크롤 성능 측정용 Maestro 흐름.
+#
+# 준비
+#   1. 프리뷰(릴리스) 빌드를 기기에 설치한다.
+#   2. App Settings > "History 더미 이미지 (테스트용)"으로 이미지를 채운다 (10번 = 2000장).
+#   3. History 헤더에서 리스트 구현(flat / flash / legend)과 열 수를 고른다.
+#      둘 다 저장되므로 측정 중 앱이 다시 시작되어도 유지된다.
+#
+# 단독 실행
+#   maestro test -e ENGINE=flat e2e/history-scroll.yaml
+#
+# Flashlight로 반복 측정 (구현마다 ENGINE과 결과 파일 이름을 바꿔서 실행)
+#   flashlight test --bundleId com.q1201.nairn.preview --testCommand "maestro test -e ENGINE=flat e2e/history-scroll.yaml" --duration 20000 --resultsFilePath flat.json
+#   flashlight report flat.json flash.json legend.json
+#
+# 다른 빌드를 재려면 APP_ID도 넘긴다: -e APP_ID=com.q1201.nairn
+appId: ${APP_ID}
+env:
+  APP_ID: com.q1201.nairn.dev
+  ENGINE: flat
+---
+- launchApp
+- tapOn: "History 열기"
+# 헤더의 전환 버튼 글자로, 재려는 구현이 맞는지 확인한다.
+- assertVisible: ${ENGINE}
+- waitForAnimationToEnd
+
+# 아래로 빠르게 넘긴다.
+- repeat:
+    times: 12
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 30%
+          duration: 150
+
+# 다시 위로 넘긴다.
+- repeat:
+    times: 12
+    commands:
+      - swipe:
+          start: 50%, 35%
+          end: 50%, 80%
+          duration: 150

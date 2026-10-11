@@ -2,6 +2,7 @@ import { render } from "@testing-library/react-native";
 import { Image } from "expo-image";
 
 import type { GenerationRecord } from "../../../../lib/generationHistory";
+import { createHistorySelectionStore } from "../historySelection";
 import { HistorySheetTile } from "../HistoryTiles";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
@@ -22,9 +23,10 @@ test("history tiles show the grid thumbnail", async () => {
         } as GenerationRecord
       }
       index={0}
+      columns={3}
       size={100}
       selectionMode={false}
-      selected={false}
+      selection={createHistorySelectionStore()}
       isCurrent={false}
       disabled={false}
       onPress={jest.fn()}

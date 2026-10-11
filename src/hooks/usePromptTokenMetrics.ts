@@ -7,6 +7,7 @@ import {
   type PromptTokenTarget,
 } from "../lib/promptTokens/metrics";
 import { useGenerationStore } from "../store/generationStore";
+import { usePromptChunkStore } from "../store/promptChunkStore";
 
 const TOKEN_COUNT_DEBOUNCE_MS = 250;
 
@@ -46,6 +47,7 @@ export function usePromptTokenMetrics(
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
   );
+  const chunks = usePromptChunkStore((state) => state.chunks);
   const [metrics, setMetrics] = useState(() => createInitialMetrics(model));
   const requestIdRef = useRef(0);
 
@@ -72,6 +74,7 @@ export function usePromptTokenMetrics(
           transparentBackground,
           ucPreset,
           characterPrompts,
+          chunks,
         },
         target,
         draftText,
@@ -95,6 +98,7 @@ export function usePromptTokenMetrics(
     return () => clearTimeout(timeout);
   }, [
     characterPrompts,
+    chunks,
     draftText,
     model,
     negativePrompt,

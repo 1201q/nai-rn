@@ -32,11 +32,7 @@ import {
   PredictiveBackSheetLayer,
   PressableSurface,
 } from "./SheetLayers";
-import {
-  MetadataSheetPager,
-  type MetadataSheetPagerController,
-  useMetadataSheetPagerController,
-} from "./metadata/MetadataSheetPager";
+import { MetadataSheet } from "./metadata/MetadataSheet";
 import { SettingsSheetContent } from "./settings/SettingsSheetContent";
 import { SHEET_EASING, sheetChromeStyles } from "./sheetChrome";
 
@@ -51,14 +47,12 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   onClose,
   historyController,
   generation,
-  metadataPagerController,
 }: {
   sheet: UtilitySheet;
   active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
   generation: MetadataSheetSource | null;
-  metadataPagerController: MetadataSheetPagerController;
 }) {
   if (sheet === "history") {
     return <HistorySheetContent controller={historyController} />;
@@ -67,11 +61,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   if (sheet === "metadata") {
     return generation ? (
       <BottomSheetView style={sheetChromeStyles.sheetBody}>
-        <MetadataSheetPager
-          generation={generation}
-          onClose={onClose}
-          controller={metadataPagerController}
-        />
+        <MetadataSheet generation={generation} onClose={onClose} />
       </BottomSheetView>
     ) : null;
   }
@@ -86,14 +76,21 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
     >
       <View style={styles.utilityHeader}>
+        <View style={styles.headerSide}>
+          <PressableSurface
+            accessibilityLabel={`${title} 닫기`}
+            onPress={onClose}
+            style={styles.closeButton}
+          >
+            <Ionicons
+              name="close-outline"
+              size={22}
+              color={tokens.color.textPrimary}
+            />
+          </PressableSurface>
+        </View>
         <Text style={styles.utilityTitle}>{title}</Text>
-        <PressableSurface
-          accessibilityLabel={`${title} 닫기`}
-          onPress={onClose}
-          style={styles.closeButton}
-        >
-          <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
-        </PressableSurface>
+        <View style={styles.headerSide} />
       </View>
       <View style={styles.divider} />
       <SettingsSheetContent active={active} />
@@ -138,7 +135,6 @@ export function UtilitySheetHost({
   const contentSheet =
     renderedSheet ?? (transition.retainSettings ? "settings" : null);
   const historyController = useHistorySheetController({ onClose });
-  const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
   const { utilitySheetTop } = useGenerationChromeMetrics();
   const snapPoints = useMemo(
@@ -259,13 +255,6 @@ export function UtilitySheetHost({
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
-          activeOffsetY={renderedSheet === "metadata" ? [-10, 10] : undefined}
-          failOffsetX={renderedSheet === "metadata" ? [-18, 18] : undefined}
-          waitFor={
-            renderedSheet === "metadata"
-              ? metadataPagerController.pageGesture
-              : undefined
-          }
           handleComponent={
             renderedSheet === "history" ? renderHistoryHandle : undefined
           }
@@ -292,7 +281,6 @@ export function UtilitySheetHost({
               onClose={onClose}
               historyController={historyController}
               generation={generation}
-              metadataPagerController={metadataPagerController}
             />
           )}
         </BottomSheet>
@@ -313,25 +301,28 @@ const styles = StyleSheet.create({
   },
   utilityHeader: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingLeft: 20,
-    paddingRight: 12,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+  },
+  // 좌우 칸을 같은 너비로 두어 제목이 항상 가운데에 온다.
+  headerSide: {
+    flex: 1,
+    alignItems: "flex-start",
   },
   utilityTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 23,
+    fontSize: 16,
     letterSpacing: -0.3,
+    // 글자 높이 중심을 닫기 아이콘 중심에 맞춘다.
+    top: -1,
   },
   closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.color.raised,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

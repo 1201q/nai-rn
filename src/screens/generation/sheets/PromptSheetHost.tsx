@@ -33,6 +33,7 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
+import { PromptChunksSheetContent } from "../../../components/generation/PromptChunksSheetContent";
 import { PromptSheetContent } from "../../../components/generation/PromptSheetContent";
 import { ReferenceImagesSheetContent } from "../../../components/generation/ReferenceImagesSheetContent";
 import { useGenerationInputCommit } from "../../../context/GenerationInputCommitContext";
@@ -219,7 +220,7 @@ function PromptHeader({
           >
             <Ionicons
               name="chevron-down"
-              size={19}
+              size={20}
               color={tokens.color.textPrimary}
             />
           </PressableSurface>
@@ -236,8 +237,10 @@ export function PromptSheetHost({
   onPromptStageChange,
   onMetadataExtract,
   onEditCharacterPositions,
+  positionEditing = false,
 }: {
   onEditCharacterPositions: (characterId: string | null) => void;
+  positionEditing?: boolean;
   promptPreview: string;
   promptStage: PromptSheetStage;
   predictiveBackProgress: SharedValue<number>;
@@ -264,10 +267,9 @@ export function PromptSheetHost({
 
   function useStaticPageFocus(effect: EffectCallback) {
     useEffect(() => {
-      // Scrollable pages register themselves; only the empty page is a View.
-      if (promptTab === "chunks" || promptStage === "collapsed")
-        return effect();
-    }, [effect, promptTab, promptStage]);
+      // Scrollable pages register themselves while the sheet is open.
+      if (promptStage === "collapsed") return effect();
+    }, [effect, promptStage]);
   }
   const referenceCount = useGenerationStore(
     (state) =>
@@ -450,6 +452,7 @@ export function PromptSheetHost({
                             active={active}
                             sheetHiddenHeight={sheetHiddenHeight}
                             onEditCharacterPositions={onEditCharacterPositions}
+                            positionEditing={positionEditing}
                           />
                         ) : item.key === "reference" ? (
                           <ReferenceImagesSheetContent
@@ -458,7 +461,10 @@ export function PromptSheetHost({
                             onMetadataExtract={onMetadataExtract}
                           />
                         ) : (
-                          <View style={styles.emptyPromptPage} />
+                          <PromptChunksSheetContent
+                            active={active}
+                            sheetHiddenHeight={sheetHiddenHeight}
+                          />
                         )}
                       </View>
                     );
@@ -507,12 +513,13 @@ const styles = StyleSheet.create({
   },
   tabsLayer: {
     zIndex: 1,
-    paddingHorizontal: 12,
+    paddingLeft: 10,
+    paddingRight: 12,
     flexDirection: "row",
     alignItems: "stretch",
   },
   promptPreviewButton: {
-    height: GENERATION_SHEET_HEADER_HEIGHT,
+    flex: 1,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -550,9 +557,9 @@ const styles = StyleSheet.create({
   },
   promptTabIndicator: {
     position: "absolute",
-    right: 12,
+    right: 10,
     bottom: 0,
-    left: 12,
+    left: 10,
     height: 2,
     backgroundColor: "transparent",
   },
@@ -576,15 +583,12 @@ const styles = StyleSheet.create({
   promptCloseButton: {
     width: 34,
     height: 34,
-    marginTop: 2,
+    alignSelf: "center",
     marginLeft: 4,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,
-  },
-  emptyPromptPage: {
-    flex: 1,
   },
   pressed: {
     opacity: tokens.opacity.pressed,

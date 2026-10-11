@@ -86,6 +86,8 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   default: jest.fn(() => ({ width: 390, height: 844, scale: 1, fontScale: 1 })),
 }));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
+jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("sonner-native", () => ({ toast: { success: jest.fn() } }));
 jest.mock("../../../native/predictiveBack", () => ({
   usePredictiveBackHandler: () => {},
@@ -144,6 +146,21 @@ jest.mock("../../../components/generation/ReferenceImagesSheetContent", () => {
     }) {
       React.useEffect(() => {
         if (active) mockScrollableRegistration("reference-scroll");
+      }, [active]);
+      return null;
+    },
+  };
+});
+jest.mock("../../../components/generation/PromptChunksSheetContent", () => {
+  const React = require("react") as typeof import("react");
+  return {
+    PromptChunksSheetContent: function MockChunksContent({
+      active,
+    }: {
+      active: boolean;
+    }) {
+      React.useEffect(() => {
+        if (active) mockScrollableRegistration("chunks-scroll");
       }, [active]);
       return null;
     },
@@ -1045,7 +1062,9 @@ describe("generation sheet accessibility visibility", () => {
       "reference-scroll",
     );
     await fireEvent.press(screen.getByRole("tab", { name: "Chunks" }));
-    expect(mockScrollableRegistration).toHaveBeenLastCalledWith("view");
+    expect(mockScrollableRegistration).toHaveBeenLastCalledWith(
+      "chunks-scroll",
+    );
     await fireEvent.press(screen.getByRole("tab", { name: "Prompt" }));
     expect(mockScrollableRegistration).toHaveBeenLastCalledWith(
       "prompt-scroll",
@@ -1088,7 +1107,7 @@ describe("generation sheet safe area", () => {
         />,
       );
       expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([
-        128 + bottom,
+        132.5 + bottom,
         444,
         844 - fullTop,
       ]);
@@ -1144,11 +1163,11 @@ describe("generation sheet safe area", () => {
     await prompt.rerender(renderPrompt());
 
     expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([
-      149, 149, 334,
+      153.5, 153.5, 334,
     ]);
   });
 
-  test("lets the Metadata pager win horizontal gestures over the sheet", async () => {
+  test("leaves the Metadata sheet on the default sheet gestures", async () => {
     jest.mocked(useSafeAreaInsets).mockReturnValue({
       top: 0,
       bottom: 0,
@@ -1164,10 +1183,10 @@ describe("generation sheet safe area", () => {
       />,
     );
 
-    expect(mockSheetProps.mock.calls.at(-1)?.[0]).toMatchObject({
-      activeOffsetY: [-10, 10],
-      failOffsetX: [-18, 18],
-    });
-    expect(mockSheetProps.mock.calls.at(-1)?.[0].waitFor).toBeDefined();
+    // 가로 페이저가 없어져 시트 제스처를 양보시킬 대상이 없다.
+    const props = mockSheetProps.mock.calls.at(-1)?.[0];
+    expect(props?.activeOffsetY).toBeUndefined();
+    expect(props?.failOffsetX).toBeUndefined();
+    expect(props?.waitFor).toBeUndefined();
   });
 });

@@ -26,6 +26,7 @@ import {
   saveEncodedVibeReference,
 } from "../../lib/vibeReferences";
 import { useGenerationStore } from "../generationStore";
+import { usePromptChunkStore } from "../promptChunkStore";
 import {
   acquireGenerationWakeLock,
   releaseGenerationWakeLock,
@@ -502,6 +503,46 @@ describe("generation queue execution", () => {
     expect(useGenerationStore.getState().isLoading).toBe(false);
   });
 
+  test("generates Effort Medium with its fixed settings and without user UC", async () => {
+    useGenerationStore.setState({
+      model: "nai-diffusion-5-full-medium",
+      steps: 30,
+      sampler: "k_euler",
+      promptGuidanceRescale: 0.3,
+      ucPreset: 4,
+      negativePrompt: "user uc",
+      characterPrompts: [
+        {
+          id: "a",
+          prompt: "girl",
+          negativePrompt: "character uc",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
+    });
+
+    await useGenerationStore.getState().generateImage();
+    expect(mockStartGenerationService).toHaveBeenCalledWith(1, 14);
+    expect(useGenerationStore.getState().queueSteps).toBe(14);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream.mock.calls[0][0]).toMatchObject({
+      model: "nai-diffusion-5-full-medium",
+      steps: 14,
+      sampler: "k_euler_ancestral",
+      promptGuidanceRescale: 0,
+      ucPreset: 0,
+      negativePrompt: "",
+      characterPrompts: [{ prompt: "girl", negativePrompt: "" }],
+    });
+    // 저장된 값은 High로 돌아갈 때 쓰도록 남겨 둔다.
+    expect(useGenerationStore.getState()).toMatchObject({
+      ucPreset: 4,
+      negativePrompt: "user uc",
+    });
+  });
+
   // 공식 웹과 같이 빈 프롬프트로도 생성할 수 있다.
   test("starts a queue with an empty prompt", async () => {
     useGenerationStore.setState({ prompt: "   " });
@@ -510,6 +551,63 @@ describe("generation queue execution", () => {
 
     expect(result).toEqual({ status: "started" });
     expect(mockStartGenerationService).toHaveBeenCalledTimes(1);
+  });
+
+  test("expands prompt chunks once when the queue is created", async () => {
+    usePromptChunkStore.setState({
+      chunks: [
+        {
+          id: "1",
+          name: "Style",
+          content: "oil, !macro:Tone!",
+          color: "#6B7280",
+          categoryId: null,
+        },
+        {
+          id: "2",
+          name: "Tone",
+          content: "warm",
+          color: "#6B7280",
+          categoryId: null,
+        },
+      ],
+      categories: [],
+    });
+    useGenerationStore.setState({
+      prompt: "1girl, !macro:Style!",
+      negativePrompt: "!macro:Tone!",
+      characterPrompts: [
+        {
+          id: "c1",
+          prompt: "girl, !macro:Tone!",
+          negativePrompt: "!macro:Style!",
+          enabled: true,
+          position: { x: 0.5, y: 0.5 },
+        },
+      ],
+    });
+
+    await useGenerationStore.getState().generateImage();
+    // 큐가 만들어진 뒤의 수정은 진행 중인 배치에 반영되지 않는다.
+    usePromptChunkStore.setState({ chunks: [], categories: [] });
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream.mock.calls[0][0]).toMatchObject({
+      prompt: "1girl, oil, warm",
+      negativePrompt: "warm",
+      characterPrompts: [{ prompt: "girl, warm", negativePrompt: "oil, warm" }],
+    });
+  });
+
+  test("rejects generation when a prompt chunk reference cannot be resolved", async () => {
+    usePromptChunkStore.setState({ chunks: [], categories: [] });
+    useGenerationStore.setState({ prompt: "1girl, !macro:Gone!" });
+
+    const result = await useGenerationStore.getState().generateImage();
+
+    expect(result).toEqual({ status: "rejected", reason: "validation" });
+    expect(mockStartGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().message).toContain("Gone");
   });
 
   test("cleans queue state and resources after successful execution", async () => {
@@ -777,15 +875,16 @@ test("restores current options while ignoring removed legacy settings", () => {
     const { storage } =
       require("../../lib/storage") as typeof import("../../lib/storage");
     const resolution = { label: "Custom 960x1280", width: 960, height: 1280 };
-    jest.mocked(storage.getString).mockReturnValueOnce(
-      JSON.stringify({
-        resolution,
-        batchCount: 4,
-        prompt: "retained prompt",
-        customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
-        vibeReferenceExpandedIds: ["old-vibe"],
-        preciseReferenceExpandedIds: ["old-precise"],
-      }),
+    const stored = JSON.stringify({
+      resolution,
+      batchCount: 4,
+      prompt: "retained prompt",
+      customResolutions: [{ id: "old-preset", width: 960, height: 1280 }],
+      vibeReferenceExpandedIds: ["old-vibe"],
+      preciseReferenceExpandedIds: ["old-precise"],
+    });
+    (storage.getString as jest.Mock).mockImplementation((key: string) =>
+      key === "nai_generation_options_v1" ? stored : undefined,
     );
     const { useGenerationStore: restoredStore } =
       require("../generationStore") as typeof import("../generationStore");
@@ -906,6 +1005,35 @@ describe("per-model generation settings", () => {
       steps: 30,
       promptGuidanceRescale: 0.1,
       sampler: "k_euler",
+    });
+  });
+
+  it("carries the shared values across an Effort switch and restores the rest", () => {
+    const MEDIUM = "nai-diffusion-5-full-medium";
+    useGenerationStore.getState().setModel(V5);
+    useGenerationStore.getState().setSteps(30);
+    useGenerationStore.getState().setSampler("k_euler");
+    useGenerationStore.getState().setPromptGuidanceRescale(0.1);
+    useGenerationStore.getState().setResolution(SQUARE);
+    useGenerationStore.getState().setPromptGuidance(6);
+
+    useGenerationStore.getState().setModel(MEDIUM);
+    expect(sampling()).toEqual({
+      ...V5_DEFAULT,
+      steps: 14,
+      resolution: SQUARE,
+      promptGuidance: 6,
+    });
+
+    useGenerationStore.getState().setPromptGuidance(4);
+    useGenerationStore.getState().setModel(V5);
+    expect(sampling()).toEqual({
+      ...V5_DEFAULT,
+      steps: 30,
+      sampler: "k_euler",
+      promptGuidanceRescale: 0.1,
+      resolution: SQUARE,
+      promptGuidance: 4,
     });
   });
 

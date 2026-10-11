@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from "react";
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Portal } from "@gorhom/portal";
 import { Image as ExpoImage, type ImageLoadEventData } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
@@ -31,6 +33,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { toast } from "sonner-native";
 
+import { GlassBackground } from "../../components/common/GlassBackground";
 import {
   requestGallerySavePermission,
   saveImageToGallery,
@@ -229,8 +232,12 @@ const FreeTransformImage = memo(function FreeTransformImage({
 
 export function GenerationCanvas({
   onOpenMetadata,
+  toolbarBlur,
 }: {
   onOpenMetadata: () => void;
+  // 주면 도구 바 배경이 target을 비추는 블러가 된다. BlurView는 자기 대상 안에 있을 수
+  // 없으므로, 도구 바는 대상 밖에 둔 portalHost로 옮겨 그린다.
+  toolbarBlur?: { target: RefObject<View | null>; portalHost: string };
 }) {
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const streamingPreviewUri = useGenerationStore((s) => s.streamingPreviewUri);
@@ -365,6 +372,75 @@ export function GenerationCanvas({
     ),
   }));
 
+  const toolbar = (
+    <View pointerEvents="box-none" style={styles.toolbarRow}>
+      <Reanimated.View
+        style={[
+          styles.toolbar,
+          !toolbarBlur && styles.toolbarSolid,
+          toolbarStyle,
+        ]}
+      >
+        {toolbarBlur ? (
+          <GlassBackground blurTarget={toolbarBlur.target} />
+        ) : null}
+        <Reanimated.View
+          pointerEvents={expanded ? "auto" : "none"}
+          accessibilityElementsHidden={!expanded}
+          importantForAccessibility={expanded ? "auto" : "no-hide-descendants"}
+          style={[styles.toolbarActions, actionStyle]}
+        >
+          <ToolbarAction
+            icon={mainImageBlurred ? "eye-off-outline" : "eye-outline"}
+            label={mainImageBlurred ? "이미지 블러 해제" : "이미지 블러 적용"}
+            active={mainImageBlurred}
+            onPress={() => setMainImageBlurred(!mainImageBlurred)}
+          />
+          <ToolbarAction
+            icon={isSaving ? undefined : "download-outline"}
+            label="이미지 다운로드"
+            disabled={!canUseImageActions || isSaving}
+            loading={isSaving}
+            onPress={saveImage}
+          />
+          <ToolbarAction
+            icon={isCopying ? undefined : "copy-outline"}
+            label="이미지 복사"
+            disabled={!canUseImageActions || isCopying}
+            loading={isCopying}
+            onPress={copyImage}
+          />
+          <ToolbarAction
+            icon="information-circle-outline"
+            label="메타데이터 정보"
+            disabled={!canUseImageActions}
+            onPress={onOpenMetadata}
+          />
+        </Reanimated.View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            expanded ? "이미지 도구 접기" : "이미지 도구 펼치기"
+          }
+          accessibilityState={{ expanded }}
+          hitSlop={4}
+          onPress={toggleToolbar}
+          style={({ pressed }) => [
+            styles.toolbarToggle,
+            !toolbarBlur && styles.toolbarToggleSolid,
+            pressed && styles.toolbarPressed,
+          ]}
+        >
+          <Ionicons
+            name={expanded ? "chevron-forward" : "chevron-back"}
+            size={18}
+            color={tokens.color.textPrimary}
+          />
+        </Pressable>
+      </Reanimated.View>
+    </View>
+  );
+
   return (
     <View style={styles.section}>
       <View
@@ -402,64 +478,14 @@ export function GenerationCanvas({
         ) : null}
       </View>
 
-      <View style={styles.toolbarRow}>
-        <Reanimated.View style={[styles.toolbar, toolbarStyle]}>
-          <Reanimated.View
-            pointerEvents={expanded ? "auto" : "none"}
-            accessibilityElementsHidden={!expanded}
-            importantForAccessibility={
-              expanded ? "auto" : "no-hide-descendants"
-            }
-            style={[styles.toolbarActions, actionStyle]}
-          >
-            <ToolbarAction
-              icon={mainImageBlurred ? "eye-off-outline" : "eye-outline"}
-              label={mainImageBlurred ? "이미지 블러 해제" : "이미지 블러 적용"}
-              active={mainImageBlurred}
-              onPress={() => setMainImageBlurred(!mainImageBlurred)}
-            />
-            <ToolbarAction
-              icon={isSaving ? undefined : "download-outline"}
-              label="이미지 다운로드"
-              disabled={!canUseImageActions || isSaving}
-              loading={isSaving}
-              onPress={saveImage}
-            />
-            <ToolbarAction
-              icon={isCopying ? undefined : "copy-outline"}
-              label="이미지 복사"
-              disabled={!canUseImageActions || isCopying}
-              loading={isCopying}
-              onPress={copyImage}
-            />
-            <ToolbarAction
-              icon="information-circle-outline"
-              label="메타데이터 정보"
-              disabled={!canUseImageActions}
-              onPress={onOpenMetadata}
-            />
-          </Reanimated.View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              expanded ? "이미지 도구 접기" : "이미지 도구 펼치기"
-            }
-            accessibilityState={{ expanded }}
-            hitSlop={4}
-            onPress={toggleToolbar}
-            style={({ pressed }) => [
-              styles.toolbarToggle,
-              pressed && styles.toolbarPressed,
-            ]}
-          >
-            <Ionicons
-              name={expanded ? "chevron-forward" : "chevron-back"}
-              size={18}
-              color={tokens.color.textPrimary}
-            />
-          </Pressable>
-        </Reanimated.View>
-      </View>
+      {toolbarBlur ? (
+        <>
+          <View style={styles.toolbarRow} />
+          <Portal hostName={toolbarBlur.portalHost}>{toolbar}</Portal>
+        </>
+      ) : (
+        toolbar
+      )}
     </View>
   );
 }
@@ -573,6 +599,8 @@ const styles = StyleSheet.create({
     height: 42,
     overflow: "hidden",
     borderRadius: tokens.radius.pill,
+  },
+  toolbarSolid: {
     backgroundColor: tokens.color.overlay,
     ...tokens.shadow.floatSm,
   },
@@ -605,6 +633,8 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
+  },
+  toolbarToggleSolid: {
     backgroundColor: tokens.color.card,
   },
   toolbarPressed: {

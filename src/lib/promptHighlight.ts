@@ -1,149 +1,136 @@
 // NovelAI 프롬프트 강조 문법을 색칠하기 위한 순수 파서.
-// 참고: docs/2026-06-10-novelai-prompt-highlight-analysis.md
+// 공식 웹의 표시 규칙을 따른다: docs/2026-10-09-novelai-official-prompt-highlighting-rules.md
 //
-// 규칙(스트림 기반):
-//  - `{` 또는 `]` : 오른쪽 텍스트 가중치 ×1.05 (강화)
-//  - `}` 또는 `[` : 오른쪽 텍스트 가중치 ÷1.05 (약화)
-//  - `숫자::`      : 수치 가중치 구간 열기(×숫자), bare `::` 가 닫음
-//  - bare `::`     : 최근 수치 구간을 닫고, 괄호 누적 상태를 기준값(1.0)으로 되돌림
-//  - `||...||`     : Prompt Randomizer 구간
-//  - randomizer 내부 단일 `|` : 옵션 구분자
-//  - randomizer 외부 단일 `|` : 모델 문맥별 구분자(멀티캐릭터/프롬프트믹싱)
+// 규칙(왼쪽부터 읽으며 가중치 하나만 유지):
+//  - `{` 또는 `]` : 가중치 x1.05
+//  - `}` 또는 `[` : 가중치 /1.05
+//  - `숫자::`      : 가중치를 그 숫자로 덮어쓴다(괄호 누적 포함, 스택 없음)
+//  - bare `::`     : 가중치를 1로 되돌린다
+//  - 기호부터 새 구간이 시작된다. 가중치가 1에서 0.01 미만으로 떨어져 있으면 칠하지 않는다.
+//  - 결과가 정확히 1인 `::`(앞에 붙은 숫자 포함)는 그 기호만 mid로 칠한다.
+//  - `|`, `||`    : 기호만 표시하고 가중치는 건드리지 않는다.
 //
-// React 비의존 순수 함수. 색 분류는 effective weight 로 결정한다.
+// React 비의존 순수 함수.
 
-export type PromptHighlightKind =
-  | "plain"
-  | "strengthen"
-  | "weaken"
-  | "negative"
-  | "bracket"
-  | "numericMark"
-  | "randomizer"
-  | "separator";
+export type PromptHighlightKind = "high" | "low" | "mid" | "bar";
 
-interface PromptHighlightSpan {
-  text: string;
+export interface PromptHighlightRange {
+  start: number;
+  end: number;
   kind: PromptHighlightKind;
-  weight?: number;
+  // high/low/mid 배경 농도. bar에는 없다.
+  alpha?: number;
 }
 
-interface ParsePromptHighlightsOptions {
-  // 외부(randomizer 밖) 단일 `|` 분류용. 지금은 모두 separator 로 처리하므로
-  // 미사용이지만, 추후 캐릭터/믹싱 구분 라벨링 확장 지점으로 남겨둔다.
-  modelFamily?: "v4" | "v3-or-lower";
+// 파서가 읽지 않는 구간(Prompt Chunk 참조). 시작 위치 순서로, 겹치지 않게 넘긴다.
+export interface PromptHighlightExclusion {
+  start: number;
+  end: number;
 }
 
 const STEP = 1.05;
+const NEUTRAL_TOLERANCE = 0.01;
+const MID_ALPHA = 0.5;
 
-function weightKind(weight: number): PromptHighlightKind {
+// 공식 웹: 0.2~0.6, 1/40 단계. 2 이상과 0 이하에서 가장 진하다.
+function emphasisAlpha(weight: number): number {
   "worklet";
-  if (weight < 0) return "negative";
-  if (weight > 1.0001) return "strengthen";
-  if (weight < 0.9999) return "weaken";
-  return "plain";
+  const denominator = weight > 0 ? 1 : 0.5;
+  const distance = Math.min(1, Math.abs(weight - 1) / denominator);
+  return Math.round(40 * (0.2 + 0.4 * distance)) / 40;
 }
 
-// 선행 `숫자::` 매칭 (음수/소수 허용). 예: `1.5::`, `-2::`, `.5::`
-// sticky 매칭으로 남은 문자열을 매 문자마다 복사하지 않는다.
 export function parsePromptHighlights(
   text: string,
-  _options: ParsePromptHighlightsOptions = {},
-): PromptHighlightSpan[] {
+  excluded: readonly PromptHighlightExclusion[] = [],
+): PromptHighlightRange[] {
   "worklet";
-  const numericOpen = /(-?(?:\d+\.?\d*|\.\d+))::/y;
-  const spans: PromptHighlightSpan[] = [];
+  const trailingNumber = /-?\d*\.?\d*$/;
+  const ranges: PromptHighlightRange[] = [];
+  let weight = 1;
 
-  let bracketWeight = 1; // `{}[]` 누적 배율
-  const numericStack: number[] = []; // 활성 `숫자::` 가중치들
-  let inRandomizer = false;
-
-  let buf = "";
-
-  const effectiveWeight = () =>
-    numericStack.reduce((acc, n) => acc * n, bracketWeight);
-
-  const pushWeighted = (value: string) => {
-    const weight = effectiveWeight();
-    spans.push({ text: value, kind: weightKind(weight), weight });
+  const pushEmphasis = (start: number, end: number) => {
+    if (end <= start || Math.abs(weight - 1) < NEUTRAL_TOLERANCE) return;
+    ranges.push({
+      start,
+      end,
+      kind: weight > 1 ? "high" : "low",
+      alpha: emphasisAlpha(weight),
+    });
   };
 
-  // 현재까지 모은 일반 텍스트를 현재 effective weight 기준으로 방출
-  const flush = () => {
-    if (!buf) return;
-    pushWeighted(buf);
-    buf = "";
+  // 제외 구간 사이의 조각 하나를 읽는다. 가중치는 조각을 넘어 이어지지만,
+  // 숫자 찾기와 `::` 인식은 조각 안에서만 한다.
+  const parsePiece = (pieceStart: number, pieceEnd: number) => {
+    let segmentStart = pieceStart;
+    let i = pieceStart;
+
+    while (i < pieceEnd) {
+      const ch = text[i];
+      const next = i + 1 < pieceEnd ? text[i + 1] : "";
+
+      if (ch === "|") {
+        const length = next === "|" ? 2 : 1;
+        ranges.push({ start: i, end: i + length, kind: "bar" });
+        i += length;
+        continue;
+      }
+
+      if (ch === ":" && next === ":") {
+        // 숫자는 `::` 바로 앞에 붙은 것만, 뒤에서부터 찾는다.
+        let tailStart = i;
+        while (tailStart > segmentStart) {
+          const code = text.charCodeAt(tailStart - 1);
+          const isNumberChar =
+            (code >= 48 && code <= 57) || code === 45 || code === 46;
+          if (!isNumberChar) break;
+          tailStart -= 1;
+        }
+        const match = trailingNumber.exec(text.slice(tailStart, i));
+        const numberText = match ? match[0] : "";
+        const markStart = i - numberText.length;
+
+        pushEmphasis(segmentStart, markStart);
+        if (numberText === "") {
+          weight = 1;
+        } else {
+          // `-`, `.`처럼 덜 쓴 숫자는 0으로 본다.
+          const parsed = parseFloat(numberText);
+          weight = Number.isNaN(parsed) ? 0 : parsed;
+        }
+
+        i += 2;
+        if (weight === 1) {
+          ranges.push({
+            start: markStart,
+            end: i,
+            kind: "mid",
+            alpha: MID_ALPHA,
+          });
+          segmentStart = i;
+        } else {
+          segmentStart = markStart;
+        }
+        continue;
+      }
+
+      if (ch === "{" || ch === "]" || ch === "}" || ch === "[") {
+        pushEmphasis(segmentStart, i);
+        weight = ch === "{" || ch === "]" ? weight * STEP : weight / STEP;
+        segmentStart = i;
+      }
+      i += 1;
+    }
+
+    pushEmphasis(segmentStart, pieceEnd);
   };
 
-  let i = 0;
-  const n = text.length;
-
-  while (i < n) {
-    const ch = text[i];
-
-    // `||` (randomizer 토글) — 단일 `|` 보다 먼저 검사
-    if (ch === "|" && text[i + 1] === "|") {
-      flush();
-      spans.push({ text: "||", kind: "randomizer" });
-      inRandomizer = !inRandomizer;
-      i += 2;
-      continue;
-    }
-
-    if (ch === "|") {
-      flush();
-      spans.push({
-        text: "|",
-        kind: inRandomizer ? "randomizer" : "separator",
-      });
-      i += 1;
-      continue;
-    }
-
-    // `숫자::` 수치 가중치 열기
-    numericOpen.lastIndex = i;
-    const m = numericOpen.exec(text);
-    if (m) {
-      flush();
-      const num = parseFloat(m[1]);
-      numericStack.push(num);
-      pushWeighted(m[0]);
-      i += m[0].length;
-      continue;
-    }
-
-    // bare `::` — 수치 구간 닫고 괄호 누적 초기화
-    if (ch === ":" && text[i + 1] === ":") {
-      flush();
-      if (numericStack.length > 0) numericStack.pop();
-      bracketWeight = 1;
-      spans.push({ text: "::", kind: "numericMark" });
-      i += 2;
-      continue;
-    }
-
-    // `{` / `]` → ×1.05
-    if (ch === "{" || ch === "]") {
-      flush();
-      bracketWeight *= STEP;
-      spans.push({ text: ch, kind: "bracket" });
-      i += 1;
-      continue;
-    }
-
-    // `}` / `[` → ÷1.05
-    if (ch === "}" || ch === "[") {
-      flush();
-      bracketWeight /= STEP;
-      spans.push({ text: ch, kind: "bracket" });
-      i += 1;
-      continue;
-    }
-
-    buf += ch;
-    i += 1;
+  let cursor = 0;
+  for (const gap of excluded) {
+    parsePiece(cursor, gap.start);
+    cursor = gap.end;
   }
+  parsePiece(cursor, text.length);
 
-  flush();
-  return spans;
+  return ranges;
 }

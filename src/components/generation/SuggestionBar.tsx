@@ -5,8 +5,9 @@ import {
   useSuggestionBarActions,
   useSuggestionBarActive,
   useSuggestions,
+  type PromptSuggestion,
 } from "../../context/SuggestionBarContext";
-import type { TagSuggestion, TagType } from "../../lib/tagDb";
+import type { TagType } from "../../lib/tagDb";
 import { tokens } from "../../styles/tokens";
 
 const TAG_TYPE_COLORS: Record<TagType, string> = {
@@ -22,7 +23,7 @@ const SuggestionChip = memo(function SuggestionChip({
   item,
   onPress,
 }: {
-  item: TagSuggestion;
+  item: PromptSuggestion;
   onPress: () => void;
 }) {
   return (
@@ -35,7 +36,10 @@ const SuggestionChip = memo(function SuggestionChip({
       <View
         style={[
           styles.typeDot,
-          { backgroundColor: TAG_TYPE_COLORS[item.type] },
+          {
+            backgroundColor:
+              item.type === "chunk" ? item.color : TAG_TYPE_COLORS[item.type],
+          },
         ]}
       />
       <Text style={styles.chipText} numberOfLines={1}>

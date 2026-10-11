@@ -17,6 +17,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { tokens } from "../../../styles/tokens";
+import { Toggle } from "../../forms/FormControls";
 import { SheetSliderControls } from "../../forms/SheetSliderControls";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -306,21 +307,6 @@ export function ReferenceItem({
               borderless
               onPress={onRemove}
             />
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityLabel={`${name} 사용`}
-              accessibilityState={{ checked: enabled }}
-              onPress={() => onToggle(!enabled)}
-              style={[styles.enableButton, enabled && styles.enabled]}
-            >
-              <Ionicons
-                name="checkmark"
-                size={17}
-                color={
-                  enabled ? tokens.color.textPrimary : tokens.color.textMuted
-                }
-              />
-            </Pressable>
           </View>
         </View>
         <View style={styles.controls}>
@@ -329,6 +315,12 @@ export function ReferenceItem({
               {name}
             </Text>
             {cost ? <Text style={styles.cost}>{cost}</Text> : null}
+            <Toggle
+              size="small"
+              label={`${name} 사용`}
+              value={enabled}
+              onChange={onToggle}
+            />
           </View>
           {children}
         </View>
@@ -342,7 +334,7 @@ const styles = StyleSheet.create({
   sliderBlock: { gap: 7 },
   sliderLabel: {
     color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
+    fontFamily: tokens.font.medium,
     fontSize: 13,
   },
   card: {
@@ -439,17 +431,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: tokens.color.sunken,
   },
-  imageActions: { flexDirection: "row", gap: 4 },
-  enableButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  enabled: { backgroundColor: tokens.color.toast },
+  imageActions: { flexDirection: "row", justifyContent: "center" },
   controls: { flex: 1, minWidth: 0, gap: 12 },
-  itemHeading: { flexDirection: "row", alignItems: "center", gap: 6 },
+  itemHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: {
     flex: 1,
     color: tokens.color.textPrimary,

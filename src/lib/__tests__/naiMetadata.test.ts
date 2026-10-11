@@ -17,6 +17,15 @@ describe("V5 metadata", () => {
     );
   });
 
+  it("maps the Effort Medium hashes to V5 Full Medium", () => {
+    expect(parse("NovelAI Diffusion V5 93F4BD30", {}).model).toBe(
+      "nai-diffusion-5-full-medium",
+    );
+    expect(parse("NovelAI Diffusion V5 70AB5786", {}).model).toBe(
+      "nai-diffusion-5-full-medium",
+    );
+  });
+
   it("infers presets from the prompt text, ignoring a numeric ucPreset", () => {
     const parsed = parse("NovelAI Diffusion V5 657484A5", {
       prompt: "1girl, very aesthetic, masterpiece, no text",

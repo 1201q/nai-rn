@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NaiRN - Next app mockup</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="details.css" />
+    <link rel="stylesheet" href="polish.css" />
+  </head>
+  <body>
+    <aside class="inspector">
+      <img src="../../assets/logo.png" alt="NaiRN" class="logo" />
+      <h1>업데이트용 목업</h1>
+      <p>앱 소스의 색상, 폰트, 크기와 화면 구성을 재현했습니다.</p>
+      <nav aria-label="목업 화면">
+        <button data-screen="home">Generation</button>
+        <button data-screen="prompt">Prompt</button>
+        <button data-screen="reference">Reference Images</button>
+        <button data-screen="chunks">Chunks</button>
+        <button data-screen="settings">Settings</button>
+        <button data-screen="history">History</button>
+        <button data-screen="app-settings">App Settings</button>
+        <button data-screen="metadata">Metadata</button>
+        <button data-screen="position">Character Position</button>
+      </nav>
+      <label class="sample-control"><input id="sample" type="checkbox" /> 샘플 데이터 표시</label>
+      <p>시트 핸들 클릭 또는 드래그: 높이 변경<br />Escape: 닫기<br />모바일에서는 앱 화면만 표시됩니다.</p>
+      <p>API 호출 없이 동작하는 UI 목업입니다. 입력한 값은 새로고침하면 초기화됩니다.</p>
+    </aside>
+    <main class="phone" aria-label="NaiRN 앱 목업">
+      <div class="statusbar"><b>9:41</b><span id="status-icons"></span></div>
+      <div id="app"></div>
+      <div class="home-indicator"></div>
+      <div id="toast" role="status" aria-live="polite"></div>
+      <div id="picker" hidden></div>
+    </main>
+    <input type="file" id="upload" accept="image/*" hidden />
+    <script src="icons.js"></script>
+    <script src="prompt-editor.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
+

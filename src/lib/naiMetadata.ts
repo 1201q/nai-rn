@@ -54,6 +54,8 @@ function mapSourceToModel(
 ): string | undefined {
   const text = `${source ?? ""} ${software ?? ""}`;
   if (/v5/i.test(text)) {
+    // Effort Medium은 모델이 달라 서명도 다르다 (웹 번들 2026-10-09).
+    if (/93F4BD30|70AB5786/i.test(text)) return "nai-diffusion-5-full-medium";
     // 공식 웹과 동일: 알려진 Full hash만 Full, 나머지는 Curated로 본다. hash는 모델 갱신 때 바뀔 수 있다.
     return /657484A5|0ADF9AB7/i.test(text)
       ? "nai-diffusion-5-full"

@@ -32,11 +32,14 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   editingCharacterId,
   onEditingCharacterChange,
   onEditPositions,
+  positionEditing = false,
 }: {
   active: boolean;
   editingCharacterId: string | null;
   onEditingCharacterChange: (id: string | null) => void;
   onEditPositions: (characterId: string | null) => void;
+  // 캔버스에 위치 편집 UI가 떠 있는 동안 true.
+  positionEditing?: boolean;
 }) {
   const characterPrompts = useGenerationStore(
     (state) => state.characterPrompts,
@@ -49,6 +52,9 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
   );
   const freePlacement = useGenerationStore(
     (state) => getModelCapabilities(state.model).v5Request,
+  );
+  const ucLocked = useGenerationStore(
+    (state) => getModelCapabilities(state.model).fixedSettings !== undefined,
   );
   const setCharacterPrompts = useGenerationStore(
     (state) => state.setCharacterPrompts,
@@ -257,7 +263,10 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="캐릭터 위치 편집"
-              accessibilityState={{ disabled: !canPosition }}
+              accessibilityState={{
+                disabled: !canPosition,
+                selected: positionEditing,
+              }}
               disabled={!canPosition}
               onPress={() => openPosition(null)}
               style={({ pressed }) => [
@@ -271,9 +280,11 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
                 name="grid-outline"
                 size={16}
                 color={
-                  customPosition
-                    ? tokens.color.textPrimary
-                    : tokens.color.textMuted
+                  positionEditing
+                    ? tokens.color.accent
+                    : customPosition
+                      ? tokens.color.textPrimary
+                      : tokens.color.textMuted
                 }
               />
             </Pressable>
@@ -305,6 +316,7 @@ export const CharacterPromptSection = memo(function CharacterPromptSection({
           positionEnabled={customPosition}
           canEditPosition={canPosition}
           canMoveDown={index < characterPrompts.length - 1}
+          ucLocked={ucLocked}
           onToggleExpanded={toggleExpanded}
           onBeginEditing={onEditingCharacterChange}
           onUpdate={updateCharacter}

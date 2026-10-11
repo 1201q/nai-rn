@@ -5,6 +5,7 @@ import {
   resolveActiveCharacterPrompts,
 } from "../imagePromptCaptions";
 import type { QualityPreset, UcPresetIndex } from "../naiPresets";
+import { resolvePromptChunks, type PromptChunk } from "../promptChunks";
 import { getPromptTokenizer } from "./loader";
 
 export type PromptTokenChannel = "positive" | "negative";
@@ -34,6 +35,7 @@ export type PromptTokenSnapshot = {
   transparentBackground: boolean;
   ucPreset: UcPresetIndex;
   characterPrompts: CharacterPrompt[];
+  chunks: readonly PromptChunk[];
 };
 
 function applyDraft(
@@ -82,7 +84,40 @@ export async function calculatePromptTokenMetrics(
     };
   }
 
-  const withDraft = applyDraft(snapshot, target, draftText);
+  // 생성 요청과 같은 순서: Prompt Chunk를 먼저 펼친 뒤 caption을 조립한다.
+  let unresolved = false;
+  const expandChunks = (text: string) => {
+    const resolution = resolvePromptChunks(text, snapshot.chunks);
+    if (resolution.missing.length > 0 || resolution.circular.length > 0) {
+      unresolved = true;
+    }
+    return resolution.text;
+  };
+  const draft = applyDraft(snapshot, target, draftText);
+  const withDraft = {
+    ...draft,
+    prompt: expandChunks(draft.prompt),
+    negativePrompt: expandChunks(draft.negativePrompt),
+    characterPrompts: draft.characterPrompts.map((item) =>
+      item.enabled
+        ? {
+            ...item,
+            prompt: expandChunks(item.prompt),
+            negativePrompt: expandChunks(item.negativePrompt),
+          }
+        : item,
+    ),
+  };
+  if (unresolved) {
+    return {
+      status: "error",
+      fieldTokens: null,
+      totalTokens: null,
+      maxTokens: policy.maxTokens,
+      remainingTokens: null,
+      includedInTotal: false,
+    };
+  }
   const character =
     target.scope === "character"
       ? withDraft.characterPrompts.find(

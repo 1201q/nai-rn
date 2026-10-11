@@ -45,6 +45,8 @@ const PROMPT_KEYBOARD_GAP = 12;
 const PROMPT_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
+const BASE_POSITIVE = { scope: "base", channel: "positive" } as const;
+const BASE_NEGATIVE = { scope: "base", channel: "negative" } as const;
 
 function PromptDraftInput({
   channel,
@@ -67,6 +69,7 @@ function PromptDraftInput({
     value,
     onChangeText: onChange,
     inputRef,
+    insertTarget: channel === "base" ? BASE_POSITIVE : BASE_NEGATIVE,
   });
   const inputCommit = useGenerationInputCommitRegistration(onCommit);
 
@@ -145,8 +148,13 @@ export const PromptComposerCard = memo(function PromptComposerCard({
   const supportsTransparentBackground = getModelCapabilities(model).v5Request;
   const ucPresetOptions = getUcPresetOptions(model);
   const qualityPresetOptions = getQualityPresetOptions(model);
-  const [mode, setMode] = useState<PromptChannel>("base");
-  const [split, setSplit] = useState(false);
+  // 공식 웹과 동일: 고정 설정 모델(Effort Medium)은 UC를 쓸 수 없어 Base Prompt만 보여준다.
+  // 선택 상태와 입력한 UC는 남겨 두어 High로 돌아가면 그대로 보인다.
+  const ucLocked = getModelCapabilities(model).fixedSettings !== undefined;
+  const [selectedMode, setMode] = useState<PromptChannel>("base");
+  const [splitSelected, setSplit] = useState(false);
+  const mode = ucLocked ? "base" : selectedMode;
+  const split = splitSelected && !ucLocked;
   const [promptText, setPromptText] = useState(prompt);
   const [negativeText, setNegativeText] = useState(negativePrompt);
   const [promptHeight, setPromptHeight] = useState(MERGED_MIN_HEIGHT);
@@ -432,6 +440,7 @@ export const PromptComposerCard = memo(function PromptComposerCard({
               style={[
                 styles.modeChip,
                 mode === "negative" && styles.modeChipActive,
+                ucLocked && styles.hidden,
               ]}
             >
               <Pressable
@@ -519,10 +528,12 @@ export const PromptSheetContent = memo(function PromptSheetContent({
   active,
   sheetHiddenHeight = 0,
   onEditCharacterPositions,
+  positionEditing = false,
 }: {
   active: boolean;
   sheetHiddenHeight?: number;
   onEditCharacterPositions: (characterId: string | null) => void;
+  positionEditing?: boolean;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(
@@ -562,6 +573,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
         editingCharacterId={editingCharacterId}
         onEditingCharacterChange={setEditingCharacterId}
         onEditPositions={onEditCharacterPositions}
+        positionEditing={positionEditing}
       />
     </BottomSheetKeyboardAwareScrollView>
   );
@@ -684,6 +696,8 @@ const styles = StyleSheet.create({
   promptFooter: {
     minHeight: 22,
     marginTop: 10,
+    // 알약형 칩의 둥근 끝이 토큰 바보다 안쪽으로 보이지 않게 살짝 내민다.
+    marginHorizontal: -1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
@@ -716,7 +730,7 @@ const styles = StyleSheet.create({
   },
   promptTokenCounter: {
     flex: 0,
-    height: 4,
+    height: 6,
     marginTop: 10,
   },
   measureLayer: {
@@ -731,6 +745,9 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.regular,
     fontSize: 15,
     lineHeight: PROMPT_LINE_HEIGHT,
+  },
+  hidden: {
+    display: "none",
   },
   pressed: {
     opacity: tokens.opacity.pressed,

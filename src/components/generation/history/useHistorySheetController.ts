@@ -12,7 +12,17 @@ import {
   iterateGenerationImageBatches,
   resolveGenerationImageUri,
 } from "../../../lib/generationHistory";
+import {
+  HISTORY_GRID_COLUMN_OPTIONS,
+  HISTORY_LIST_ENGINES,
+} from "../../../store/generationOptionsPersistence";
 import { useGenerationStore } from "../../../store/generationStore";
+import {
+  createHistorySelectionStore,
+  isAllSelected,
+  setAvailableIds,
+  setSelectedIds,
+} from "./historySelection";
 
 const HISTORY_SAVE_CONCURRENCY = 3;
 
@@ -53,8 +63,13 @@ export function useHistorySheetController({
   const isViewingActiveGeneration = useGenerationStore(
     (state) => state.isViewingActiveGeneration,
   );
+  const gridColumns = useGenerationStore((state) => state.historyGridColumns);
+  // 열 수를 바꾸면 그리드를 다시 마운트하므로, 보고 있던 항목에서 다시 시작하게 한다.
+  const [gridInitialIndex, setGridInitialIndex] = useState(0);
+  const listEngine = useGenerationStore((state) => state.historyListEngine);
+  const gridFirstVisibleIndexRef = useRef(0);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectionIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selection] = useState(createHistorySelectionStore);
   const [selectingAll, setSelectingAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -63,6 +78,12 @@ export function useHistorySheetController({
   const selectingAllRef = useRef(false);
   const selectionRequestRef = useRef(0);
   const deletePhaseRef = useRef<"idle" | "confirming" | "deleting">("idle");
+  const dragSelectionRef = useRef<{
+    anchorId: string;
+    lastId: string;
+    base: Set<string>;
+    remove: boolean;
+  } | null>(null);
 
   useEffect(
     () => () => {
@@ -79,40 +100,79 @@ export function useHistorySheetController({
     () => new Set(availableIdList),
     [availableIdList],
   );
-  const selectedIds = useMemo(() => {
-    const validIds = [...selectionIds].filter((id) => availableIds.has(id));
-    return validIds.length === selectionIds.size
-      ? selectionIds
-      : new Set(validIds);
-  }, [availableIds, selectionIds]);
-  const selectedCount = selectedIds.size;
-  const allSelected =
-    (historyIds !== null || !historyHasMore) &&
-    selectedCount > 0 &&
-    selectedCount === availableIds.size;
+  useEffect(() => {
+    setAvailableIds(
+      selection,
+      availableIds,
+      historyIds !== null || !historyHasMore,
+    );
+  }, [availableIds, historyHasMore, historyIds, selection]);
   const busy = selectingAll || saving || deleting || deleteConfirmationOpen;
 
+  const loadedIndexById = useMemo(
+    () => new Map(generationHistory.map((item, index) => [item.id, index])),
+    [generationHistory],
+  );
+
+  const setGridFirstVisibleIndex = useCallback((index: number) => {
+    gridFirstVisibleIndexRef.current = index;
+  }, []);
+
+  const resetGridPosition = useCallback(() => {
+    gridFirstVisibleIndexRef.current = 0;
+    setGridInitialIndex(0);
+  }, []);
+
+  const cycleGridColumns = useCallback(() => {
+    const { historyGridColumns, setHistoryGridColumns } =
+      useGenerationStore.getState();
+    const next =
+      HISTORY_GRID_COLUMN_OPTIONS[
+        (HISTORY_GRID_COLUMN_OPTIONS.indexOf(historyGridColumns) + 1) %
+          HISTORY_GRID_COLUMN_OPTIONS.length
+      ];
+    Haptics.selectionAsync().catch(() => {});
+    setGridInitialIndex(gridFirstVisibleIndexRef.current);
+    setHistoryGridColumns(next);
+  }, []);
+
+  const cycleListEngine = useCallback(() => {
+    const { historyListEngine, setHistoryListEngine } =
+      useGenerationStore.getState();
+    setGridInitialIndex(gridFirstVisibleIndexRef.current);
+    setHistoryListEngine(
+      HISTORY_LIST_ENGINES[
+        (HISTORY_LIST_ENGINES.indexOf(historyListEngine) + 1) %
+          HISTORY_LIST_ENGINES.length
+      ],
+    );
+  }, []);
+
   const exitSelectionMode = useCallback(() => {
+    dragSelectionRef.current = null;
     selectionRequestRef.current += 1;
     selectingAllRef.current = false;
     setSelectingAll(false);
     setSelectionMode(false);
-    setSelectedIds(new Set());
-  }, []);
+    setSelectedIds(selection, new Set());
+  }, [selection]);
 
-  const enterSelectionMode = useCallback((id: string) => {
-    if (
-      selectingAllRef.current ||
-      savingRef.current ||
-      deletePhaseRef.current !== "idle"
-    ) {
-      return;
-    }
-    selectionRequestRef.current += 1;
-    Haptics.selectionAsync().catch(() => {});
-    setSelectionMode(true);
-    setSelectedIds(new Set([id]));
-  }, []);
+  const enterSelectionMode = useCallback(
+    (id: string) => {
+      if (
+        selectingAllRef.current ||
+        savingRef.current ||
+        deletePhaseRef.current !== "idle"
+      ) {
+        return;
+      }
+      selectionRequestRef.current += 1;
+      Haptics.selectionAsync().catch(() => {});
+      setSelectionMode(true);
+      setSelectedIds(selection, new Set([id]));
+    },
+    [selection],
+  );
 
   const toggleSelection = useCallback(
     (id: string) => {
@@ -123,17 +183,72 @@ export function useHistorySheetController({
       ) {
         return;
       }
-      setSelectedIds((current) => {
-        const next = new Set(
-          [...current].filter((value) => availableIds.has(value)),
-        );
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
+      const next = new Set(selection.getState().ids);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setSelectedIds(selection, next);
     },
-    [availableIds],
+    [selection],
   );
+
+  const updateDragSelection = useCallback(
+    (id: string) => {
+      const drag = dragSelectionRef.current;
+      if (!drag || drag.lastId === id) return;
+      const anchorIndex = loadedIndexById.get(drag.anchorId);
+      const index = loadedIndexById.get(id);
+      if (anchorIndex === undefined || index === undefined) return;
+      drag.lastId = id;
+
+      // 드래그 시작 시점의 선택에서 다시 계산해, 범위를 줄이면 원래대로 돌아간다.
+      const next = new Set(drag.base);
+      const end = Math.max(anchorIndex, index);
+      for (let i = Math.min(anchorIndex, index); i <= end; i += 1) {
+        const rangeId = generationHistory[i].id;
+        if (drag.remove) next.delete(rangeId);
+        else next.add(rangeId);
+      }
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedIds(selection, next);
+    },
+    [generationHistory, loadedIndexById, selection],
+  );
+
+  const beginDragSelection = useCallback(
+    (id: string) => {
+      if (
+        selectingAllRef.current ||
+        savingRef.current ||
+        deletePhaseRef.current !== "idle"
+      ) {
+        return false;
+      }
+      if (!selectionMode) {
+        dragSelectionRef.current = {
+          anchorId: id,
+          lastId: id,
+          base: new Set(),
+          remove: false,
+        };
+        enterSelectionMode(id);
+        return true;
+      }
+      const selectedIds = selection.getState().ids;
+      const remove = selectedIds.has(id);
+      const base = new Set(selectedIds);
+      if (remove) base.delete(id);
+      else base.add(id);
+      dragSelectionRef.current = { anchorId: id, lastId: id, base, remove };
+      Haptics.selectionAsync().catch(() => {});
+      setSelectedIds(selection, base);
+      return true;
+    },
+    [enterSelectionMode, selection, selectionMode],
+  );
+
+  const endDragSelection = useCallback(() => {
+    dragSelectionRef.current = null;
+  }, []);
 
   const handleTilePress = useCallback(
     (item: GenerationRecord) => {
@@ -171,8 +286,8 @@ export function useHistorySheetController({
       return;
     }
     Haptics.selectionAsync().catch(() => {});
-    if (allSelected) {
-      setSelectedIds(new Set());
+    if (isAllSelected(selection.getState())) {
+      setSelectedIds(selection, new Set());
       return;
     }
     const request = ++selectionRequestRef.current;
@@ -181,7 +296,7 @@ export function useHistorySheetController({
     try {
       const ids = await loadHistoryIds();
       if (selectionRequestRef.current === request) {
-        setSelectedIds(new Set(ids));
+        setSelectedIds(selection, new Set(ids));
       }
     } catch {
       if (selectionRequestRef.current === request) {
@@ -193,11 +308,12 @@ export function useHistorySheetController({
         setSelectingAll(false);
       }
     }
-  }, [allSelected, busy, loadHistoryIds]);
+  }, [busy, loadHistoryIds, selection]);
 
   const saveSelected = useCallback(async () => {
+    const ids = [...selection.getState().ids];
     if (
-      selectedCount === 0 ||
+      ids.length === 0 ||
       busy ||
       selectingAllRef.current ||
       savingRef.current ||
@@ -207,7 +323,6 @@ export function useHistorySheetController({
     }
 
     savingRef.current = true;
-    const ids = [...selectedIds];
     let savedCount = 0;
     try {
       setSaving(true);
@@ -264,11 +379,12 @@ export function useHistorySheetController({
       savingRef.current = false;
       setSaving(false);
     }
-  }, [busy, selectedCount, selectedIds]);
+  }, [busy, selection]);
 
   const deleteSelected = useCallback(() => {
+    const ids = [...selection.getState().ids];
     if (
-      selectedCount === 0 ||
+      ids.length === 0 ||
       busy ||
       selectingAllRef.current ||
       savingRef.current ||
@@ -279,7 +395,6 @@ export function useHistorySheetController({
 
     deletePhaseRef.current = "confirming";
     setDeleteConfirmationOpen(true);
-    const ids = [...selectedIds];
 
     const dismissConfirmation = () => {
       if (deletePhaseRef.current !== "confirming") return;
@@ -324,7 +439,7 @@ export function useHistorySheetController({
         onDismiss: dismissConfirmation,
       },
     );
-  }, [busy, deleteGenerations, exitSelectionMode, selectedCount, selectedIds]);
+  }, [busy, deleteGenerations, exitSelectionMode, selection]);
 
   return useMemo(
     () => ({
@@ -336,10 +451,15 @@ export function useHistorySheetController({
       historyInitialized,
       historyLoadingMore,
       loadMoreHistory,
+      gridColumns,
+      gridInitialIndex,
+      setGridFirstVisibleIndex,
+      resetGridPosition,
+      cycleGridColumns,
+      listEngine,
+      cycleListEngine,
       selectionMode,
-      selectedIds,
-      selectedCount,
-      allSelected,
+      selection,
       busy,
       selectingAll,
       saving,
@@ -347,6 +467,9 @@ export function useHistorySheetController({
       closeSheet: onClose,
       exitSelectionMode,
       enterSelectionMode,
+      beginDragSelection,
+      updateDragSelection,
+      endDragSelection,
       handleTilePress,
       handleActiveGenerationPress,
       toggleSelectAll,
@@ -354,7 +477,7 @@ export function useHistorySheetController({
       deleteSelected,
     }),
     [
-      allSelected,
+      beginDragSelection,
       busy,
       selectingAll,
       deleteSelected,
@@ -374,10 +497,18 @@ export function useHistorySheetController({
       onClose,
       saveSelected,
       saving,
-      selectedCount,
-      selectedIds,
+      selection,
       selectionMode,
       toggleSelectAll,
+      cycleGridColumns,
+      cycleListEngine,
+      listEngine,
+      gridColumns,
+      gridInitialIndex,
+      resetGridPosition,
+      setGridFirstVisibleIndex,
+      endDragSelection,
+      updateDragSelection,
     ],
   );
 }

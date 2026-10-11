@@ -1,0 +1,897 @@
+/* Experimental design layer. Loaded after styles.css and details.css.
+   Layout is untouched; remove the <link> in index.html to get the current app back. */
+
+/* 1. Colours: same palette as docs/mockup (styles.css). Only the radius scale
+      and the neutral slider fill are defined here. */
+:root {
+  --r-s: 8px;
+  --r-m: 12px;
+  --r-l: 16px;
+  --slider-fill: #e9e9ec;
+  --slider-track: var(--toast);
+}
+.upscale-page {
+  padding-left: 16px;
+  padding-right: 16px;
+  bottom: calc(var(--bar) + var(--sheet-peek));
+  padding-bottom: 24px;
+  background: var(--app);
+  z-index: 1;
+}
+.upscale-picker {
+  display: flex;
+  align-items: center;
+  height: auto;
+  padding: 16px;
+  gap: 14px;
+  border-radius: var(--r-l);
+  color: var(--secondary);
+  text-align: left;
+}
+.upscale-picker:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.upscale-upload-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--r-m);
+  background: var(--raised);
+  color: var(--tertiary);
+}
+.upscale-upload-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.upscale-upload-copy strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.upscale-upload-copy > span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 19px;
+}
+.empty-upload {
+  flex-direction: column;
+  justify-content: center;
+  min-height: 280px;
+  padding: 32px 20px;
+  gap: 20px;
+  border-style: dashed;
+  text-align: center;
+}
+.empty-upload .upscale-upload-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+}
+.empty-upload .upscale-upload-copy {
+  flex: none;
+  gap: 8px;
+}
+.empty-upload .upscale-upload-copy strong {
+  font-size: 17px;
+}
+.empty-upload .upscale-upload-copy > span {
+  font-size: 13px;
+  line-height: 21px;
+}
+.upscale-upload-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-m);
+  background: var(--raised);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.upscale-picker.compact-upload > .icon {
+  flex-shrink: 0;
+  color: var(--tertiary);
+}
+#app[data-screen="upscale"] .detail-header {
+  z-index: 2;
+}
+#app[data-screen="upscale"] .generate:disabled {
+  background: var(--raised);
+  color: var(--muted);
+  opacity: 0.55;
+}
+#app[data-screen="upscale"] .upscale-meta {
+  margin-top: 20px;
+}
+.stepped-seekbar {
+  gap: 10px;
+}
+.seekbar-value {
+  min-width: 64px;
+  height: 38px;
+  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-s);
+  font-size: 16px;
+  font-weight: 500;
+}
+.seekbar-track {
+  position: relative;
+  height: 52px;
+}
+.seekbar-track input[type="range"] {
+  position: absolute;
+  top: 13px;
+  margin: 0;
+}
+.seekbar-track input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 8px;
+}
+.seekbar-stops {
+  position: absolute;
+  inset: 0 10px;
+  pointer-events: none;
+}
+.seekbar-stop {
+  position: absolute;
+  left: var(--stop);
+  top: 11px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.seekbar-point {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--alt);
+  border-radius: 50%;
+  background: var(--tertiary);
+}
+.seekbar-stop.filled .seekbar-point {
+  background: var(--slider-fill);
+}
+.seekbar-stop.selected .seekbar-point {
+  visibility: hidden;
+}
+.seekbar-label {
+  min-width: 32px;
+  min-height: 28px;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+.seekbar-stop.selected {
+  color: var(--text);
+}
+.phone {
+  font-variant-numeric: tabular-nums;
+}
+.balance:focus-visible,
+.usage:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.top-info-tooltip {
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px #0005;
+}
+.top-info-tooltip > strong,
+.top-info-heading > strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.top-info-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.top-info-balance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0;
+  color: var(--tertiary);
+}
+.top-info-balance > strong {
+  color: var(--text);
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+.top-info-balance strong span {
+  font-size: 16px;
+  margin-left: 2px;
+}
+.top-info-tooltip .token-row {
+  font-size: 12px;
+}
+.top-info-tooltip p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 19px;
+  margin: 10px 0 0;
+}
+.save-location p {
+  overflow-wrap: anywhere;
+}
+.save-location-change {
+  min-height: 36px;
+  padding: 0 12px;
+  flex-shrink: 0;
+  border-radius: var(--r-s);
+  background: var(--raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.save-location-change:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* 2. Flat chrome: hairlines instead of drop shadows on the canvas controls. */
+.balance,
+.usage,
+.round {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.toolbar {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.toolbar .tool-toggle {
+  background: var(--raised);
+}
+.sheet {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 -18px 44px #0008;
+}
+
+/* 3. Accent is reserved for the primary action and on-states.
+      Sliders and "which sheet is open" use neutral emphasis instead. */
+.action-icon.selected {
+  border-color: transparent;
+  background: var(--toast);
+}
+input[type="range"],
+.slider-controls input[type="range"] {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--slider-fill) 0 var(--percent),
+    var(--slider-track) var(--percent) 100%
+  );
+}
+input[type="range"]::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.token-bar {
+  background: var(--raised);
+}
+
+/* 4. One radius scale: 8 (inner/small), 12 (controls), 16 (cards). */
+.select,
+.seed,
+.segmented,
+.resolution-controls .segmented,
+.generate,
+.action-icon,
+.square,
+.token-shell,
+.form-input,
+.form-actions button {
+  border-radius: var(--r-m);
+}
+.segmented button,
+.character-section .segmented button,
+.seed-action,
+.slider-value,
+.dimensions,
+.mode,
+.mode-group,
+.chunk-chip,
+.chunk-option,
+.chunk-category,
+.position-chip,
+.reference-cost {
+  border-radius: var(--r-s);
+}
+.prompt-card,
+.character-section,
+.import-button {
+  border-radius: var(--r-l);
+}
+
+/* 5. Type: labels step back so values lead; fewer competing sizes. */
+.sheet-header:not(.tabs-header) h2 {
+  font-size: 16px;
+  text-align: center;
+}
+.field > label,
+.field-label,
+.slider-label {
+  font-size: 13px;
+  color: var(--tertiary);
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.7px;
+  color: var(--muted);
+}
+.tabs button {
+  color: var(--tertiary);
+}
+.account-title,
+.option h3 {
+  font-size: 15px;
+}
+.account p,
+.option p,
+.security {
+  color: var(--tertiary);
+}
+
+/* 6. Control details. */
+.toggle {
+  background: var(--toast);
+}
+.toggle span {
+  background: var(--secondary);
+}
+.help {
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  color: var(--tertiary);
+}
+.settings-page .slider-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tabs-header .close,
+.metadata-header .close {
+  align-self: center;
+  margin: 0 0 0 4px;
+}
+.character-section {
+  border: 0;
+}
+.character-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--prompt-border);
+}
+
+/* 7. Character header: number, name, enable switch, more menu, expand. */
+.character-action {
+  border-left: 0;
+}
+.toggle.small {
+  width: 36px;
+  height: 22px;
+  align-self: center;
+  margin: 0 6px;
+}
+.toggle.small span {
+  width: 16px;
+  height: 16px;
+}
+.toggle.small.on span {
+  transform: translateX(14px);
+}
+.character-menu button.destructive {
+  color: var(--negative);
+}
+
+/* 8. Metadata sheet: read-only content, everything visible and copyable. */
+#app[data-screen="metadata"] .sheet-scroll:has(.meta-import),
+#app[data-screen="metadata"] .sheet-scroll:has(.import-confirm) {
+  gap: 24px;
+  padding-bottom: calc(var(--bar) + 12px);
+}
+.meta-card {
+  flex-shrink: 0;
+  padding: 2px 16px;
+  border-radius: var(--r-l);
+  background: var(--card);
+}
+.meta-card h4 {
+  margin: 0;
+  padding: 14px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.meta-block {
+  padding: 8px 0 14px;
+}
+.meta-block + .meta-block {
+  border-top: 1px solid var(--border);
+}
+.meta-block-head {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tertiary);
+}
+.meta-copy {
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  display: grid;
+  place-items: center;
+  color: var(--tertiary);
+}
+.meta-copy .icon {
+  font-size: 16px;
+}
+.readonly-prompt {
+  min-height: 0;
+}
+.readonly-prompt.empty {
+  color: var(--muted);
+}
+.meta-row {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  text-align: left;
+}
+.meta-row + .meta-row {
+  border-top: 1px solid var(--border);
+}
+.meta-row span:first-child {
+  color: var(--tertiary);
+}
+.meta-row b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.meta-row b .icon {
+  font-size: 14px;
+  color: var(--tertiary);
+}
+.meta-import,
+.import-confirm {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--r-m);
+  background: var(--toast);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* 9. Import: one checklist showing the values that will be applied. */
+.sheet-back {
+  width: 28px;
+  height: 38px;
+  margin-left: -4px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--tertiary);
+}
+.import-lead {
+  margin: 0 4px -8px;
+}
+.import-item + .import-item {
+  border-top: 1px solid var(--border);
+}
+.import-row {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.import-row strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+}
+.import-preview {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.import-row .import-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+.meta-card .import-character-mode {
+  padding: 0 0 14px 34px;
+}
+.import-confirm {
+  background: var(--text);
+  color: var(--app);
+}
+.import-confirm:disabled {
+  opacity: 1;
+  background: var(--toast);
+  color: var(--muted);
+}
+
+/* 10. Prompt tabs: first label starts at 19px. */
+.tabs-header {
+  padding-left: 7px;
+}
+.sheet-header:not(.tabs-header) {
+  padding: 0 12px;
+}
+.sheet-header:not(.tabs-header):has(> h2) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.sheet-header:not(.tabs-header) > .close {
+  justify-self: start;
+  margin-left: 0;
+  background: none;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"] {
+  position: relative;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"] .icon {
+  display: none;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::before,
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.history-header-buttons {
+  justify-self: end;
+}
+.history-header:has(> .selection-count) > button:first-child {
+  justify-self: start;
+}
+.history-header:has(> .selection-count) > button:last-child {
+  justify-self: end;
+}
+
+/* 11. Sheet headers: one height (handle 17px + 48px) open and collapsed, so the
+       collapsed strip is exactly the header of the open sheet. */
+:root {
+  --sheet-header: 44px;
+  --sheet-peek: calc(17px + var(--sheet-header));
+}
+.sheet-header,
+.sheet.collapsed .preview {
+  height: var(--sheet-header);
+}
+.sheet.collapsed {
+  height: calc(var(--bar) + var(--sheet-peek));
+}
+.canvas-section,
+.position-area {
+  bottom: calc(var(--bar) + var(--sheet-peek));
+}
+
+/* 12. One header button size across every sheet. */
+.sheet-header .close {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+}
+.sheet-header .close .icon {
+  font-size: 20px;
+}
+.sheet-header:not(.tabs-header) .close .icon,
+.sheet-header:not(.tabs-header):not(.metadata-header) .close .icon {
+  font-size: 16px;
+}
+
+/* 13. Action bar side inset. */
+.actionbar {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+/* 14. Reference Images: same enable switch as the character header, quieter
+       item actions, and a divider under the Normalize row. */
+.reference-actions {
+  align-items: center;
+  justify-content: space-between;
+}
+.reference-delete {
+  width: 32px;
+  height: 32px;
+}
+.reference-actions .toggle.small {
+  margin: 0 2px 0 0;
+}
+.reference-thumbnail img {
+  border-radius: var(--r-s);
+}
+.reference-thumbnail img.disabled {
+  opacity: 0.4;
+}
+.normalize {
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+}
+.reference-item .slider-value {
+  width: 56px;
+}
+.reference-item .slider-controls {
+  gap: 12px;
+}
+
+/* 15. Chunks: content is bare text, not cards, so it gets a wider 18px inset;
+       the last header icon lines up with the sheet close button. */
+#app[data-screen="chunks"] .sheet-scroll {
+  padding-left: 18px;
+  padding-right: 18px;
+}
+.chunks-header button:last-child {
+  margin-right: -5px;
+}
+
+/* 16. Token meter: taller bar on a visible track, this field in accent over
+       the total in grey. */
+.token-meter {
+  width: 100%;
+  height: 24px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+}
+.character-footer .token-meter {
+  margin-top: 0;
+}
+.token-meter .token-bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  margin: 0;
+  border-radius: 3px;
+  background: var(--raised);
+}
+.token-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 6px;
+  border-radius: 3px;
+}
+.token-bar i.total {
+  background: #73737f;
+}
+.token-bar i.field {
+  background: var(--accent);
+  box-shadow: 2px 0 0 var(--prompt-surface);
+}
+.token-meter.over i.field {
+  background: var(--negative);
+}
+
+/* 17. Prompt card and Character Prompts block. */
+.character-section h3 {
+  font-size: 15px;
+}
+.character-section .subtle {
+  font-size: 13px;
+  font-weight: 500;
+}
+/* the grid button is an action, not a third choice */
+.segmented [data-action="position"] {
+  flex: 0 0 40px;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--secondary);
+}
+.segmented [data-action="position"] .icon {
+  font-size: 17px;
+}
+/* same space under the meter as in the character cards */
+.prompt-panel,
+.prompt-panel.split-panel {
+  padding-bottom: 5px;
+}
+
+/* 18. Settings: a lone field in a two-column row (Seed on V5 Full Medium)
+       keeps its half width instead of stretching. */
+.columns > :only-child {
+  flex: 0 0 calc(50% - 6px);
+}
+.field > .segmented {
+  flex: none;
+}
+.field > .description {
+  margin: -2px 0 0;
+}
+.dimension-swap {
+  color: var(--tertiary);
+}
+
+/* 19. Dropdowns: group headings (Recommended / Legacy / Others). */
+.picker-group {
+  padding: 12px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.picker-group:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+/* 20. Variety+: an on/off chip like the official UI (x when off, check and a
+       filled background when on) instead of a switch. */
+.toggle-chip {
+  height: 26px;
+  margin: -4px 0;
+  padding: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tertiary);
+}
+.toggle-chip .icon {
+  font-size: 12px;
+}
+.toggle-chip.on {
+  background: var(--toast);
+  box-shadow: none;
+  color: var(--text);
+}
+.toggle-chip.on .icon {
+  color: var(--accent);
+}
+
+/* 21. Effort (V5 Full) is a compact row under the Model dropdown. */
+.field-head {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field-head label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tertiary);
+}
+.segmented.mini {
+  flex: none;
+  height: 28px;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--r-s);
+}
+.segmented.mini button {
+  flex: none;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+
+
+
+/* 22. Sheet header: the divider under the header is always visible
+       (border from styles.css). */
+
+/* 23. History grid: rows keep their tile height when the list is longer than
+       the sheet, so the grid scrolls instead of squeezing rows together. */
+.history-grid {
+  grid-auto-rows: max-content;
+}
+
+/* 24. History selection mode: actions float in a pill over the grid, and the
+       grid darkens toward the bottom so the pill stays readable over images. */
+.selection-actions {
+  height: 120px;
+  padding: 0 0 14px;
+  justify-content: center;
+  align-items: flex-end;
+  border-top: 0;
+  background: linear-gradient(transparent, rgba(8, 8, 10, 0.55) 55%, rgba(8, 8, 10, 0.9));
+  pointer-events: none;
+}
+.selection-pill {
+  height: 52px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--raised);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+.selection-pill .selection-action {
+  border-radius: 50%;
+}
+.selection-pill [data-action="delete-history"] {
+  color: var(--negative);
+}
+
+/* 25. Metadata / Import: content fades into the sheet colour under the
+       floating button (no darkening). */
+#app[data-screen="metadata"] .sheet.utility::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--bar);
+  z-index: 1;
+  height: 120px;
+  background: linear-gradient(rgba(25, 24, 30, 0), rgba(25, 24, 30, 0.7) 55%, rgba(25, 24, 30, 0.96));
+  pointer-events: none;
+}
+.meta-import,
+.import-confirm {
+  z-index: 2;
+}

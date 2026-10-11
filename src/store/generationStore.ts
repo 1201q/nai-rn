@@ -37,6 +37,10 @@ import {
 import { estimateAnlasCost } from "../lib/anlasCost";
 import { generateAndSaveImage } from "../lib/generationImagePipeline";
 import { resolveActiveCharacterPrompts } from "../lib/imagePromptCaptions";
+import {
+  describePromptChunkErrors,
+  resolvePromptChunks,
+} from "../lib/promptChunks";
 import { getNovelAiToken, saveNovelAiToken } from "../lib/secureToken";
 import { isBoolean, isNumber, isString } from "../lib/guards";
 import {
@@ -61,6 +65,9 @@ import {
 import { createMutationVersionTracker } from "../lib/referenceMutation";
 import {
   createGenerationOptionsPersistence,
+  HISTORY_GRID_COLUMN_OPTIONS,
+  HISTORY_LIST_ENGINES,
+  type HistoryListEngine,
   type PersistedGenerationOptions,
 } from "./generationOptionsPersistence";
 import {
@@ -100,11 +107,13 @@ import {
 import {
   DEFAULT_MODEL,
   getDefaultModelSettings,
+  getEffortModels,
   getModelCapabilities,
   MAX_STORED_CHARACTER_PROMPTS,
   type ModelSettings,
 } from "../constants/models";
 import type { CharacterPrompt, I2ISourceImage } from "../types/generation";
+import { usePromptChunkStore } from "./promptChunkStore";
 
 export type { CharacterPrompt };
 
@@ -217,9 +226,18 @@ function switchModelSettings(
       varietyPlus: state.varietyPlus,
     },
   };
+  const effortModels = getEffortModels(nextModel);
   return {
     settingsByModel,
     ...(settingsByModel[nextModel] ?? getDefaultModelSettings(nextModel)),
+    // 공식 웹과 동일: Effort만 바꾸면 steps, sampler, schedule, rescale 외의 설정은 그대로 가져간다.
+    ...(effortModels && effortModels === getEffortModels(state.model)
+      ? {
+          resolution: state.resolution,
+          promptGuidance: state.promptGuidance,
+          varietyPlus: state.varietyPlus,
+        }
+      : {}),
   };
 }
 
@@ -385,6 +403,10 @@ type GenerationState = {
   setPredictiveBackPreview: (v: boolean) => void;
   sliderHandleOnly: boolean;
   setSliderHandleOnly: (v: boolean) => void;
+  historyGridColumns: number;
+  setHistoryGridColumns: (v: number) => void;
+  historyListEngine: HistoryListEngine;
+  setHistoryListEngine: (v: HistoryListEngine) => void;
   // 토큰
   storedToken: string | null;
   saveToken: (token: string) => Promise<void>;
@@ -655,6 +677,16 @@ function loadPersistedOptions(): Partial<GenerationState> {
     if (isBoolean(parsed.sliderHandleOnly)) {
       next.sliderHandleOnly = parsed.sliderHandleOnly;
     }
+    if (
+      isNumber(parsed.historyGridColumns) &&
+      HISTORY_GRID_COLUMN_OPTIONS.includes(parsed.historyGridColumns)
+    ) {
+      next.historyGridColumns = parsed.historyGridColumns;
+    }
+    const historyListEngine = HISTORY_LIST_ENGINES.find(
+      (engine) => engine === parsed.historyListEngine,
+    );
+    if (historyListEngine) next.historyListEngine = historyListEngine;
     return next;
   } catch {
     return {};
@@ -931,6 +963,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setPredictiveBackPreview: (v) => set({ predictiveBackPreview: v }),
   sliderHandleOnly: false,
   setSliderHandleOnly: (v) => set({ sliderHandleOnly: v }),
+  historyGridColumns: 3,
+  setHistoryGridColumns: (v) => set({ historyGridColumns: v }),
+  historyListEngine: "flat",
+  setHistoryListEngine: (v) => set({ historyListEngine: v }),
   clearI2I: () => {
     const storagePath = get().i2iSourceImage?.storagePath;
     set({
@@ -1113,10 +1149,38 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
 
     // 디바운스 동기화 전에 전송될 수 있으므로, 호출 측이 최신 텍스트를 직접 넘길 수 있게 함.
-    const effPrompt = (overrides?.prompt ?? s.prompt).trim();
-    const effNegativePrompt = (
-      overrides?.negativePrompt ?? s.negativePrompt
-    ).trim();
+    // Prompt Chunk 참조는 여기서 한 번만 펼친다. 큐에는 펼친 문자열만 들어가므로
+    // 배치 도중 chunk를 고쳐도 진행 중인 요청은 바뀌지 않는다.
+    const { chunks } = usePromptChunkStore.getState();
+    const chunkErrors: string[] = [];
+    const expandChunks = (text: string) => {
+      const resolution = resolvePromptChunks(text, chunks);
+      const error = describePromptChunkErrors(resolution);
+      if (error) chunkErrors.push(error);
+      return resolution.text.trim();
+    };
+    // 고정 설정이 있는 모델(Effort Medium)은 저장된 값 대신 고정값으로 생성하고 사용자 UC를 보내지 않는다.
+    // 저장된 값은 그대로 두어 High로 돌아가면 다시 쓰인다.
+    const fixedSettings = getModelCapabilities(s.model).fixedSettings;
+    const steps = fixedSettings?.steps ?? s.steps;
+    const effPrompt = expandChunks(overrides?.prompt ?? s.prompt);
+    const effNegativePrompt = fixedSettings
+      ? ""
+      : expandChunks(overrides?.negativePrompt ?? s.negativePrompt);
+    const effCharacterPrompts = resolveActiveCharacterPrompts(
+      s.characterPrompts,
+      s.model,
+    ).map((item) => ({
+      ...item,
+      prompt: expandChunks(item.prompt),
+      negativePrompt: fixedSettings ? "" : expandChunks(item.negativePrompt),
+    }));
+    if (chunkErrors.length > 0) {
+      set({
+        message: `Prompt Chunk 참조를 확인하세요. ${[...new Set(chunkErrors)].join(" / ")}`,
+      });
+      return rejectGenerationStart("validation");
+    }
 
     if (s.resolution.width * s.resolution.height > MAX_GENERATION_PIXELS) {
       set({
@@ -1390,10 +1454,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       token: s.storedToken,
       prompt: effPrompt,
       negativePrompt: effNegativePrompt,
-      characterPrompts: resolveActiveCharacterPrompts(
-        s.characterPrompts,
-        s.model,
-      ),
+      characterPrompts: effCharacterPrompts,
       opts: {
         model: s.model,
         width,
@@ -1409,6 +1470,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         transparentBackground: s.transparentBackground,
         ucPreset: s.ucPreset,
         characterPositionEnabled: s.characterPositionEnabled,
+        ...fixedSettings,
         ...(vibeEncodedImages
           ? {
               vibeEncodedImages,
@@ -1442,7 +1504,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       message: null,
       queueTotal: total,
       queueIndex: 0,
-      queueSteps: s.steps,
+      queueSteps: steps,
       streamingPreviewUri: null,
       streamingStep: null,
       streamingGenerationId: null,
@@ -1452,7 +1514,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     // Android: foreground service 시작 → 등록 태스크가 runQueueTask 구동
     // (등록 태스크 안에서 돌아야 백그라운드 실행 보장). 서비스 시작 실패(권한 거부 등)
     // 또는 비-Android면 직접 구동(포그라운드 한정).
-    const serviceStarted = await startGenerationService(total, s.steps);
+    const serviceStarted = await startGenerationService(total, steps);
     if (!serviceStarted) {
       void get().runQueueTask();
     }
@@ -1639,7 +1701,7 @@ export const selectAnlasCost = (s: GenerationState): number | null => {
     model: s.model,
     width: s.resolution.width,
     height: s.resolution.height,
-    steps: s.steps,
+    steps: getModelCapabilities(s.model).fixedSettings?.steps ?? s.steps,
     strength: isI2I ? s.i2iStrength : 1,
     smea: shouldUseAutoSmea(
       s.model,

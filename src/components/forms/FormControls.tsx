@@ -14,6 +14,7 @@ export const Toggle = memo(function Toggle({
   onChange,
   label,
   disabled = false,
+  size = "default",
   onPressIn,
   onPressOut,
 }: {
@@ -21,9 +22,11 @@ export const Toggle = memo(function Toggle({
   onChange: (value: boolean) => void;
   label: string;
   disabled?: boolean;
+  size?: "default" | "small";
   onPressIn?: PressableProps["onPressIn"];
   onPressOut?: PressableProps["onPressOut"];
 }) {
+  const small = size === "small";
   const progress = useSharedValue(value ? 1 : 0);
 
   useLayoutEffect(() => {
@@ -31,7 +34,7 @@ export const Toggle = memo(function Toggle({
   }, [progress, value]);
 
   const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: progress.value * 18 }],
+    transform: [{ translateX: progress.value * (small ? 14 : 18) }],
   }));
 
   const handlePress = useCallback(() => {
@@ -51,12 +54,18 @@ export const Toggle = memo(function Toggle({
       onPressOut={onPressOut}
       style={[
         styles.toggleTrack,
+        small && styles.toggleTrackSmall,
         value && styles.toggleTrackOn,
         disabled && styles.toggleDisabled,
       ]}
     >
       <Reanimated.View
-        style={[styles.toggleThumb, value && styles.toggleThumbOn, thumbStyle]}
+        style={[
+          styles.toggleThumb,
+          small && styles.toggleThumbSmall,
+          value && styles.toggleThumbOn,
+          thumbStyle,
+        ]}
       />
     </Pressable>
   );
@@ -71,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#232326",
   },
+  toggleTrackSmall: {
+    width: 36,
+    height: 22,
+  },
   toggleTrackOn: {
     backgroundColor: tokens.color.accent,
   },
@@ -79,6 +92,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: tokens.color.textPrimary,
+  },
+  toggleThumbSmall: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   toggleThumbOn: {
     backgroundColor: tokens.color.onAccent,

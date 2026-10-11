@@ -1,6 +1,9 @@
-import { Animated, StyleSheet, Text, View } from "react-native";
+import type { RefObject } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { IconButton } from "./Buttons";
+import { GlassBackground } from "./GlassBackground";
 import { ScreenEdgeFade } from "./ScreenEdgeFade";
 import { tokens } from "../../styles/tokens";
 
@@ -19,6 +22,7 @@ export function DetailHeaderOverlay({
   showCompactTitle = true,
   showMore = true,
   hideCompactTitleOnScroll = false,
+  blurTarget,
 }: {
   title: string;
   scrollY: Animated.Value;
@@ -31,6 +35,8 @@ export function DetailHeaderOverlay({
   showCompactTitle?: boolean;
   showMore?: boolean;
   hideCompactTitleOnScroll?: boolean;
+  // 주면 뒤로 버튼 배경이 이 BlurTargetView를 비추는 블러가 된다.
+  blurTarget?: RefObject<View | null>;
 }) {
   const fadeOpacity = scrollY.interpolate({
     inputRange: [20, 84],
@@ -73,7 +79,25 @@ export function DetailHeaderOverlay({
           { top: topInset + DETAIL_HEADER_TOP_OFFSET },
         ]}
       >
-        {onBack ? (
+        {onBack && blurTarget ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로"
+            hitSlop={4}
+            onPress={onBack}
+            style={({ pressed }) => [
+              styles.glassHeaderButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <GlassBackground blurTarget={blurTarget} />
+            <Ionicons
+              name="chevron-back"
+              size={18}
+              color={tokens.color.textPrimary}
+            />
+          </Pressable>
+        ) : onBack ? (
           <IconButton
             icon="chevron-back"
             label="뒤로"
@@ -177,6 +201,17 @@ const styles = StyleSheet.create({
   borderlessHeaderButton: {
     borderWidth: 0,
     backgroundColor: tokens.color.card,
+  },
+  glassHeaderButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
+  },
+  pressed: {
+    opacity: tokens.opacity.pressed,
   },
   compactTitle: {
     color: tokens.color.textPrimary,

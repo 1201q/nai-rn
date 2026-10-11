@@ -49,6 +49,7 @@ assets/tags.json
 
 # Native module build outputs
 /modules/*/android/build/
+/modules/*/android/.cxx/
 
 /.understand-anything
 

@@ -58,6 +58,14 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
+jest.mock("sonner-native", () => ({
+  toast: { success: jest.fn(), error: jest.fn() },
+}));
+
+jest.mock("../../../lib/devHistorySeed", () => ({
+  seedDevHistory: jest.fn(),
+}));
+
 jest.mock("../../../components/forms/SheetSliderControls", () => ({
   SheetSliderControls: (props: unknown) => {
     mockSliderControlsProps(props);
@@ -82,8 +90,12 @@ jest.mock("react-native-reanimated", () => {
   return {
     __esModule: true,
     default: { View },
+    Extrapolation: { CLAMP: "clamp" },
+    interpolate: () => 1,
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
     useAnimatedStyle: (factory: () => object) => factory(),
+    cancelAnimation: jest.fn(),
+    withSpring: <T,>(value: T) => value,
     withTiming: (value: number) => value,
   };
 });

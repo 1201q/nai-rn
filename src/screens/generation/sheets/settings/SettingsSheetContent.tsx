@@ -11,7 +11,11 @@ import {
   NOISE_SCHEDULES,
   SAMPLERS,
 } from "../../../../constants/generation";
-import { getModelCapabilities, MODELS } from "../../../../constants/models";
+import {
+  getEffortModels,
+  getModelCapabilities,
+  MODELS,
+} from "../../../../constants/models";
 import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { resolveNoiseSchedule, resolveSampler } from "../../../../lib/novelai";
 import { useGenerationStore } from "../../../../store/generationStore";
@@ -35,7 +39,14 @@ const SETTINGS_KEYBOARD_GAP = 12;
 const SETTINGS_KEYBOARD_SCROLL_MODE =
   Platform.OS === "android" ? "layout" : "insets";
 
-const MODEL_OPTIONS = MODELS.map((option) => option.label);
+// 공식 웹과 동일: Effort Medium 모델은 선택지에 넣지 않고 Effort로 고른다.
+const MODEL_OPTIONS = MODELS.filter(
+  (option) => getEffortModels(option.value)?.medium !== option.value,
+).map((option) => option.label);
+const EFFORT_OPTIONS = [
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+] as const;
 const RESOLUTION_PRESET_OPTIONS = NAI_RESOLUTIONS.map((group) => group.group);
 const SAMPLER_OPTIONS = SAMPLERS.map((option) => option.label);
 // 공식 웹과 동일: V5에는 DDIM이 없다.
@@ -100,9 +111,13 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [active]);
 
+  const effortModels = getEffortModels(model);
+  // Medium이어도 모델 선택에는 High 모델(V5 Full)로 표시한다.
+  const pickerModel = effortModels?.high ?? model;
   const modelLabel =
-    MODELS.find((option) => option.value === model)?.label ?? model;
+    MODELS.find((option) => option.value === pickerModel)?.label ?? pickerModel;
   const capabilities = getModelCapabilities(model);
+  const fixedSettings = capabilities.fixedSettings;
   const displaySampler = resolveSampler(model, sampler);
   const samplerLabel =
     SAMPLERS.find((option) => option.value === displaySampler)?.label ??
@@ -127,7 +142,7 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
 
   function changeModel(label: string) {
     const option = MODELS.find((candidate) => candidate.label === label);
-    if (option) setModel(option.value);
+    if (option && option.value !== pickerModel) setModel(option.value);
   }
 
   function changeResolutionPreset(preset: string) {
@@ -170,14 +185,55 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
       keyboardShouldPersistTaps="handled"
       scrollEnabled={openSelect === null}
     >
-      <SheetSelect
-        label="Model"
-        value={modelLabel}
-        options={MODEL_OPTIONS}
-        onChange={changeModel}
-        open={openSelect === "model"}
-        onOpenChange={(open) => setSelectOpen("model", open)}
-      />
+      <View style={styles.modelField}>
+        <SheetSelect
+          label="Model"
+          value={modelLabel}
+          options={MODEL_OPTIONS}
+          onChange={changeModel}
+          open={openSelect === "model"}
+          onOpenChange={(open) => setSelectOpen("model", open)}
+        />
+
+        {effortModels ? (
+          <View style={styles.effortRow}>
+            <Text style={styles.effortFieldLabel}>Effort</Text>
+            <SettingsHelpButton
+              helpKey="effort"
+              open={helpKey === "effort"}
+              onToggle={() => toggleHelp("effort")}
+            />
+            <View style={styles.effortControl}>
+              {EFFORT_OPTIONS.map((option) => {
+                const selected = effortModels[option.value] === model;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${option.label} effort`}
+                    accessibilityState={{ selected }}
+                    onPress={() => setModel(effortModels[option.value])}
+                    style={({ pressed }) => [
+                      styles.effortButton,
+                      selected && styles.orientationButtonSelected,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.effortLabel,
+                        selected && styles.effortLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.settingsSection}>
         <Text style={styles.settingsEyebrow}>IMAGE SETTINGS</Text>
@@ -235,19 +291,22 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
 
       <View style={styles.settingsSectionWide}>
         <Text style={styles.settingsEyebrow}>AI SETTINGS</Text>
-        <SettingsSlider
-          active={active}
-          label="Steps"
-          helpKey="steps"
-          helpOpen={helpKey === "steps"}
-          value={steps}
-          min={1}
-          max={50}
-          step={1}
-          precision={0}
-          onHelpToggle={() => toggleHelp("steps")}
-          onChange={setSteps}
-        />
+        {/* 공식 웹과 동일: 고정되는 설정(Steps, Sampler, Rescale)은 보여주지 않는다. */}
+        {fixedSettings ? null : (
+          <SettingsSlider
+            active={active}
+            label="Steps"
+            helpKey="steps"
+            helpOpen={helpKey === "steps"}
+            value={steps}
+            min={1}
+            max={50}
+            step={1}
+            precision={0}
+            onHelpToggle={() => toggleHelp("steps")}
+            onChange={setSteps}
+          />
+        )}
         <SettingsSlider
           active={active}
           label="Prompt Guidance"
@@ -283,21 +342,29 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
             <Text style={styles.settingsFieldLabel}>Seed</Text>
             <SettingsSeedInput active={active} />
           </View>
-          <SheetSelect
-            label="Sampler"
-            value={samplerLabel}
-            options={
-              capabilities.v5Request ? V5_SAMPLER_OPTIONS : SAMPLER_OPTIONS
-            }
-            onChange={changeSampler}
-            open={openSelect === "sampler"}
-            onOpenChange={(open) => setSelectOpen("sampler", open)}
-            style={styles.aiColumn}
-          />
+          {fixedSettings ? (
+            // Sampler가 없어도 Seed는 절반 폭을 유지한다.
+            <View style={styles.aiColumn} />
+          ) : (
+            <SheetSelect
+              label="Sampler"
+              value={samplerLabel}
+              options={
+                capabilities.v5Request ? V5_SAMPLER_OPTIONS : SAMPLER_OPTIONS
+              }
+              onChange={changeSampler}
+              open={openSelect === "sampler"}
+              onOpenChange={(open) => setSelectOpen("sampler", open)}
+              style={styles.aiColumn}
+            />
+          )}
         </View>
       </View>
 
-      <View style={styles.settingsSectionWide}>
+      {/* Medium은 Rescale이 없고 V5라 Schedule도 없어 남는 항목이 없다. */}
+      <View
+        style={[styles.settingsSectionWide, fixedSettings && styles.hidden]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Advanced Settings"
@@ -412,6 +479,45 @@ const styles = StyleSheet.create({
   },
   orientationButtonSelected: {
     backgroundColor: tokens.color.toast,
+  },
+  modelField: {
+    gap: 10,
+  },
+  effortRow: {
+    minHeight: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  effortFieldLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.medium,
+    fontSize: 13,
+  },
+  effortControl: {
+    height: 28,
+    padding: 3,
+    flexDirection: "row",
+    gap: 2,
+    borderRadius: 8,
+    backgroundColor: tokens.color.sunken,
+  },
+  effortButton: {
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+  },
+  effortLabel: {
+    color: tokens.color.textMuted,
+    fontFamily: tokens.font.semibold,
+    fontSize: 12,
+  },
+  effortLabelSelected: {
+    color: tokens.color.textPrimary,
+  },
+  hidden: {
+    display: "none",
   },
   varietyControl: {
     flexShrink: 0,

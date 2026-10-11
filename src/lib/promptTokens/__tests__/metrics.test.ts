@@ -36,6 +36,15 @@ const snapshot = {
       position: { x: 0.5, y: 0.5 },
     },
   ],
+  chunks: [
+    {
+      id: "chunk-1",
+      name: "Style",
+      content: "oil",
+      color: "#6B7280",
+      categoryId: null,
+    },
+  ],
 };
 
 describe("prompt token metrics", () => {
@@ -155,4 +164,29 @@ it("does not count the V5 auto Text block", async () => {
 
   expect(metrics.fieldTokens).toBe(prompt.length);
   expect(metrics.totalTokens).toBe(prompt.length);
+});
+
+it("counts prompt chunks by their expanded content", async () => {
+  const metrics = await calculatePromptTokenMetrics(
+    { ...snapshot, characterPrompts: [] },
+    { scope: "base", channel: "positive" },
+    "a, !macro:Style!",
+  );
+
+  expect(metrics.fieldTokens).toBe("a, oil".length + 1);
+});
+
+it("reports an error instead of counting an unresolved chunk", async () => {
+  const metrics = await calculatePromptTokenMetrics(
+    snapshot,
+    { scope: "base", channel: "positive" },
+    "a, !macro:Gone!",
+  );
+
+  expect(metrics).toMatchObject({
+    status: "error",
+    fieldTokens: null,
+    totalTokens: null,
+    maxTokens: 512,
+  });
 });

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
+import { BlurTargetView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import Reanimated, {
@@ -21,7 +22,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
-import { IconButton } from "../../components/common/Buttons";
+import { GlassBackground } from "../../components/common/GlassBackground";
 import { RollingNumber } from "../../components/common/RollingNumber";
 import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
 import { OpusUsageRing } from "../../components/generation/OpusUsageRing";
@@ -56,6 +57,7 @@ const MORE_MENU_ITEMS = [
   { href: "/upscale", icon: "expand-outline", label: "이미지 업스케일" },
 ] as const;
 
+const CANVAS_TOOLBAR_PORTAL_HOST = "generation-canvas-toolbar";
 // 사용량 배지(40) + Anlas 표시와의 간격
 const USAGE_BADGE_SLIDE_DISTANCE = 40 + tokens.space[4];
 
@@ -228,6 +230,7 @@ function GenerationScreenContent() {
   const [positionEditing, setPositionEditing] = useState<{
     characterId: string | null;
   } | null>(null);
+  const blurTargetRef = useRef<View>(null);
   const promptBackProgress = useSharedValue(0);
   const utilityBackProgress = useSharedValue(0);
   const { commitPendingInput } = useGenerationInputCommit();
@@ -243,21 +246,27 @@ function GenerationScreenContent() {
   }, [finishInputEditing]);
   const handlePromptStageChange = useCallback(
     (stage: PromptSheetStage) => {
+      // 위치 편집 UI는 Prompt 시트를 다시 열어도 캔버스에 남는다.
       if (stage === "collapsed") finishInputEditing();
-      else setPositionEditing(null);
       setPromptStage(stage);
     },
     [finishInputEditing],
   );
   const closePositionEditor = useCallback(() => setPositionEditing(null), []);
+  const isPositionEditing = positionEditing !== null;
   const openPositionEditor = useCallback(
     (characterId: string | null) => {
+      // 켜진 상태에서 위치 편집 버튼을 다시 누르면 시트는 두고 편집 UI만 끈다.
+      if (characterId === null && isPositionEditing) {
+        setPositionEditing(null);
+        return;
+      }
       finishInputEditing();
       setUtilitySheet(null);
       setPromptStage("collapsed");
       setPositionEditing({ characterId });
     },
-    [finishInputEditing],
+    [finishInputEditing, isPositionEditing],
   );
   const toggleUtilitySheet = useCallback(
     (nextSheet: UtilitySheet) => {
@@ -289,9 +298,10 @@ function GenerationScreenContent() {
   }, []);
   const hasUtilitySheet = utilitySheet !== null || utilitySheetVisible;
   const hasOpenSheet = hasUtilitySheet || promptStage !== "collapsed";
-  const isPositionEditing = positionEditing !== null;
+  // 시트가 편집 UI 위에 열려 있으면 뒤로가기는 시트부터 닫는다.
+  const backClosesPositionEditor = isPositionEditing && !hasOpenSheet;
   const handleBack = useCallback(() => {
-    if (isPositionEditing) {
+    if (backClosesPositionEditor) {
       setPositionEditing(null);
       return;
     }
@@ -306,12 +316,17 @@ function GenerationScreenContent() {
     }
     finishInputEditing();
     setPromptStage("collapsed");
-  }, [finishInputEditing, hasUtilitySheet, isPositionEditing, promptStage]);
+  }, [
+    backClosesPositionEditor,
+    finishInputEditing,
+    hasUtilitySheet,
+    promptStage,
+  ]);
 
   const trackPredictiveBack = useCallback(
     (event: PredictiveBackEvent) => {
       // The position editor has no sheet to scale.
-      if (isPositionEditing) return;
+      if (backClosesPositionEditor) return;
       if (hasUtilitySheet) {
         cancelAnimation(utilityBackProgress);
         utilityBackProgress.value = event.progress;
@@ -324,8 +339,8 @@ function GenerationScreenContent() {
       utilityBackProgress.value = 0;
     },
     [
+      backClosesPositionEditor,
       hasUtilitySheet,
-      isPositionEditing,
       promptBackProgress,
       utilityBackProgress,
     ],
@@ -356,6 +371,60 @@ function GenerationScreenContent() {
     >
       <StatusBar style="light" />
 
+      {/* 상단 버튼의 블러가 비추는 영역. Android의 블러 대상은 직계 자식을 각자 영역으로
+          잘라내므로, 화면 네 변 끝까지 넓힌 뒤 안쪽 View 하나로 여백을 되돌린다. 아래쪽은
+          접힌 Prompt 시트의 둥근 모서리 옆으로 이미지가 비쳐야 한다. */}
+      <BlurTargetView
+        ref={blurTargetRef}
+        style={[
+          styles.blurTarget,
+          {
+            marginTop: -(topInset + 12),
+            marginBottom: -promptCollapsedHeight,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.blurTargetContent,
+            {
+              paddingTop: topInset + 12,
+              paddingBottom: promptCollapsedHeight,
+            },
+          ]}
+        >
+          <View style={styles.topActionsSpacer} />
+          {/* Keep the canvas mounted so its preview and zoom state survive. */}
+          <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
+            <GenerationCanvas
+              onOpenMetadata={openMetadataSheet}
+              toolbarBlur={{
+                target: blurTargetRef,
+                portalHost: CANVAS_TOOLBAR_PORTAL_HOST,
+              }}
+            />
+          </View>
+          {positionEditing ? (
+            <CharacterPositionEditor
+              initialCharacterId={positionEditing.characterId}
+              onFinish={closePositionEditor}
+            />
+          ) : null}
+        </View>
+      </BlurTargetView>
+
+      {/* 캔버스 도구 바. 블러 대상 밖에 있어야 해서 캔버스가 여기로 옮겨 그린다. */}
+      <View
+        pointerEvents="box-none"
+        style={[
+          positionEditing ? styles.hidden : styles.canvasToolbarHost,
+          { bottom: promptCollapsedHeight },
+        ]}
+      >
+        <PortalHost name={CANVAS_TOOLBAR_PORTAL_HOST} />
+      </View>
+
+      {/* 블러 대상의 ref가 먼저 채워지도록 BlurTargetView 뒤에 둔다. */}
       <View
         pointerEvents="box-none"
         style={[styles.topActions, { top: topInset + 8 }]}
@@ -370,6 +439,7 @@ function GenerationScreenContent() {
               pressed && styles.balancePillPressed,
             ]}
           >
+            <GlassBackground blurTarget={blurTargetRef} />
             <Ionicons
               name="diamond-outline"
               size={15}
@@ -392,17 +462,28 @@ function GenerationScreenContent() {
               nextPercentAt={anlasBalance.usageNextPercentAt}
               visible={isV5}
               slideDistance={USAGE_BADGE_SLIDE_DISTANCE}
+              blurTarget={blurTargetRef}
             />
           ) : null}
         </View>
 
-        <IconButton
-          icon="ellipsis-horizontal"
-          label="더 보기"
-          size={40}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="더 보기"
+          hitSlop={4}
           onPress={() => setMoreMenuOpen(true)}
-          style={styles.moreButton}
-        />
+          style={({ pressed }) => [
+            styles.moreButton,
+            pressed && styles.balancePillPressed,
+          ]}
+        >
+          <GlassBackground blurTarget={blurTargetRef} />
+          <Ionicons
+            name="ellipsis-horizontal"
+            size={18}
+            color={tokens.color.textPrimary}
+          />
+        </Pressable>
       </View>
 
       <Modal
@@ -442,20 +523,9 @@ function GenerationScreenContent() {
         </View>
       </Modal>
 
-      <View style={styles.topActionsSpacer} />
-      {/* Keep the canvas mounted so its preview and zoom state survive. */}
-      <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
-        <GenerationCanvas onOpenMetadata={openMetadataSheet} />
-      </View>
-      {positionEditing ? (
-        <CharacterPositionEditor
-          initialCharacterId={positionEditing.characterId}
-          onFinish={closePositionEditor}
-        />
-      ) : null}
-
       <PromptSheetHost
         onEditCharacterPositions={openPositionEditor}
+        positionEditing={isPositionEditing}
         promptPreview={prompt}
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}
@@ -538,6 +608,23 @@ const styles = StyleSheet.create({
     zIndex: 120,
     elevation: 120,
   },
+  blurTarget: {
+    flex: 1,
+    minHeight: 0,
+    marginHorizontal: -tokens.space[8],
+  },
+  blurTargetContent: {
+    flex: 1,
+    paddingHorizontal: tokens.space[8],
+    gap: tokens.space[5],
+    // 블러가 빈 영역에서 창 배경색을 비추지 않도록 앱 배경을 깔아 둔다.
+    backgroundColor: tokens.color.app,
+  },
+  canvasToolbarHost: {
+    position: "absolute",
+    left: tokens.space[8],
+    right: tokens.space[8],
+  },
   topActionsSpacer: {
     height: 40,
   },
@@ -561,9 +648,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[4],
+    overflow: "hidden",
     borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.card,
-    ...tokens.shadow.floatMd,
   },
   balanceText: {
     color: tokens.color.textPrimary,
@@ -574,8 +660,12 @@ const styles = StyleSheet.create({
     opacity: tokens.opacity.pressed,
   },
   moreButton: {
-    borderWidth: 0,
-    backgroundColor: tokens.color.card,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
   },
   moreMenu: {
     position: "absolute",
