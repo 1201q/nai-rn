@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export const GENERATION_ACTION_BAR_CONTENT_HEIGHT = 72;
 export const GENERATION_SHEET_HEADER_HEIGHT = 44;
-const SHEET_HANDLE_HEIGHT = 17;
+export const SHEET_HANDLE_HEIGHT = 17;
 // 접힌 시트는 핸들 + 헤더만 보인다. 헤더 구분선 자리는 액션바 위쪽 border가 덮는다.
 const PROMPT_PREVIEW_HEIGHT =
   SHEET_HANDLE_HEIGHT +

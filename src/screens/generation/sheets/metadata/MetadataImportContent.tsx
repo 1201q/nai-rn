@@ -4,7 +4,9 @@ import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { toast } from "sonner-native";
 
-import type { MetadataSheetSource } from "./MetadataSheetContent";
+import { SAMPLERS } from "../../../../constants/generation";
+import { MODELS } from "../../../../constants/models";
+import { optionLabel, type MetadataSheetSource } from "./MetadataSheetContent";
 import {
   parseNaiMetadataJson,
   type ParsedNaiMetadata,
@@ -16,9 +18,12 @@ import {
   type MetadataCharacterImportMode,
   type MetadataImportSelection,
 } from "../../../../lib/metadataImport";
-import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { useGenerationStore } from "../../../../store/generationStore";
 import { tokens } from "../../../../styles/tokens";
+import {
+  MetadataFloatingButton,
+  useMetadataFloatingInset,
+} from "./MetadataFloatingButton";
 
 type ImportSelectionKey =
   "prompt" | "negativePrompt" | "characters" | "settings" | "seed";
@@ -26,7 +31,8 @@ type ImportSelectionKey =
 type ImportOption = {
   key: ImportSelectionKey;
   label: string;
-  description: string;
+  // 실제로 가져올 값을 한 줄로 보여준다.
+  preview: string;
 };
 
 function resolveImportMetadata(
@@ -59,19 +65,34 @@ function resolveImportMetadata(
   };
 }
 
-const ImportOptionCard = memo(function ImportOptionCard({
+function settingsPreview(parsed: ParsedNaiMetadata) {
+  return [
+    parsed.model === undefined ? null : optionLabel(MODELS, parsed.model),
+    parsed.resolution
+      ? `${parsed.resolution.width} x ${parsed.resolution.height}`
+      : null,
+    parsed.steps === undefined ? null : `${parsed.steps} steps`,
+    parsed.sampler === undefined ? null : optionLabel(SAMPLERS, parsed.sampler),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+const ImportOptionRow = memo(function ImportOptionRow({
   option,
   selected,
+  first,
   onChange,
   children,
 }: {
   option: ImportOption;
   selected: boolean;
+  first: boolean;
   onChange: (selected: boolean) => void;
   children?: ReactNode;
 }) {
   return (
-    <View style={[styles.optionCard, selected && styles.optionCardSelected]}>
+    <View style={!first && styles.divided}>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityLabel={option.label}
@@ -79,18 +100,20 @@ const ImportOptionCard = memo(function ImportOptionCard({
         onPress={() => onChange(!selected)}
         style={({ pressed }) => [styles.optionRow, pressed && styles.pressed]}
       >
-        <View style={styles.optionCopy}>
-          <Text style={styles.optionLabel}>{option.label}</Text>
-          <Text style={styles.optionDescription}>{option.description}</Text>
-        </View>
         <View style={[styles.checkBox, selected && styles.checkBoxSelected]}>
           {selected ? (
             <Ionicons
               name="checkmark"
-              size={15}
+              size={14}
               color={tokens.color.onAccent}
             />
           ) : null}
+        </View>
+        <View style={styles.optionCopy}>
+          <Text style={styles.optionLabel}>{option.label}</Text>
+          <Text numberOfLines={1} style={styles.optionPreview}>
+            {option.preview || "없음"}
+          </Text>
         </View>
       </Pressable>
       {children}
@@ -107,7 +130,6 @@ const CharacterImportMode = memo(function CharacterImportMode({
 }) {
   return (
     <View style={styles.characterModeArea}>
-      <Text style={styles.characterModeTitle}>적용 방식</Text>
       <View style={styles.characterModeControl}>
         {(["replace", "append"] as const).map((mode) => {
           const selected = value === mode;
@@ -152,7 +174,7 @@ export const MetadataImportContent = memo(function MetadataImportContent({
   generation: MetadataSheetSource;
   onImported: () => void;
 }) {
-  const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
+  const floatingInset = useMetadataFloatingInset();
   const applyMetadataImport = useGenerationStore(
     (state) => state.applyMetadataImport,
   );
@@ -164,38 +186,38 @@ export const MetadataImportContent = memo(function MetadataImportContent({
   const [selection, setSelection] = useState<MetadataImportSelection>(() =>
     createMetadataImportSelection(parsed),
   );
-  const options = useMemo<ImportOption[]>(
-    () => [
-      {
-        key: "prompt",
-        label: "Prompt",
-        description: "Base Prompt를 가져옵니다.",
-      },
+  const options = useMemo(() => {
+    const all: ImportOption[] = [
+      { key: "prompt", label: "Prompt", preview: parsed.prompt ?? "" },
       {
         key: "negativePrompt",
         label: "Undesired Content",
-        description: "Negative Prompt와 UC를 가져옵니다.",
+        preview: parsed.negativePrompt ?? "",
       },
       {
         key: "characters",
         label: "Character Prompts",
-        description: `${parsed.characters?.length ?? 0}개의 캐릭터 프롬프트`,
+        preview: (parsed.characters ?? [])
+          .map((_, index) => `Character ${index + 1}`)
+          .join(", "),
       },
       {
         key: "settings",
         label: "Generation Settings",
-        description: "Model, Resolution, Sampling 설정",
+        preview: settingsPreview(parsed),
       },
       {
         key: "seed",
         label: "Seed",
-        description:
-          parsed.seed === undefined ? "Seed 정보 없음" : String(parsed.seed),
+        preview: parsed.seed === undefined ? "" : String(parsed.seed),
       },
-    ],
-    [parsed.characters?.length, parsed.seed],
-  );
+    ];
+    return all.filter((option) => available[option.key]);
+  }, [available, parsed]);
   const canImport = hasSelectedMetadataImport(selection, available);
+  const selectedCount = options.filter(
+    (option) => selection[option.key],
+  ).length;
 
   function updateSelection(key: ImportSelectionKey, selected: boolean) {
     setSelection((current) => ({ ...current, [key]: selected }));
@@ -209,27 +231,25 @@ export const MetadataImportContent = memo(function MetadataImportContent({
   }
 
   return (
-    <BottomSheetScrollView
-      testID="metadata-import-scroll"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingBottom: sheetContentPaddingBottom },
-      ]}
-    >
-      <View style={styles.intro}>
-        <Text style={styles.introTitle}>가져올 항목 선택</Text>
-        <Text style={styles.introDescription}>
+    <View style={styles.container}>
+      <BottomSheetScrollView
+        testID="metadata-import-scroll"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: floatingInset },
+        ]}
+      >
+        <Text style={styles.lead}>
           현재 이미지에 저장된 값을 생성 설정에 적용합니다.
         </Text>
-      </View>
 
-      <View style={styles.options}>
-        {options.map((option) =>
-          available[option.key] ? (
-            <ImportOptionCard
+        <View style={styles.card}>
+          {options.map((option, index) => (
+            <ImportOptionRow
               key={option.key}
               option={option}
+              first={index === 0}
               selected={selection[option.key]}
               onChange={(selected) => updateSelection(option.key, selected)}
             >
@@ -244,79 +264,62 @@ export const MetadataImportContent = memo(function MetadataImportContent({
                   }
                 />
               ) : null}
-            </ImportOptionCard>
-          ) : null,
-        )}
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="선택 항목 가져오기"
-        accessibilityState={{ disabled: !canImport }}
+            </ImportOptionRow>
+          ))}
+        </View>
+      </BottomSheetScrollView>
+      <MetadataFloatingButton
+        primary
+        label={
+          canImport
+            ? `${selectedCount}개 항목 가져오기`
+            : "가져올 항목을 선택하세요"
+        }
         disabled={!canImport}
         onPress={handleImport}
-        style={({ pressed }) => [
-          styles.importButton,
-          !canImport && styles.importButtonDisabled,
-          pressed && canImport && styles.pressed,
-        ]}
-      >
-        <Ionicons
-          name="download-outline"
-          size={18}
-          color={tokens.color.onAccent}
-        />
-        <Text style={styles.importButtonLabel}>선택 항목 가져오기</Text>
-      </Pressable>
-    </BottomSheetScrollView>
+      />
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: tokens.space[8],
     paddingTop: tokens.space[8],
     gap: tokens.space[8],
   },
-  intro: {
+  lead: {
     paddingHorizontal: tokens.space[2],
-    gap: tokens.space[2],
-  },
-  introTitle: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.lg,
-    letterSpacing: -0.2,
-  },
-  introDescription: {
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
     fontSize: tokens.type.xs,
     lineHeight: 19,
   },
-  options: {
-    gap: tokens.space[5],
-  },
-  optionCard: {
-    overflow: "hidden",
+  card: {
+    paddingHorizontal: tokens.space[8],
+    paddingVertical: 2,
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
     borderRadius: tokens.radius.lg,
-    backgroundColor: tokens.color.card,
+    backgroundColor: tokens.color.promptSurface,
   },
-  optionCardSelected: {
-    borderColor: "rgba(255,201,60,0.22)",
+  divided: {
+    borderTopWidth: 1,
+    borderTopColor: tokens.color.borderSubtle,
   },
   optionRow: {
-    minHeight: 72,
-    paddingHorizontal: tokens.space[7],
-    paddingVertical: tokens.space[6],
+    minHeight: 60,
+    paddingVertical: tokens.space[5],
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[6],
   },
   optionCopy: {
     flex: 1,
+    minWidth: 0,
     gap: tokens.space[1],
   },
   optionLabel: {
@@ -324,34 +327,30 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.semibold,
     fontSize: tokens.type.base,
   },
-  optionDescription: {
+  optionPreview: {
     color: tokens.color.textTertiary,
     fontFamily: tokens.font.regular,
-    fontSize: tokens.type["2xs"],
+    fontSize: tokens.type.xs,
   },
   checkBox: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderWidth: 1,
     borderColor: tokens.color.borderSubtleStrong,
-    borderRadius: 8,
+    borderRadius: 7,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.color.sunken,
+    backgroundColor: tokens.color.card,
   },
   checkBoxSelected: {
     borderColor: tokens.color.accent,
     backgroundColor: tokens.color.accent,
   },
+  // 체크박스(22) + 간격(12)만큼 들여 라벨과 맞춘다.
   characterModeArea: {
-    paddingHorizontal: tokens.space[7],
+    paddingLeft: 34,
     paddingBottom: tokens.space[7],
     gap: tokens.space[4],
-  },
-  characterModeTitle: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.medium,
-    fontSize: tokens.type["2xs"],
   },
   characterModeControl: {
     height: 40,
@@ -359,7 +358,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.md,
     flexDirection: "row",
     gap: 4,
-    backgroundColor: tokens.color.sunken,
+    backgroundColor: tokens.color.card,
   },
   characterModeOption: {
     flex: 1,
@@ -382,23 +381,6 @@ const styles = StyleSheet.create({
     color: tokens.color.textMuted,
     fontFamily: tokens.font.regular,
     fontSize: tokens.type["2xs"],
-  },
-  importButton: {
-    height: 52,
-    borderRadius: tokens.radius.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: tokens.space[4],
-    backgroundColor: tokens.color.accent,
-  },
-  importButtonDisabled: {
-    opacity: 0.4,
-  },
-  importButtonLabel: {
-    color: tokens.color.onAccent,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.base,
   },
   pressed: {
     opacity: tokens.opacity.pressed,

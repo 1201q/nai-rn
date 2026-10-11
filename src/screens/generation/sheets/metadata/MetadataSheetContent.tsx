@@ -1,6 +1,8 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 
 import { NOISE_SCHEDULES, SAMPLERS } from "../../../../constants/generation";
 import { MODELS } from "../../../../constants/models";
@@ -10,24 +12,22 @@ import {
   getQualityPresetLabel,
   getUcPresetLabel,
 } from "../../../../lib/naiPresets";
-import { useGenerationChromeMetrics } from "../../../../hooks/useGenerationChromeMetrics";
 import { monoFont, tokens } from "../../../../styles/tokens";
 import { PromptHighlightTextInput } from "../../../../components/forms/PromptHighlightTextInput";
+import {
+  MetadataFloatingButton,
+  useMetadataFloatingInset,
+} from "./MetadataFloatingButton";
 
 export type MetadataSheetSource = GenerationRecord | { metadataJson: string };
 
 type MetadataValue = {
   label: string;
   value: string;
-  accent?: boolean;
+  copyable?: boolean;
 };
 
-type PromptMode = "base" | "negative";
-
-const BASE_PROMPT_MIN_HEIGHT = 96;
-const CHARACTER_PROMPT_MIN_HEIGHT = 72;
-
-function optionLabel(
+export function optionLabel(
   options: ReadonlyArray<{ label: string; value: string }>,
   value: string | undefined,
 ) {
@@ -46,196 +46,123 @@ function formatCreatedAt(createdAt: number) {
   });
 }
 
-const MetadataValueCell = memo(function MetadataValueCell({
+// Android는 복사하면 시스템이 직접 알려주므로 따로 토스트를 띄우지 않는다.
+function copyText(value: string) {
+  void Clipboard.setStringAsync(value);
+}
+
+const MetadataValueRow = memo(function MetadataValueRow({
   label,
   value,
-  accent = false,
-}: MetadataValue) {
-  return (
-    <View style={styles.valueCell}>
+  copyable = false,
+  first,
+}: MetadataValue & { first: boolean }) {
+  const content = (
+    <>
       <Text style={styles.valueLabel}>{label}</Text>
-      <Text
-        numberOfLines={2}
-        style={[styles.valueText, accent && styles.valueTextAccent]}
-      >
-        {value}
-      </Text>
-    </View>
+      <View style={styles.valueContent}>
+        <Text numberOfLines={1} style={styles.valueText}>
+          {value}
+        </Text>
+        {copyable ? (
+          <Ionicons
+            name="copy-outline"
+            size={14}
+            color={tokens.color.textTertiary}
+          />
+        ) : null}
+      </View>
+    </>
+  );
+
+  return copyable ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} 복사`}
+      onPress={() => copyText(value)}
+      style={({ pressed }) => [
+        styles.valueRow,
+        !first && styles.divided,
+        pressed && styles.pressed,
+      ]}
+    >
+      {content}
+    </Pressable>
+  ) : (
+    <View style={[styles.valueRow, !first && styles.divided]}>{content}</View>
   );
 });
 
-const ReadonlyPromptTabs = memo(function ReadonlyPromptTabs({
-  mode,
+// 읽기 전용 프롬프트 한 덩어리: 라벨, 복사 버튼, 하이라이트된 본문.
+const ReadonlyPromptBlock = memo(function ReadonlyPromptBlock({
+  label,
   accessibilityPrefix,
-  baseLabel,
-  onChange,
+  value,
+  negative = false,
+  first,
 }: {
-  mode: PromptMode;
+  label: string;
   accessibilityPrefix?: string;
-  baseLabel: string;
-  onChange: (mode: PromptMode) => void;
+  value: string;
+  negative?: boolean;
+  first: boolean;
 }) {
-  return (
-    <View style={styles.promptTabs}>
-      <Pressable
-        accessibilityRole="radio"
-        accessibilityLabel={
-          accessibilityPrefix
-            ? `${accessibilityPrefix} ${baseLabel}`
-            : baseLabel
-        }
-        accessibilityState={{ selected: mode === "base" }}
-        onPress={() => onChange("base")}
-        style={({ pressed }) => [
-          styles.promptTab,
-          mode === "base" && styles.promptTabActive,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[
-            styles.promptTabLabel,
-            mode === "base" && styles.promptTabLabelActive,
-          ]}
-        >
-          {baseLabel}
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="radio"
-        accessibilityLabel={
-          accessibilityPrefix
-            ? `${accessibilityPrefix} Undesired Content`
-            : "Undesired Content"
-        }
-        accessibilityState={{ selected: mode === "negative" }}
-        onPress={() => onChange("negative")}
-        style={({ pressed }) => [
-          styles.promptTab,
-          mode === "negative" && styles.promptTabActive,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[
-            styles.promptTabLabel,
-            mode === "negative" && styles.negativePromptTabLabelActive,
-          ]}
-        >
-          Undesired Content
-        </Text>
-      </Pressable>
-    </View>
-  );
-});
-
-const ReadonlyBasePrompt = memo(function ReadonlyBasePrompt({
-  prompt,
-  negativePrompt,
-}: {
-  prompt: string;
-  negativePrompt: string;
-}) {
-  const [mode, setMode] = useState<PromptMode>("base");
-  const value = mode === "base" ? prompt : negativePrompt;
+  const name = accessibilityPrefix ? `${accessibilityPrefix} ${label}` : label;
 
   return (
-    <View style={styles.basePromptCard}>
-      <View style={styles.basePromptBody}>
-        <ReadonlyPromptTabs
-          mode={mode}
-          baseLabel="Base Prompt"
-          onChange={setMode}
-        />
+    <View style={[styles.promptBlock, !first && styles.divided]}>
+      <View style={styles.promptBlockHead}>
+        <Text style={styles.promptBlockLabel}>{label}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${name} 복사`}
+          accessibilityState={{ disabled: !value }}
+          disabled={!value}
+          onPress={() => copyText(value)}
+          style={({ pressed }) => [
+            styles.copyButton,
+            (pressed || !value) && styles.pressed,
+          ]}
+        >
+          <Ionicons
+            name="copy-outline"
+            size={16}
+            color={tokens.color.textTertiary}
+          />
+        </Pressable>
+      </View>
+      {value ? (
         <PromptHighlightTextInput
-          key={mode}
-          accessibilityLabel={
-            mode === "base" ? "Base prompt text" : "Undesired Content text"
-          }
+          accessibilityLabel={`${name} text`}
           caretHidden
           editable={false}
           multiline
-          placeholder="입력된 내용이 없습니다."
-          placeholderTextColor={
-            mode === "negative"
-              ? tokens.color.textSecondary
-              : tokens.color.textPrimary
-          }
           scrollEnabled={false}
           showSoftInputOnFocus={false}
           textAlignVertical="top"
           style={[
             styles.readonlyPromptText,
-            styles.readonlyBasePromptText,
-            mode === "negative" && styles.readonlyNegativePromptText,
+            negative && styles.readonlyNegativePromptText,
           ]}
           value={value}
         />
-      </View>
-    </View>
-  );
-});
-
-const ReadonlyCharacterPrompt = memo(function ReadonlyCharacterPrompt({
-  index,
-  prompt,
-  negativePrompt,
-}: {
-  index: number;
-  prompt: string;
-  negativePrompt: string;
-}) {
-  const [mode, setMode] = useState<PromptMode>("base");
-  const title = `Character ${index + 1}`;
-  const value = mode === "base" ? prompt : negativePrompt;
-
-  return (
-    <View style={styles.characterPromptCard}>
-      <View style={styles.characterPromptHeader}>
-        <Text style={styles.characterPromptTitle}>{title}</Text>
-      </View>
-      <View style={styles.characterPromptBody}>
-        <ReadonlyPromptTabs
-          mode={mode}
-          accessibilityPrefix={title}
-          baseLabel="Prompt"
-          onChange={setMode}
-        />
-        <PromptHighlightTextInput
-          key={mode}
-          accessibilityLabel={`${title} ${
-            mode === "base" ? "prompt" : "Undesired Content"
-          } text`}
-          caretHidden
-          editable={false}
-          multiline
-          placeholder="입력된 내용이 없습니다."
-          placeholderTextColor={
-            mode === "negative"
-              ? tokens.color.textSecondary
-              : tokens.color.textPrimary
-          }
-          scrollEnabled={false}
-          showSoftInputOnFocus={false}
-          textAlignVertical="top"
-          style={[
-            styles.readonlyPromptText,
-            styles.readonlyCharacterPromptText,
-            mode === "negative" && styles.readonlyNegativePromptText,
-          ]}
-          value={value}
-        />
-      </View>
+      ) : (
+        <Text style={[styles.readonlyPromptText, styles.readonlyPromptEmpty]}>
+          없음
+        </Text>
+      )}
     </View>
   );
 });
 
 export const MetadataSheetContent = memo(function MetadataSheetContent({
   generation,
+  onImport,
 }: {
   generation: Partial<GenerationRecord> & { metadataJson: string };
+  onImport: () => void;
 }) {
-  const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
+  const floatingInset = useMetadataFloatingInset();
   const parsed = useMemo(
     () => parseNaiMetadataJson(generation.metadataJson),
     [generation.metadataJson],
@@ -246,52 +173,50 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     height: generation.height,
   };
   const values: MetadataValue[] = [
-    { label: "MODEL", value: optionLabel(MODELS, model) },
+    { label: "Model", value: optionLabel(MODELS, model) },
     {
-      label: "RESOLUTION",
+      label: "Resolution",
       value:
         resolution.width && resolution.height
           ? `${resolution.width} x ${resolution.height}`
           : "-",
     },
-    { label: "STEPS", value: String(parsed?.steps ?? generation.steps ?? "-") },
+    { label: "Steps", value: String(parsed?.steps ?? generation.steps ?? "-") },
     {
-      label: "PROMPT GUIDANCE",
+      label: "Prompt Guidance",
       value: String(parsed?.promptGuidance ?? generation.scale ?? "-"),
     },
     {
-      label: "CFG RESCALE",
+      label: "Prompt Guidance Rescale",
       value: String(
         parsed?.promptGuidanceRescale ?? generation.cfgRescale ?? "-",
       ),
     },
     {
-      label: "SAMPLER",
+      label: "Sampler",
       value: optionLabel(SAMPLERS, parsed?.sampler ?? generation.sampler),
     },
     {
-      label: "NOISE SCHEDULE",
+      label: "Noise Schedule",
       value: optionLabel(
         NOISE_SCHEDULES,
         parsed?.noiseSchedule ?? generation.noiseSchedule,
       ),
     },
     {
-      label: "SEED",
+      label: "Seed",
       value: String(parsed?.seed ?? generation.seed ?? "-"),
-      accent: true,
+      copyable: (parsed?.seed ?? generation.seed) != null,
     },
     {
-      label: "QUALITY TAGS",
+      label: "Quality Tags",
       value:
         parsed?.qualityPreset === undefined
           ? "-"
           : getQualityPresetLabel(parsed.qualityPreset),
-      accent:
-        parsed?.qualityPreset !== undefined && parsed.qualityPreset !== "none",
     },
     {
-      label: "UC PRESET",
+      label: "UC Preset",
       value:
         parsed?.ucPreset === undefined
           ? "-"
@@ -299,7 +224,7 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     },
     ...(generation.createdAt === undefined
       ? []
-      : [{ label: "CREATED", value: formatCreatedAt(generation.createdAt) }]),
+      : [{ label: "Created", value: formatCreatedAt(generation.createdAt) }]),
   ];
   const characters = parsed?.characters ?? [];
   const prompt = parsed?.prompt ?? generation.prompt ?? "";
@@ -307,48 +232,85 @@ export const MetadataSheetContent = memo(function MetadataSheetContent({
     parsed?.negativePrompt ?? generation.negativePrompt ?? "";
 
   return (
-    <BottomSheetScrollView
-      testID="metadata-scroll"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingBottom: sheetContentPaddingBottom },
-      ]}
-    >
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>PROMPTS</Text>
-        <ReadonlyBasePrompt prompt={prompt} negativePrompt={negativePrompt} />
-        {characters.map((character, index) => (
-          <ReadonlyCharacterPrompt
-            key={character.id}
-            index={index}
-            prompt={character.prompt}
-            negativePrompt={character.negativePrompt}
-          />
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>GENERATION PARAMETERS</Text>
-        <View style={styles.valuesGrid}>
-          {values.map((item) => (
-            <MetadataValueCell key={item.label} {...item} />
-          ))}
+    <View style={styles.container}>
+      <BottomSheetScrollView
+        testID="metadata-scroll"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: floatingInset },
+        ]}
+      >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PROMPTS</Text>
+          <View style={styles.card}>
+            <ReadonlyPromptBlock first label="Base Prompt" value={prompt} />
+            <ReadonlyPromptBlock
+              first={false}
+              label="Undesired Content"
+              value={negativePrompt}
+              negative
+            />
+          </View>
+          {characters.map((character, index) => {
+            const title = `Character ${index + 1}`;
+            return (
+              <View key={character.id} style={styles.card}>
+                <Text style={styles.characterTitle}>{title}</Text>
+                <ReadonlyPromptBlock
+                  first
+                  label="Prompt"
+                  accessibilityPrefix={title}
+                  value={character.prompt}
+                />
+                {character.negativePrompt ? (
+                  <ReadonlyPromptBlock
+                    first={false}
+                    label="Undesired Content"
+                    accessibilityPrefix={title}
+                    value={character.negativePrompt}
+                    negative
+                  />
+                ) : null}
+              </View>
+            );
+          })}
         </View>
-      </View>
 
-      {generation.id ? (
-        <Text style={styles.recordId}>ID {generation.id}</Text>
-      ) : null}
-    </BottomSheetScrollView>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>GENERATION PARAMETERS</Text>
+          <View style={styles.card}>
+            {values.map((item, index) => (
+              <MetadataValueRow
+                key={item.label}
+                first={index === 0}
+                {...item}
+              />
+            ))}
+          </View>
+        </View>
+
+        {generation.id ? (
+          <Text style={styles.recordId}>ID {generation.id}</Text>
+        ) : null}
+      </BottomSheetScrollView>
+      <MetadataFloatingButton
+        label="설정으로 가져오기"
+        icon="download-outline"
+        onPress={onImport}
+      />
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: tokens.space[8],
     paddingTop: tokens.space[8],
-    gap: tokens.space[16],
+    gap: tokens.space[12],
   },
   section: {
     gap: tokens.space[6],
@@ -360,44 +322,45 @@ const styles = StyleSheet.create({
     fontSize: tokens.type["3xs"],
     letterSpacing: tokens.tracking.wide,
   },
-  basePromptCard: {
-    overflow: "hidden",
+  card: {
+    paddingHorizontal: tokens.space[8],
+    paddingVertical: 2,
     borderWidth: 1,
     borderColor: tokens.color.promptBorder,
-    borderRadius: 20,
+    borderRadius: tokens.radius.lg,
     backgroundColor: tokens.color.promptSurface,
   },
-  basePromptBody: {
-    padding: 15,
+  divided: {
+    borderTopWidth: 1,
+    borderTopColor: tokens.color.borderSubtle,
   },
-  promptTabs: {
-    height: 30,
-    marginBottom: 10,
+  characterTitle: {
+    paddingTop: tokens.space[7],
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.base,
+  },
+  promptBlock: {
+    paddingTop: tokens.space[4],
+    paddingBottom: tokens.space[7],
+  },
+  promptBlockHead: {
+    height: 32,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "space-between",
   },
-  promptTab: {
-    minHeight: 30,
-    paddingHorizontal: 8,
-    borderRadius: 9,
-    flexDirection: "row",
+  promptBlockLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type["2xs"],
+  },
+  copyButton: {
+    width: 32,
+    height: 32,
+    marginRight: -8,
     alignItems: "center",
     justifyContent: "center",
-  },
-  promptTabActive: {
-    backgroundColor: tokens.color.card,
-  },
-  promptTabLabel: {
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: 13,
-  },
-  promptTabLabelActive: {
-    color: tokens.color.textPrimary,
-  },
-  negativePromptTabLabelActive: {
-    color: tokens.color.negative,
   },
   readonlyPromptText: {
     padding: 0,
@@ -406,66 +369,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23,
   },
-  readonlyBasePromptText: {
-    minHeight: BASE_PROMPT_MIN_HEIGHT,
-  },
-  readonlyCharacterPromptText: {
-    minHeight: CHARACTER_PROMPT_MIN_HEIGHT,
-  },
   readonlyNegativePromptText: {
     color: tokens.color.textSecondary,
   },
-  characterPromptCard: {
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: tokens.color.promptBorder,
-    borderRadius: 16,
-    backgroundColor: tokens.color.promptSurface,
+  readonlyPromptEmpty: {
+    color: tokens.color.textMuted,
   },
-  characterPromptHeader: {
-    height: 40,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    backgroundColor: tokens.color.raised,
-  },
-  characterPromptTitle: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 15,
-  },
-  characterPromptBody: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 14,
-  },
-  valuesGrid: {
+  valueRow: {
+    minHeight: 44,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: tokens.space[4],
-  },
-  valueCell: {
-    width: "48%",
-    minHeight: 72,
-    paddingHorizontal: tokens.space[7],
-    paddingVertical: tokens.space[6],
-    borderRadius: tokens.radius.md,
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: tokens.space[4],
-    backgroundColor: tokens.color.card,
+    gap: tokens.space[8],
   },
   valueLabel: {
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.semibold,
-    fontSize: 9,
-    letterSpacing: 0.5,
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: tokens.type.sm,
+  },
+  valueContent: {
+    flexShrink: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[3],
   },
   valueText: {
+    flexShrink: 1,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.medium,
-    fontSize: tokens.type.xs,
-  },
-  valueTextAccent: {
-    color: tokens.color.accent,
+    fontSize: tokens.type.sm,
   },
   pressed: {
     opacity: tokens.opacity.pressed,

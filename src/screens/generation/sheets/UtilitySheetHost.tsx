@@ -32,11 +32,7 @@ import {
   PredictiveBackSheetLayer,
   PressableSurface,
 } from "./SheetLayers";
-import {
-  MetadataSheetPager,
-  type MetadataSheetPagerController,
-  useMetadataSheetPagerController,
-} from "./metadata/MetadataSheetPager";
+import { MetadataSheet } from "./metadata/MetadataSheet";
 import { SettingsSheetContent } from "./settings/SettingsSheetContent";
 import { SHEET_EASING, sheetChromeStyles } from "./sheetChrome";
 
@@ -51,14 +47,12 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   onClose,
   historyController,
   generation,
-  metadataPagerController,
 }: {
   sheet: UtilitySheet;
   active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
   generation: MetadataSheetSource | null;
-  metadataPagerController: MetadataSheetPagerController;
 }) {
   if (sheet === "history") {
     return <HistorySheetContent controller={historyController} />;
@@ -67,11 +61,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   if (sheet === "metadata") {
     return generation ? (
       <BottomSheetView style={sheetChromeStyles.sheetBody}>
-        <MetadataSheetPager
-          generation={generation}
-          onClose={onClose}
-          controller={metadataPagerController}
-        />
+        <MetadataSheet generation={generation} onClose={onClose} />
       </BottomSheetView>
     ) : null;
   }
@@ -138,7 +128,6 @@ export function UtilitySheetHost({
   const contentSheet =
     renderedSheet ?? (transition.retainSettings ? "settings" : null);
   const historyController = useHistorySheetController({ onClose });
-  const metadataPagerController = useMetadataSheetPagerController();
   const { height: windowHeight } = useWindowDimensions();
   const { utilitySheetTop } = useGenerationChromeMetrics();
   const snapPoints = useMemo(
@@ -259,13 +248,6 @@ export function UtilitySheetHost({
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
           android_keyboardInputMode="adjustResize"
-          activeOffsetY={renderedSheet === "metadata" ? [-10, 10] : undefined}
-          failOffsetX={renderedSheet === "metadata" ? [-18, 18] : undefined}
-          waitFor={
-            renderedSheet === "metadata"
-              ? metadataPagerController.pageGesture
-              : undefined
-          }
           handleComponent={
             renderedSheet === "history" ? renderHistoryHandle : undefined
           }
@@ -292,7 +274,6 @@ export function UtilitySheetHost({
               onClose={onClose}
               historyController={historyController}
               generation={generation}
-              metadataPagerController={metadataPagerController}
             />
           )}
         </BottomSheet>

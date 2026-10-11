@@ -12,6 +12,11 @@ jest.mock("@gorhom/bottom-sheet", () => {
     require("react-native") as typeof import("react-native");
   return { BottomSheetScrollView: ScrollView };
 });
+jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
+jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
+jest.mock("../../../../../components/forms/PromptHighlightTextInput", () => ({
+  PromptHighlightTextInput: () => null,
+}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -67,7 +72,7 @@ describe("MetadataImportContent", () => {
       />,
     );
     await fireEvent.press(
-      screen.getByRole("button", { name: "선택 항목 가져오기" }),
+      screen.getByRole("button", { name: "2개 항목 가져오기" }),
     );
     const [parsed] = mockApplyMetadataImport.mock.calls[0];
     expect(parsed.prompt).toBe("external prompt");
@@ -90,10 +95,17 @@ describe("MetadataImportContent", () => {
       screen.getByRole("checkbox", { name: "Seed" }).props.accessibilityState,
     ).toMatchObject({ checked: false });
 
+    // 실제로 가져올 값을 항목마다 보여준다.
+    expect(screen.getByText("embedded prompt")).toBeTruthy();
+    expect(screen.getByText("Character 1")).toBeTruthy();
+    expect(
+      screen.getByText("V4.5 Full · 832 x 1210 · 28 steps · Euler Ancestral"),
+    ).toBeTruthy();
+
     await fireEvent.press(screen.getByRole("radio", { name: "Append" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Seed" }));
     await fireEvent.press(
-      screen.getByRole("button", { name: "선택 항목 가져오기" }),
+      screen.getByRole("button", { name: "5개 항목 가져오기" }),
     );
 
     expect(mockApplyMetadataImport).toHaveBeenCalledTimes(1);
@@ -107,5 +119,29 @@ describe("MetadataImportContent", () => {
     });
     expect(mockToastSuccess).toHaveBeenCalledWith("메타데이터를 가져왔습니다.");
     expect(onImported).toHaveBeenCalledTimes(1);
+  });
+
+  test("disables the import button when nothing is selected", async () => {
+    const screen = await render(
+      <MetadataImportContent
+        generation={{
+          metadataJson: JSON.stringify({
+            Comment: JSON.stringify({ prompt: "external prompt" }),
+          }),
+        }}
+        onImported={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Prompt" }));
+    await fireEvent.press(
+      screen.getByRole("checkbox", { name: "Generation Settings" }),
+    );
+    const button = screen.getByRole("button", {
+      name: "가져올 항목을 선택하세요",
+    });
+    expect(button.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(button);
+    expect(mockApplyMetadataImport).not.toHaveBeenCalled();
   });
 });

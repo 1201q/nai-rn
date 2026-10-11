@@ -1,10 +1,13 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
+import * as Clipboard from "expo-clipboard";
 
 import type { GenerationRecord } from "../../../../../lib/generationHistory";
 import { MetadataSheetContent } from "../MetadataSheetContent";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
+jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("@gorhom/bottom-sheet", () => {
   const { ScrollView } =
     require("react-native") as typeof import("react-native");
@@ -81,39 +84,34 @@ describe("MetadataSheetContent", () => {
             Comment: JSON.stringify({ prompt: "external prompt", seed: 42 }),
           }),
         }}
+        onImport={jest.fn()}
       />,
     );
     expect(screen.getByDisplayValue("external prompt")).toBeTruthy();
     expect(screen.getByText("42")).toBeTruthy();
-    expect(screen.queryByText("CREATED")).toBeNull();
+    expect(screen.queryByText("Created")).toBeNull();
     expect(screen.queryByText(/undefined/)).toBeNull();
     expect(screen.queryByText(/^ID /)).toBeNull();
   });
   test("shows the current image record with its embedded metadata", async () => {
+    const onImport = jest.fn();
     const screen = await render(
-      <MetadataSheetContent generation={generation} />,
+      <MetadataSheetContent generation={generation} onImport={onImport} />,
     );
 
     expect(screen.getByText("V4.5 Full")).toBeTruthy();
     expect(screen.getByText("832 x 1216")).toBeTruthy();
     expect(screen.queryByText("CURRENT IMAGE")).toBeNull();
+    // 탭 전환 없이 Base와 Undesired Content를 모두 펼쳐 보여준다.
+    expect(screen.queryByRole("radio")).toBeNull();
     expect(screen.getByDisplayValue("embedded prompt")).toBeTruthy();
-    expect(screen.queryByDisplayValue("embedded negative prompt")).toBeNull();
-    await fireEvent.press(
-      screen.getByRole("radio", { name: "Undesired Content" }),
-    );
     expect(screen.getByDisplayValue("embedded negative prompt")).toBeTruthy();
     expect(screen.getByText("Character 1")).toBeTruthy();
     expect(screen.getByDisplayValue("character prompt")).toBeTruthy();
-    await fireEvent.press(
-      screen.getByRole("radio", {
-        name: "Character 1 Undesired Content",
-      }),
-    );
     expect(screen.getByDisplayValue("character negative prompt")).toBeTruthy();
     expect(screen.getByText("123456")).toBeTruthy();
-    expect(screen.getByText("QUALITY TAGS")).toBeTruthy();
-    expect(screen.getByText("UC PRESET")).toBeTruthy();
+    expect(screen.getByText("Quality Tags")).toBeTruthy();
+    expect(screen.getByText("UC Preset")).toBeTruthy();
     expect(screen.getByText("ID generation-1")).toBeTruthy();
 
     const basePrompt = screen.getByLabelText("Undesired Content text");
@@ -123,24 +121,66 @@ describe("MetadataSheetContent", () => {
       showSoftInputOnFocus: false,
     });
     expect(StyleSheet.flatten(basePrompt.props.style)).toMatchObject({
-      minHeight: 96,
       lineHeight: 23,
     });
+    expect(
+      screen.getByLabelText("Character 1 Undesired Content text").props
+        .editable,
+    ).toBe(false);
 
-    const characterPrompt = screen.getByLabelText(
-      "Character 1 Undesired Content text",
-    );
-    expect(characterPrompt.props.editable).toBe(false);
-    expect(StyleSheet.flatten(characterPrompt.props.style)).toMatchObject({
-      minHeight: 72,
-      lineHeight: 23,
-    });
-
+    // 스크롤 끝이 플로팅 버튼(액션바 72 + 간격 12 + 버튼 48 + 여유 24)에 가려지지 않는다.
     const scroll = screen.getByTestId("metadata-scroll");
     expect(
       StyleSheet.flatten(scroll.props.contentContainerStyle),
     ).toMatchObject({
-      paddingBottom: 200,
+      paddingBottom: 156,
     });
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "설정으로 가져오기" }),
+    );
+    expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  test("copies prompts and the seed", async () => {
+    const screen = await render(
+      <MetadataSheetContent generation={generation} onImport={jest.fn()} />,
+    );
+
+    await fireEvent.press(
+      screen.getByRole("button", { name: "Base Prompt 복사" }),
+    );
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith(
+      "embedded prompt",
+    );
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "Character 1 Undesired Content 복사",
+      }),
+    );
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith(
+      "character negative prompt",
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Seed 복사" }));
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith("123456");
+  });
+
+  test("shows a placeholder and disables copy for an empty prompt", async () => {
+    const screen = await render(
+      <MetadataSheetContent
+        generation={{
+          metadataJson: JSON.stringify({
+            Comment: JSON.stringify({ prompt: "external prompt" }),
+          }),
+        }}
+        onImport={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("없음")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Undesired Content 복사" }).props
+        .accessibilityState,
+    ).toMatchObject({ disabled: true });
   });
 });
