@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   optionTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 17,
+    fontSize: tokens.type.md,
   },
   optionText: {
     flex: 1,
