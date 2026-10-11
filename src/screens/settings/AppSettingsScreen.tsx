@@ -523,6 +523,25 @@ export function AppSettingsScreen() {
                 )}
               </Pressable>
             </View>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/licenses")}
+              style={({ pressed }) => [
+                styles.option,
+                styles.optionRow,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.optionTitle, styles.optionText]}>
+                오픈소스 라이선스
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={tokens.color.textMuted}
+              />
+            </Pressable>
           </Animated.ScrollView>
         </KeyboardAvoidingView>
       </BlurTargetView>
