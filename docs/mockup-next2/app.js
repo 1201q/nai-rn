@@ -9,6 +9,9 @@ const state = {
   upscaleTile: 0,
   upscaleFormat: "png",
   upscaleImages: [],
+  upscaleSheet: null,
+  upscaleFull: true,
+  previewReturnScreen: "home",
   full: false,
   sample: false,
   prompt: initialPrompt,
@@ -119,7 +122,9 @@ function actionbar() {
   return `<div class="actionbar">${button("settings-sharp", "Settings 열기", "settings", `action-icon ${state.screen === "settings" ? "selected" : ""}`)}<button class="generate" data-action="generate">${icon(state.loading ? "stop" : "sparkles")}<span>${state.loading ? "취소" : state.batch > 1 ? `${state.batch}장 생성` : "생성"}</span></button>${button("time-outline", "History 열기", "history", `action-icon ${state.screen === "history" ? "selected" : ""}`)}</div>`;
 }
 function home() {
-  return `<div class="top-actions"><div class="balance-group"><button class="balance" data-action="app-settings" aria-label="ANLAS 토큰 설정">${icon("diamond-outline")}<span>${state.sample || state.tokenSaved ? "10,000" : "—"}</span></button>${state.sample && v5() ? '<div class="usage"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12.75" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/><circle cx="14" cy="14" r="12.75" fill="none" stroke="#ffc93c" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80.11" stroke-dashoffset="60.89"/></svg><b>24</b></div>' : ""}</div>${button("ellipsis-horizontal", "더 보기", "more-menu")}</div><div class="canvas-section"><div class="canvas">${state.image ? `<img src="${escapeHtml(state.image)}" alt="생성 이미지" class="${state.blurred ? "blurred" : ""}" data-action="preview" />` : '<div class="placeholder">generated image</div>'}</div><div class="toolbar-row"><div class="toolbar ${state.toolbar ? "" : "collapsed"}">${button(state.blurred ? "eye-off-outline" : "eye-outline", "이미지 블러 적용/해제", "blur", "")}${button("download-outline", "이미지 다운로드", "download", "", !state.image)}${button("copy-outline", "이미지 복사", "copy", "", !state.image)}${button("information-circle-outline", "메타데이터 정보", "metadata", "", !state.image)}${button(state.toolbar ? "chevron-forward" : "chevron-back", "이미지 도구 접기/펼치기", "toolbar", "tool-toggle")}</div></div></div>`;
+  const hasAccount = state.sample || state.tokenSaved;
+  const usage = v5() ? `<button class="usage" data-top-info="usage" aria-label="${hasAccount ? 'Opus 사용량 24% 남음' : 'Opus 사용량 정보 없음'}" aria-expanded="false" aria-describedby="top-info-tooltip"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12.75" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/>${hasAccount ? '<circle cx="14" cy="14" r="12.75" fill="none" stroke="#ffc93c" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80.11" stroke-dashoffset="60.89"/>' : ''}</svg><b>${hasAccount ? '24' : '--'}</b></button>` : '';
+  return `<div class="top-actions"><div class="balance-group"><button class="balance" data-top-info="account" aria-label="ANLAS 잔액 및 토큰 정보" aria-expanded="false" aria-describedby="top-info-tooltip">${icon("diamond-outline")}<span>${hasAccount ? "10,000" : "—"}</span></button>${usage}</div>${button("ellipsis-horizontal", "더 보기", "more-menu")}</div><div class="canvas-section"><div class="canvas">${state.image ? `<img src="${escapeHtml(state.image)}" alt="생성 이미지" class="${state.blurred ? "blurred" : ""}" data-action="preview" />` : '<div class="placeholder">generated image</div>'}</div><div class="toolbar-row"><div class="toolbar ${state.toolbar ? "" : "collapsed"}">${button(state.blurred ? "eye-off-outline" : "eye-outline", "이미지 블러 적용/해제", "blur", "")}${button("download-outline", "이미지 다운로드", "download", "", !state.image)}${button("copy-outline", "이미지 복사", "copy", "", !state.image)}${button("information-circle-outline", "메타데이터 정보", "metadata", "", !state.image)}${button(state.toolbar ? "chevron-forward" : "chevron-back", "이미지 도구 접기/펼치기", "toolbar", "tool-toggle")}</div></div></div>`;
 }
 function promptPanel(channel, character = null, split = false) {
   const key = channel === "base" ? "prompt" : "negative";
@@ -247,23 +252,60 @@ const upscaleNoiseLevels = {
   "realcugan-pro": { 2: [-1, 0, 3], 3: [-1, 0, 3] },
   "waifu2x-cunet": { 1: [0, 1, 2, 3], 2: [-1, 0, 1, 2, 3] },
 };
-function upscalePage() {
-  const chips = (title, key, options) =>
-    '<div class="upscale-option"><h3>' + title + '</h3><div class="upscale-chips">' + options.map(([value, label]) =>
-      '<button class="upscale-chip ' + (state[key] === value ? 'selected' : '') + '" data-upscale-key="' + key + '" data-upscale-value="' + value + '" aria-pressed="' + (state[key] === value) + '">' + label + '</button>'
-    ).join('') + '</div></div>';
-  const items = state.upscaleImages;
+const upscaleLabels = {
+  "realcugan-se": "CUGAN Standard",
+  "realcugan-pro": "CUGAN Pro",
+  "waifu2x-cunet": "waifu2x CUNet",
+  png: "PNG",
+  jpg: "JPG",
+  webp: "WebP",
+};
+function upscaleStops(key) {
   const levels = upscaleNoiseLevels[state.upscaleModel];
+  if (key === "upscaleScale")
+    return Object.keys(levels).map(value => [Number(value), value + "x"]);
+  if (key === "upscaleNoise")
+    return levels[state.upscaleScale].map(value => [value, String(value)]);
+  return [[0, "자동"], [100, "100"], [200, "200"], [400, "400"]];
+}
+function normalizeUpscaleOptions() {
+  const levels = upscaleNoiseLevels[state.upscaleModel];
+  if (!levels[state.upscaleScale]) state.upscaleScale = 2;
+  if (!levels[state.upscaleScale].includes(state.upscaleNoise))
+    state.upscaleNoise = levels[state.upscaleScale][0];
+}
+function steppedSeekbar(key, label) {
+  const stops = upscaleStops(key);
+  const index = stops.findIndex(([value]) => value === state[key]);
+  return `<div class="slider stepped-seekbar"><div class="slider-header"><span class="slider-label" id="${key}-label">${label}</span><output class="seekbar-value" for="${key}">${stops[index][1]}</output></div><div class="seekbar-track"><input id="${key}" type="range" data-upscale-range="${key}" min="0" max="${stops.length - 1}" step="1" value="${index}" aria-labelledby="${key}-label" aria-valuetext="${stops[index][1]}" style="--percent:${index / (stops.length - 1) * 100}%" /><div class="seekbar-stops">${stops.map(([value, text], i) => `<button class="seekbar-stop ${i <= index ? "filled" : ""} ${i === index ? "selected" : ""}" style="--stop:${i / (stops.length - 1) * 100}%" data-upscale-key="${key}" data-upscale-value="${value}" aria-label="${label}: ${text}" aria-pressed="${i === index}"><span class="seekbar-point"></span><span class="seekbar-label">${text}</span></button>`).join("")}</div></div></div>`;
+}
+function upscaleSettings() {
+  return field('Model', select('upscaleModel', state.upscaleModel, false, upscaleLabels[state.upscaleModel])) +
+    '<div class="section"><h3 class="eyebrow">UPSCALE SETTINGS</h3>' +
+    steppedSeekbar('upscaleScale', 'Scale') +
+    steppedSeekbar('upscaleNoise', 'Denoise') +
+    steppedSeekbar('upscaleTile', 'Tile size') + '</div>' +
+    field('Format', select('upscaleFormat', state.upscaleFormat, false, upscaleLabels[state.upscaleFormat]));
+}
+function upscalePage() {
+  const items = state.upscaleImages;
   const queue = items.length ? '<section class="upscale-queue"><div class="upscale-queue-header"><h3>완료 ' + items.filter(item => item.done).length + ' / ' + items.length + '</h3><button data-action="clear-upscale">목록 비우기</button></div>' + items.map((item, i) =>
     '<div class="upscale-row"><img src="' + escapeHtml(item.uri) + '" alt="업스케일할 이미지" /><div class="grow"><b>' + item.width + ' x ' + item.height + '</b><p class="' + (item.done ? 'done' : '') + '">' + (item.done ? item.result : '대기') + '</p></div>' + button('close', '목록에서 제거', 'remove-upscale:' + i, 'upscale-remove') + '</div>'
   ).join('') + '</section>' : '';
-  return '<div class="settings-page upscale-page"><button class="upscale-picker" data-action="pick-upscale">이미지 추가 (여러 장 선택 가능)</button>' + queue +
-    chips('Model', 'upscaleModel', [['realcugan-se', 'CUGAN Standard'], ['realcugan-pro', 'CUGAN Pro'], ['waifu2x-cunet', 'waifu2x CUNet']]) +
-    chips('Scale', 'upscaleScale', Object.keys(levels).map(value => [Number(value), value + 'x'])) +
-    chips('Denoise', 'upscaleNoise', levels[state.upscaleScale].map(value => [value, String(value)])) +
-    chips('Tile size', 'upscaleTile', [[0, '자동'], [100, '100'], [200, '200'], [400, '400']]) +
-    chips('Format', 'upscaleFormat', [['png', 'PNG'], ['jpg', 'JPG'], ['webp', 'WebP']]) +
-    '<button class="upscale-primary" data-action="preview-upscale" ' + (items.some(item => !item.done) ? '' : 'disabled') + '>업스케일하기 (' + items.filter(item => !item.done).length + '장)</button><p class="upscale-meta">결과는 한 장이 끝날 때마다 갤러리에 저장됩니다.</p></div><div class="detail-header upscale-header">' + button('chevron-back', '뒤로', 'home') + '<b>이미지 업스케일</b><span style="width:40px"></span></div>';
+  const upload = items.length
+    ? '<button class="upscale-picker compact-upload" data-action="pick-upscale" aria-label="업스케일할 이미지 더 추가"><span class="upscale-upload-icon">' + icon('images-outline', 22) + '</span><span class="upscale-upload-copy"><strong>이미지 더 추가</strong><span>여러 장을 한 번에 선택할 수 있어요</span></span>' + icon('add', 22) + '</button>'
+    : '<button class="upscale-picker empty-upload" data-action="pick-upscale" aria-label="업스케일할 이미지 추가"><span class="upscale-upload-icon">' + icon('images-outline', 30) + '</span><span class="upscale-upload-copy"><strong>어떤 이미지를 업스케일할까요?</strong><span>이미지를 선택해 더 선명하게 만들어 보세요.<br />여러 장을 한 번에 추가할 수 있어요.</span></span><span class="upscale-upload-action">' + icon('add', 18) + '이미지 선택</span></button>';
+  let html = '<div class="settings-page upscale-page">' + upload + queue +
+    '<p class="upscale-meta">결과는 한 장이 끝날 때마다 갤러리에 저장됩니다.</p></div><div class="detail-header upscale-header">' + button('chevron-back', '뒤로', 'leave-upscale') + '<b>이미지 업스케일</b><span style="width:40px"></span></div>';
+  if (state.upscaleSheet) {
+    html += '<button class="scrim" data-action="close-upscale-sheet" aria-label="시트 닫기"></button>';
+    const isHistory = state.upscaleSheet === 'history';
+    html += `<section class="sheet utility ${isHistory || state.upscaleFull ? 'full' : ''}" aria-label="${isHistory ? 'History' : 'Upscale Settings'}"><button class="handle" data-action="${isHistory ? 'close-upscale-sheet' : 'upscale-height'}" aria-label="${isHistory ? '시트 닫기' : '시트 높이 변경'}"><span></span></button>${utilityHeader(isHistory ? 'history' : 'settings')}${isHistory ? history() : '<div class="sheet-scroll settings-content">' + upscaleSettings() + '</div>'}</section>`;
+  } else {
+    html += `<section class="sheet collapsed"><button class="handle" data-action="upscale-settings" aria-label="Settings 펼치기"><span></span></button><button class="preview" data-action="upscale-settings"><span>${upscaleLabels[state.upscaleModel]} · ${state.upscaleScale}x · ${upscaleLabels[state.upscaleFormat]}</span>${icon('chevron-up')}</button></section>`;
+  }
+  const pending = items.filter(item => !item.done).length;
+  return html + `<div class="actionbar">${button('settings-sharp', 'Settings 열기', 'upscale-settings', 'action-icon ' + (state.upscaleSheet === 'settings' ? 'selected' : ''))}<button class="generate" data-action="preview-upscale" ${pending ? '' : 'disabled'}>${icon('expand-outline')}<span>업스케일${pending ? ' (' + pending + '장)' : ''}</span></button>${button('time-outline', 'History 열기', 'upscale-history', 'action-icon ' + (state.upscaleSheet === 'history' ? 'selected' : ''))}</div>`;
 }
 function openMoreMenu() {
   picker.hidden = false;
@@ -292,7 +334,7 @@ function appSettings() {
       "뒤로가기 제스처를 하는 동안 시트와 화면이 손가락을 따라 줄어들면서 미리 보입니다. predictive back에 문제가 있다면 끄시는 것을 추천드립니다.",
     ],
   ];
-  return `<div class="settings-page"><div class="account">${state.sample || state.tokenSaved ? `<span class="tier">OPUS</span><div class="anlas"><strong>10,000</strong><span>Anlas</span></div><div class="token-row">${icon("key-outline", 16)}<span class="grow">demo••••••••0000</span><button class="text-action" data-action="edit-token">${state.tokenEditing ? "취소" : "변경"}</button></div>` : '<h3 class="account-title">API Token</h3><p>이미지 생성과 ANLAS 잔액 조회에 사용됩니다</p>'}${(!state.sample && !state.tokenSaved) || state.tokenEditing ? `<div class="token-shell"><input id="token" type="${state.tokenVisible ? "text" : "password"}" placeholder="NovelAI API token" aria-label="NovelAI API 토큰" autocomplete="off" />${button(state.tokenVisible ? "eye-outline" : "eye-off-outline", "토큰 표시/숨기기", "token-visible", "visibility")}<button class="save" data-action="save-token">저장</button></div><div class="security">${icon("lock-closed-outline")}<span>토큰은 이 기기의 보안 저장소에만 저장됩니다</span></div>` : ""}</div><div class="option" style="display:block">${slider("batch", "Batch Count", 1, 100, 1, true)}</div><div class="option"><div class="grow row"><h3>Image Format</h3>${help("Image Format")}</div><div style="width:112px">${select("format", state.format)}</div></div>${options.map(([key, title, description]) => `<div class="option"><div class="grow"><h3>${title}</h3><p>${description}</p></div>${toggle(key, title)}</div>`).join("")}<div class="option"><div class="grow"><h3>History 더미 이미지 (테스트용)</h3><p>History 그리드 테스트용 단색 이미지 200장을 추가합니다.</p></div><button class="text-action" data-action="seed-history">추가</button></div></div><div class="detail-header">${button("chevron-back", "뒤로", "home")}<b>App Settings</b><span style="width:40px"></span></div>`;
+  return `<div class="settings-page"><div class="account">${state.sample || state.tokenSaved ? `<span class="tier">OPUS</span><div class="anlas"><strong>10,000</strong><span>Anlas</span></div><div class="token-row">${icon("key-outline", 16)}<span class="grow">demo••••••••0000</span><button class="text-action" data-action="edit-token">${state.tokenEditing ? "취소" : "변경"}</button></div>` : '<h3 class="account-title">API Token</h3><p>이미지 생성과 ANLAS 잔액 조회에 사용됩니다</p>'}${(!state.sample && !state.tokenSaved) || state.tokenEditing ? `<div class="token-shell"><input id="token" type="${state.tokenVisible ? "text" : "password"}" placeholder="NovelAI API token" aria-label="NovelAI API 토큰" autocomplete="off" />${button(state.tokenVisible ? "eye-outline" : "eye-off-outline", "토큰 표시/숨기기", "token-visible", "visibility")}<button class="save" data-action="save-token">저장</button></div><div class="security">${icon("lock-closed-outline")}<span>토큰은 이 기기의 보안 저장소에만 저장됩니다</span></div>` : ""}</div><div class="option" style="display:block">${slider("batch", "Batch Count", 1, 100, 1, true)}</div><div class="option"><div class="grow row"><h3>Image Format</h3>${help("Image Format")}</div><div style="width:112px">${select("format", state.format)}</div></div><div class="option save-location"><div class="grow"><h3>이미지 저장 위치</h3><p>Pictures / NaiRN</p></div><button class="save-location-change" data-action="change-save-folder" aria-label="이미지 저장 폴더 변경">변경</button></div>${options.map(([key, title, description]) => `<div class="option"><div class="grow"><h3>${title}</h3><p>${description}</p></div>${toggle(key, title)}</div>`).join("")}<div class="option"><div class="grow"><h3>History 더미 이미지 (테스트용)</h3><p>History 그리드 테스트용 단색 이미지 200장을 추가합니다.</p></div><button class="text-action" data-action="seed-history">추가</button></div></div><div class="detail-header">${button("chevron-back", "뒤로", "home")}<b>App Settings</b><span style="width:40px"></span></div>`;
 }
 function chunks() {
   if (state.editing) {
@@ -333,10 +375,10 @@ function chunks() {
 function chunkChip(chunk) {
   return `<div class="chunk-chip" style="background:${chunk.color}15;border-color:${chunk.color}66"><button class="chunk-insert" data-chunk="${chunk.id}" title="${escapeHtml(chunk.content)}">${escapeHtml(chunk.name)}</button><button class="chunk-edit" data-edit-chunk="${chunk.id}" aria-label="${escapeHtml(chunk.name)} 편집">${icon("pencil", 12)}</button></div>`;
 }
-function utilityHeader() {
-  if (state.screen === "metadata")
+function utilityHeader(screen = state.screen) {
+  if (screen === "metadata")
     return `<header class="sheet-header">${state.metadataTab === "import" ? button("chevron-back", "Metadata로 돌아가기", "metadata-tab", "close sheet-back") : button("close", "닫기", "home", "close")}<h2>${state.metadataTab === "import" ? "Import" : "Metadata"}</h2></header>`;
-  if (state.screen === "history")
+  if (screen === "history")
     return `<header class="sheet-header history-header">${state.selection ? `<button class="history-text" data-action="selection">취소</button><h2 class="selection-count">${state.selected.size}개 선택</h2><button class="history-text accent" data-action="select-all">${state.history.length && state.selected.size === state.history.length ? "전체 해제" : "전체 선택"}</button>` : `${button("close", "닫기", "home", "close")}<h2>History</h2><div class="history-header-buttons"><button class="history-text" data-action="list-engine">${state.listEngine}</button>${button("grid-outline", "한 줄에 보이는 이미지 수 변경", "grid-columns", "close")}</div>`}</header>`;
   return `<header class="sheet-header">${button("close", "닫기", "home", "close")}<h2>Settings</h2></header>`;
 }
@@ -417,10 +459,13 @@ function history() {
   return `<div class="history-grid ${state.gridColumns >= 5 ? "compact-grid" : ""}" style="--columns:${state.gridColumns}">${state.history.map((image, index) => `<button class="history-tile ${state.selected.has(index) ? "selected" : ""} ${state.currentHistory === index ? "current" : ""}" data-history="${index}" aria-label="생성 이미지 ${index + 1}"><img src="${escapeHtml(image)}" alt="생성 이미지 ${index + 1}" />${state.selection ? `<span class="selection-indicator ${state.selected.has(index) ? "selected" : ""}">${state.selected.has(index) ? icon("checkmark", state.gridColumns >= 5 ? 11 : 14) : ""}</span>` : ""}</button>`).join("")}</div>${state.selection ? `<div class="selection-actions"><div class="selection-pill">${button("download-outline", "선택 이미지 저장", "download", "selection-action", !state.selected.size)}${button("trash-outline", "선택 이미지 삭제", "delete-history", "selection-action", !state.selected.size)}</div></div>` : ""}`;
 }
 let lastRenderedScreen = null;
+let lastRenderedUpscaleSheet = null;
 function render() {
+  const scrollSelector = state.screen === "upscale" && state.upscaleSheet
+    ? ".sheet-scroll,.history-grid" : ".sheet-scroll,.history-grid,.settings-page";
   const scrollTop =
-    state.screen === lastRenderedScreen
-      ? app.querySelector(".sheet-scroll,.history-grid,.settings-page")
+    state.screen === lastRenderedScreen && (state.screen !== "upscale" || state.upscaleSheet === lastRenderedUpscaleSheet)
+      ? app.querySelector(scrollSelector)
           ?.scrollTop || 0
       : 0;
   closePicker();
@@ -456,11 +501,10 @@ function render() {
     html += `<div class="zoom-preview"><img src="${escapeHtml(state.image)}" alt="이미지 미리보기" data-action="zoom" /><div class="zoom-controls">${button("close", "닫기", "home")}<div class="zoom-actions">${button("download-outline", "저장", "download")}${button("copy-outline", "복사", "copy")}${button("information-circle-outline", "정보", "metadata")}</div></div></div>`;
   app.innerHTML = html;
   app.dataset.screen = state.screen;
-  const scroll = app.querySelector(
-    ".sheet-scroll,.history-grid,.settings-page",
-  );
+  const scroll = app.querySelector(scrollSelector);
   if (scroll) scroll.scrollTop = scrollTop;
   lastRenderedScreen = state.screen;
+  lastRenderedUpscaleSheet = state.upscaleSheet;
   updatePromptEditors();
   updateTokenMeters();
   document
@@ -472,6 +516,7 @@ function render() {
     icon("cellular") + icon("wifi") + icon("battery-full");
 }
 function navigate(screen) {
+  if (screen !== "upscale") state.upscaleSheet = null;
   if (screen !== state.screen) state.metadataTab = "metadata";
   state.screen = screen;
   state.editing = null;
@@ -519,6 +564,8 @@ const selectOptions = {
   quality: ["Standard", "None"],
   uc: ["Heavy", "Light", "Human Focus", "None"],
   format: ["PNG", "WebP"],
+  upscaleModel: ["realcugan-se", "realcugan-pro", "waifu2x-cunet"],
+  upscaleFormat: ["png", "jpg", "webp"],
 };
 const selectGroups = {
   model: [
@@ -538,7 +585,7 @@ function openPicker(trigger, key) {
       ? ["Standard", "Light", "None"]
       : selectOptions[key]
   ).filter((value) => !(v5() && value === "DDIM (Legacy)"));
-  const option = (value, label = value) =>
+  const option = (value, label = key.startsWith("upscale") ? upscaleLabels[value] : value) =>
     `<button role="option" aria-selected="${state[key] === value}" class="${state[key] === value ? "selected" : ""}" data-option="${escapeHtml(value)}" data-key="${key}">${escapeHtml(label)}${state[key] === value ? icon("checkmark") : ""}</button>`;
   const rest = [...values];
   const options = selectGroups[key]
@@ -607,19 +654,30 @@ const helpText = {
   "Image Format":
     "생성 이미지를 저장할 파일 형식입니다. PNG는 무손실이라 용량이 크고, WebP는 용량이 더 작습니다.",
 };
-function openHelp(trigger, key) {
+function openHelp(trigger, key, content = null) {
   const phone = document.querySelector(".phone").getBoundingClientRect(),
     rect = trigger.getBoundingClientRect();
   const width = Math.min(280, phone.width - 24);
   picker.hidden = false;
   trigger.setAttribute("aria-expanded", "true");
-  picker.innerHTML = `<button class="picker-backdrop" data-action="close-picker" aria-label="설명 닫기"></button><div class="settings-tooltip" role="tooltip">${escapeHtml(helpText[key])}</div>`;
+  picker.innerHTML = `<button class="picker-backdrop" data-action="close-picker" aria-label="설명 닫기"></button><div class="settings-tooltip ${content ? 'top-info-tooltip' : ''}" ${content ? 'id="top-info-tooltip"' : ''} role="tooltip">${content || escapeHtml(helpText[key])}</div>`;
   const tooltip = picker.querySelector(".settings-tooltip");
   tooltip.style.width = `${width}px`;
   tooltip.style.left = `${Math.max(12, Math.min(rect.left - phone.left - 12, phone.width - width - 12))}px`;
   tooltip.style.top = `${rect.bottom - phone.top + 7}px`;
   if (rect.bottom - phone.top + 7 + tooltip.offsetHeight > phone.height - 12)
     tooltip.style.top = `${Math.max(12, rect.top - phone.top - 7 - tooltip.offsetHeight)}px`;
+}
+function openTopInfo(trigger, key) {
+  const hasAccount = state.sample || state.tokenSaved;
+  const content = key === "account"
+    ? hasAccount
+      ? '<div class="top-info-heading"><strong>토큰 정보</strong><span class="tier">OPUS</span></div><div class="top-info-balance"><strong>10,000</strong><span>Anlas</span></div><div class="token-row">' + icon('key-outline', 16) + '<span>demo••••••••0000</span></div><p>토큰 변경은 App Settings에서 할 수 있어요.</p>'
+      : '<strong>API Token</strong><p>등록된 토큰이 없습니다.<br />App Settings에서 토큰을 등록하면 ANLAS 잔액을 확인할 수 있어요.</p>'
+    : hasAccount
+      ? '<strong>Opus 사용량</strong><div class="top-info-balance"><strong>24<span>%</span></strong><span>남음</span></div><p>V5 모델에서 사용할 수 있는 남은 사용량입니다.</p>'
+      : '<strong>Opus 사용량</strong><p>사용량 정보가 없습니다.<br />App Settings에서 토큰을 등록해 주세요.</p>';
+  openHelp(trigger, key, content);
 }
 function setSample(enabled) {
   state.sample = enabled;
@@ -648,6 +706,17 @@ function setSample(enabled) {
 }
 let generationTimer;
 function action(name) {
+  if (name === "home" && state.screen === "upscale" && state.upscaleSheet) {
+    state.upscaleSheet = null;
+    render();
+    return;
+  }
+  if (name === "home" && state.screen === "preview") {
+    const screen = state.previewReturnScreen;
+    state.previewReturnScreen = "home";
+    navigate(screen);
+    return;
+  }
   if (
     [
       "home",
@@ -734,6 +803,25 @@ function action(name) {
       break;
     case "pick-upscale":
       document.querySelector("#upscale-upload").click();
+      break;
+    case "upscale-settings":
+    case "upscale-history": {
+      const sheet = name === "upscale-settings" ? "settings" : "history";
+      state.upscaleSheet = state.upscaleSheet === sheet ? null : sheet;
+      state.upscaleFull = true;
+      render();
+      break;
+    }
+    case "close-upscale-sheet":
+      state.upscaleSheet = null;
+      render();
+      break;
+    case "upscale-height":
+      state.upscaleFull = !state.upscaleFull;
+      render();
+      break;
+    case "leave-upscale":
+      navigate("home");
       break;
     case "clear-upscale":
       state.upscaleImages = [];
@@ -880,6 +968,9 @@ function action(name) {
       render();
       toast("목업 연결 상태를 표시했습니다. 실제 토큰은 저장하지 않습니다.");
       break;
+    case "change-save-folder":
+      toast("폴더 선택 화면을 여는 디자인 목업입니다.");
+      break;
     case "generate":
       if (state.loading) {
         clearTimeout(generationTimer);
@@ -973,6 +1064,14 @@ function action(name) {
 document.addEventListener("click", (event) => {
   const target = event.target.closest("button");
   if (!target || target.disabled) return;
+  if (state.screen === "upscale" && target.classList.contains("handle") && suppressUpscaleHandleClick) {
+    suppressUpscaleHandleClick = false;
+    return;
+  }
+  if (target.dataset.topInfo) {
+    openTopInfo(target, target.dataset.topInfo);
+    return;
+  }
   if (target.dataset.screen) {
     navigate(target.dataset.screen);
     return;
@@ -983,12 +1082,8 @@ document.addEventListener("click", (event) => {
   }
   if (target.dataset.upscaleKey) {
     const key = target.dataset.upscaleKey;
-    state[key] = ["upscaleModel", "upscaleFormat"].includes(key)
-      ? target.dataset.upscaleValue : Number(target.dataset.upscaleValue);
-    const levels = upscaleNoiseLevels[state.upscaleModel];
-    if (!levels[state.upscaleScale]) state.upscaleScale = 2;
-    if (!levels[state.upscaleScale].includes(state.upscaleNoise))
-      state.upscaleNoise = levels[state.upscaleScale][0];
+    state[key] = Number(target.dataset.upscaleValue);
+    normalizeUpscaleOptions();
     render();
     return;
   }
@@ -1057,6 +1152,7 @@ document.addEventListener("click", (event) => {
   if (target.dataset.option) {
     const key = target.dataset.key;
     state[key] = target.dataset.option;
+    if (key === "upscaleModel") normalizeUpscaleOptions();
     if (key === "resolution") {
       const sizes = {
         Small: [512, 768],
@@ -1115,6 +1211,7 @@ document.addEventListener("click", (event) => {
       render();
     } else {
       state.image = state.history[index];
+      state.previewReturnScreen = state.screen === "upscale" ? "upscale" : "home";
       navigate("preview");
     }
     return;
@@ -1131,6 +1228,27 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("input", (event) => {
   const target = event.target;
+  if (target.dataset.upscaleRange) {
+    const key = target.dataset.upscaleRange;
+    const stops = upscaleStops(key);
+    const index = Number(target.value);
+    state[key] = stops[index][0];
+    normalizeUpscaleOptions();
+    target.style.setProperty("--percent", `${index / (stops.length - 1) * 100}%`);
+    target.setAttribute("aria-valuetext", stops[index][1]);
+    const control = target.closest(".stepped-seekbar");
+    control.querySelector("output").value = stops[index][1];
+    control.querySelectorAll(".seekbar-stop").forEach((stop, i) => {
+      stop.classList.toggle("filled", i <= index);
+      stop.classList.toggle("selected", i === index);
+      stop.setAttribute("aria-pressed", String(i === index));
+    });
+    if (key === "upscaleScale") {
+      const noise = app.querySelector("#upscaleNoise").closest(".stepped-seekbar");
+      noise.outerHTML = steppedSeekbar("upscaleNoise", "Denoise");
+    }
+    return;
+  }
   if (target.dataset.prompt) {
     const destination = target.dataset.character
       ? state.characters.find((c) => c.id === Number(target.dataset.character))
@@ -1236,17 +1354,23 @@ document.querySelector("#upload").addEventListener("change", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     if (!picker.hidden) closePicker();
+    else if (state.screen === "upscale" && state.upscaleSheet === "settings" && state.upscaleFull) {
+      state.upscaleFull = false;
+      render();
+    }
     else if (
       state.full &&
       ["prompt", "reference", "chunks"].includes(state.screen)
     ) {
       state.full = false;
       render();
-    } else navigate("home");
+    } else action("home");
   }
 });
 let dragStart = null;
+let suppressUpscaleHandleClick = false;
 app.addEventListener("pointerdown", (event) => {
+  suppressUpscaleHandleClick = false;
   if (event.target.closest(".handle")) dragStart = event.clientY;
 });
 app.addEventListener("pointerup", (event) => {
@@ -1254,7 +1378,13 @@ app.addEventListener("pointerup", (event) => {
   const distance = event.clientY - dragStart;
   dragStart = null;
   if (Math.abs(distance) > 25) {
-    if (["prompt", "reference", "chunks"].includes(state.screen)) {
+    if (state.screen === "upscale") {
+      suppressUpscaleHandleClick = true;
+      if (!state.upscaleSheet && distance < 0) state.upscaleSheet = "settings";
+      else if (distance > 100) state.upscaleSheet = null;
+      state.upscaleFull = distance < 0;
+      render();
+    } else if (["prompt", "reference", "chunks"].includes(state.screen)) {
       state.full = distance < 0;
       if (distance > 100) state.screen = "home";
       render();

@@ -1025,8 +1025,7 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   justify-content: space-between;
 }
-.upscale-queue-header h3,
-.upscale-option h3 {
+.upscale-queue-header h3 {
   margin: 0;
   color: var(--secondary);
   font-size: 14px;
@@ -1072,44 +1071,6 @@ input[type="range"]::-moz-range-thumb {
   flex-shrink: 0;
   color: var(--tertiary);
   font-size: 18px;
-}
-.upscale-option {
-  margin-top: 18px;
-}
-.upscale-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-.upscale-chip {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--secondary);
-  font-size: 14px;
-  font-weight: 500;
-}
-.upscale-chip.selected {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-.upscale-primary {
-  width: 100%;
-  height: 52px;
-  margin-top: 20px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 16px;
-  font-weight: 600;
-  box-shadow: 0 8px 20px #0007;
-}
-.upscale-primary:disabled {
-  background: var(--raised);
-  color: var(--muted);
-  opacity: 0.55;
 }
 .upscale-meta {
   margin: 8px 0 0;
