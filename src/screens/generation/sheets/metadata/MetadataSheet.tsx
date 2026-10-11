@@ -43,27 +43,35 @@ export const MetadataSheet = memo(function MetadataSheet({
   return (
     <View style={{ height: visibleHeight }}>
       <View style={styles.header}>
-        {importing ? (
-          <PressableSurface
-            accessibilityLabel="Metadata로 돌아가기"
-            onPress={closeImport}
-            style={styles.backButton}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={20}
-              color={tokens.color.textTertiary}
-            />
-          </PressableSurface>
-        ) : null}
+        <View style={styles.headerSide}>
+          {importing ? (
+            <PressableSurface
+              accessibilityLabel="Metadata로 돌아가기"
+              onPress={closeImport}
+              style={styles.headerButton}
+            >
+              <Ionicons
+                name="arrow-back-outline"
+                size={20}
+                color={tokens.color.textPrimary}
+              />
+            </PressableSurface>
+          ) : (
+            <PressableSurface
+              accessibilityLabel="Metadata 닫기"
+              onPress={onClose}
+              style={styles.headerButton}
+            >
+              <Ionicons
+                name="close-outline"
+                size={22}
+                color={tokens.color.textPrimary}
+              />
+            </PressableSurface>
+          )}
+        </View>
         <Text style={styles.title}>{title}</Text>
-        <PressableSurface
-          accessibilityLabel="Metadata 닫기"
-          onPress={onClose}
-          style={styles.closeButton}
-        >
-          <Ionicons name="close" size={20} color={tokens.color.textPrimary} />
-        </PressableSurface>
+        <View style={styles.headerSide} />
       </View>
 
       {importing ? (
@@ -78,34 +86,29 @@ export const MetadataSheet = memo(function MetadataSheet({
 const styles = StyleSheet.create({
   header: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingLeft: 18,
-    paddingRight: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
   },
-  backButton: {
-    width: 28,
-    height: 38,
-    marginLeft: -4,
-    alignItems: "center",
-    justifyContent: "center",
+  // 좌우 칸을 같은 너비로 두어 제목이 항상 가운데에 온다.
+  headerSide: {
+    flex: 1,
+    alignItems: "flex-start",
   },
   title: {
-    flex: 1,
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 22,
+    fontSize: 16,
     letterSpacing: -0.3,
+    // 글자 높이 중심을 닫기 아이콘 중심에 맞춘다.
+    top: -1,
   },
-  closeButton: {
+  headerButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.color.raised,
   },
 });

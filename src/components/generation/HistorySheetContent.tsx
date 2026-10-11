@@ -71,11 +71,44 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
 
   return (
     <View style={styles.header}>
-      {selectionMode ? (
-        <View style={styles.selectionHeaderContent}>
-          <Text style={styles.selectionCount}>
-            {selectingAll ? "선택 중..." : `${selectedCount}개 선택`}
-          </Text>
+      <View style={styles.headerSide}>
+        {selectionMode ? (
+          <BottomSheetTouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="선택 취소"
+            activeOpacity={tokens.opacity.pressed}
+            onPress={exitSelectionMode}
+            style={styles.headerTextButton}
+          >
+            <Text style={styles.cancelText}>취소</Text>
+          </BottomSheetTouchableOpacity>
+        ) : (
+          <BottomSheetTouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="History 닫기"
+            activeOpacity={tokens.opacity.pressed}
+            onPress={closeSheet}
+            style={styles.closeButton}
+          >
+            <Ionicons
+              name="close-outline"
+              size={22}
+              color={tokens.color.textPrimary}
+            />
+          </BottomSheetTouchableOpacity>
+        )}
+      </View>
+
+      <Text style={styles.title}>
+        {!selectionMode
+          ? "History"
+          : selectingAll
+            ? "선택 중..."
+            : `${selectedCount}개 선택`}
+      </Text>
+
+      <View style={[styles.headerSide, styles.headerSideEnd]}>
+        {selectionMode ? (
           <BottomSheetTouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={allSelected ? "전체 선택 해제" : "전체 선택"}
@@ -90,58 +123,35 @@ const HistorySheetHeader = memo(function HistorySheetHeader({
               {allSelected ? "전체 해제" : "전체 선택"}
             </Text>
           </BottomSheetTouchableOpacity>
-        </View>
-      ) : (
-        <Text style={styles.title}>History</Text>
-      )}
-
-      {selectionMode ? (
-        <BottomSheetTouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="선택 취소"
-          activeOpacity={tokens.opacity.pressed}
-          onPress={exitSelectionMode}
-          style={styles.headerTextButton}
-        >
-          <Text style={styles.cancelText}>취소</Text>
-        </BottomSheetTouchableOpacity>
-      ) : (
-        <View style={styles.headerButtons}>
-          <BottomSheetTouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="리스트 구현 변경 (비교용)"
-            accessibilityValue={{ text: listEngine }}
-            activeOpacity={tokens.opacity.pressed}
-            onPress={cycleListEngine}
-            style={styles.headerTextButton}
-          >
-            <Text style={styles.cancelText}>{listEngine}</Text>
-          </BottomSheetTouchableOpacity>
-          <BottomSheetTouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="한 줄에 보이는 이미지 수 변경"
-            accessibilityValue={{ text: `${gridColumns}개` }}
-            activeOpacity={tokens.opacity.pressed}
-            onPress={cycleGridColumns}
-            style={styles.closeButton}
-          >
-            <Ionicons
-              name="grid-outline"
-              size={18}
-              color={tokens.color.textPrimary}
-            />
-          </BottomSheetTouchableOpacity>
-          <BottomSheetTouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="History 닫기"
-            activeOpacity={tokens.opacity.pressed}
-            onPress={closeSheet}
-            style={styles.closeButton}
-          >
-            <Ionicons name="close" size={20} color={tokens.color.textPrimary} />
-          </BottomSheetTouchableOpacity>
-        </View>
-      )}
+        ) : (
+          <View style={styles.headerButtons}>
+            <BottomSheetTouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="리스트 구현 변경 (비교용)"
+              accessibilityValue={{ text: listEngine }}
+              activeOpacity={tokens.opacity.pressed}
+              onPress={cycleListEngine}
+              style={styles.headerTextButton}
+            >
+              <Text style={styles.cancelText}>{listEngine}</Text>
+            </BottomSheetTouchableOpacity>
+            <BottomSheetTouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="한 줄에 보이는 이미지 수 변경"
+              accessibilityValue={{ text: `${gridColumns}개` }}
+              activeOpacity={tokens.opacity.pressed}
+              onPress={cycleGridColumns}
+              style={[styles.closeButton, styles.gridButton]}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={16}
+                color={tokens.color.textPrimary}
+              />
+            </BottomSheetTouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 });
@@ -440,32 +450,28 @@ const styles = StyleSheet.create({
   },
   header: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingLeft: 18,
-    paddingRight: 12,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.cardAlt,
   },
+  // 좌우 칸을 같은 너비로 두어 제목이 항상 가운데에 온다.
+  headerSide: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  headerSideEnd: {
+    alignItems: "flex-end",
+  },
   title: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 22,
+    fontSize: 16,
     letterSpacing: -0.3,
-  },
-  selectionHeaderContent: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  selectionCount: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: 18,
-    letterSpacing: -0.2,
+    // 글자 높이 중심을 닫기 아이콘 중심에 맞춘다.
+    top: -1,
   },
   headerTextButton: {
     minHeight: 38,
@@ -492,9 +498,11 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
+  },
+  gridButton: {
+    borderRadius: 17,
     backgroundColor: tokens.color.raised,
   },
   gridViewport: {

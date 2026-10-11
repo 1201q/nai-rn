@@ -76,14 +76,21 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
     >
       <View style={styles.utilityHeader}>
+        <View style={styles.headerSide}>
+          <PressableSurface
+            accessibilityLabel={`${title} 닫기`}
+            onPress={onClose}
+            style={styles.closeButton}
+          >
+            <Ionicons
+              name="close-outline"
+              size={22}
+              color={tokens.color.textPrimary}
+            />
+          </PressableSurface>
+        </View>
         <Text style={styles.utilityTitle}>{title}</Text>
-        <PressableSurface
-          accessibilityLabel={`${title} 닫기`}
-          onPress={onClose}
-          style={styles.closeButton}
-        >
-          <Ionicons name="close" size={20} color={tokens.color.textPrimary} />
-        </PressableSurface>
+        <View style={styles.headerSide} />
       </View>
       <View style={styles.divider} />
       <SettingsSheetContent active={active} />
@@ -294,25 +301,28 @@ const styles = StyleSheet.create({
   },
   utilityHeader: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingLeft: 18,
-    paddingRight: 12,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+  },
+  // 좌우 칸을 같은 너비로 두어 제목이 항상 가운데에 온다.
+  headerSide: {
+    flex: 1,
+    alignItems: "flex-start",
   },
   utilityTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 22,
+    fontSize: 16,
     letterSpacing: -0.3,
+    // 글자 높이 중심을 닫기 아이콘 중심에 맞춘다.
+    top: -1,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.color.raised,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
