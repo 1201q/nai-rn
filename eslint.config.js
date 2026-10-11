@@ -15,6 +15,8 @@ module.exports = defineConfig([
       ".claude/*",
       ".agents/*",
       ".expo/*",
+      // 브라우저에서 바로 여는 HTML 목업. 스크립트끼리 전역을 공유한다.
+      "docs/*",
     ],
   },
   {
