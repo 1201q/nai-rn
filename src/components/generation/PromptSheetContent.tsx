@@ -693,6 +693,8 @@ const styles = StyleSheet.create({
   promptFooter: {
     minHeight: 22,
     marginTop: 10,
+    // 알약형 칩의 둥근 끝이 토큰 바보다 안쪽으로 보이지 않게 살짝 내민다.
+    marginHorizontal: -1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
@@ -725,7 +727,7 @@ const styles = StyleSheet.create({
   },
   promptTokenCounter: {
     flex: 0,
-    height: 4,
+    height: 6,
     marginTop: 10,
   },
   measureLayer: {

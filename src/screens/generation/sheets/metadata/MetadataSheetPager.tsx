@@ -66,7 +66,7 @@ export const MetadataSheetPager = memo(function MetadataSheetPager({
           onPress={onClose}
           style={styles.closeButton}
         >
-          <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
+          <Ionicons name="close" size={20} color={tokens.color.textPrimary} />
         </PressableSurface>
       </View>
 
@@ -123,7 +123,8 @@ const styles = StyleSheet.create({
   },
   header: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingHorizontal: 12,
+    paddingLeft: 10,
+    paddingRight: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: tokens.color.borderSubtle,
     flexDirection: "row",
@@ -149,9 +150,9 @@ const styles = StyleSheet.create({
   },
   tabIndicator: {
     position: "absolute",
-    right: 12,
+    right: 10,
     bottom: 0,
-    left: 12,
+    left: 10,
     height: 2,
     backgroundColor: "transparent",
   },
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 34,
     height: 34,
-    marginTop: 2,
+    alignSelf: "center",
     marginLeft: 4,
     borderRadius: 17,
     alignItems: "center",

@@ -380,7 +380,7 @@ describe("GenerationScreen generation acceptance", () => {
       });
       expect(screen.getByTestId("generation-screen")).toHaveStyle({
         paddingTop: 71,
-        paddingBottom: 128 + bottom,
+        paddingBottom: 132.5 + bottom,
       });
     },
   );
@@ -395,7 +395,7 @@ describe("GenerationScreen generation acceptance", () => {
       paddingBottom: 34,
     });
     expect(screen.getByTestId("generation-screen")).toHaveStyle({
-      paddingBottom: 162,
+      paddingBottom: 166.5,
     });
   });
 

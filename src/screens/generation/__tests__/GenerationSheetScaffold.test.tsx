@@ -1105,7 +1105,7 @@ describe("generation sheet safe area", () => {
         />,
       );
       expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([
-        128 + bottom,
+        132.5 + bottom,
         444,
         844 - fullTop,
       ]);
@@ -1161,7 +1161,7 @@ describe("generation sheet safe area", () => {
     await prompt.rerender(renderPrompt());
 
     expect(mockSheetProps.mock.calls.at(-1)?.[0].snapPoints).toEqual([
-      149, 149, 334,
+      153.5, 153.5, 334,
     ]);
   });
 

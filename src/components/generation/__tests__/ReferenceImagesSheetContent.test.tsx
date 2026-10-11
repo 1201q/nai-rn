@@ -70,7 +70,27 @@ jest.mock("expo-image-picker", () => ({
 jest.mock("../BottomSheetKeyboardAwareScrollView", () => ({
   BottomSheetKeyboardAwareScrollView: require("react-native").ScrollView,
 }));
-jest.mock("../../forms/FormControls", () => ({ Toggle: () => null }));
+jest.mock("../../forms/FormControls", () => {
+  const React = require("react") as typeof import("react");
+  const { Pressable } =
+    require("react-native") as typeof import("react-native");
+  return {
+    Toggle: ({
+      label,
+      value,
+      onChange,
+    }: {
+      label: string;
+      value: boolean;
+      onChange: (value: boolean) => void;
+    }) =>
+      React.createElement(Pressable, {
+        accessibilityRole: "switch",
+        accessibilityLabel: label,
+        onPress: () => onChange(!value),
+      }),
+  };
+});
 jest.mock("../../forms/Slider", () => {
   const React = require("react");
   const { Pressable } = require("react-native");

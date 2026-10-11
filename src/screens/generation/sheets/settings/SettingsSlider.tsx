@@ -8,10 +8,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Portal } from "@gorhom/portal";
+import Reanimated from "react-native-reanimated";
 
 import { SHEET_SELECT_PORTAL_HOST } from "../../../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../../../components/forms/SheetSliderControls";
-import { useBackHandler } from "../../../../native/useBackHandler";
+import { usePopoverBackHandler } from "../../../../native/usePopoverBackHandler";
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
@@ -66,6 +67,10 @@ export function SettingsHelpButton({
   const closeHelp = useCallback(() => {
     if (open) onToggle();
   }, [onToggle, open]);
+  const { popoverStyle, resetPredictiveBack } = usePopoverBackHandler(
+    open,
+    closeHelp,
+  );
   const toggleHelp = useCallback(() => {
     if (open) {
       onToggle();
@@ -73,13 +78,12 @@ export function SettingsHelpButton({
     }
 
     buttonRef.current?.measureInWindow((x, y, width, height) => {
+      resetPredictiveBack();
       setAnchor({ x, y, width, height });
       setTooltipHeight(0);
       onToggle();
     });
-  }, [onToggle, open]);
-
-  useBackHandler(open, { onBack: closeHelp });
+  }, [onToggle, open, resetPredictiveBack]);
 
   const tooltipWidth = Math.min(
     TOOLTIP_WIDTH,
@@ -125,19 +129,20 @@ export function SettingsHelpButton({
               onPress={closeHelp}
               style={styles.portalBackdrop}
             />
-            <View
+            <Reanimated.View
               onLayout={(event) =>
                 setTooltipHeight(event.nativeEvent.layout.height)
               }
               style={[
                 styles.settingsHelpTooltip,
                 { top: tooltipTop, left: tooltipLeft, width: tooltipWidth },
+                popoverStyle,
               ]}
             >
               <Text style={styles.settingsHelpTooltipText}>
                 {SETTINGS_HELP[helpKey]}
               </Text>
-            </View>
+            </Reanimated.View>
           </View>
         </Portal>
       ) : null}

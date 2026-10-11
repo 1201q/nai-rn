@@ -92,7 +92,7 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
           onPress={onClose}
           style={styles.closeButton}
         >
-          <Ionicons name="close" size={21} color={tokens.color.textPrimary} />
+          <Ionicons name="close" size={20} color={tokens.color.textPrimary} />
         </PressableSurface>
       </View>
       <View style={styles.divider} />
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   utilityHeader: {
     height: GENERATION_SHEET_HEADER_HEIGHT,
-    paddingLeft: 20,
+    paddingLeft: 18,
     paddingRight: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -322,13 +322,13 @@ const styles = StyleSheet.create({
   utilityTitle: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.semibold,
-    fontSize: 23,
+    fontSize: 22,
     letterSpacing: -0.3,
   },
   closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: tokens.color.raised,

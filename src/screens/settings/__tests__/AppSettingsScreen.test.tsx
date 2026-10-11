@@ -90,8 +90,12 @@ jest.mock("react-native-reanimated", () => {
   return {
     __esModule: true,
     default: { View },
+    Extrapolation: { CLAMP: "clamp" },
+    interpolate: () => 1,
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
     useAnimatedStyle: (factory: () => object) => factory(),
+    cancelAnimation: jest.fn(),
+    withSpring: <T,>(value: T) => value,
     withTiming: (value: number) => value,
   };
 });

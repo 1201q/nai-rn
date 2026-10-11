@@ -32,6 +32,51 @@ jest.mock("../../../store/generationStore", () => {
   };
 });
 
+// 더 보기 메뉴는 버튼 위치를 잰 뒤에 열린다.
+jest.mock("react-native/Libraries/Components/Pressable/Pressable", () => {
+  const React = require("react") as typeof import("react");
+  const { default: Pressable } = jest.requireActual(
+    "react-native/Libraries/Components/Pressable/Pressable",
+  );
+  return {
+    __esModule: true,
+    default: React.forwardRef(function MeasuredPressable(props, ref) {
+      React.useImperativeHandle(ref, () => ({
+        measureInWindow: (
+          callback: (x: number, y: number, w: number, h: number) => void,
+        ) => callback(300, 200, 40, 40),
+      }));
+      return React.createElement(Pressable, props);
+    }),
+  };
+});
+jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("@gorhom/portal", () => ({
+  Portal: ({ children }: { children: React.ReactNode }) => children,
+}));
+jest.mock("expo-haptics", () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+}));
+jest.mock("../../../native/predictiveBack", () => ({
+  PREDICTIVE_BACK_SUPPORTED: false,
+  usePredictiveBackHandler: jest.fn(),
+}));
+jest.mock("react-native-reanimated", () => {
+  const React = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  return {
+    __esModule: true,
+    default: { View },
+    Extrapolation: { CLAMP: "clamp" },
+    interpolate: () => 1,
+    useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+    useAnimatedStyle: (factory: () => object) => factory(),
+    cancelAnimation: jest.fn(),
+    withSpring: <T,>(value: T) => value,
+    withTiming: <T,>(value: T) => value,
+  };
+});
+
 jest.mock("../../forms/PromptHighlightTextInput", () => {
   const React = require("react") as typeof import("react");
   const { TextInput } =
@@ -218,37 +263,53 @@ describe("CharacterPromptSection", () => {
         getByTestId(`character-${character.id}-content`).props.style,
       ).opacity,
     ).toBe(0.55);
-
-    const dividerLabels = [
-      "Character 1 위로 이동",
-      "Character 1 아래로 이동",
-      "Character 1 활성화",
-      "Character 1 삭제",
-      "Character 1 접기",
-    ];
-    for (const label of dividerLabels) {
-      expect(
-        StyleSheet.flatten(getByLabelText(label).props.style).borderLeftColor,
-      ).toBe("#2B2A30");
-    }
   });
 
-  it("keeps edge move-button dividers opaque", async () => {
+  it("disables edge move items in the more menu", async () => {
     const { getByLabelText } = await render(<CharacterPromptSectionHarness />);
 
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
     await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 2 / 6"));
 
-    const disabledMoveLabels = [
-      "Character 1 위로 이동",
-      "Character 3 아래로 이동",
-    ];
-    for (const label of disabledMoveLabels) {
-      const style = StyleSheet.flatten(getByLabelText(label).props.style);
-      expect(style.borderLeftColor).toBe("#2B2A30");
-      expect(style.opacity).toBeUndefined();
+    for (const [character, label, otherLabel] of [
+      ["Character 1", "위로 이동", "아래로 이동"],
+      ["Character 3", "아래로 이동", "위로 이동"],
+    ]) {
+      await fireEvent.press(getByLabelText(`${character} 더 보기`));
+      expect(
+        getByLabelText(`${character} ${label}`).props.accessibilityState
+          .disabled,
+      ).toBe(true);
+      expect(
+        getByLabelText(`${character} ${otherLabel}`).props
+          .accessibilityState.disabled,
+      ).toBe(false);
+      await fireEvent.press(getByLabelText(`${character} 메뉴 닫기`));
     }
+  });
+
+  it("moves and deletes characters from the more menu", async () => {
+    const { getByLabelText, queryByLabelText } = await render(
+      <CharacterPromptSectionHarness />,
+    );
+
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 0 / 6"));
+    await fireEvent.press(getByLabelText("캐릭터 프롬프트 추가, 1 / 6"));
+    const [first, second] = useGenerationStore.getState().characterPrompts;
+
+    await fireEvent.press(getByLabelText("Character 1 더 보기"));
+    await fireEvent.press(getByLabelText("Character 1 아래로 이동"));
+    expect(
+      useGenerationStore.getState().characterPrompts.map((item) => item.id),
+    ).toEqual([second.id, first.id]);
+    expect(queryByLabelText("Character 1 메뉴 닫기")).toBeNull();
+
+    await fireEvent.press(getByLabelText("Character 1 더 보기"));
+    await fireEvent.press(getByLabelText("Character 1 삭제"));
+    expect(
+      useGenerationStore.getState().characterPrompts.map((item) => item.id),
+    ).toEqual([first.id]);
   });
 
   it("keeps pinned editors open and collapses only temporary editors on focus change", async () => {

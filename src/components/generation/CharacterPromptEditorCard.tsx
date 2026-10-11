@@ -6,58 +6,164 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type TextLayoutEventData,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Portal } from "@gorhom/portal";
+import Reanimated from "react-native-reanimated";
 
 import { useGenerationInputCommitRegistration } from "../../context/GenerationInputCommitContext";
 import { usePromptAutocomplete } from "../../hooks/usePromptAutocomplete";
+import { usePopoverBackHandler } from "../../native/usePopoverBackHandler";
 import type { CharacterPrompt } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
+import { Toggle } from "../forms/FormControls";
 import {
   PromptHighlightTextInput,
   type PromptHighlightTextInputHandle,
 } from "../forms/PromptHighlightTextInput";
 import { PromptTokenCounter } from "../forms/PromptTokenCounter";
+import { SHEET_SELECT_PORTAL_HOST } from "../forms/SheetSelect";
 
 type CharacterPromptMode = "base" | "negative";
 
 const EDITOR_MIN_HEIGHT = 72;
 const PROMPT_LINE_HEIGHT = 23;
+const MENU_WIDTH = 180;
+const MENU_ITEM_HEIGHT = 44;
+const MENU_MARGIN = 12;
 
-function IconAction({
-  accessibilityLabel,
-  icon,
-  disabled = false,
-  destructive = false,
-  onPress,
-}: {
-  accessibilityLabel: string;
+type CharacterMenuItem = {
+  label: string;
   icon: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   destructive?: boolean;
   onPress: () => void;
+};
+
+function CharacterMenu({
+  displayName,
+  items,
+}: {
+  displayName: string;
+  items: CharacterMenuItem[];
 }) {
+  const triggerRef = useRef<View>(null);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [anchor, setAnchor] = useState<{
+    right: number;
+    top: number;
+    bottom: number;
+  } | null>(null);
+  const open = anchor !== null;
+  const close = useCallback(() => setAnchor(null), []);
+
+  const { popoverStyle, resetPredictiveBack } = usePopoverBackHandler(
+    open,
+    close,
+  );
+
+  const menuHeight = items.length * MENU_ITEM_HEIGHT + 2;
+  const below = anchor ? anchor.bottom + 6 : 0;
+  const menuTop =
+    anchor && below + menuHeight > windowHeight - MENU_MARGIN
+      ? Math.max(MENU_MARGIN, anchor.top - menuHeight - 6)
+      : below;
+  const menuLeft = anchor
+    ? Math.max(
+        MENU_MARGIN,
+        Math.min(anchor.right, windowWidth - MENU_MARGIN) - MENU_WIDTH,
+      )
+    : MENU_MARGIN;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-    >
-      <View style={disabled ? styles.actionIconDisabled : undefined}>
-        <Ionicons
-          name={icon}
-          size={16}
-          color={
-            destructive ? tokens.color.negative : tokens.color.textTertiary
+    <>
+      <Pressable
+        ref={triggerRef}
+        accessibilityRole="button"
+        accessibilityLabel={`${displayName} 더 보기`}
+        accessibilityState={{ expanded: open }}
+        onPress={() => {
+          if (open) {
+            close();
+            return;
           }
+          triggerRef.current?.measureInWindow((x, y, width, height) => {
+            resetPredictiveBack();
+            setAnchor({ right: x + width, top: y, bottom: y + height });
+          });
+        }}
+        style={({ pressed }) => [
+          styles.headerButton,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Ionicons
+          name="ellipsis-horizontal"
+          size={17}
+          color={tokens.color.textTertiary}
         />
-      </View>
-    </Pressable>
+      </Pressable>
+
+      {open ? (
+        <Portal hostName={SHEET_SELECT_PORTAL_HOST}>
+          <View style={styles.menuPortal}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${displayName} 메뉴 닫기`}
+              onPress={close}
+              style={StyleSheet.absoluteFill}
+            />
+            <Reanimated.View
+              style={[
+                styles.menu,
+                { top: menuTop, left: menuLeft },
+                popoverStyle,
+              ]}
+            >
+              {items.map((menuItem) => (
+                <Pressable
+                  key={menuItem.label}
+                  accessibilityRole="menuitem"
+                  accessibilityLabel={`${displayName} ${menuItem.label}`}
+                  accessibilityState={{ disabled: !!menuItem.disabled }}
+                  disabled={menuItem.disabled}
+                  onPress={() => {
+                    close();
+                    menuItem.onPress();
+                  }}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    menuItem.disabled && styles.menuItemDisabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.menuItemText,
+                      menuItem.destructive && styles.menuItemTextDestructive,
+                    ]}
+                  >
+                    {menuItem.label}
+                  </Text>
+                  <Ionicons
+                    name={menuItem.icon}
+                    size={18}
+                    color={
+                      menuItem.destructive
+                        ? tokens.color.negative
+                        : tokens.color.textSecondary
+                    }
+                  />
+                </Pressable>
+              ))}
+            </Reanimated.View>
+          </View>
+        </Portal>
+      ) : null}
+    </>
   );
 }
 
@@ -312,42 +418,42 @@ export const CharacterPromptEditorCard = memo(
             style={styles.nameInput}
           />
 
-          <IconAction
-            accessibilityLabel={`${displayName} 위로 이동`}
-            icon="caret-up"
-            disabled={index === 0}
-            onPress={() => onMove(item.id, -1)}
-          />
-          <IconAction
-            accessibilityLabel={`${displayName} 아래로 이동`}
-            icon="caret-down"
-            disabled={!canMoveDown}
-            onPress={() => onMove(item.id, 1)}
-          />
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityLabel={`${displayName} 활성화`}
-            accessibilityState={{ checked: item.enabled }}
-            onPress={() => onUpdate(item.id, { enabled: !item.enabled })}
-            style={({ pressed }) => [
-              styles.headerButton,
-              item.enabled && styles.headerButtonActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="checkmark"
-              size={17}
-              color={
-                item.enabled ? tokens.color.textPrimary : tokens.color.textMuted
-              }
+          <View style={styles.enableToggle}>
+            <Toggle
+              size="small"
+              label={`${displayName} 활성화`}
+              value={item.enabled}
+              onChange={(enabled) => onUpdate(item.id, { enabled })}
             />
-          </Pressable>
-          <IconAction
-            accessibilityLabel={`${displayName} 삭제`}
-            icon="trash-outline"
-            destructive
-            onPress={() => onDelete(item.id)}
+          </View>
+          <CharacterMenu
+            displayName={displayName}
+            items={[
+              {
+                label: "위치 지정",
+                icon: "grid-outline",
+                disabled: !canEditPosition,
+                onPress: () => onOpenPosition(item.id),
+              },
+              {
+                label: "위로 이동",
+                icon: "arrow-up",
+                disabled: index === 0,
+                onPress: () => onMove(item.id, -1),
+              },
+              {
+                label: "아래로 이동",
+                icon: "arrow-down",
+                disabled: !canMoveDown,
+                onPress: () => onMove(item.id, 1),
+              },
+              {
+                label: "삭제",
+                icon: "trash-outline",
+                destructive: true,
+                onPress: () => onDelete(item.id),
+              },
+            ]}
           />
           <Pressable
             accessibilityRole="button"
@@ -363,12 +469,11 @@ export const CharacterPromptEditorCard = memo(
             }}
             style={({ pressed }) => [
               styles.headerButton,
-              persistentlyExpanded && styles.headerButtonActive,
               pressed && styles.pressed,
             ]}
           >
             <Ionicons
-              name="swap-vertical"
+              name={persistentlyExpanded ? "chevron-up" : "chevron-down"}
               size={17}
               color={tokens.color.textTertiary}
             />
@@ -529,7 +634,9 @@ const styles = StyleSheet.create({
     height: 40,
     flexDirection: "row",
     alignItems: "stretch",
-    backgroundColor: tokens.color.raised,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.color.promptBorder,
+    backgroundColor: tokens.color.card,
   },
   badgeCell: {
     width: 40,
@@ -578,11 +685,49 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderLeftWidth: 1,
-    borderLeftColor: tokens.color.promptBorder,
   },
-  headerButtonActive: {
-    backgroundColor: tokens.color.toast,
+  enableToggle: {
+    marginHorizontal: 6,
+    justifyContent: "center",
+  },
+  menuPortal: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 100,
+    elevation: 100,
+  },
+  menu: {
+    position: "absolute",
+    width: MENU_WIDTH,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtleStrong,
+    borderRadius: 14,
+    backgroundColor: tokens.color.sunken,
+    transformOrigin: "center center",
+    ...tokens.shadow.floatMd,
+  },
+  menuItem: {
+    height: MENU_ITEM_HEIGHT,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  menuItemDisabled: {
+    opacity: 0.3,
+  },
+  menuItemText: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
+  },
+  menuItemTextDestructive: {
+    color: tokens.color.negative,
   },
   editorBody: {
     position: "relative",
@@ -652,17 +797,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderLeftWidth: 1,
-    borderLeftColor: tokens.color.promptBorder,
-  },
-  actionIconDisabled: {
-    opacity: 0.3,
   },
   preview: {
     paddingHorizontal: 14,

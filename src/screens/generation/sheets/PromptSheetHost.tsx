@@ -220,7 +220,7 @@ function PromptHeader({
           >
             <Ionicons
               name="chevron-down"
-              size={19}
+              size={20}
               color={tokens.color.textPrimary}
             />
           </PressableSurface>
@@ -510,12 +510,13 @@ const styles = StyleSheet.create({
   },
   tabsLayer: {
     zIndex: 1,
-    paddingHorizontal: 12,
+    paddingLeft: 10,
+    paddingRight: 12,
     flexDirection: "row",
     alignItems: "stretch",
   },
   promptPreviewButton: {
-    height: GENERATION_SHEET_HEADER_HEIGHT,
+    flex: 1,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -553,9 +554,9 @@ const styles = StyleSheet.create({
   },
   promptTabIndicator: {
     position: "absolute",
-    right: 12,
+    right: 10,
     bottom: 0,
-    left: 12,
+    left: 10,
     height: 2,
     backgroundColor: "transparent",
   },
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
   promptCloseButton: {
     width: 34,
     height: 34,
-    marginTop: 2,
+    alignSelf: "center",
     marginLeft: 4,
     borderRadius: 17,
     alignItems: "center",

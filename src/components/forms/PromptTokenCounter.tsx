@@ -269,17 +269,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   barTrack: {
-    height: 4,
+    height: 6,
     overflow: "hidden",
-    borderRadius: 2,
-    backgroundColor: tokens.color.sunken,
+    borderRadius: 3,
+    backgroundColor: tokens.color.raised,
   },
   barTotalFill: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
-    borderRadius: 2,
+    minWidth: 6,
+    borderRadius: 3,
     backgroundColor: tokens.color.textMuted,
   },
   barFieldFill: {
@@ -287,7 +288,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    borderRadius: 2,
+    minWidth: 6,
+    borderRadius: 3,
   },
   ringContainer: {
     width: RING_SIZE,
