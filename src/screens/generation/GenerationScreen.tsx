@@ -359,12 +359,27 @@ function GenerationScreenContent() {
       <StatusBar style="light" />
 
       {/* 상단 버튼의 블러가 비추는 영역. Android의 블러 대상은 직계 자식을 각자 영역으로
-          잘라내므로, 화면 위쪽·좌우 끝까지 넓힌 뒤 안쪽 View 하나로 여백을 되돌린다. */}
+          잘라내므로, 화면 네 변 끝까지 넓힌 뒤 안쪽 View 하나로 여백을 되돌린다. 아래쪽은
+          접힌 Prompt 시트의 둥근 모서리 옆으로 이미지가 비쳐야 한다. */}
       <BlurTargetView
         ref={blurTargetRef}
-        style={[styles.blurTarget, { marginTop: -(topInset + 12) }]}
+        style={[
+          styles.blurTarget,
+          {
+            marginTop: -(topInset + 12),
+            marginBottom: -promptCollapsedHeight,
+          },
+        ]}
       >
-        <View style={[styles.blurTargetContent, { paddingTop: topInset + 12 }]}>
+        <View
+          style={[
+            styles.blurTargetContent,
+            {
+              paddingTop: topInset + 12,
+              paddingBottom: promptCollapsedHeight,
+            },
+          ]}
+        >
           <View style={styles.topActionsSpacer} />
           {/* Keep the canvas mounted so its preview and zoom state survive. */}
           <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
