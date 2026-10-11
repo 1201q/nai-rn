@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
+import { BlurTargetView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,6 +79,7 @@ function OptionLabel({
 
 export function AppSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const blurTargetRef = useRef<View>(null);
   const router = useRouter();
   const batchCount = useGenerationStore((state) => state.batchCount);
   const setBatchCount = useGenerationStore((state) => state.setBatchCount);
@@ -188,329 +190,342 @@ export function AppSettingsScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Animated.ScrollView
-          contentContainerStyle={[
-            styles.content,
-            {
-              paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
-              paddingBottom: insets.bottom + 32,
-            },
-          ]}
-          keyboardDismissMode={
-            Platform.OS === "ios" ? "interactive" : "on-drag"
-          }
-          keyboardShouldPersistTaps="handled"
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true },
-          )}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
+      {/* 뒤로 버튼의 블러가 비추는 영역 */}
+      <BlurTargetView ref={blurTargetRef} style={styles.blurTarget}>
+        <KeyboardAvoidingView
+          style={styles.blurTargetContent}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View style={styles.account}>
-            {anlasBalance ? (
-              <>
-                <View style={styles.tierBadge}>
-                  <Text style={styles.tierText}>
-                    {TIER_NAMES[anlasBalance.tier] ?? TIER_NAMES[0]}
-                  </Text>
-                </View>
-                <View style={styles.anlasRow}>
-                  <Text style={styles.anlasValue}>
-                    {anlasBalance.total.toLocaleString("en-US")}
-                  </Text>
-                  <Text style={styles.anlasUnit}>Anlas</Text>
-                </View>
-              </>
-            ) : null}
-
-            {storedToken ? (
-              <View style={styles.tokenRow}>
-                <Ionicons
-                  name="key-outline"
-                  size={16}
-                  color={tokens.color.textMuted}
-                />
-                <Text numberOfLines={1} style={styles.tokenMasked}>
-                  {maskToken(storedToken)}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isEditing ? "토큰 변경 취소" : "토큰 변경"
-                  }
-                  hitSlop={8}
-                  onPress={() => {
-                    setIsEditing((current) => !current);
-                    setTokenInput("");
-                    setFeedback(null);
-                  }}
-                  style={({ pressed }) => pressed && styles.pressed}
-                >
-                  <Text style={styles.tokenAction}>
-                    {isEditing ? "취소" : "변경"}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View>
-                <Text style={styles.optionTitle}>API Token</Text>
-                <Text style={styles.tokenDescription}>
-                  이미지 생성과 ANLAS 잔액 조회에 사용됩니다
-                </Text>
-              </View>
+          <Animated.ScrollView
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingTop: insets.top + DETAIL_FIXED_HEADER_CONTENT_OFFSET,
+                paddingBottom: insets.bottom + 32,
+              },
+            ]}
+            keyboardDismissMode={
+              Platform.OS === "ios" ? "interactive" : "on-drag"
+            }
+            keyboardShouldPersistTaps="handled"
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true },
             )}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.account}>
+              {anlasBalance ? (
+                <>
+                  <View style={styles.tierBadge}>
+                    <Text style={styles.tierText}>
+                      {TIER_NAMES[anlasBalance.tier] ?? TIER_NAMES[0]}
+                    </Text>
+                  </View>
+                  <View style={styles.anlasRow}>
+                    <Text style={styles.anlasValue}>
+                      {anlasBalance.total.toLocaleString("en-US")}
+                    </Text>
+                    <Text style={styles.anlasUnit}>Anlas</Text>
+                  </View>
+                </>
+              ) : null}
 
-            {showEditor ? (
-              <View style={styles.editor}>
-                <View
-                  style={[
-                    styles.inputShell,
-                    isInputFocused && styles.inputShellFocused,
-                  ]}
-                >
-                  <TextInput
-                    value={tokenInput}
-                    accessibilityLabel="NovelAI API 토큰"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isSaving}
-                    onBlur={() => setIsInputFocused(false)}
-                    onChangeText={(value) => {
-                      setTokenInput(value);
-                      setFeedback(null);
-                    }}
-                    onFocus={() => setIsInputFocused(true)}
-                    onSubmitEditing={() => void handleSaveToken()}
-                    placeholder="NovelAI API token"
-                    placeholderTextColor={tokens.color.textMuted}
-                    returnKeyType="done"
-                    secureTextEntry={!isTokenVisible}
-                    selectionColor={tokens.color.accent}
-                    style={styles.tokenInput}
+              {storedToken ? (
+                <View style={styles.tokenRow}>
+                  <Ionicons
+                    name="key-outline"
+                    size={16}
+                    color={tokens.color.textMuted}
                   />
+                  <Text numberOfLines={1} style={styles.tokenMasked}>
+                    {maskToken(storedToken)}
+                  </Text>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={
-                      isTokenVisible ? "토큰 숨기기" : "토큰 표시"
+                      isEditing ? "토큰 변경 취소" : "토큰 변경"
                     }
-                    hitSlop={4}
-                    onPress={() => setIsTokenVisible((current) => !current)}
-                    style={({ pressed }) => [
-                      styles.visibilityButton,
-                      pressed && styles.pressed,
-                    ]}
+                    hitSlop={8}
+                    onPress={() => {
+                      setIsEditing((current) => !current);
+                      setTokenInput("");
+                      setFeedback(null);
+                    }}
+                    style={({ pressed }) => pressed && styles.pressed}
                   >
-                    <Ionicons
-                      name={isTokenVisible ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color={tokens.color.textTertiary}
-                    />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="토큰 저장"
-                    accessibilityState={{ disabled: isSaving }}
-                    disabled={isSaving}
-                    onPress={() => void handleSaveToken()}
-                    style={({ pressed }) => [
-                      styles.saveButton,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    {isSaving ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={tokens.color.onAccent}
-                      />
-                    ) : (
-                      <Text style={styles.saveButtonText}>저장</Text>
-                    )}
+                    <Text style={styles.tokenAction}>
+                      {isEditing ? "취소" : "변경"}
+                    </Text>
                   </Pressable>
                 </View>
-
-                <View style={styles.securityRow}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={13}
-                    color={tokens.color.textMuted}
-                  />
-                  <Text style={styles.securityText}>
-                    토큰은 이 기기의 보안 저장소에만 저장됩니다
+              ) : (
+                <View>
+                  <Text style={styles.optionTitle}>API Token</Text>
+                  <Text style={styles.tokenDescription}>
+                    이미지 생성과 ANLAS 잔액 조회에 사용됩니다
                   </Text>
                 </View>
-              </View>
-            ) : null}
+              )}
 
-            {feedback ? (
-              <View accessibilityLiveRegion="polite" style={styles.feedbackRow}>
-                <Ionicons
-                  name={
-                    feedback.tone === "success"
-                      ? "checkmark-circle-outline"
-                      : "alert-circle-outline"
-                  }
-                  size={15}
-                  color={
-                    feedback.tone === "success"
-                      ? tokens.color.accent
-                      : tokens.color.negative
-                  }
-                />
-                <Text
-                  style={[
-                    styles.feedbackText,
-                    feedback.tone === "error" && styles.feedbackTextError,
-                  ]}
+              {showEditor ? (
+                <View style={styles.editor}>
+                  <View
+                    style={[
+                      styles.inputShell,
+                      isInputFocused && styles.inputShellFocused,
+                    ]}
+                  >
+                    <TextInput
+                      value={tokenInput}
+                      accessibilityLabel="NovelAI API 토큰"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isSaving}
+                      onBlur={() => setIsInputFocused(false)}
+                      onChangeText={(value) => {
+                        setTokenInput(value);
+                        setFeedback(null);
+                      }}
+                      onFocus={() => setIsInputFocused(true)}
+                      onSubmitEditing={() => void handleSaveToken()}
+                      placeholder="NovelAI API token"
+                      placeholderTextColor={tokens.color.textMuted}
+                      returnKeyType="done"
+                      secureTextEntry={!isTokenVisible}
+                      selectionColor={tokens.color.accent}
+                      style={styles.tokenInput}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isTokenVisible ? "토큰 숨기기" : "토큰 표시"
+                      }
+                      hitSlop={4}
+                      onPress={() => setIsTokenVisible((current) => !current)}
+                      style={({ pressed }) => [
+                        styles.visibilityButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          isTokenVisible ? "eye-outline" : "eye-off-outline"
+                        }
+                        size={20}
+                        color={tokens.color.textTertiary}
+                      />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="토큰 저장"
+                      accessibilityState={{ disabled: isSaving }}
+                      disabled={isSaving}
+                      onPress={() => void handleSaveToken()}
+                      style={({ pressed }) => [
+                        styles.saveButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      {isSaving ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={tokens.color.onAccent}
+                        />
+                      ) : (
+                        <Text style={styles.saveButtonText}>저장</Text>
+                      )}
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.securityRow}>
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={13}
+                      color={tokens.color.textMuted}
+                    />
+                    <Text style={styles.securityText}>
+                      토큰은 이 기기의 보안 저장소에만 저장됩니다
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {feedback ? (
+                <View
+                  accessibilityLiveRegion="polite"
+                  style={styles.feedbackRow}
                 >
-                  {feedback.message}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.option}>
-            <SheetSliderControls
-              inSheet={false}
-              label="Batch Count"
-              value={batchCount}
-              min={1}
-              max={100}
-              step={1}
-              precision={0}
-              onChange={setBatchCount}
-              header={
-                <OptionLabel
-                  title="Batch Count"
-                  helpKey="batchCount"
-                  helpOpen={helpKey === "batchCount"}
-                  onHelpToggle={() => toggleHelp("batchCount")}
-                />
-              }
-            />
-          </View>
-
-          <View style={[styles.option, styles.optionRow]}>
-            <OptionLabel
-              title="Image Format"
-              helpKey="imageFormat"
-              helpOpen={helpKey === "imageFormat"}
-              onHelpToggle={() => toggleHelp("imageFormat")}
-            />
-            <SheetSelect
-              accessibilityLabel="Image Format"
-              value={
-                IMAGE_FORMATS.find((format) => format.value === imageFormat)!
-                  .label
-              }
-              options={IMAGE_FORMAT_LABELS}
-              onChange={(label) =>
-                setImageFormat(
-                  IMAGE_FORMATS.find((format) => format.label === label)!.value,
-                )
-              }
-              portalHostName={SELECT_PORTAL_HOST}
-              style={styles.formatSelect}
-            />
-          </View>
-
-          <View style={[styles.option, styles.optionRow]}>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>
-                메인 화면 이미지 확대/이동 잠금
-              </Text>
-              <Text style={styles.optionDescription}>
-                메인 화면의 생성 이미지를 기본 크기와 위치로 고정합니다. 켜 두면
-                드래그, 확대/축소가 잠깁니다.
-              </Text>
+                  <Ionicons
+                    name={
+                      feedback.tone === "success"
+                        ? "checkmark-circle-outline"
+                        : "alert-circle-outline"
+                    }
+                    size={15}
+                    color={
+                      feedback.tone === "success"
+                        ? tokens.color.accent
+                        : tokens.color.negative
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.feedbackText,
+                      feedback.tone === "error" && styles.feedbackTextError,
+                    ]}
+                  >
+                    {feedback.message}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-            <Toggle
-              label="이미지 확대/이동 잠금"
-              value={mainImageLocked}
-              onChange={setMainImageLocked}
-            />
-          </View>
 
-          <View style={[styles.option, styles.optionRow]}>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>
-                이미지 생성 시 열린 시트 닫기
-              </Text>
-              <Text style={styles.optionDescription}>
-                이미지 생성 버튼을 누르면 열려 있던 Prompt, Settings, History
-                시트를 닫습니다.
-              </Text>
+            <View style={styles.option}>
+              <SheetSliderControls
+                inSheet={false}
+                label="Batch Count"
+                value={batchCount}
+                min={1}
+                max={100}
+                step={1}
+                precision={0}
+                onChange={setBatchCount}
+                header={
+                  <OptionLabel
+                    title="Batch Count"
+                    helpKey="batchCount"
+                    helpOpen={helpKey === "batchCount"}
+                    onHelpToggle={() => toggleHelp("batchCount")}
+                  />
+                }
+              />
             </View>
-            <Toggle
-              label="생성 시 시트 닫기"
-              value={closeSheetsOnGenerate}
-              onChange={setCloseSheetsOnGenerate}
-            />
-          </View>
 
-          <View style={[styles.option, styles.optionRow]}>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>슬라이더 핸들로만 조절하기</Text>
-              <Text style={styles.optionDescription}>
-                슬라이더의 동그란 핸들을 잡고 끌 때만 값이 바뀝니다. 스크롤하다
-                의도치 않게 값이 바뀌는 실수를 막습니다.
-              </Text>
+            <View style={[styles.option, styles.optionRow]}>
+              <OptionLabel
+                title="Image Format"
+                helpKey="imageFormat"
+                helpOpen={helpKey === "imageFormat"}
+                onHelpToggle={() => toggleHelp("imageFormat")}
+              />
+              <SheetSelect
+                accessibilityLabel="Image Format"
+                value={
+                  IMAGE_FORMATS.find((format) => format.value === imageFormat)!
+                    .label
+                }
+                options={IMAGE_FORMAT_LABELS}
+                onChange={(label) =>
+                  setImageFormat(
+                    IMAGE_FORMATS.find((format) => format.label === label)!
+                      .value,
+                  )
+                }
+                portalHostName={SELECT_PORTAL_HOST}
+                style={styles.formatSelect}
+              />
             </View>
-            <Toggle
-              label="슬라이더 핸들로만 조절"
-              value={sliderHandleOnly}
-              onChange={setSliderHandleOnly}
-            />
-          </View>
 
-          {Platform.OS === "android" ? (
             <View style={[styles.option, styles.optionRow]}>
               <View style={styles.optionText}>
-                <Text style={styles.optionTitle}>뒤로가기 미리보기 (고급)</Text>
+                <Text style={styles.optionTitle}>
+                  메인 화면 이미지 확대/이동 잠금
+                </Text>
                 <Text style={styles.optionDescription}>
-                  뒤로가기 제스처를 하는 동안 시트와 화면이 손가락을 따라
-                  줄어들면서 미리 보입니다. predictive back에 문제가 있다면
-                  끄시는 것을 추천드립니다.
+                  메인 화면의 생성 이미지를 기본 크기와 위치로 고정합니다. 켜
+                  두면 드래그, 확대/축소가 잠깁니다.
                 </Text>
               </View>
               <Toggle
-                label="뒤로가기 미리보기"
-                value={predictiveBackPreview}
-                onChange={setPredictiveBackPreview}
+                label="이미지 확대/이동 잠금"
+                value={mainImageLocked}
+                onChange={setMainImageLocked}
               />
             </View>
-          ) : null}
 
-          <View style={[styles.option, styles.optionRow]}>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>
-                History 더미 이미지 (테스트용)
-              </Text>
-              <Text style={styles.optionDescription}>
-                History 그리드 테스트용 단색 이미지 {DEV_HISTORY_SEED_COUNT}
-                장을 추가합니다.
-              </Text>
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>
+                  이미지 생성 시 열린 시트 닫기
+                </Text>
+                <Text style={styles.optionDescription}>
+                  이미지 생성 버튼을 누르면 열려 있던 Prompt, Settings, History
+                  시트를 닫습니다.
+                </Text>
+              </View>
+              <Toggle
+                label="생성 시 시트 닫기"
+                value={closeSheetsOnGenerate}
+                onChange={setCloseSheetsOnGenerate}
+              />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="History 더미 이미지 추가"
-              accessibilityState={{ disabled: isSeedingHistory }}
-              disabled={isSeedingHistory}
-              onPress={() => void handleSeedHistory()}
-            >
-              {isSeedingHistory ? (
-                <ActivityIndicator color={tokens.color.accent} size="small" />
-              ) : (
-                <Text style={styles.tokenAction}>추가</Text>
-              )}
-            </Pressable>
-          </View>
-        </Animated.ScrollView>
-      </KeyboardAvoidingView>
+
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>
+                  슬라이더 핸들로만 조절하기
+                </Text>
+                <Text style={styles.optionDescription}>
+                  슬라이더의 동그란 핸들을 잡고 끌 때만 값이 바뀝니다.
+                  스크롤하다 의도치 않게 값이 바뀌는 실수를 막습니다.
+                </Text>
+              </View>
+              <Toggle
+                label="슬라이더 핸들로만 조절"
+                value={sliderHandleOnly}
+                onChange={setSliderHandleOnly}
+              />
+            </View>
+
+            {Platform.OS === "android" ? (
+              <View style={[styles.option, styles.optionRow]}>
+                <View style={styles.optionText}>
+                  <Text style={styles.optionTitle}>
+                    뒤로가기 미리보기 (고급)
+                  </Text>
+                  <Text style={styles.optionDescription}>
+                    뒤로가기 제스처를 하는 동안 시트와 화면이 손가락을 따라
+                    줄어들면서 미리 보입니다. predictive back에 문제가 있다면
+                    끄시는 것을 추천드립니다.
+                  </Text>
+                </View>
+                <Toggle
+                  label="뒤로가기 미리보기"
+                  value={predictiveBackPreview}
+                  onChange={setPredictiveBackPreview}
+                />
+              </View>
+            ) : null}
+
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>
+                  History 더미 이미지 (테스트용)
+                </Text>
+                <Text style={styles.optionDescription}>
+                  History 그리드 테스트용 단색 이미지 {DEV_HISTORY_SEED_COUNT}
+                  장을 추가합니다.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="History 더미 이미지 추가"
+                accessibilityState={{ disabled: isSeedingHistory }}
+                disabled={isSeedingHistory}
+                onPress={() => void handleSeedHistory()}
+              >
+                {isSeedingHistory ? (
+                  <ActivityIndicator color={tokens.color.accent} size="small" />
+                ) : (
+                  <Text style={styles.tokenAction}>추가</Text>
+                )}
+              </Pressable>
+            </View>
+          </Animated.ScrollView>
+        </KeyboardAvoidingView>
+      </BlurTargetView>
 
       <DetailHeaderOverlay
         title="App Settings"
@@ -519,6 +534,7 @@ export function AppSettingsScreen() {
         onBack={() => router.back()}
         showMore={false}
         hideCompactTitleOnScroll
+        blurTarget={blurTargetRef}
       />
 
       <View pointerEvents="box-none" style={styles.selectPortalLayer}>
@@ -533,8 +549,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.color.app,
   },
-  flex: {
+  blurTarget: {
     flex: 1,
+  },
+  blurTargetContent: {
+    flex: 1,
+    // 블러는 BlurTargetView의 자식만 비춘다. 배경을 자식에 깔아야 창 배경색이 비치지 않는다.
+    backgroundColor: tokens.color.app,
   },
   content: {
     flexGrow: 1,

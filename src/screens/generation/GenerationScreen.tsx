@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
+import { BlurTargetView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import Reanimated, {
@@ -14,7 +15,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
-import { IconButton } from "../../components/common/Buttons";
+import { GlassBackground } from "../../components/common/GlassBackground";
 import { RollingNumber } from "../../components/common/RollingNumber";
 import { SHEET_SELECT_PORTAL_HOST } from "../../components/forms/SheetSelect";
 import { OpusUsageRing } from "../../components/generation/OpusUsageRing";
@@ -44,6 +45,7 @@ import {
   type UtilitySheet,
 } from "./GenerationSheetScaffold";
 
+const CANVAS_TOOLBAR_PORTAL_HOST = "generation-canvas-toolbar";
 // 사용량 배지(40) + Anlas 표시와의 간격
 const USAGE_BADGE_SLIDE_DISTANCE = 40 + tokens.space[4];
 
@@ -215,6 +217,7 @@ function GenerationScreenContent() {
   const [positionEditing, setPositionEditing] = useState<{
     characterId: string | null;
   } | null>(null);
+  const blurTargetRef = useRef<View>(null);
   const promptBackProgress = useSharedValue(0);
   const utilityBackProgress = useSharedValue(0);
   const { commitPendingInput } = useGenerationInputCommit();
@@ -355,6 +358,45 @@ function GenerationScreenContent() {
     >
       <StatusBar style="light" />
 
+      {/* 상단 버튼의 블러가 비추는 영역. Android의 블러 대상은 직계 자식을 각자 영역으로
+          잘라내므로, 화면 위쪽·좌우 끝까지 넓힌 뒤 안쪽 View 하나로 여백을 되돌린다. */}
+      <BlurTargetView
+        ref={blurTargetRef}
+        style={[styles.blurTarget, { marginTop: -(topInset + 12) }]}
+      >
+        <View style={[styles.blurTargetContent, { paddingTop: topInset + 12 }]}>
+          <View style={styles.topActionsSpacer} />
+          {/* Keep the canvas mounted so its preview and zoom state survive. */}
+          <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
+            <GenerationCanvas
+              onOpenMetadata={openMetadataSheet}
+              toolbarBlur={{
+                target: blurTargetRef,
+                portalHost: CANVAS_TOOLBAR_PORTAL_HOST,
+              }}
+            />
+          </View>
+          {positionEditing ? (
+            <CharacterPositionEditor
+              initialCharacterId={positionEditing.characterId}
+              onFinish={closePositionEditor}
+            />
+          ) : null}
+        </View>
+      </BlurTargetView>
+
+      {/* 캔버스 도구 바. 블러 대상 밖에 있어야 해서 캔버스가 여기로 옮겨 그린다. */}
+      <View
+        pointerEvents="box-none"
+        style={[
+          positionEditing ? styles.hidden : styles.canvasToolbarHost,
+          { bottom: promptCollapsedHeight },
+        ]}
+      >
+        <PortalHost name={CANVAS_TOOLBAR_PORTAL_HOST} />
+      </View>
+
+      {/* 블러 대상의 ref가 먼저 채워지도록 BlurTargetView 뒤에 둔다. */}
       <View
         pointerEvents="box-none"
         style={[styles.topActions, { top: topInset + 8 }]}
@@ -369,6 +411,7 @@ function GenerationScreenContent() {
               pressed && styles.balancePillPressed,
             ]}
           >
+            <GlassBackground blurTarget={blurTargetRef} />
             <Ionicons
               name="diamond-outline"
               size={15}
@@ -391,30 +434,29 @@ function GenerationScreenContent() {
               nextPercentAt={anlasBalance.usageNextPercentAt}
               visible={isV5}
               slideDistance={USAGE_BADGE_SLIDE_DISTANCE}
+              blurTarget={blurTargetRef}
             />
           ) : null}
         </View>
 
-        <IconButton
-          icon="ellipsis-horizontal"
-          label="더 보기"
-          size={40}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="더 보기"
+          hitSlop={4}
           onPress={() => router.navigate("/settings")}
-          style={styles.moreButton}
-        />
+          style={({ pressed }) => [
+            styles.moreButton,
+            pressed && styles.balancePillPressed,
+          ]}
+        >
+          <GlassBackground blurTarget={blurTargetRef} />
+          <Ionicons
+            name="ellipsis-horizontal"
+            size={18}
+            color={tokens.color.textPrimary}
+          />
+        </Pressable>
       </View>
-
-      <View style={styles.topActionsSpacer} />
-      {/* Keep the canvas mounted so its preview and zoom state survive. */}
-      <View style={positionEditing ? styles.hidden : styles.canvasSlot}>
-        <GenerationCanvas onOpenMetadata={openMetadataSheet} />
-      </View>
-      {positionEditing ? (
-        <CharacterPositionEditor
-          initialCharacterId={positionEditing.characterId}
-          onFinish={closePositionEditor}
-        />
-      ) : null}
 
       <PromptSheetHost
         onEditCharacterPositions={openPositionEditor}
@@ -501,6 +543,23 @@ const styles = StyleSheet.create({
     zIndex: 120,
     elevation: 120,
   },
+  blurTarget: {
+    flex: 1,
+    minHeight: 0,
+    marginHorizontal: -tokens.space[8],
+  },
+  blurTargetContent: {
+    flex: 1,
+    paddingHorizontal: tokens.space[8],
+    gap: tokens.space[5],
+    // 블러가 빈 영역에서 창 배경색을 비추지 않도록 앱 배경을 깔아 둔다.
+    backgroundColor: tokens.color.app,
+  },
+  canvasToolbarHost: {
+    position: "absolute",
+    left: tokens.space[8],
+    right: tokens.space[8],
+  },
   topActionsSpacer: {
     height: 40,
   },
@@ -524,9 +583,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: tokens.space[4],
+    overflow: "hidden",
     borderRadius: tokens.radius.pill,
-    backgroundColor: tokens.color.card,
-    ...tokens.shadow.floatMd,
   },
   balanceText: {
     color: tokens.color.textPrimary,
@@ -537,8 +595,12 @@ const styles = StyleSheet.create({
     opacity: tokens.opacity.pressed,
   },
   moreButton: {
-    borderWidth: 0,
-    backgroundColor: tokens.color.card,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: tokens.radius.pill,
   },
   actionBar: {
     position: "absolute",

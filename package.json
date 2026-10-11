@@ -29,6 +29,7 @@
     "expensify-common": "2.0.189",
     "expo": "^57.0.7",
     "expo-asset": "~57.0.6",
+    "expo-blur": "~57.0.3",
     "expo-build-properties": "~57.0.6",
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.6",
@@ -88,6 +89,15 @@
   "reanimated": {
     "staticFeatureFlags": {
       "FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS": false
+    }
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-blur"
+        ]
+      }
     }
   },
   "private": true
