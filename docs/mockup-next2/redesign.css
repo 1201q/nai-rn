@@ -1,22 +1,9 @@
 /* Experimental design layer. Loaded after styles.css and details.css.
    Layout is untouched; remove the <link> in index.html to get the current app back. */
 
-/* 1. Surfaces: wider, evenly spaced steps so each level is distinguishable.
-      app < sheet(alt) < card < raised(control) < toast(selected); sunken = typing wells. */
+/* 1. Colours: same palette as docs/mockup (styles.css). Only the radius scale
+      and the neutral slider fill are defined here. */
 :root {
-  --app: #0c0c0f;
-  --alt: #151518;
-  --card: #1c1c21;
-  --sunken: #0e0e11;
-  --raised: #25252b;
-  --toast: #34343c;
-  --prompt-surface: #0e0e11;
-  --prompt-border: rgba(255, 255, 255, 0.09);
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #f3f3f5;
-  --secondary: #cdcdd3;
-  --tertiary: #a0a0a9;
-  --muted: #85858f;
   --r-s: 8px;
   --r-m: 12px;
   --r-l: 16px;
@@ -571,15 +558,8 @@ input[type="range"]::-moz-range-thumb {
 
 
 
-/* 22. Sheet header: no divider at rest; a plain hairline appears once content
-       has scrolled under the header. */
-.sheet-header {
-  border-bottom-color: transparent;
-  transition: border-color 0.15s;
-}
-.sheet.scrolled .sheet-header {
-  border-bottom-color: var(--border);
-}
+/* 22. Sheet header: the divider under the header is always visible
+       (border from styles.css). */
 
 /* 23. History grid: rows keep their tile height when the list is longer than
        the sheet, so the grid scrolls instead of squeezing rows together. */
@@ -628,7 +608,7 @@ input[type="range"]::-moz-range-thumb {
   bottom: var(--bar);
   z-index: 1;
   height: 120px;
-  background: linear-gradient(rgba(21, 21, 24, 0), rgba(21, 21, 24, 0.7) 55%, rgba(21, 21, 24, 0.96));
+  background: linear-gradient(rgba(25, 24, 30, 0), rgba(25, 24, 30, 0.7) 55%, rgba(25, 24, 30, 0.96));
   pointer-events: none;
 }
 .meta-import,

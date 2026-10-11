@@ -429,7 +429,6 @@ function render() {
   lastRenderedScreen = state.screen;
   updatePromptEditors();
   updateTokenMeters();
-  updateSheetScrolled();
   document
     .querySelectorAll("nav [data-screen]")
     .forEach((el) =>
@@ -438,14 +437,6 @@ function render() {
   document.querySelector("#status-icons").innerHTML =
     icon("cellular") + icon("wifi") + icon("battery-full");
 }
-// Header divider appears only once content has scrolled under the header.
-function updateSheetScrolled() {
-  app.querySelectorAll(".sheet").forEach((sheet) => {
-    const scroll = sheet.querySelector(".sheet-scroll,.history-grid");
-    sheet.classList.toggle("scrolled", !!scroll && scroll.scrollTop > 0);
-  });
-}
-app.addEventListener("scroll", updateSheetScrolled, true);
 function navigate(screen) {
   if (screen !== state.screen) state.metadataTab = "metadata";
   state.screen = screen;
