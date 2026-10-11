@@ -282,8 +282,8 @@ describe("CharacterPromptSection", () => {
           .disabled,
       ).toBe(true);
       expect(
-        getByLabelText(`${character} ${otherLabel}`).props
-          .accessibilityState.disabled,
+        getByLabelText(`${character} ${otherLabel}`).props.accessibilityState
+          .disabled,
       ).toBe(false);
       await fireEvent.press(getByLabelText(`${character} 메뉴 닫기`));
     }

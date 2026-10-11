@@ -203,10 +203,12 @@ jest.mock("../GenerationSheetScaffold", () => {
       promptStage,
       onPromptStageChange,
       onEditCharacterPositions,
+      positionEditing,
     }: {
       promptStage: "collapsed" | "half" | "full";
       onPromptStageChange: (stage: "collapsed" | "half" | "full") => void;
       onEditCharacterPositions: (characterId: string | null) => void;
+      positionEditing: boolean;
     }) =>
       React.createElement(
         View,
@@ -219,6 +221,11 @@ jest.mock("../GenerationSheetScaffold", () => {
         React.createElement(Pressable, {
           accessibilityLabel: "위치 편집 테스트 열기",
           onPress: () => onEditCharacterPositions("character-2"),
+        }),
+        React.createElement(Pressable, {
+          accessibilityLabel: "위치 편집 버튼",
+          accessibilityState: { selected: positionEditing },
+          onPress: () => onEditCharacterPositions(null),
         }),
       ),
     UtilitySheetHost: function MockUtilitySheet({
@@ -399,7 +406,7 @@ describe("GenerationScreen generation acceptance", () => {
     });
   });
 
-  test("position editing collapses sheets and ends on save, back, or a sheet opening", async () => {
+  test("position editing collapses sheets and ends on save, back, or a utility sheet opening", async () => {
     const screen = await render(<GenerationScreen />);
     const openEditor = () =>
       fireEvent.press(screen.getByLabelText("위치 편집 테스트 열기"));
@@ -424,10 +431,44 @@ describe("GenerationScreen generation acceptance", () => {
     await fireEvent.press(screen.getByLabelText("Settings 열기"));
     expect(screen.queryByTestId("position-editor")).toBeNull();
 
-    await fireEvent.press(screen.getByLabelText("Settings 닫기"));
-    await openEditor();
+    await screen.unmount();
+  });
+
+  test("keeps position editing under a reopened Prompt sheet", async () => {
+    const screen = await render(<GenerationScreen />);
+    const button = () => screen.getByLabelText("위치 편집 버튼");
+    const stage = () => screen.getByTestId("prompt-stage").props.children;
+    const back = async () => {
+      const [, handlers] = mockBackHandlers.mock.calls.at(-1)!;
+      await act(() => handlers.onCommit!());
+    };
+
+    expect(button().props.accessibilityState.selected).toBe(false);
+    await fireEvent.press(button());
+    expect(screen.getByTestId("position-editor")).toBeTruthy();
+    expect(stage()).toBe("collapsed");
+
+    // 시트를 다시 열어도 편집 UI는 남고 버튼이 켜진 상태로 보인다.
     await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+    expect(stage()).toBe("full");
+    expect(screen.getByTestId("position-editor")).toBeTruthy();
+    expect(button().props.accessibilityState.selected).toBe(true);
+
+    // 뒤로가기는 위에 있는 시트부터 닫고, 그다음에 편집 UI를 닫는다.
+    await back();
+    expect(stage()).toBe("half");
+    await back();
+    expect(stage()).toBe("collapsed");
+    expect(screen.getByTestId("position-editor")).toBeTruthy();
+    await back();
     expect(screen.queryByTestId("position-editor")).toBeNull();
+
+    // 켜진 버튼을 다시 누르면 시트는 그대로 두고 편집 UI만 끈다.
+    await fireEvent.press(button());
+    await fireEvent.press(screen.getByLabelText("Prompt 테스트 열기"));
+    await fireEvent.press(button());
+    expect(screen.queryByTestId("position-editor")).toBeNull();
+    expect(stage()).toBe("full");
     await screen.unmount();
   });
 

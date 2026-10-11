@@ -230,21 +230,27 @@ function GenerationScreenContent() {
   }, [finishInputEditing]);
   const handlePromptStageChange = useCallback(
     (stage: PromptSheetStage) => {
+      // 위치 편집 UI는 Prompt 시트를 다시 열어도 캔버스에 남는다.
       if (stage === "collapsed") finishInputEditing();
-      else setPositionEditing(null);
       setPromptStage(stage);
     },
     [finishInputEditing],
   );
   const closePositionEditor = useCallback(() => setPositionEditing(null), []);
+  const isPositionEditing = positionEditing !== null;
   const openPositionEditor = useCallback(
     (characterId: string | null) => {
+      // 켜진 상태에서 위치 편집 버튼을 다시 누르면 시트는 두고 편집 UI만 끈다.
+      if (characterId === null && isPositionEditing) {
+        setPositionEditing(null);
+        return;
+      }
       finishInputEditing();
       setUtilitySheet(null);
       setPromptStage("collapsed");
       setPositionEditing({ characterId });
     },
-    [finishInputEditing],
+    [finishInputEditing, isPositionEditing],
   );
   const toggleUtilitySheet = useCallback(
     (nextSheet: UtilitySheet) => {
@@ -276,9 +282,10 @@ function GenerationScreenContent() {
   }, []);
   const hasUtilitySheet = utilitySheet !== null || utilitySheetVisible;
   const hasOpenSheet = hasUtilitySheet || promptStage !== "collapsed";
-  const isPositionEditing = positionEditing !== null;
+  // 시트가 편집 UI 위에 열려 있으면 뒤로가기는 시트부터 닫는다.
+  const backClosesPositionEditor = isPositionEditing && !hasOpenSheet;
   const handleBack = useCallback(() => {
-    if (isPositionEditing) {
+    if (backClosesPositionEditor) {
       setPositionEditing(null);
       return;
     }
@@ -293,12 +300,17 @@ function GenerationScreenContent() {
     }
     finishInputEditing();
     setPromptStage("collapsed");
-  }, [finishInputEditing, hasUtilitySheet, isPositionEditing, promptStage]);
+  }, [
+    backClosesPositionEditor,
+    finishInputEditing,
+    hasUtilitySheet,
+    promptStage,
+  ]);
 
   const trackPredictiveBack = useCallback(
     (event: PredictiveBackEvent) => {
       // The position editor has no sheet to scale.
-      if (isPositionEditing) return;
+      if (backClosesPositionEditor) return;
       if (hasUtilitySheet) {
         cancelAnimation(utilityBackProgress);
         utilityBackProgress.value = event.progress;
@@ -311,8 +323,8 @@ function GenerationScreenContent() {
       utilityBackProgress.value = 0;
     },
     [
+      backClosesPositionEditor,
       hasUtilitySheet,
-      isPositionEditing,
       promptBackProgress,
       utilityBackProgress,
     ],
@@ -406,6 +418,7 @@ function GenerationScreenContent() {
 
       <PromptSheetHost
         onEditCharacterPositions={openPositionEditor}
+        positionEditing={isPositionEditing}
         promptPreview={prompt}
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}

@@ -237,8 +237,10 @@ export function PromptSheetHost({
   onPromptStageChange,
   onMetadataExtract,
   onEditCharacterPositions,
+  positionEditing = false,
 }: {
   onEditCharacterPositions: (characterId: string | null) => void;
+  positionEditing?: boolean;
   promptPreview: string;
   promptStage: PromptSheetStage;
   predictiveBackProgress: SharedValue<number>;
@@ -450,6 +452,7 @@ export function PromptSheetHost({
                             active={active}
                             sheetHiddenHeight={sheetHiddenHeight}
                             onEditCharacterPositions={onEditCharacterPositions}
+                            positionEditing={positionEditing}
                           />
                         ) : item.key === "reference" ? (
                           <ReferenceImagesSheetContent

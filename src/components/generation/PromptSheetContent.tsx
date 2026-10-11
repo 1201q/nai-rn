@@ -528,10 +528,12 @@ export const PromptSheetContent = memo(function PromptSheetContent({
   active,
   sheetHiddenHeight = 0,
   onEditCharacterPositions,
+  positionEditing = false,
 }: {
   active: boolean;
   sheetHiddenHeight?: number;
   onEditCharacterPositions: (characterId: string | null) => void;
+  positionEditing?: boolean;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(
@@ -571,6 +573,7 @@ export const PromptSheetContent = memo(function PromptSheetContent({
         editingCharacterId={editingCharacterId}
         onEditingCharacterChange={setEditingCharacterId}
         onEditPositions={onEditCharacterPositions}
+        positionEditing={positionEditing}
       />
     </BottomSheetKeyboardAwareScrollView>
   );
