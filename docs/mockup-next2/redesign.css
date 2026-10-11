@@ -100,8 +100,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* 5. Type: labels step back so values lead; fewer competing sizes. */
-.sheet-header h2 {
-  font-size: 20px;
+.sheet-header:not(.tabs-header) h2 {
+  font-size: 16px;
+  text-align: center;
 }
 .field > label,
 .field-label,
@@ -334,7 +335,46 @@ input[type="range"]::-moz-range-thumb {
   padding-left: 7px;
 }
 .sheet-header:not(.tabs-header) {
-  padding-left: 18px;
+  padding: 0 12px;
+}
+.sheet-header:not(.tabs-header):has(> h2) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.sheet-header:not(.tabs-header) > .close {
+  justify-self: start;
+  margin-left: 0;
+  background: none;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"] {
+  position: relative;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"] .icon {
+  display: none;
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::before,
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.sheet-header:not(.tabs-header) > .close[data-action="home"]::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+.history-header-buttons {
+  justify-self: end;
+}
+.history-header:has(> .selection-count) > button:first-child {
+  justify-self: start;
+}
+.history-header:has(> .selection-count) > button:last-child {
+  justify-self: end;
 }
 
 /* 11. Sheet headers: one height (handle 17px + 48px) open and collapsed, so the
@@ -361,9 +401,12 @@ input[type="range"]::-moz-range-thumb {
   height: 34px;
   border-radius: 17px;
 }
-.sheet-header .close .icon,
-.sheet-header:not(.tabs-header):not(.metadata-header) .close .icon {
+.sheet-header .close .icon {
   font-size: 20px;
+}
+.sheet-header:not(.tabs-header) .close .icon,
+.sheet-header:not(.tabs-header):not(.metadata-header) .close .icon {
+  font-size: 16px;
 }
 
 /* 13. Action bar side inset. */

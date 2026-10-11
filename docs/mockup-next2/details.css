@@ -972,3 +972,152 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid var(--accent);
   color: var(--accent);
 }
+
+/* Main menu and upscale design from test/ncnn-image-upscaling. */
+.more-menu {
+  position: absolute;
+  top: calc(var(--top) + 54px);
+  right: 16px;
+  min-width: 180px;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--raised);
+  box-shadow: 0 8px 20px #0007;
+}
+.more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  width: 100%;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+}
+.more-menu .icon {
+  color: var(--secondary);
+}
+.more-menu button:active,
+.upscale-page button:active {
+  opacity: 0.65;
+}
+.upscale-picker {
+  display: block;
+  width: 100%;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--tertiary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.upscale-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+.upscale-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.upscale-queue-header h3,
+.upscale-option h3 {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 600;
+}
+.upscale-queue-header button {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.upscale-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--card);
+}
+.upscale-row img {
+  width: 48px;
+  height: 48px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+.upscale-row b {
+  font-size: 14px;
+  font-weight: 500;
+}
+.upscale-row p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--tertiary);
+}
+.upscale-row .done {
+  color: var(--accent);
+}
+.upscale-remove {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 32px;
+  flex-shrink: 0;
+  color: var(--tertiary);
+  font-size: 18px;
+}
+.upscale-option {
+  margin-top: 18px;
+}
+.upscale-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.upscale-chip {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+.upscale-chip.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.upscale-primary {
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px #0007;
+}
+.upscale-primary:disabled {
+  background: var(--raised);
+  color: var(--muted);
+  opacity: 0.55;
+}
+.upscale-meta {
+  margin: 8px 0 0;
+  color: var(--tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+.upscale-header button {
+  background: var(--card);
+}

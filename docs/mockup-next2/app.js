@@ -3,6 +3,12 @@ const initialPrompt =
   "silver-haired mage, under moonlight, arcane magic circle, purple runes, starry night";
 const state = {
   screen: "home",
+  upscaleModel: "realcugan-se",
+  upscaleScale: 2,
+  upscaleNoise: -1,
+  upscaleTile: 0,
+  upscaleFormat: "png",
+  upscaleImages: [],
   full: false,
   sample: false,
   prompt: initialPrompt,
@@ -113,7 +119,7 @@ function actionbar() {
   return `<div class="actionbar">${button("settings-sharp", "Settings 열기", "settings", `action-icon ${state.screen === "settings" ? "selected" : ""}`)}<button class="generate" data-action="generate">${icon(state.loading ? "stop" : "sparkles")}<span>${state.loading ? "취소" : state.batch > 1 ? `${state.batch}장 생성` : "생성"}</span></button>${button("time-outline", "History 열기", "history", `action-icon ${state.screen === "history" ? "selected" : ""}`)}</div>`;
 }
 function home() {
-  return `<div class="top-actions"><div class="balance-group"><button class="balance" data-action="app-settings" aria-label="ANLAS 토큰 설정">${icon("diamond-outline")}<span>${state.sample || state.tokenSaved ? "10,000" : "—"}</span></button>${state.sample && v5() ? '<div class="usage"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12.75" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/><circle cx="14" cy="14" r="12.75" fill="none" stroke="#ffc93c" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80.11" stroke-dashoffset="60.89"/></svg><b>24</b></div>' : ""}</div>${button("ellipsis-horizontal", "더 보기", "app-settings")}</div><div class="canvas-section"><div class="canvas">${state.image ? `<img src="${escapeHtml(state.image)}" alt="생성 이미지" class="${state.blurred ? "blurred" : ""}" data-action="preview" />` : '<div class="placeholder">generated image</div>'}</div><div class="toolbar-row"><div class="toolbar ${state.toolbar ? "" : "collapsed"}">${button(state.blurred ? "eye-off-outline" : "eye-outline", "이미지 블러 적용/해제", "blur", "")}${button("download-outline", "이미지 다운로드", "download", "", !state.image)}${button("copy-outline", "이미지 복사", "copy", "", !state.image)}${button("information-circle-outline", "메타데이터 정보", "metadata", "", !state.image)}${button(state.toolbar ? "chevron-forward" : "chevron-back", "이미지 도구 접기/펼치기", "toolbar", "tool-toggle")}</div></div></div>`;
+  return `<div class="top-actions"><div class="balance-group"><button class="balance" data-action="app-settings" aria-label="ANLAS 토큰 설정">${icon("diamond-outline")}<span>${state.sample || state.tokenSaved ? "10,000" : "—"}</span></button>${state.sample && v5() ? '<div class="usage"><svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12.75" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="2.5"/><circle cx="14" cy="14" r="12.75" fill="none" stroke="#ffc93c" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80.11" stroke-dashoffset="60.89"/></svg><b>24</b></div>' : ""}</div>${button("ellipsis-horizontal", "더 보기", "more-menu")}</div><div class="canvas-section"><div class="canvas">${state.image ? `<img src="${escapeHtml(state.image)}" alt="생성 이미지" class="${state.blurred ? "blurred" : ""}" data-action="preview" />` : '<div class="placeholder">generated image</div>'}</div><div class="toolbar-row"><div class="toolbar ${state.toolbar ? "" : "collapsed"}">${button(state.blurred ? "eye-off-outline" : "eye-outline", "이미지 블러 적용/해제", "blur", "")}${button("download-outline", "이미지 다운로드", "download", "", !state.image)}${button("copy-outline", "이미지 복사", "copy", "", !state.image)}${button("information-circle-outline", "메타데이터 정보", "metadata", "", !state.image)}${button(state.toolbar ? "chevron-forward" : "chevron-back", "이미지 도구 접기/펼치기", "toolbar", "tool-toggle")}</div></div></div>`;
 }
 function promptPanel(channel, character = null, split = false) {
   const key = channel === "base" ? "prompt" : "negative";
@@ -236,6 +242,33 @@ function settings() {
       "",
     )}</div></div></div></div><div class="section"><h3 class="eyebrow">AI SETTINGS</h3>${medium() ? "" : slider("steps", "Steps", 1, 50, 1)}${slider("guidance", "Prompt Guidance", 0, 10, 0.1)}<div class="columns">${field("Seed", `<div class="seed"><input data-input="seed" value="${escapeHtml(state.seed)}" placeholder="Enter a seed" aria-label="Seed 값" inputmode="numeric" maxlength="10" />${button(state.seed ? "close" : "dice-outline", state.seed ? "Seed 지우기" : "현재 이미지 Seed 가져오기", "seed-action", "seed-action", !state.seed && !state.image)}</div>`)}${medium() ? "" : field("Sampler", select("sampler", state.sampler))}</div></div>${medium() ? "" : `<div class="section"><button class="advanced" data-toggle="advanced"><span class="eyebrow">ADVANCED SETTINGS</span>${icon(state.advanced ? "chevron-up" : "chevron-down")}</button>${state.advanced ? slider("rescale", "Prompt Guidance Rescale", 0, 1, 0.02) + (!v5() ? field("Schedule", select("schedule", state.schedule)) : "") : ""}</div>`}`;
 }
+const upscaleNoiseLevels = {
+  "realcugan-se": { 2: [-1, 0, 1, 2, 3], 3: [-1, 0, 3], 4: [-1, 0, 3] },
+  "realcugan-pro": { 2: [-1, 0, 3], 3: [-1, 0, 3] },
+  "waifu2x-cunet": { 1: [0, 1, 2, 3], 2: [-1, 0, 1, 2, 3] },
+};
+function upscalePage() {
+  const chips = (title, key, options) =>
+    '<div class="upscale-option"><h3>' + title + '</h3><div class="upscale-chips">' + options.map(([value, label]) =>
+      '<button class="upscale-chip ' + (state[key] === value ? 'selected' : '') + '" data-upscale-key="' + key + '" data-upscale-value="' + value + '" aria-pressed="' + (state[key] === value) + '">' + label + '</button>'
+    ).join('') + '</div></div>';
+  const items = state.upscaleImages;
+  const levels = upscaleNoiseLevels[state.upscaleModel];
+  const queue = items.length ? '<section class="upscale-queue"><div class="upscale-queue-header"><h3>완료 ' + items.filter(item => item.done).length + ' / ' + items.length + '</h3><button data-action="clear-upscale">목록 비우기</button></div>' + items.map((item, i) =>
+    '<div class="upscale-row"><img src="' + escapeHtml(item.uri) + '" alt="업스케일할 이미지" /><div class="grow"><b>' + item.width + ' x ' + item.height + '</b><p class="' + (item.done ? 'done' : '') + '">' + (item.done ? item.result : '대기') + '</p></div>' + button('close', '목록에서 제거', 'remove-upscale:' + i, 'upscale-remove') + '</div>'
+  ).join('') + '</section>' : '';
+  return '<div class="settings-page upscale-page"><button class="upscale-picker" data-action="pick-upscale">이미지 추가 (여러 장 선택 가능)</button>' + queue +
+    chips('Model', 'upscaleModel', [['realcugan-se', 'CUGAN Standard'], ['realcugan-pro', 'CUGAN Pro'], ['waifu2x-cunet', 'waifu2x CUNet']]) +
+    chips('Scale', 'upscaleScale', Object.keys(levels).map(value => [Number(value), value + 'x'])) +
+    chips('Denoise', 'upscaleNoise', levels[state.upscaleScale].map(value => [value, String(value)])) +
+    chips('Tile size', 'upscaleTile', [[0, '자동'], [100, '100'], [200, '200'], [400, '400']]) +
+    chips('Format', 'upscaleFormat', [['png', 'PNG'], ['jpg', 'JPG'], ['webp', 'WebP']]) +
+    '<button class="upscale-primary" data-action="preview-upscale" ' + (items.some(item => !item.done) ? '' : 'disabled') + '>업스케일하기 (' + items.filter(item => !item.done).length + '장)</button><p class="upscale-meta">결과는 한 장이 끝날 때마다 갤러리에 저장됩니다.</p></div><div class="detail-header upscale-header">' + button('chevron-back', '뒤로', 'home') + '<b>이미지 업스케일</b><span style="width:40px"></span></div>';
+}
+function openMoreMenu() {
+  picker.hidden = false;
+  picker.innerHTML = '<button class="picker-backdrop" data-action="close-picker" aria-label="메뉴 닫기"></button><div class="more-menu" role="menu" aria-label="더 보기"><button role="menuitem" data-action="app-settings">' + icon('settings-outline', 18) + '<span>설정</span></button><button role="menuitem" data-action="upscale">' + icon('expand-outline', 18) + '<span>이미지 업스케일</span></button></div>';
+}
 function appSettings() {
   const options = [
     [
@@ -302,10 +335,10 @@ function chunkChip(chunk) {
 }
 function utilityHeader() {
   if (state.screen === "metadata")
-    return `<header class="sheet-header">${state.metadataTab === "import" ? button("chevron-back", "Metadata로 돌아가기", "metadata-tab", "sheet-back") : ""}<h2>${state.metadataTab === "import" ? "Import" : "Metadata"}</h2>${button("close", "닫기", "home", "close")}</header>`;
+    return `<header class="sheet-header">${state.metadataTab === "import" ? button("chevron-back", "Metadata로 돌아가기", "metadata-tab", "close sheet-back") : button("close", "닫기", "home", "close")}<h2>${state.metadataTab === "import" ? "Import" : "Metadata"}</h2></header>`;
   if (state.screen === "history")
-    return `<header class="sheet-header history-header">${state.selection ? `<span class="selection-count">${state.selected.size}개 선택</span><button class="history-text accent" data-action="select-all">${state.selected.size === state.history.length ? "전체 해제" : "전체 선택"}</button><span class="grow"></span><button class="history-text" data-action="selection">취소</button>` : `<h2>History</h2><div class="history-header-buttons"><button class="history-text" data-action="list-engine">${state.listEngine}</button>${button("grid-outline", "한 줄에 보이는 이미지 수 변경", "grid-columns", "close")}${button("close", "닫기", "home", "close")}</div>`}</header>`;
-  return `<header class="sheet-header"><h2>Settings</h2>${button("close", "닫기", "home", "close")}</header>`;
+    return `<header class="sheet-header history-header">${state.selection ? `<button class="history-text" data-action="selection">취소</button><h2 class="selection-count">${state.selected.size}개 선택</h2><button class="history-text accent" data-action="select-all">${state.history.length && state.selected.size === state.history.length ? "전체 해제" : "전체 선택"}</button>` : `${button("close", "닫기", "home", "close")}<h2>History</h2><div class="history-header-buttons"><button class="history-text" data-action="list-engine">${state.listEngine}</button>${button("grid-outline", "한 줄에 보이는 이미지 수 변경", "grid-columns", "close")}</div>`}</header>`;
+  return `<header class="sheet-header">${button("close", "닫기", "home", "close")}<h2>Settings</h2></header>`;
 }
 function positionEditor() {
   const active =
@@ -394,7 +427,7 @@ function render() {
   let html = home();
   if (state.screen === "position") html += positionEditor();
   const promptScreen = ["prompt", "reference", "chunks"].includes(state.screen);
-  if (!["app-settings", "preview"].includes(state.screen)) {
+  if (!["app-settings", "upscale", "preview"].includes(state.screen)) {
     if (state.screen !== "home" && state.screen !== "position")
       html +=
         '<button class="scrim" data-action="home" aria-label="시트 닫기"></button>';
@@ -418,6 +451,7 @@ function render() {
     html += actionbar();
   }
   if (state.screen === "app-settings") html = appSettings();
+  if (state.screen === "upscale") html = upscalePage();
   if (state.screen === "preview")
     html += `<div class="zoom-preview"><img src="${escapeHtml(state.image)}" alt="이미지 미리보기" data-action="zoom" /><div class="zoom-controls">${button("close", "닫기", "home")}<div class="zoom-actions">${button("download-outline", "저장", "download")}${button("copy-outline", "복사", "copy")}${button("information-circle-outline", "정보", "metadata")}</div></div></div>`;
   app.innerHTML = html;
@@ -590,6 +624,10 @@ function openHelp(trigger, key) {
 function setSample(enabled) {
   state.sample = enabled;
   state.image = enabled ? "sample.svg" : null;
+  state.upscaleImages = enabled ? [
+    { uri: "sample.svg", width: 832, height: 1216 },
+    { uri: "sample.svg", width: 832, height: 1216, done: true, result: "1664 x 2432 · 3.2초 · GPU · tile 200 · 2.45MB" },
+  ] : [];
   state.history = enabled ? Array(12).fill("sample.svg") : [];
   state.references = enabled
     ? { i2i: "sample.svg", vibe: "sample.svg", precise: "sample.svg" }
@@ -619,6 +657,7 @@ function action(name) {
       "settings",
       "history",
       "app-settings",
+      "upscale",
       "metadata",
       "position",
       "preview",
@@ -629,6 +668,11 @@ function action(name) {
         ? "home"
         : name,
     );
+    return;
+  }
+  if (name.startsWith("remove-upscale:")) {
+    state.upscaleImages.splice(Number(name.split(":")[1]), 1);
+    render();
     return;
   }
   if (name.startsWith("remove-character:")) {
@@ -685,6 +729,19 @@ function action(name) {
     return;
   }
   switch (name) {
+    case "more-menu":
+      openMoreMenu();
+      break;
+    case "pick-upscale":
+      document.querySelector("#upscale-upload").click();
+      break;
+    case "clear-upscale":
+      state.upscaleImages = [];
+      render();
+      break;
+    case "preview-upscale":
+      toast("디자인 목업입니다. 실제 업스케일 처리는 실행하지 않습니다.");
+      break;
     case "height":
       state.full = !state.full;
       render();
@@ -924,6 +981,17 @@ document.addEventListener("click", (event) => {
     action(target.dataset.action);
     return;
   }
+  if (target.dataset.upscaleKey) {
+    const key = target.dataset.upscaleKey;
+    state[key] = ["upscaleModel", "upscaleFormat"].includes(key)
+      ? target.dataset.upscaleValue : Number(target.dataset.upscaleValue);
+    const levels = upscaleNoiseLevels[state.upscaleModel];
+    if (!levels[state.upscaleScale]) state.upscaleScale = 2;
+    if (!levels[state.upscaleScale].includes(state.upscaleNoise))
+      state.upscaleNoise = levels[state.upscaleScale][0];
+    render();
+    return;
+  }
   if (target.dataset.toggle) {
     const key = target.dataset.toggle;
     state[key] = !state[key];
@@ -1134,6 +1202,23 @@ app.addEventListener("pointerdown", (event) => {
   const rect = board.getBoundingClientRect();
   c.x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
   c.y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+  render();
+});
+document.querySelector("#upscale-upload").addEventListener("change", async (event) => {
+  const files = Array.from(event.target.files);
+  event.target.value = "";
+  const images = await Promise.all(files.map(file => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => resolve({ uri: reader.result, width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => resolve(null);
+      image.src = reader.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  })));
+  state.upscaleImages.push(...images.filter(Boolean));
   render();
 });
 document.querySelector("#upload").addEventListener("change", (event) => {
