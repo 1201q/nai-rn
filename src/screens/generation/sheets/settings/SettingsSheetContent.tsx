@@ -185,19 +185,24 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
       keyboardShouldPersistTaps="handled"
       scrollEnabled={openSelect === null}
     >
-      <SheetSelect
-        label="Model"
-        value={modelLabel}
-        options={MODEL_OPTIONS}
-        onChange={changeModel}
-        open={openSelect === "model"}
-        onOpenChange={(open) => setSelectOpen("model", open)}
-      />
+      <View style={styles.modelField}>
+        <SheetSelect
+          label="Model"
+          value={modelLabel}
+          options={MODEL_OPTIONS}
+          onChange={changeModel}
+          open={openSelect === "model"}
+          onOpenChange={(open) => setSelectOpen("model", open)}
+        />
 
-      {effortModels ? (
-        <View style={styles.effortField}>
+        {effortModels ? (
           <View style={styles.effortRow}>
-            <Text style={styles.settingsFieldLabel}>Effort</Text>
+            <Text style={styles.effortFieldLabel}>Effort</Text>
+            <SettingsHelpButton
+              helpKey="effort"
+              open={helpKey === "effort"}
+              onToggle={() => toggleHelp("effort")}
+            />
             <View style={styles.effortControl}>
               {EFFORT_OPTIONS.map((option) => {
                 const selected = effortModels[option.value] === model;
@@ -209,7 +214,7 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
                     accessibilityState={{ selected }}
                     onPress={() => setModel(effortModels[option.value])}
                     style={({ pressed }) => [
-                      styles.orientationButton,
+                      styles.effortButton,
                       selected && styles.orientationButtonSelected,
                       pressed && styles.pressed,
                     ]}
@@ -227,14 +232,8 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
               })}
             </View>
           </View>
-          {fixedSettings ? (
-            <Text style={styles.effortDescription}>
-              Medium은 비용이 적은 대신 Steps 14, Euler Ancestral, UC Preset
-              Heavy로 고정되고 Undesired Content를 쓸 수 없습니다.
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
+        ) : null}
+      </View>
 
       <View style={styles.settingsSection}>
         <Text style={styles.settingsEyebrow}>IMAGE SETTINGS</Text>
@@ -343,7 +342,10 @@ export const SettingsSheetContent = memo(function SettingsSheetContent({
             <Text style={styles.settingsFieldLabel}>Seed</Text>
             <SettingsSeedInput active={active} />
           </View>
-          {fixedSettings ? null : (
+          {fixedSettings ? (
+            // Sampler가 없어도 Seed는 절반 폭을 유지한다.
+            <View style={styles.aiColumn} />
+          ) : (
             <SheetSelect
               label="Sampler"
               value={samplerLabel}
@@ -478,36 +480,41 @@ const styles = StyleSheet.create({
   orientationButtonSelected: {
     backgroundColor: tokens.color.toast,
   },
-  effortField: {
-    gap: 9,
+  modelField: {
+    gap: 10,
   },
   effortRow: {
+    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+  },
+  effortFieldLabel: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.medium,
+    fontSize: 13,
   },
   effortControl: {
-    height: 46,
-    flex: 1,
-    padding: 4,
+    height: 28,
+    padding: 3,
     flexDirection: "row",
-    gap: 4,
-    borderRadius: 14,
+    gap: 2,
+    borderRadius: 8,
     backgroundColor: tokens.color.sunken,
   },
+  effortButton: {
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+  },
   effortLabel: {
-    color: tokens.color.textTertiary,
+    color: tokens.color.textMuted,
     fontFamily: tokens.font.semibold,
-    fontSize: 13,
+    fontSize: 12,
   },
   effortLabelSelected: {
     color: tokens.color.textPrimary,
-  },
-  effortDescription: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.regular,
-    fontSize: 13,
-    lineHeight: 19,
   },
   hidden: {
     display: "none",

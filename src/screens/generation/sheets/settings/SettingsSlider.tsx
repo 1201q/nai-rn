@@ -16,6 +16,7 @@ import { usePopoverBackHandler } from "../../../../native/usePopoverBackHandler"
 import { tokens } from "../../../../styles/tokens";
 
 export type SettingsHelpKey =
+  | "effort"
   | "steps"
   | "promptGuidance"
   | "rescale"
@@ -29,6 +30,8 @@ const TOOLTIP_MARGIN = 12;
 const TOOLTIP_GAP = 7;
 
 const SETTINGS_HELP: Record<SettingsHelpKey, string> = {
+  effort:
+    "Medium은 비용이 적은 대신 Steps 14, Euler Ancestral, UC Preset Heavy로 고정되고 Undesired Content를 쓸 수 없습니다.",
   steps:
     "이미지를 정제하는 반복 횟수입니다. 낮으면 빠르게 구도를 시험할 수 있고, 높으면 시간과 비용이 늘지만 항상 더 좋아지지는 않습니다.",
   promptGuidance:
