@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { Alert, BackHandler, Platform } from "react-native";
 
 import {
   clearPromptInsertTarget,
@@ -10,6 +10,10 @@ import { usePromptChunkStore } from "../../../store/promptChunkStore";
 import { PromptChunksSheetContent } from "../PromptChunksSheetContent";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("../../../native/predictiveBack", () => ({
+  PREDICTIVE_BACK_SUPPORTED: false,
+  usePredictiveBackHandler: jest.fn(),
+}));
 jest.mock("sonner-native", () => ({
   toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
@@ -53,15 +57,15 @@ beforeEach(() => {
 
 it("creates a chunk through the form and lists it", async () => {
   const screen = await render(<PromptChunksSheetContent active />);
-  expect(screen.getByText(/No custom prompt chunks yet/)).toBeTruthy();
+  expect(screen.getByText(/아직 만든 Prompt Chunk가 없습니다/)).toBeTruthy();
 
   await fireEvent.press(screen.getByLabelText("Chunk 추가"));
-  await fireEvent.press(screen.getByText("Save"));
+  await fireEvent.press(screen.getByText("저장"));
   expect(toast.error).toHaveBeenCalledWith("이름을 입력하세요.");
 
   await fireEvent.changeText(screen.getByLabelText("Chunk 이름"), "Style");
   await fireEvent.changeText(screen.getByLabelText("Chunk 내용"), "oil,");
-  await fireEvent.press(screen.getByText("Save"));
+  await fireEvent.press(screen.getByText("저장"));
 
   expect(usePromptChunkStore.getState().chunks).toMatchObject([
     { name: "Style", content: "oil,", categoryId: null },
@@ -88,7 +92,7 @@ it("shows categories with their chunks and collapses them", async () => {
   const screen = await render(<PromptChunksSheetContent active />);
 
   expect(screen.getByLabelText("숲 편집")).toBeTruthy();
-  expect(screen.getByText("Empty category")).toBeTruthy();
+  expect(screen.getByText("비어 있는 카테고리")).toBeTruthy();
 
   await fireEvent.press(screen.getByLabelText("배경 카테고리"));
   expect(screen.queryByLabelText("숲 편집")).toBeNull();
@@ -104,7 +108,7 @@ it("deletes everything only after confirmation", async () => {
   const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
   const screen = await render(<PromptChunksSheetContent active />);
 
-  await fireEvent.press(screen.getByText("Delete All"));
+  await fireEvent.press(screen.getByText("모두 삭제"));
   expect(usePromptChunkStore.getState().chunks).toHaveLength(1);
 
   const buttons = alert.mock.calls[0][2]!;
@@ -134,4 +138,38 @@ it("inserts a tapped chunk at the remembered caret and opens edit from the penci
 
   await fireEvent.press(screen.getByLabelText("A 편집"));
   expect(screen.getByLabelText("Chunk 이름").props.value).toBe("A");
+});
+
+it("returns to the list on back while the form is open", async () => {
+  const originalPlatform = Platform.OS;
+  Platform.OS = "android";
+  const listeners: Parameters<typeof BackHandler.addEventListener>[1][] = [];
+  const addListener = jest
+    .spyOn(BackHandler, "addEventListener")
+    .mockImplementation((_event, listener) => {
+      listeners.push(listener);
+      return {
+        remove: () => {
+          listeners.splice(listeners.indexOf(listener), 1);
+        },
+      };
+    });
+  const screen = await render(<PromptChunksSheetContent active />);
+
+  // 목록에서는 뒤로가기를 가로채지 않아 시트가 처리한다.
+  expect(listeners).toHaveLength(0);
+
+  await fireEvent.press(screen.getByLabelText("Chunk 추가"));
+  expect(screen.getByText("새 Chunk")).toBeTruthy();
+  expect(listeners).toHaveLength(1);
+
+  await act(() => {
+    listeners[0]({} as never);
+  });
+  expect(screen.queryByText("새 Chunk")).toBeNull();
+  expect(screen.getByText("Prompt Chunks")).toBeTruthy();
+  expect(listeners).toHaveLength(0);
+
+  addListener.mockRestore();
+  Platform.OS = originalPlatform;
 });

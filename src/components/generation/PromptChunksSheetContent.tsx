@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { toast } from "sonner-native";
 
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
+import { useBackHandler } from "../../native/useBackHandler";
 import {
   DEFAULT_PROMPT_CHUNK_COLOR,
   isPromptChunkColor,
@@ -190,7 +191,7 @@ function ChunkForm({
           accessibilityLabel={`${noun} 이름`}
           value={name}
           onChangeText={setName}
-          placeholder={isCategory ? "Category name..." : "e.g., My Style Tags"}
+          placeholder={isCategory ? "카테고리 이름" : "예: 내 스타일 태그"}
           placeholderTextColor={tokens.color.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -206,7 +207,7 @@ function ChunkForm({
               accessibilityLabel="Chunk 내용"
               value={content}
               onChangeText={setContent}
-              placeholder="Enter the tags/content this chunk will expand to..."
+              placeholder="프롬프트에 들어갈 태그를 입력하세요"
               placeholderTextColor={tokens.color.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
@@ -240,7 +241,7 @@ function ChunkForm({
                         selected && styles.optionLabelSelected,
                       ]}
                     >
-                      {category?.name ?? "Uncategorized"}
+                      {category?.name ?? "미분류"}
                     </Text>
                   </Pressable>
                 );
@@ -350,7 +351,7 @@ function ChunkForm({
             ]}
           >
             <Text style={[styles.actionLabel, styles.actionDeleteLabel]}>
-              Delete
+              삭제
             </Text>
           </Pressable>
         ) : null}
@@ -359,7 +360,7 @@ function ChunkForm({
           onPress={onClose}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Text style={styles.actionLabel}>Cancel</Text>
+          <Text style={styles.actionLabel}>취소</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -370,7 +371,7 @@ function ChunkForm({
             pressed && styles.pressed,
           ]}
         >
-          <Text style={[styles.actionLabel, styles.actionSaveLabel]}>Save</Text>
+          <Text style={[styles.actionLabel, styles.actionSaveLabel]}>저장</Text>
         </Pressable>
       </View>
     </>
@@ -388,6 +389,10 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
   const chunks = usePromptChunkStore((state) => state.chunks);
   const categories = usePromptChunkStore((state) => state.categories);
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 편집/추가 화면에서의 뒤로가기는 시트를 접지 않고 목록으로 돌아간다.
+  useBackHandler(active && editing !== null, {
+    onBack: () => setEditing(null),
+  });
   const editChunk = (chunk: PromptChunk) =>
     setEditing({ kind: "chunk", chunk });
   const uncategorized = chunks.filter((chunk) => chunk.categoryId === null);
@@ -395,12 +400,12 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
 
   const confirmDeleteAll = () => {
     Alert.alert(
-      "Delete All Prompt Chunks?",
+      "Prompt Chunk를 모두 삭제할까요?",
       "모든 chunk와 카테고리를 삭제합니다. 프롬프트에 들어 있는 참조는 내용으로 펼쳐집니다. 되돌릴 수 없습니다.",
       [
         { text: "취소", style: "cancel" },
         {
-          text: "Delete All",
+          text: "모두 삭제",
           style: "destructive",
           onPress: () => {
             deleteAllPromptChunks();
@@ -454,7 +459,7 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
 
           {empty ? (
             <Text style={styles.emptyText}>
-              No custom prompt chunks yet. Tap + to add one.
+              아직 만든 Prompt Chunk가 없습니다. +를 눌러 추가하세요.
             </Text>
           ) : null}
 
@@ -520,7 +525,7 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
                     ))}
                   </View>
                 ) : (
-                  <Text style={styles.emptyCategory}>Empty category</Text>
+                  <Text style={styles.emptyCategory}>비어 있는 카테고리</Text>
                 )}
               </View>
             );
@@ -535,7 +540,7 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
                 pressed && styles.pressed,
               ]}
             >
-              <Text style={styles.actionLabel}>Delete All</Text>
+              <Text style={styles.actionLabel}>모두 삭제</Text>
             </Pressable>
           )}
         </>
@@ -546,9 +551,11 @@ export const PromptChunksSheetContent = memo(function PromptChunksSheetContent({
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { padding: 14, gap: 12 },
+  content: { padding: 14, paddingHorizontal: 18, gap: 12 },
   header: {
     minHeight: 32,
+    // 마지막 아이콘(20)이 32 버튼 안에서 6 들어가 있어 본문 오른쪽 끝에 맞춘다.
+    marginRight: -6,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -639,7 +646,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.color.raised,
   },
   field: {
-    gap: 6,
+    gap: 8,
   },
   fieldLabel: {
     color: tokens.color.textTertiary,
