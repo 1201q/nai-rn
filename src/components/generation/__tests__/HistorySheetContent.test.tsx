@@ -975,7 +975,7 @@ describe("History deletion confirmation", () => {
       expect(footerProps.bottomInset).toBe(71 + bottom);
       expect(StyleSheet.flatten(listProps.contentContainerStyle)).toMatchObject(
         {
-          paddingBottom: 156 + bottom,
+          paddingBottom: 162 + bottom,
         },
       );
     },

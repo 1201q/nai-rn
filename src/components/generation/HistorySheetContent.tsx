@@ -13,6 +13,7 @@ import {
   type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useStore } from "zustand";
 import { GestureDetector } from "react-native-gesture-handler";
 
@@ -39,7 +40,12 @@ export {
 } from "./history/useHistorySheetController";
 
 const GRID_PADDING = 12;
-const HISTORY_SELECTION_ACTIONS_HEIGHT = 56;
+// 선택 모드의 플로팅 알약(48)과 액션바 사이 간격(14).
+const HISTORY_SELECTION_PILL_HEIGHT = 48;
+const HISTORY_SELECTION_PILL_GAP = 14;
+const HISTORY_SELECTION_ACTIONS_HEIGHT =
+  HISTORY_SELECTION_PILL_HEIGHT + HISTORY_SELECTION_PILL_GAP;
+const HISTORY_SELECTION_FADE_HEIGHT = 120;
 const HISTORY_SCROLL_BOTTOM_GAP = 28;
 
 const HistorySheetHeader = memo(function HistorySheetHeader({
@@ -345,57 +351,69 @@ export const HistorySheetFooter = memo(function HistorySheetFooter({
   return (
     <BottomSheetFooter
       animatedFooterPosition={animatedFooterPosition}
+      // 액션바 밑으로 1 겹쳐 그라데이션과 액션바 사이에 틈이 생기지 않게 한다.
       bottomInset={actionBarHeight - 1}
+      // 알약 바깥의 터치는 아래 그리드로 넘긴다.
+      style={styles.footer}
     >
       {selectionMode ? (
-        <View style={styles.selectionActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="선택 이미지 저장"
-            accessibilityState={{ disabled: !hasSelection || busy }}
-            disabled={!hasSelection || busy}
-            onPress={() => void saveSelected()}
-            style={({ pressed }) => [
-              styles.actionButton,
-              (!hasSelection || busy) && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {saving ? (
-              <ActivityIndicator
-                color={tokens.color.textTertiary}
-                size="small"
-              />
-            ) : (
-              <Ionicons
-                name="save-outline"
-                size={20}
-                color={tokens.color.textTertiary}
-              />
-            )}
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="선택 이미지 삭제"
-            accessibilityState={{ disabled: !hasSelection || busy }}
-            disabled={!hasSelection || busy}
-            onPress={() => void deleteSelected()}
-            style={({ pressed }) => [
-              styles.actionButton,
-              (!hasSelection || busy) && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {deleting ? (
-              <ActivityIndicator color={tokens.color.negative} size="small" />
-            ) : (
-              <Ionicons
-                name="trash-outline"
-                size={20}
-                color={tokens.color.negative}
-              />
-            )}
-          </Pressable>
+        <View pointerEvents="box-none" style={styles.selectionActions}>
+          {/* 이미지 위에서도 알약이 보이도록 그리드 아래쪽을 어둡게 한다. */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={["rgba(8,8,10,0)", "rgba(8,8,10,0.55)", "rgba(8,8,10,0.9)"]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.selectionPill}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="선택 이미지 저장"
+              accessibilityState={{ disabled: !hasSelection || busy }}
+              disabled={!hasSelection || busy}
+              onPress={() => void saveSelected()}
+              style={({ pressed }) => [
+                styles.actionButton,
+                (!hasSelection || busy) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {saving ? (
+                <ActivityIndicator
+                  color={tokens.color.textTertiary}
+                  size="small"
+                />
+              ) : (
+                <Ionicons
+                  name="save-outline"
+                  size={19}
+                  color={tokens.color.textTertiary}
+                />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="선택 이미지 삭제"
+              accessibilityState={{ disabled: !hasSelection || busy }}
+              disabled={!hasSelection || busy}
+              onPress={() => void deleteSelected()}
+              style={({ pressed }) => [
+                styles.actionButton,
+                (!hasSelection || busy) && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {deleting ? (
+                <ActivityIndicator color={tokens.color.negative} size="small" />
+              ) : (
+                <Ionicons
+                  name="trash-outline"
+                  size={19}
+                  color={tokens.color.negative}
+                />
+              )}
+            </Pressable>
+          </View>
         </View>
       ) : (
         <View style={styles.emptyFooter} />
@@ -514,23 +532,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 24,
   },
+  footer: {
+    pointerEvents: "box-none",
+  },
   selectionActions: {
-    height: HISTORY_SELECTION_ACTIONS_HEIGHT,
-    paddingHorizontal: 20,
+    height: HISTORY_SELECTION_FADE_HEIGHT,
+    paddingBottom: HISTORY_SELECTION_PILL_GAP + 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  selectionPill: {
+    height: HISTORY_SELECTION_PILL_HEIGHT,
+    paddingHorizontal: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.cardAlt,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.color.raised,
+    ...tokens.shadow.floatMd,
   },
   emptyFooter: {
     height: 0,
   },
   actionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
