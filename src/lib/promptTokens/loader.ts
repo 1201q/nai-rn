@@ -34,8 +34,8 @@ export function getPromptTokenizer(
   type: ImagePromptTokenizerType,
 ): Promise<PromptTokenizer> {
   if (!tokenizerPromises[type]) {
-    tokenizerPromises[type] = readDefinition(type).then(
-      (definition): PromptTokenizer | Promise<PromptTokenizer> => {
+    tokenizerPromises[type] = readDefinition(type)
+      .then((definition): PromptTokenizer | Promise<PromptTokenizer> => {
         if (type === "t5") {
           return NovelAiT5Tokenizer.create(JSON.parse(definition));
         }
@@ -44,8 +44,11 @@ export function getPromptTokenizer(
         }
         const parsed = JSON.parse(definition) as { text: string };
         return new NovelAiClipTokenizer(parsed.text);
-      },
-    );
+      })
+      .catch((error: unknown) => {
+        delete tokenizerPromises[type];
+        throw error;
+      });
   }
   return tokenizerPromises[type];
 }

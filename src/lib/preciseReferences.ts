@@ -30,7 +30,7 @@ const DEFAULT_PRECISE_REFERENCE_TYPE = "character&style";
 
 const getDatabase = createDatabaseOpener(DATABASE_NAME);
 const referenceFiles = createManagedDirectory(REFERENCE_ROOT_DIR);
-const settingsMutationQueue = createKeyedMutationQueue();
+const storageMutationQueue = createKeyedMutationQueue();
 
 export type PreciseReferenceType = "character" | "style" | "character&style";
 
@@ -232,7 +232,7 @@ export const initPreciseReferenceStorage = createInitializeOnce(
   initializePreciseReferenceStorage,
 );
 
-export async function listPreciseReferences(): Promise<PreciseReference[]> {
+async function readPreciseReferences(): Promise<PreciseReference[]> {
   await initPreciseReferenceStorage();
   const db = await getDatabase();
   const rows = await db.getAllAsync<PreciseReferenceRow>(
@@ -241,61 +241,66 @@ export async function listPreciseReferences(): Promise<PreciseReference[]> {
   return rows.map(rowToRecord);
 }
 
+export async function listPreciseReferences(): Promise<PreciseReference[]> {
+  return storageMutationQueue.run(["storage"], readPreciseReferences);
+}
+
 export async function addPreciseReferenceFromImage(
   input: PreciseReferenceImageInput,
 ): Promise<PreciseReference> {
-  await initPreciseReferenceStorage();
+  return storageMutationQueue.run(["storage"], async () => {
+    await initPreciseReferenceStorage();
 
-  const existing = await listPreciseReferences();
-  if (existing.length >= MAX_PRECISE_REFERENCES) {
-    throw new Error(`Precise Reference limit is ${MAX_PRECISE_REFERENCES}.`);
-  }
+    const existing = await readPreciseReferences();
+    if (existing.length >= MAX_PRECISE_REFERENCES) {
+      throw new Error(`Precise Reference limit is ${MAX_PRECISE_REFERENCES}.`);
+    }
 
-  const id = createStorageId("precise");
-  const createdAt = Date.now();
-  const extension = getImageExtension(input);
-  const imageFileName = `${id}.${extension}`;
-  const thumbnailFileName = `${id}.jpg`;
-  const processedFileName = `${id}.jpg`;
-  const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = referenceFiles.file(imagePath);
+    const id = createStorageId("precise");
+    const createdAt = Date.now();
+    const extension = getImageExtension(input);
+    const imageFileName = `${id}.${extension}`;
+    const thumbnailFileName = `${id}.jpg`;
+    const processedFileName = `${id}.jpg`;
+    const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
+    const imageFile = referenceFiles.file(imagePath);
 
-  try {
-    await copyImageToFile(input.uri, imageFile);
+    try {
+      await copyImageToFile(input.uri, imageFile);
 
-    const thumbnailPath = await createJpegThumbnail(
-      referenceFiles,
-      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-      input,
-      THUMBNAIL_SIZE,
-    );
-    const processed = await createProcessedReferenceImage(
-      imageFile.uri,
-      input.width,
-      input.height,
-      processedFileName,
-    );
+      const thumbnailPath = await createJpegThumbnail(
+        referenceFiles,
+        `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+        input,
+        THUMBNAIL_SIZE,
+      );
+      const processed = await createProcessedReferenceImage(
+        imageFile.uri,
+        input.width,
+        input.height,
+        processedFileName,
+      );
 
-    const record: PreciseReference = {
-      id,
-      imagePath,
-      thumbnailPath,
-      processedPath: processed.path,
-      enabled: true,
-      strength: DEFAULT_PRECISE_REFERENCE_STRENGTH,
-      fidelity: DEFAULT_PRECISE_REFERENCE_FIDELITY,
-      referenceType: DEFAULT_PRECISE_REFERENCE_TYPE,
-      sourceWidth: input.width,
-      sourceHeight: input.height,
-      processedWidth: processed.width,
-      processedHeight: processed.height,
-      createdAt,
-      updatedAt: createdAt,
-    };
+      const record: PreciseReference = {
+        id,
+        imagePath,
+        thumbnailPath,
+        processedPath: processed.path,
+        enabled: true,
+        strength: DEFAULT_PRECISE_REFERENCE_STRENGTH,
+        fidelity: DEFAULT_PRECISE_REFERENCE_FIDELITY,
+        referenceType: DEFAULT_PRECISE_REFERENCE_TYPE,
+        sourceWidth: input.width,
+        sourceHeight: input.height,
+        processedWidth: processed.width,
+        processedHeight: processed.height,
+        createdAt,
+        updatedAt: createdAt,
+      };
 
-    const db = await getDatabase();
-    await db.runAsync(
-      `INSERT INTO precise_references (
+      const db = await getDatabase();
+      await db.runAsync(
+        `INSERT INTO precise_references (
         id,
         image_path,
         thumbnail_path,
@@ -311,79 +316,81 @@ export async function addPreciseReferenceFromImage(
         created_at,
         updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        record.id,
-        record.imagePath,
-        record.thumbnailPath,
-        record.processedPath,
-        record.enabled ? 1 : 0,
-        record.strength,
-        record.fidelity,
-        record.referenceType,
-        record.sourceWidth,
-        record.sourceHeight,
-        record.processedWidth,
-        record.processedHeight,
-        record.createdAt,
-        record.updatedAt,
-      ],
-    );
+        [
+          record.id,
+          record.imagePath,
+          record.thumbnailPath,
+          record.processedPath,
+          record.enabled ? 1 : 0,
+          record.strength,
+          record.fidelity,
+          record.referenceType,
+          record.sourceWidth,
+          record.sourceHeight,
+          record.processedWidth,
+          record.processedHeight,
+          record.createdAt,
+          record.updatedAt,
+        ],
+      );
 
-    return record;
-  } catch (error: unknown) {
-    referenceFiles.remove(imagePath);
-    referenceFiles.remove(
-      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-    );
-    referenceFiles.remove(
-      `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
-    );
-    if (error instanceof Error) throw error;
-    throw new Error("Precise Reference 이미지를 추가하지 못했습니다.");
-  }
+      return record;
+    } catch (error: unknown) {
+      referenceFiles.remove(imagePath);
+      referenceFiles.remove(
+        `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      );
+      referenceFiles.remove(
+        `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+      );
+      if (error instanceof Error) throw error;
+      throw new Error("Precise Reference 이미지를 추가하지 못했습니다.");
+    }
+  });
 }
 
 export async function replacePreciseReferenceImage(
   id: string,
   input: PreciseReferenceImageInput,
 ): Promise<PreciseReference | null> {
-  await initPreciseReferenceStorage();
-  const db = await getDatabase();
-  const existing = await db.getFirstAsync<PreciseReferenceRow>(
-    "SELECT * FROM precise_references WHERE id = ?",
-    [id],
-  );
-  if (!existing) return null;
-
-  const current = rowToRecord(existing);
-  const updatedAt = Date.now();
-  const replacementSuffix = `${updatedAt}_${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
-  const extension = getImageExtension(input);
-  const imageFileName = `${id}_${replacementSuffix}.${extension}`;
-  const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
-  const processedFileName = `${id}_${replacementSuffix}.jpg`;
-  const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = referenceFiles.file(imagePath);
-
-  try {
-    await copyImageToFile(input.uri, imageFile);
-    const thumbnailPath = await createJpegThumbnail(
-      referenceFiles,
-      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-      input,
-      THUMBNAIL_SIZE,
+  return storageMutationQueue.run(["storage"], async () => {
+    await initPreciseReferenceStorage();
+    const db = await getDatabase();
+    const existing = await db.getFirstAsync<PreciseReferenceRow>(
+      "SELECT * FROM precise_references WHERE id = ?",
+      [id],
     );
-    const processed = await createProcessedReferenceImage(
-      imageFile.uri,
-      input.width,
-      input.height,
-      processedFileName,
-    );
+    if (!existing) return null;
 
-    await db.runAsync(
-      `UPDATE precise_references
+    const current = rowToRecord(existing);
+    const updatedAt = Date.now();
+    const replacementSuffix = `${updatedAt}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+    const extension = getImageExtension(input);
+    const imageFileName = `${id}_${replacementSuffix}.${extension}`;
+    const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
+    const processedFileName = `${id}_${replacementSuffix}.jpg`;
+    const imagePath = `${PRECISE_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
+    const imageFile = referenceFiles.file(imagePath);
+
+    try {
+      await copyImageToFile(input.uri, imageFile);
+      const thumbnailPath = await createJpegThumbnail(
+        referenceFiles,
+        `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+        input,
+        THUMBNAIL_SIZE,
+      );
+      const processed = await createProcessedReferenceImage(
+        imageFile.uri,
+        input.width,
+        input.height,
+        processedFileName,
+      );
+
+      await db.runAsync(
+        `UPDATE precise_references
          SET image_path = ?,
              thumbnail_path = ?,
              processed_path = ?,
@@ -393,52 +400,53 @@ export async function replacePreciseReferenceImage(
              processed_height = ?,
              updated_at = ?
        WHERE id = ?`,
-      [
+        [
+          imagePath,
+          thumbnailPath,
+          processed.path,
+          input.width,
+          input.height,
+          processed.width,
+          processed.height,
+          updatedAt,
+          id,
+        ],
+      );
+
+      referenceFiles.remove(current.imagePath);
+      referenceFiles.remove(current.thumbnailPath);
+      referenceFiles.remove(current.processedPath);
+
+      return {
+        ...current,
         imagePath,
         thumbnailPath,
-        processed.path,
-        input.width,
-        input.height,
-        processed.width,
-        processed.height,
+        processedPath: processed.path,
+        sourceWidth: input.width,
+        sourceHeight: input.height,
+        processedWidth: processed.width,
+        processedHeight: processed.height,
         updatedAt,
-        id,
-      ],
-    );
-
-    referenceFiles.remove(current.imagePath);
-    referenceFiles.remove(current.thumbnailPath);
-    referenceFiles.remove(current.processedPath);
-
-    return {
-      ...current,
-      imagePath,
-      thumbnailPath,
-      processedPath: processed.path,
-      sourceWidth: input.width,
-      sourceHeight: input.height,
-      processedWidth: processed.width,
-      processedHeight: processed.height,
-      updatedAt,
-    };
-  } catch (error: unknown) {
-    referenceFiles.remove(imagePath);
-    referenceFiles.remove(
-      `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-    );
-    referenceFiles.remove(
-      `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
-    );
-    if (error instanceof Error) throw error;
-    throw new Error("Precise Reference 이미지를 교체하지 못했습니다.");
-  }
+      };
+    } catch (error: unknown) {
+      referenceFiles.remove(imagePath);
+      referenceFiles.remove(
+        `${PRECISE_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      );
+      referenceFiles.remove(
+        `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+      );
+      if (error instanceof Error) throw error;
+      throw new Error("Precise Reference 이미지를 교체하지 못했습니다.");
+    }
+  });
 }
 
 export async function updatePreciseReferenceSettings(
   id: string,
   patch: PreciseReferenceSettingsPatch,
 ): Promise<PreciseReference | null> {
-  return settingsMutationQueue.run([id], async () => {
+  return storageMutationQueue.run(["storage"], async () => {
     await initPreciseReferenceStorage();
     const db = await getDatabase();
     const assignments: string[] = [];
@@ -486,20 +494,22 @@ export async function updatePreciseReferenceSettings(
 }
 
 export async function deletePreciseReference(id: string) {
-  await initPreciseReferenceStorage();
-  const db = await getDatabase();
-  const existing = await db.getFirstAsync<PreciseReferenceRow>(
-    "SELECT * FROM precise_references WHERE id = ?",
-    [id],
-  );
-  if (!existing) return;
+  return storageMutationQueue.run(["storage"], async () => {
+    await initPreciseReferenceStorage();
+    const db = await getDatabase();
+    const existing = await db.getFirstAsync<PreciseReferenceRow>(
+      "SELECT * FROM precise_references WHERE id = ?",
+      [id],
+    );
+    if (!existing) return;
 
-  const record = rowToRecord(existing);
-  await db.runAsync("DELETE FROM precise_references WHERE id = ?", [id]);
+    const record = rowToRecord(existing);
+    await db.runAsync("DELETE FROM precise_references WHERE id = ?", [id]);
 
-  referenceFiles.remove(record.imagePath);
-  referenceFiles.remove(record.thumbnailPath);
-  referenceFiles.remove(record.processedPath);
+    referenceFiles.remove(record.imagePath);
+    referenceFiles.remove(record.thumbnailPath);
+    referenceFiles.remove(record.processedPath);
+  });
 }
 
 export async function readPreciseReferenceProcessedBase64(

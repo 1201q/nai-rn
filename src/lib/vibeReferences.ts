@@ -27,7 +27,7 @@ const DEFAULT_VIBE_INFORMATION_EXTRACTED = 0.7;
 
 const getDatabase = createDatabaseOpener(DATABASE_NAME);
 const referenceFiles = createManagedDirectory(REFERENCE_ROOT_DIR);
-const settingsMutationQueue = createKeyedMutationQueue();
+const storageMutationQueue = createKeyedMutationQueue();
 
 export type VibeEncoding = {
   model: string;
@@ -213,7 +213,7 @@ export const initVibeReferenceStorage = createInitializeOnce(
   initializeVibeReferenceStorage,
 );
 
-export async function listVibeReferences(): Promise<VibeReference[]> {
+async function readVibeReferences(): Promise<VibeReference[]> {
   await initVibeReferenceStorage();
   const db = await getDatabase();
   const rows = await db.getAllAsync<VibeReferenceRow>(
@@ -231,49 +231,54 @@ export async function listVibeReferences(): Promise<VibeReference[]> {
   return rows.map((row) => rowToRecord(row, encodingsById.get(row.id) ?? []));
 }
 
+export async function listVibeReferences(): Promise<VibeReference[]> {
+  return storageMutationQueue.run(["storage"], readVibeReferences);
+}
+
 export async function addVibeReferenceFromImage(
   input: VibeReferenceImageInput,
 ): Promise<VibeReference> {
-  await initVibeReferenceStorage();
+  return storageMutationQueue.run(["storage"], async () => {
+    await initVibeReferenceStorage();
 
-  const existing = await listVibeReferences();
-  if (existing.length >= MAX_VIBE_REFERENCES) {
-    throw new Error(`Vibe reference limit is ${MAX_VIBE_REFERENCES}.`);
-  }
+    const existing = await readVibeReferences();
+    if (existing.length >= MAX_VIBE_REFERENCES) {
+      throw new Error(`Vibe reference limit is ${MAX_VIBE_REFERENCES}.`);
+    }
 
-  const id = createStorageId("vibe");
-  const createdAt = Date.now();
-  const extension = getImageExtension(input);
-  const imageFileName = `${id}.${extension}`;
-  const thumbnailFileName = `${id}.jpg`;
-  const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = referenceFiles.file(imagePath);
+    const id = createStorageId("vibe");
+    const createdAt = Date.now();
+    const extension = getImageExtension(input);
+    const imageFileName = `${id}.${extension}`;
+    const thumbnailFileName = `${id}.jpg`;
+    const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
+    const imageFile = referenceFiles.file(imagePath);
 
-  try {
-    await copyImageToFile(input.uri, imageFile);
+    try {
+      await copyImageToFile(input.uri, imageFile);
 
-    const thumbnailPath = await createJpegThumbnail(
-      referenceFiles,
-      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-      input,
-      THUMBNAIL_SIZE,
-    );
+      const thumbnailPath = await createJpegThumbnail(
+        referenceFiles,
+        `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+        input,
+        THUMBNAIL_SIZE,
+      );
 
-    const record: VibeReference = {
-      id,
-      imagePath,
-      thumbnailPath,
-      enabled: true,
-      strength: DEFAULT_VIBE_STRENGTH,
-      informationExtracted: DEFAULT_VIBE_INFORMATION_EXTRACTED,
-      encodings: [],
-      createdAt,
-      updatedAt: createdAt,
-    };
+      const record: VibeReference = {
+        id,
+        imagePath,
+        thumbnailPath,
+        enabled: true,
+        strength: DEFAULT_VIBE_STRENGTH,
+        informationExtracted: DEFAULT_VIBE_INFORMATION_EXTRACTED,
+        encodings: [],
+        createdAt,
+        updatedAt: createdAt,
+      };
 
-    const db = await getDatabase();
-    await db.runAsync(
-      `INSERT INTO vibe_references (
+      const db = await getDatabase();
+      await db.runAsync(
+        `INSERT INTO vibe_references (
         id,
         image_path,
         thumbnail_path,
@@ -283,97 +288,100 @@ export async function addVibeReferenceFromImage(
         created_at,
         updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        record.id,
-        record.imagePath,
-        record.thumbnailPath,
-        record.enabled ? 1 : 0,
-        record.strength,
-        record.informationExtracted,
-        record.createdAt,
-        record.updatedAt,
-      ],
-    );
+        [
+          record.id,
+          record.imagePath,
+          record.thumbnailPath,
+          record.enabled ? 1 : 0,
+          record.strength,
+          record.informationExtracted,
+          record.createdAt,
+          record.updatedAt,
+        ],
+      );
 
-    return record;
-  } catch (error: unknown) {
-    referenceFiles.remove(imagePath);
-    referenceFiles.remove(
-      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-    );
-    throw error;
-  }
+      return record;
+    } catch (error: unknown) {
+      referenceFiles.remove(imagePath);
+      referenceFiles.remove(
+        `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+      );
+      throw error;
+    }
+  });
 }
 
 export async function replaceVibeReferenceImage(
   id: string,
   input: VibeReferenceImageInput,
 ): Promise<VibeReference | null> {
-  await initVibeReferenceStorage();
-  const db = await getDatabase();
-  const current = await getVibeReference(db, id);
-  if (!current) return null;
+  return storageMutationQueue.run(["storage"], async () => {
+    await initVibeReferenceStorage();
+    const db = await getDatabase();
+    const current = await getVibeReference(db, id);
+    if (!current) return null;
 
-  const updatedAt = Date.now();
-  const replacementSuffix = `${updatedAt}_${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
-  const extension = getImageExtension(input);
-  const imageFileName = `${id}_${replacementSuffix}.${extension}`;
-  const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
-  const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
-  const imageFile = referenceFiles.file(imagePath);
-  const thumbnailPathCandidate = `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
-  let thumbnailPath: string | null = null;
+    const updatedAt = Date.now();
+    const replacementSuffix = `${updatedAt}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+    const extension = getImageExtension(input);
+    const imageFileName = `${id}_${replacementSuffix}.${extension}`;
+    const thumbnailFileName = `${id}_${replacementSuffix}.jpg`;
+    const imagePath = `${VIBES_DIR}/${ORIGINALS_DIR}/${imageFileName}`;
+    const imageFile = referenceFiles.file(imagePath);
+    const thumbnailPathCandidate = `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`;
+    let thumbnailPath: string | null = null;
 
-  try {
-    await copyImageToFile(input.uri, imageFile);
-    thumbnailPath = await createJpegThumbnail(
-      referenceFiles,
-      `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
-      input,
-      THUMBNAIL_SIZE,
-    );
+    try {
+      await copyImageToFile(input.uri, imageFile);
+      thumbnailPath = await createJpegThumbnail(
+        referenceFiles,
+        `${VIBES_DIR}/${THUMBNAILS_DIR}/${thumbnailFileName}`,
+        input,
+        THUMBNAIL_SIZE,
+      );
 
-    await db.withTransactionAsync(async () => {
-      await db.runAsync(
-        `UPDATE vibe_references
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(
+          `UPDATE vibe_references
            SET image_path = ?,
                thumbnail_path = ?,
                updated_at = ?
          WHERE id = ?`,
-        [imagePath, thumbnailPath, updatedAt, id],
-      );
-      await db.runAsync(
-        "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
-        [id],
-      );
-    });
-  } catch (error: unknown) {
-    referenceFiles.remove(imagePath);
-    referenceFiles.remove(thumbnailPathCandidate);
-    if (error instanceof Error) throw error;
-    throw new Error("Vibe 이미지를 교체하지 못했습니다.");
-  }
+          [imagePath, thumbnailPath, updatedAt, id],
+        );
+        await db.runAsync(
+          "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
+          [id],
+        );
+      });
+    } catch (error: unknown) {
+      referenceFiles.remove(imagePath);
+      referenceFiles.remove(thumbnailPathCandidate);
+      if (error instanceof Error) throw error;
+      throw new Error("Vibe 이미지를 교체하지 못했습니다.");
+    }
 
-  referenceFiles.remove(current.imagePath);
-  referenceFiles.remove(current.thumbnailPath);
-  deleteEncodingFiles(current);
+    referenceFiles.remove(current.imagePath);
+    referenceFiles.remove(current.thumbnailPath);
+    deleteEncodingFiles(current);
 
-  return {
-    ...current,
-    imagePath,
-    thumbnailPath,
-    encodings: [],
-    updatedAt,
-  };
+    return {
+      ...current,
+      imagePath,
+      thumbnailPath,
+      encodings: [],
+      updatedAt,
+    };
+  });
 }
 
 export async function updateVibeReferenceSettings(
   id: string,
   patch: VibeReferenceSettingsPatch,
 ): Promise<VibeReference | null> {
-  return settingsMutationQueue.run([id], async () => {
+  return storageMutationQueue.run(["storage"], async () => {
     await initVibeReferenceStorage();
     const db = await getDatabase();
     const current = await getVibeReference(db, id);
@@ -425,22 +433,24 @@ export async function updateVibeReferenceSettings(
 }
 
 export async function deleteVibeReference(id: string) {
-  await initVibeReferenceStorage();
-  const db = await getDatabase();
-  const record = await getVibeReference(db, id);
-  if (!record) return;
+  return storageMutationQueue.run(["storage"], async () => {
+    await initVibeReferenceStorage();
+    const db = await getDatabase();
+    const record = await getVibeReference(db, id);
+    if (!record) return;
 
-  await db.withTransactionAsync(async () => {
-    await db.runAsync("DELETE FROM vibe_references WHERE id = ?", [id]);
-    await db.runAsync(
-      "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
-      [id],
-    );
+    await db.withTransactionAsync(async () => {
+      await db.runAsync("DELETE FROM vibe_references WHERE id = ?", [id]);
+      await db.runAsync(
+        "DELETE FROM vibe_reference_encodings WHERE reference_id = ?",
+        [id],
+      );
+    });
+
+    referenceFiles.remove(record.imagePath);
+    referenceFiles.remove(record.thumbnailPath);
+    deleteEncodingFiles(record);
   });
-
-  referenceFiles.remove(record.imagePath);
-  referenceFiles.remove(record.thumbnailPath);
-  deleteEncodingFiles(record);
 }
 
 export async function saveEncodedVibeReference(
@@ -448,13 +458,18 @@ export async function saveEncodedVibeReference(
   encodedBase64: string,
   informationExtracted: number,
   model: string,
+  imagePath: string,
 ): Promise<VibeReference | null> {
-  return settingsMutationQueue.run([id], async () => {
+  return storageMutationQueue.run(["storage"], async () => {
     await initVibeReferenceStorage();
     const db = await getDatabase();
     const current = await getVibeReference(db, id);
     if (!current) return null;
-    if (current.informationExtracted !== informationExtracted) return null;
+    if (
+      current.imagePath !== imagePath ||
+      current.informationExtracted !== informationExtracted
+    )
+      return null;
 
     const updatedAt = Date.now();
     const encodedSuffix = `${updatedAt}_${Math.random()

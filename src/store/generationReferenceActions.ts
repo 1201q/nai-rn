@@ -32,10 +32,6 @@ export const REFERENCE_CONFLICT_MESSAGE =
 export const PRECISE_UNSUPPORTED_MESSAGE =
   "Precise Reference는 V4.5 모델에서 사용할 수 있습니다.";
 
-function replaceById<T extends { id: string }>(items: T[], nextItem: T) {
-  return items.map((item) => (item.id === nextItem.id ? nextItem : item));
-}
-
 type ReferenceList<T extends { id: string }> = {
   versions: ReturnType<typeof createMutationVersionTracker>;
   select: (state: GenerationState) => T[];
@@ -55,7 +51,7 @@ const preciseReferenceList: ReferenceList<PreciseReference> = {
 };
 
 // 설정을 즉시 반영한 뒤 저장한다. 저장 결과와 실패는 같은 reference의 마지막 변경일 때만 반영한다.
-function updateReferenceSettings<T extends { id: string }>(
+function updateReferenceSettings<T extends { id: string; imagePath: string }>(
   set: StoreSet,
   list: ReferenceList<T>,
   id: string,
@@ -73,7 +69,17 @@ function updateReferenceSettings<T extends { id: string }>(
   persist()
     .then((reference) => {
       if (!reference || !list.versions.isLatest(id, version)) return;
-      set((state) => list.assign(replaceById(list.select(state), reference)));
+      set((state) =>
+        list.assign(
+          list
+            .select(state)
+            .map((item) =>
+              item.id === id && item.imagePath === reference.imagePath
+                ? reference
+                : item,
+            ),
+        ),
+      );
     })
     .catch((error: unknown) => {
       if (!list.versions.isLatest(id, version)) return;
@@ -115,6 +121,7 @@ export function createGenerationReferenceActions(
   set: StoreSet,
   get: StoreGet,
 ): GenerationReferenceState {
+  let i2iMutationVersion = 0;
   return {
     vibeReferences: [],
     normalizeVibeStrengths: true,
@@ -145,7 +152,17 @@ export function createGenerationReferenceActions(
         const reference = await replaceVibeReferenceImage(id, input);
         if (!reference) return null;
         set((state) => ({
-          vibeReferences: replaceById(state.vibeReferences, reference),
+          vibeReferences: state.vibeReferences.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  imagePath: reference.imagePath,
+                  thumbnailPath: reference.thumbnailPath,
+                  encodings: reference.encodings,
+                  updatedAt: Math.max(item.updatedAt, reference.updatedAt),
+                }
+              : item,
+          ),
         }));
         return reference;
       } catch (error: unknown) {
@@ -222,7 +239,21 @@ export function createGenerationReferenceActions(
         const reference = await replacePreciseReferenceImage(id, input);
         if (!reference) return null;
         set((state) => ({
-          preciseReferences: replaceById(state.preciseReferences, reference),
+          preciseReferences: state.preciseReferences.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  imagePath: reference.imagePath,
+                  thumbnailPath: reference.thumbnailPath,
+                  processedPath: reference.processedPath,
+                  sourceWidth: reference.sourceWidth,
+                  sourceHeight: reference.sourceHeight,
+                  processedWidth: reference.processedWidth,
+                  processedHeight: reference.processedHeight,
+                  updatedAt: Math.max(item.updatedAt, reference.updatedAt),
+                }
+              : item,
+          ),
         }));
         return reference;
       } catch (error: unknown) {
@@ -287,15 +318,21 @@ export function createGenerationReferenceActions(
     },
     i2iSourceImage: null,
     setI2ISourceImage: async (v) => {
-      const previousPath = get().i2iSourceImage?.storagePath;
+      const version = ++i2iMutationVersion;
       try {
         const storedImage = await saveI2IReferenceImage(v);
+        if (version !== i2iMutationVersion) {
+          deleteStoredI2IReference(storedImage.storagePath);
+          return null;
+        }
+        const previousPath = get().i2iSourceImage?.storagePath;
         set({ i2iSourceImage: storedImage, i2iEnabled: true });
         if (previousPath !== storedImage.storagePath) {
           deleteStoredI2IReference(previousPath);
         }
         return storedImage;
       } catch (error: unknown) {
+        if (version !== i2iMutationVersion) return null;
         set({
           message: toErrorMessage(error, "I2I 이미지를 저장하지 못했습니다."),
         });
@@ -310,6 +347,7 @@ export function createGenerationReferenceActions(
     i2iNoise: DEFAULT_I2I_NOISE,
     setI2INoise: (v) => set({ i2iNoise: v }),
     clearI2I: () => {
+      i2iMutationVersion += 1;
       const storagePath = get().i2iSourceImage?.storagePath;
       set({
         i2iSourceImage: null,

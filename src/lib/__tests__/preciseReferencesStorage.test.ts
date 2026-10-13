@@ -325,3 +325,62 @@ test("deletes the row and every file", async () => {
   expect(storedFiles()).toEqual([]);
   await expect(module.listPreciseReferences()).resolves.toEqual([]);
 });
+
+test("keeps replacement, settings and deletion ordered with queued reads", async () => {
+  const module = loadModule();
+  const reference = await module.addPreciseReferenceFromImage(INPUT);
+  const replacing = module.replacePreciseReferenceImage(reference.id, {
+    uri: "replacement.webp",
+    width: 1536,
+    height: 1024,
+  });
+  const updating = module.updatePreciseReferenceSettings(reference.id, {
+    fidelity: 0.9,
+  });
+  const deleting = module.deletePreciseReference(reference.id);
+  const listing = module.listPreciseReferences();
+  const [replacement, updated] = await Promise.all([
+    replacing,
+    updating,
+    deleting,
+  ]);
+  expect(updated).toMatchObject({
+    imagePath: replacement!.imagePath,
+    fidelity: 0.9,
+  });
+  await expect(listing).resolves.toEqual([]);
+  expect(storedFiles()).toEqual([]);
+});
+
+test("enforces the limit while multiple additions are pending", async () => {
+  const module = loadModule();
+  for (let index = 0; index < module.MAX_PRECISE_REFERENCES - 1; index += 1)
+    await module.addPreciseReferenceFromImage(INPUT);
+  const results = await Promise.allSettled([
+    module.addPreciseReferenceFromImage(INPUT),
+    module.addPreciseReferenceFromImage(INPUT),
+  ]);
+  expect(results.map((result) => result.status)).toEqual([
+    "fulfilled",
+    "rejected",
+  ]);
+  expect(await module.listPreciseReferences()).toHaveLength(
+    module.MAX_PRECISE_REFERENCES,
+  );
+});
+
+test("continues queued settings after replacement processing fails", async () => {
+  const module = loadModule();
+  const reference = await module.addPreciseReferenceFromImage(INPUT);
+  testGlobals.__preciseTestDecodeFails = true;
+  const replacing = module.replacePreciseReferenceImage(reference.id, INPUT);
+  const updating = module.updatePreciseReferenceSettings(reference.id, {
+    fidelity: 0.9,
+  });
+  await expect(replacing).rejects.toThrow();
+  await expect(updating).resolves.toMatchObject({
+    imagePath: reference.imagePath,
+    fidelity: 0.9,
+  });
+  expect(storedFiles()).toHaveLength(3);
+});

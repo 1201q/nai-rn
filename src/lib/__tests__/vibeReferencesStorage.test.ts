@@ -207,18 +207,21 @@ test("keeps other models' caches and replaces only the same model", async () => 
     "full-v1",
     0.7,
     "nai-diffusion-4-5-full",
+    "vibes/originals/vibe.png",
   );
   await module.saveEncodedVibeReference(
     "vibe",
     "curated",
     0.7,
     "nai-diffusion-4-5-curated",
+    "vibes/originals/vibe.png",
   );
   const saved = await module.saveEncodedVibeReference(
     "vibe",
     "full-v2",
     0.7,
     "nai-diffusion-4-5-full",
+    "vibes/originals/vibe.png",
   );
 
   expect(saved!.encodings.map((item) => item.model).sort()).toEqual([
@@ -251,12 +254,14 @@ test("clears every model's cache when Information Extracted changes", async () =
     "full",
     0.7,
     "nai-diffusion-4-5-full",
+    "vibes/originals/vibe.png",
   );
   await module.saveEncodedVibeReference(
     "vibe",
     "curated",
     0.7,
     "nai-diffusion-4-5-curated",
+    "vibes/originals/vibe.png",
   );
 
   const updated = await module.updateVibeReferenceSettings("vibe", {
@@ -280,6 +285,7 @@ test("removes cache rows and files when a reference is deleted", async () => {
     "full",
     0.7,
     "nai-diffusion-4-5-full",
+    "vibes/originals/vibe.png",
   );
 
   await module.deleteVibeReference("vibe");
@@ -313,6 +319,7 @@ test("replaces the image, clears caches and removes the previous files", async (
     "full",
     0.7,
     "nai-diffusion-4-5-full",
+    added.imagePath,
   );
 
   const replaced = await module.replaceVibeReferenceImage(added.id, {
@@ -341,4 +348,150 @@ test("replaces the image, clears caches and removes the previous files", async (
       height: 1,
     }),
   ).resolves.toBeNull();
+});
+
+test("serializes transactions for different reference IDs", async () => {
+  const module = loadModule();
+  await module.initVibeReferenceStorage();
+  insertReference(testGlobals.__vibeTestDb!, "first");
+  insertReference(testGlobals.__vibeTestDb!, "last");
+
+  await Promise.all([
+    module.updateVibeReferenceSettings("first", { informationExtracted: 0.5 }),
+    module.updateVibeReferenceSettings("last", { informationExtracted: 0.9 }),
+  ]);
+  const references = await module.listVibeReferences();
+  expect(
+    references.find((item) => item.id === "first")!.informationExtracted,
+  ).toBe(0.5);
+  expect(
+    references.find((item) => item.id === "last")!.informationExtracted,
+  ).toBe(0.9);
+});
+
+test("keeps replacements, settings, deletion and queued reads consistent", async () => {
+  testGlobals.__vibeTestFiles!.set("picked.png", "original");
+  testGlobals.__vibeTestFiles!.set("replacement.png", "replacement");
+  const module = loadModule();
+  const reference = await module.addVibeReferenceFromImage({
+    uri: "picked.png",
+    width: 10,
+    height: 10,
+  });
+  const replacing = module.replaceVibeReferenceImage(reference.id, {
+    uri: "replacement.png",
+    width: 10,
+    height: 10,
+  });
+  const updating = module.updateVibeReferenceSettings(reference.id, {
+    strength: 0.9,
+  });
+  const deleting = module.deleteVibeReference(reference.id);
+  const listing = module.listVibeReferences();
+  const [replacement, updated] = await Promise.all([
+    replacing,
+    updating,
+    deleting,
+  ]);
+  expect(updated).toMatchObject({
+    imagePath: replacement!.imagePath,
+    strength: 0.9,
+  });
+  await expect(listing).resolves.toEqual([]);
+  expect(
+    [...testGlobals.__vibeTestFiles!.keys()].filter((path) =>
+      path.startsWith("doc/"),
+    ),
+  ).toEqual([]);
+});
+
+test("discards encoding for an image replaced during an encoding request", async () => {
+  testGlobals.__vibeTestFiles!.set("picked.png", "original");
+  testGlobals.__vibeTestFiles!.set("replacement.png", "replacement");
+  const module = loadModule();
+  const reference = await module.addVibeReferenceFromImage({
+    uri: "picked.png",
+    width: 10,
+    height: 10,
+  });
+  await module.replaceVibeReferenceImage(reference.id, {
+    uri: "replacement.png",
+    width: 10,
+    height: 10,
+  });
+  await expect(
+    module.saveEncodedVibeReference(
+      reference.id,
+      "old encoding",
+      0.7,
+      "model",
+      reference.imagePath,
+    ),
+  ).resolves.toBeNull();
+  const [current] = await module.listVibeReferences();
+  expect(current.imagePath).not.toBe(reference.imagePath);
+  expect(current.encodings).toEqual([]);
+  expect(
+    [...testGlobals.__vibeTestFiles!.keys()].filter((path) =>
+      path.startsWith(ENCODED_DIR),
+    ),
+  ).toEqual([]);
+});
+
+test("discards encoding after Information Extracted changes", async () => {
+  const module = loadModule();
+  await module.initVibeReferenceStorage();
+  insertReference(testGlobals.__vibeTestDb!, "vibe");
+  await module.updateVibeReferenceSettings("vibe", {
+    informationExtracted: 0.9,
+  });
+  await expect(
+    module.saveEncodedVibeReference(
+      "vibe",
+      "stale",
+      0.7,
+      "model",
+      "vibes/originals/vibe.png",
+    ),
+  ).resolves.toBeNull();
+  expect(testGlobals.__vibeTestFiles!.size).toBe(0);
+});
+
+test("enforces the reference limit during concurrent additions", async () => {
+  const module = loadModule();
+  await module.initVibeReferenceStorage();
+  for (let index = 0; index < module.MAX_VIBE_REFERENCES - 1; index += 1)
+    insertReference(testGlobals.__vibeTestDb!, `existing-${index}`);
+  testGlobals.__vibeTestFiles!.set("picked.png", "source");
+  const input = { uri: "picked.png", width: 10, height: 10 };
+  const results = await Promise.allSettled([
+    module.addVibeReferenceFromImage(input),
+    module.addVibeReferenceFromImage(input),
+  ]);
+  expect(results.map((result) => result.status)).toEqual([
+    "fulfilled",
+    "rejected",
+  ]);
+  expect(await module.listVibeReferences()).toHaveLength(
+    module.MAX_VIBE_REFERENCES,
+  );
+});
+
+test("continues queued mutations after a replacement fails", async () => {
+  const module = loadModule();
+  await module.initVibeReferenceStorage();
+  insertReference(testGlobals.__vibeTestDb!, "vibe");
+  const replacing = module.replaceVibeReferenceImage("vibe", {
+    uri: "missing.png",
+    width: 10,
+    height: 10,
+  });
+  const updating = module.updateVibeReferenceSettings("vibe", {
+    strength: 0.9,
+  });
+  await expect(replacing).rejects.toThrow();
+  await expect(updating).resolves.toMatchObject({
+    imagePath: "vibes/originals/vibe.png",
+    strength: 0.9,
+  });
 });

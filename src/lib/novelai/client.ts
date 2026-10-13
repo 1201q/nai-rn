@@ -115,6 +115,7 @@ export async function encodeNovelAiVibe(
   imageBase64: string,
   informationExtracted: number,
   model: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const cleanToken = normalizeBearerToken(token);
   const requestBody = JSON.stringify({
@@ -127,13 +128,37 @@ export async function encodeNovelAiVibe(
   // 스트림과 동일하게 XHR arraybuffer로 바이너리를 받아 base64 변환한다.
   const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let isSettled = false;
+
+    function cleanup() {
+      signal?.removeEventListener("abort", handleAbort);
+      xhr.onload = null;
+      xhr.onerror = null;
+      xhr.onabort = null;
+      xhr.ontimeout = null;
+    }
+
+    function settleError(error: unknown) {
+      if (isSettled) return;
+      isSettled = true;
+      cleanup();
+      reject(error);
+    }
+
+    function handleAbort() {
+      settleError(createAbortError());
+      xhr.abort();
+    }
+
     xhr.open("POST", NOVELAI_VIBE_ENCODE_API_URL, true);
     xhr.responseType = "arraybuffer";
+    xhr.timeout = 120_000;
     xhr.setRequestHeader("Authorization", `Bearer ${cleanToken}`);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onload = () => {
+      if (isSettled) return;
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(
+        settleError(
           new NovelAiRequestError(
             xhr.status,
             `Vibe 인코딩 실패: ${describeNovelAiHttpError(xhr.status)}`,
@@ -141,10 +166,25 @@ export async function encodeNovelAiVibe(
         );
         return;
       }
-      resolve(xhr.response as ArrayBuffer);
+      isSettled = true;
+      const response = xhr.response as ArrayBuffer;
+      cleanup();
+      resolve(response);
     };
-    xhr.onerror = () => reject(new Error("Vibe encode network error."));
-    xhr.send(requestBody);
+    xhr.onerror = () => settleError(new Error("Vibe encode network error."));
+    xhr.onabort = () => settleError(createAbortError());
+    xhr.ontimeout = () =>
+      settleError(new Error("Vibe 인코딩 요청 시간이 초과되었습니다."));
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    try {
+      xhr.send(requestBody);
+    } catch (error: unknown) {
+      settleError(error);
+    }
   });
 
   return arrayBufferToBase64(buffer);

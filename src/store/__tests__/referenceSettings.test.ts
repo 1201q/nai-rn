@@ -5,11 +5,14 @@ import {
   saveI2IReferenceImage,
 } from "../../lib/i2iReference";
 import {
+  deletePreciseReference,
+  replacePreciseReferenceImage,
   updatePreciseReferenceSettings,
   type PreciseReference,
 } from "../../lib/preciseReferences";
 import {
   deleteVibeReference,
+  replaceVibeReferenceImage,
   updateVibeReferenceSettings,
   type VibeReference,
 } from "../../lib/vibeReferences";
@@ -457,6 +460,202 @@ describe("I2I reference file lifecycle", () => {
     });
     expect(imagesAtDeletion).toEqual([null]);
     expect(deleteStoredI2IReference).toHaveBeenCalledWith(original.storagePath);
+  });
+
+  it("discards a pending upload after clearing I2I", async () => {
+    const replacement = { ...original, storagePath: "i2i/new.png" };
+    const saving = createDeferred<typeof replacement>();
+    jest.mocked(saveI2IReferenceImage).mockReturnValueOnce(saving.promise);
+    const uploading = state().setI2ISourceImage(replacement);
+    state().clearI2I();
+    saving.resolve(replacement);
+    await expect(uploading).resolves.toBeNull();
+    expect(state()).toMatchObject({ i2iSourceImage: null, i2iEnabled: false });
+    expect(deleteStoredI2IReference).toHaveBeenCalledWith(
+      replacement.storagePath,
+    );
+    expect(deleteStoredI2IReference).toHaveBeenCalledWith(original.storagePath);
+  });
+
+  it.each(["first", "last"])(
+    "keeps the latest upload when %s completes first",
+    async (order) => {
+      const firstImage = { ...original, storagePath: "i2i/first.png" };
+      const lastImage = { ...original, storagePath: "i2i/last.png" };
+      const first = createDeferred<typeof original>();
+      const last = createDeferred<typeof original>();
+      jest
+        .mocked(saveI2IReferenceImage)
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(last.promise);
+      const uploadingFirst = state().setI2ISourceImage(firstImage);
+      const uploadingLast = state().setI2ISourceImage(lastImage);
+      if (order === "first") {
+        first.resolve(firstImage);
+        await uploadingFirst;
+        last.resolve(lastImage);
+      } else {
+        last.resolve(lastImage);
+        await uploadingLast;
+        first.resolve(firstImage);
+      }
+      await expect(uploadingFirst).resolves.toBeNull();
+      await expect(uploadingLast).resolves.toBe(lastImage);
+      expect(state().i2iSourceImage).toBe(lastImage);
+      expect(deleteStoredI2IReference).toHaveBeenCalledWith(
+        firstImage.storagePath,
+      );
+      expect(deleteStoredI2IReference).toHaveBeenCalledWith(
+        original.storagePath,
+      );
+      expect(deleteStoredI2IReference).not.toHaveBeenCalledWith(
+        lastImage.storagePath,
+      );
+    },
+  );
+
+  it("ignores an upload failure after I2I was cleared", async () => {
+    const saving = createDeferred<typeof original>();
+    jest.mocked(saveI2IReferenceImage).mockReturnValueOnce(saving.promise);
+    const uploading = state().setI2ISourceImage(original);
+    state().clearI2I();
+    saving.reject(new Error("stale failure"));
+    await expect(uploading).resolves.toBeNull();
+    expect(state().message).toBeNull();
+  });
+});
+
+describe.each(["vibe", "precise"] as const)("%s image replacement", (kind) => {
+  it("preserves settings changed while replacing an image", async () => {
+    if (kind === "vibe") {
+      const replacing = createDeferred<VibeReference | null>();
+      jest
+        .mocked(replaceVibeReferenceImage)
+        .mockReturnValueOnce(replacing.promise);
+      mockUpdateVibe.mockReturnValueOnce(new Promise(() => {}));
+      const request = state().replaceVibeReference(VIBE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      state().setVibeReferenceStrength(VIBE.id, 0.9);
+      replacing.resolve({
+        ...VIBE,
+        imagePath: "new.png",
+        thumbnailPath: "new.jpg",
+        encodings: [],
+      });
+      await request;
+      expect(state().vibeReferences[0]).toMatchObject({
+        strength: 0.9,
+        imagePath: "new.png",
+        encodings: [],
+      });
+    } else {
+      const replacing = createDeferred<PreciseReference | null>();
+      jest
+        .mocked(replacePreciseReferenceImage)
+        .mockReturnValueOnce(replacing.promise);
+      mockUpdatePrecise.mockReturnValueOnce(new Promise(() => {}));
+      const request = state().replacePreciseReference(PRECISE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      state().setPreciseReferenceFidelity(PRECISE.id, 0.9);
+      replacing.resolve({
+        ...PRECISE,
+        imagePath: "new.png",
+        processedPath: "new-processed.png",
+        sourceWidth: 10,
+      });
+      await request;
+      expect(state().preciseReferences[0]).toMatchObject({
+        fidelity: 0.9,
+        imagePath: "new.png",
+        processedPath: "new-processed.png",
+        sourceWidth: 10,
+      });
+    }
+  });
+
+  it("does not restore a reference removed while replacement was pending", async () => {
+    if (kind === "vibe") {
+      const replacing = createDeferred<VibeReference | null>();
+      jest
+        .mocked(replaceVibeReferenceImage)
+        .mockReturnValueOnce(replacing.promise);
+      jest.mocked(deleteVibeReference).mockResolvedValueOnce(undefined);
+      const request = state().replaceVibeReference(VIBE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      await state().removeVibeReference(VIBE.id);
+      replacing.resolve({ ...VIBE, imagePath: "new.png" });
+      await request;
+      expect(state().vibeReferences).toEqual([]);
+    } else {
+      const replacing = createDeferred<PreciseReference | null>();
+      jest
+        .mocked(replacePreciseReferenceImage)
+        .mockReturnValueOnce(replacing.promise);
+      jest.mocked(deletePreciseReference).mockResolvedValueOnce(undefined);
+      const request = state().replacePreciseReference(PRECISE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      await state().removePreciseReference(PRECISE.id);
+      replacing.resolve({ ...PRECISE, imagePath: "new.png" });
+      await request;
+      expect(state().preciseReferences).toEqual([]);
+    }
+  });
+
+  it("ignores a settings response for an image that has already been replaced", async () => {
+    if (kind === "vibe") {
+      const saving = createDeferred<VibeReference | null>();
+      mockUpdateVibe.mockReturnValueOnce(saving.promise);
+      jest.mocked(replaceVibeReferenceImage).mockResolvedValueOnce({
+        ...VIBE,
+        imagePath: "new.png",
+        encodings: [],
+      });
+      state().setVibeReferenceStrength(VIBE.id, 0.9);
+      await state().replaceVibeReference(VIBE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      saving.resolve({ ...VIBE, strength: 0.9 });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(state().vibeReferences[0]).toMatchObject({
+        strength: 0.9,
+        imagePath: "new.png",
+        encodings: [],
+      });
+    } else {
+      const saving = createDeferred<PreciseReference | null>();
+      mockUpdatePrecise.mockReturnValueOnce(saving.promise);
+      jest
+        .mocked(replacePreciseReferenceImage)
+        .mockResolvedValueOnce({ ...PRECISE, imagePath: "new.png" });
+      state().setPreciseReferenceFidelity(PRECISE.id, 0.9);
+      await state().replacePreciseReference(PRECISE.id, {
+        uri: "new.png",
+        width: 10,
+        height: 10,
+      });
+      saving.resolve({ ...PRECISE, fidelity: 0.9 });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(state().preciseReferences[0]).toMatchObject({
+        fidelity: 0.9,
+        imagePath: "new.png",
+      });
+    }
   });
 });
 

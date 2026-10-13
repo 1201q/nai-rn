@@ -370,6 +370,7 @@ export function createGenerationQueueActions(
               imageBase64,
               vibe.informationExtracted,
               s.model,
+              preparationAbortController.signal,
             );
             if (stopIfPreparationCancelled()) {
               return rejectGenerationStart("cancelled");
@@ -381,6 +382,7 @@ export function createGenerationQueueActions(
               encodedBase64,
               vibe.informationExtracted,
               s.model,
+              vibe.imagePath,
             );
             if (stopIfPreparationCancelled()) {
               return rejectGenerationStart("cancelled");
@@ -399,6 +401,7 @@ export function createGenerationQueueActions(
                 const updated = updatedById.get(item.id);
                 if (
                   !updated ||
+                  updated.imagePath !== item.imagePath ||
                   updated.informationExtracted !== item.informationExtracted
                 ) {
                   return item;

@@ -134,14 +134,17 @@ jest.mock("../../lib/preciseReferences", () => ({
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
+  reject: (error: unknown) => void;
 };
 
 function createDeferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((nextResolve) => {
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
     resolve = nextResolve;
+    reject = nextReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 const initialState = useGenerationStore.getInitialState();
@@ -301,6 +304,54 @@ describe("ANLAS balance refresh", () => {
     });
     expect(useGenerationStore.getState().anlasBalance).toBeNull();
   });
+
+  test.each(["success", "authentication-error"])(
+    "ignores an older same-token %s after the latest balance arrives",
+    async (outcome) => {
+      const first =
+        createDeferred<Awaited<ReturnType<typeof getNovelAiAnlasBalance>>>();
+      const balance = {
+        fixed: 9,
+        purchased: 0,
+        total: 9,
+        tier: 1,
+        expiresAt: 0,
+      };
+      mockGetNovelAiAnlasBalance
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce(balance);
+      const earlier = useGenerationStore.getState().refreshAnlas();
+      await useGenerationStore.getState().refreshAnlas();
+      if (outcome === "success")
+        first.resolve({ ...balance, fixed: 10, total: 10 });
+      else first.reject(new NovelAiRequestError(401, "expired token"));
+      await expect(earlier).resolves.toEqual({
+        status: "skipped",
+        reason: "stale-request",
+      });
+      expect(useGenerationStore.getState().anlasBalance).toEqual(balance);
+    },
+  );
+
+  test("invalidates an in-flight balance when the same token is saved again", async () => {
+    const balance =
+      createDeferred<Awaited<ReturnType<typeof getNovelAiAnlasBalance>>>();
+    mockGetNovelAiAnlasBalance.mockReturnValueOnce(balance.promise);
+    const earlier = useGenerationStore.getState().refreshAnlas();
+    await useGenerationStore.getState().saveToken("token");
+    balance.resolve({
+      fixed: 10,
+      purchased: 0,
+      total: 10,
+      tier: 1,
+      expiresAt: 0,
+    });
+    await expect(earlier).resolves.toEqual({
+      status: "skipped",
+      reason: "stale-request",
+    });
+    expect(useGenerationStore.getState().anlasBalance).toBeNull();
+  });
 });
 
 describe("generation queue preparation", () => {
@@ -447,6 +498,108 @@ describe("generation queue preparation", () => {
     expect(mockStartGenerationService).not.toHaveBeenCalled();
     expect(useGenerationStore.getState().isLoading).toBe(false);
     expect(useGenerationStore.getState().queueCancelRequested).toBe(false);
+  });
+
+  test.each(["cancel", "timeout"])(
+    "can restart after Vibe encoding %s",
+    async (outcome) => {
+      const vibe = {
+        id: "vibe-1",
+        imagePath: "source.png",
+        thumbnailPath: null,
+        enabled: true,
+        strength: 0.6,
+        informationExtracted: 0.7,
+        encodings: [],
+        createdAt: 1,
+        updatedAt: 1,
+      };
+      useGenerationStore.setState({ vibeReferences: [vibe] });
+      const encoding = createDeferred<string>();
+      mockEncodeNovelAiVibe.mockImplementationOnce(
+        (_token, _image, _information, _model, signal) => {
+          signal?.addEventListener(
+            "abort",
+            () =>
+              encoding.reject(
+                Object.assign(new Error("cancelled"), { name: "AbortError" }),
+              ),
+            { once: true },
+          );
+          return encoding.promise;
+        },
+      );
+      const generating = useGenerationStore.getState().generateImage();
+      await waitFor(() =>
+        expect(mockEncodeNovelAiVibe).toHaveBeenCalledTimes(1),
+      );
+      const signal = mockEncodeNovelAiVibe.mock.calls[0][4];
+      expect(signal).toBeInstanceOf(AbortSignal);
+      if (outcome === "cancel")
+        useGenerationStore.getState().requestQueueCancel();
+      else encoding.reject(new Error("encoding timed out"));
+      await expect(generating).resolves.toEqual({
+        status: "rejected",
+        reason: outcome === "cancel" ? "cancelled" : "preparation",
+      });
+      expect(useGenerationStore.getState().isLoading).toBe(false);
+      expect(useGenerationStore.getState().message).toBe(
+        outcome === "cancel" ? null : "encoding timed out",
+      );
+      expect(mockSaveEncodedVibeReference).not.toHaveBeenCalled();
+      mockEncodeNovelAiVibe.mockResolvedValueOnce("encoded");
+      await expect(
+        useGenerationStore.getState().generateImage(),
+      ).resolves.toEqual({ status: "started" });
+      expect(mockSaveEncodedVibeReference).toHaveBeenCalledWith(
+        vibe.id,
+        "encoded",
+        0.7,
+        "nai-diffusion-4-5-full",
+        vibe.imagePath,
+      );
+    },
+  );
+
+  test("does not apply encoding results to a replaced Vibe image", async () => {
+    const vibe = {
+      id: "vibe-1",
+      imagePath: "old.png",
+      thumbnailPath: null,
+      enabled: true,
+      strength: 0.6,
+      informationExtracted: 0.7,
+      encodings: [],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    useGenerationStore.setState({ vibeReferences: [vibe] });
+    mockEncodeNovelAiVibe.mockResolvedValueOnce("encoded");
+    const saving =
+      createDeferred<Awaited<ReturnType<typeof saveEncodedVibeReference>>>();
+    mockSaveEncodedVibeReference.mockReturnValueOnce(saving.promise);
+    const generating = useGenerationStore.getState().generateImage();
+    await waitFor(() =>
+      expect(mockSaveEncodedVibeReference).toHaveBeenCalledTimes(1),
+    );
+    useGenerationStore.setState({
+      vibeReferences: [{ ...vibe, imagePath: "new.png" }],
+    });
+    saving.resolve({
+      ...vibe,
+      encodings: [
+        {
+          model: "nai-diffusion-4-5-full",
+          informationExtracted: 0.7,
+          path: "old.bin",
+        },
+      ],
+    });
+    await generating;
+    expect(useGenerationStore.getState().vibeReferences[0]).toMatchObject({
+      imagePath: "new.png",
+      encodings: [],
+    });
   });
 
   test.each(["i2i", "precise"] as const)(
@@ -1097,6 +1250,122 @@ describe("generation bootstrap during an active queue", () => {
     expect(useGenerationStore.getState().isLoading).toBe(false);
     await unmount();
   });
+
+  test.each(["response", "error"])(
+    "ignores a stale initial token %s after saving",
+    async (outcome) => {
+      const reading = createDeferred<string | null>();
+      jest.mocked(getNovelAiToken).mockReturnValueOnce(reading.promise);
+      mockSaveNovelAiToken.mockResolvedValueOnce(undefined);
+      const { unmount } = await renderHook(() => useGenerationBootstrap());
+      await useGenerationStore.getState().saveToken("new-token");
+      if (outcome === "response") reading.resolve("old-token");
+      else reading.reject(new Error("stale read failure"));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(useGenerationStore.getState().storedToken).toBe("new-token");
+      expect(useGenerationStore.getState().message).toBeNull();
+      expect(mockGetNovelAiAnlasBalance).not.toHaveBeenCalled();
+      await unmount();
+    },
+  );
+
+  test("revalidates initial History after deleting an item", async () => {
+    const removed = { id: "removed", createdAt: 1 } as GenerationRecord;
+    const kept = { id: "kept", createdAt: 2 } as GenerationRecord;
+    const reading =
+      createDeferred<Awaited<ReturnType<typeof listGenerationPage>>>();
+    jest
+      .mocked(listGenerationPage)
+      .mockReturnValueOnce(reading.promise)
+      .mockResolvedValueOnce({
+        records: [kept],
+        nextCursor: null,
+        hasMore: false,
+      });
+    jest.mocked(deleteStoredGenerations).mockResolvedValueOnce(undefined);
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+    await useGenerationStore.getState().deleteGenerations([removed.id]);
+    reading.resolve({
+      records: [removed, kept],
+      nextCursor: null,
+      hasMore: false,
+    });
+    await waitFor(() =>
+      expect(useGenerationStore.getState().generationHistoryInitialized).toBe(
+        true,
+      ),
+    );
+    expect(useGenerationStore.getState().generationHistory).toEqual([kept]);
+    expect(useGenerationStore.getState().currentGeneration).toEqual(kept);
+    expect(listGenerationPage).toHaveBeenCalledTimes(2);
+    await unmount();
+  });
+
+  test("revalidates the first page after a new generation arrives", async () => {
+    const generated = { id: "new", createdAt: 2 } as GenerationRecord;
+    const reading =
+      createDeferred<Awaited<ReturnType<typeof listGenerationPage>>>();
+    jest
+      .mocked(listGenerationPage)
+      .mockReturnValueOnce(reading.promise)
+      .mockResolvedValueOnce({
+        records: [generated],
+        nextCursor: null,
+        hasMore: false,
+      });
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+    useGenerationStore.setState({
+      generationHistory: [generated],
+      generationHistoryRevision: 1,
+    });
+    reading.resolve({ records: [], nextCursor: null, hasMore: false });
+    await waitFor(() =>
+      expect(useGenerationStore.getState().generationHistoryInitialized).toBe(
+        true,
+      ),
+    );
+    expect(useGenerationStore.getState().generationHistory).toEqual([
+      generated,
+    ]);
+    expect(listGenerationPage).toHaveBeenCalledTimes(2);
+    await unmount();
+  });
+
+  test.each(["vibeReferences", "preciseReferences"] as const)(
+    "revalidates initial %s when the live list changes",
+    async (list) => {
+      const reading = createDeferred<never[]>();
+      const reference = { id: "added" };
+      if (list === "vibeReferences") {
+        jest
+          .mocked(listVibeReferences)
+          .mockReturnValueOnce(reading.promise)
+          .mockResolvedValueOnce([reference] as Awaited<
+            ReturnType<typeof listVibeReferences>
+          >);
+      } else {
+        jest
+          .mocked(listPreciseReferences)
+          .mockReturnValueOnce(reading.promise)
+          .mockResolvedValueOnce([reference] as Awaited<
+            ReturnType<typeof listPreciseReferences>
+          >);
+      }
+      const { unmount } = await renderHook(() => useGenerationBootstrap());
+      useGenerationStore.setState({ [list]: [reference] });
+      reading.resolve([]);
+      const query =
+        list === "vibeReferences" ? listVibeReferences : listPreciseReferences;
+      await waitFor(() => expect(query).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(
+          useGenerationStore.getState()[list].map((item) => item.id),
+        ).toEqual(["added"]),
+      );
+      await unmount();
+    },
+  );
 
   test("keeps the service while I2I preparation is pending", async () => {
     const preparation = createDeferred<string>();

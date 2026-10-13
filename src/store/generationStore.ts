@@ -55,6 +55,9 @@ export type {
   GenerationStartRejectionReason,
 } from "./generationStoreTypes";
 
+let tokenRevision = 0;
+let anlasRequestId = 0;
+
 // 모델을 바꿀 때 현재 모델의 생성 설정(ModelSettings)을 기억해 두고, 새 모델의 값을 꺼낸다.
 // 처음 쓰는 모델은 모델별 기본값으로 시작한다.
 function switchModelSettings(
@@ -179,11 +182,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   storedToken: null,
   saveToken: async (token) => {
     await saveNovelAiToken(token);
+    tokenRevision += 1;
+    anlasRequestId += 1;
     set({ storedToken: token, anlasBalance: null });
   },
 
   anlasBalance: null,
   refreshAnlas: async () => {
+    const requestId = ++anlasRequestId;
     const token = get().storedToken;
     if (!token) {
       set({ anlasBalance: null });
@@ -193,14 +199,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     try {
       const balance = await getNovelAiAnlasBalance(token);
 
-      if (get().storedToken !== token) {
+      if (requestId !== anlasRequestId || get().storedToken !== token) {
         return { status: "skipped", reason: "stale-request" };
       }
 
       set({ anlasBalance: balance });
       return { status: "success", balance };
     } catch (error: unknown) {
-      if (get().storedToken !== token) {
+      if (requestId !== anlasRequestId || get().storedToken !== token) {
         return { status: "skipped", reason: "stale-request" };
       }
 
@@ -404,64 +410,83 @@ export function useGenerationBootstrap() {
   }, []);
 
   useEffect(() => {
-    const { setState } = useGenerationStore;
+    const { getState, setState } = useGenerationStore;
+    const initialTokenRevision = tokenRevision;
 
     // 옵션은 store 생성 시 MMKV에서 동기 복원됨 (loadPersistedOptions).
     // 여기서는 토큰/히스토리/레퍼런스 비동기 로드만 처리.
     getNovelAiToken()
       .then((token) => {
+        if (tokenRevision !== initialTokenRevision) return;
         setState({ storedToken: token });
         if (token) useGenerationStore.getState().refreshAnlas();
       })
       .catch((error: unknown) => {
+        if (tokenRevision !== initialTokenRevision) return;
         setState({
           message: toErrorMessage(error),
         });
       });
 
-    listGenerationPage()
-      .then((page) => {
-        setState((state) => {
-          const generationHistory = mergeGenerationHistoryRecords(
-            state.generationHistory,
-            page.records,
-          );
-          return {
-            generationHistory,
-            generationHistoryCursor: page.nextCursor,
-            generationHistoryHasMore: page.hasMore,
-            generationHistoryInitialized: true,
-            currentGeneration:
-              state.currentGeneration ?? generationHistory[0] ?? null,
-          };
-        });
-      })
-      .catch((error: unknown) => {
-        setState({
+    const loadHistory = async () => {
+      let revision: number;
+      let page: Awaited<ReturnType<typeof listGenerationPage>>;
+      do {
+        revision = getState().generationHistoryRevision;
+        page = await listGenerationPage();
+      } while (revision !== getState().generationHistoryRevision);
+
+      setState((state) => {
+        const generationHistory = mergeGenerationHistoryRecords(
+          state.generationHistory,
+          page.records,
+        );
+        return {
+          generationHistory,
+          generationHistoryCursor: page.nextCursor,
+          generationHistoryHasMore: page.hasMore,
           generationHistoryInitialized: true,
-          message: toErrorMessage(error),
-        });
+          currentGeneration:
+            state.currentGeneration ?? generationHistory[0] ?? null,
+        };
       });
+    };
+    loadHistory().catch((error: unknown) => {
+      setState({
+        generationHistoryInitialized: true,
+        message: toErrorMessage(error),
+      });
+    });
 
-    listVibeReferences()
-      .then((references) => {
-        setState({ vibeReferences: references });
-      })
-      .catch((error: unknown) => {
-        setState({
-          message: toErrorMessage(error),
-        });
+    const loadVibes = async () => {
+      let previous: GenerationState["vibeReferences"];
+      let references: Awaited<ReturnType<typeof listVibeReferences>>;
+      do {
+        previous = getState().vibeReferences;
+        references = await listVibeReferences();
+      } while (previous !== getState().vibeReferences);
+      setState({ vibeReferences: references });
+    };
+    loadVibes().catch((error: unknown) => {
+      setState({
+        message: toErrorMessage(error),
       });
+    });
 
-    listPreciseReferences()
-      .then((references) => {
-        setState({ preciseReferences: references });
-      })
-      .catch((error: unknown) => {
-        setState({
-          message: toErrorMessage(error),
-        });
+    const loadPrecise = async () => {
+      let previous: GenerationState["preciseReferences"];
+      let references: Awaited<ReturnType<typeof listPreciseReferences>>;
+      do {
+        previous = getState().preciseReferences;
+        references = await listPreciseReferences();
+      } while (previous !== getState().preciseReferences);
+      setState({ preciseReferences: references });
+    };
+    loadPrecise().catch((error: unknown) => {
+      setState({
+        message: toErrorMessage(error),
       });
+    });
   }, []);
 
   // persist: 저장 대상 옵션 변경을 합쳐 마지막 상태만 write

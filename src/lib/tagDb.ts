@@ -31,11 +31,16 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = SQLite.importDatabaseFromAssetAsync(DB_NAME, {
       assetId: require("../../assets/tags.db"),
-    }).then(() => {
-      // 파일이 없으면 reject -> 무시.
-      SQLite.deleteDatabaseAsync(OLD_DB_NAME).catch(() => {});
-      return SQLite.openDatabaseAsync(DB_NAME);
-    });
+    })
+      .then(() => {
+        // 파일이 없으면 reject -> 무시.
+        SQLite.deleteDatabaseAsync(OLD_DB_NAME).catch(() => {});
+        return SQLite.openDatabaseAsync(DB_NAME);
+      })
+      .catch((error: unknown) => {
+        dbPromise = null;
+        throw error;
+      });
   }
   return dbPromise;
 }
