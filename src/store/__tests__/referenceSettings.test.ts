@@ -1,10 +1,15 @@
 import { waitFor } from "@testing-library/react-native";
 
 import {
+  deleteStoredI2IReference,
+  saveI2IReferenceImage,
+} from "../../lib/i2iReference";
+import {
   updatePreciseReferenceSettings,
   type PreciseReference,
 } from "../../lib/preciseReferences";
 import {
+  deleteVibeReference,
   updateVibeReferenceSettings,
   type VibeReference,
 } from "../../lib/vibeReferences";
@@ -366,6 +371,93 @@ it("allows disabling references regardless of conflicts", () => {
 
   expect(current("vibeReferences").enabled).toBe(false);
   expect(current("preciseReferences").enabled).toBe(false);
+});
+
+it("ignores a pending setting failure after the reference has been removed", async () => {
+  const saving = createDeferred<VibeReference | null>();
+  mockUpdateVibe.mockReturnValueOnce(saving.promise);
+  jest.mocked(deleteVibeReference).mockResolvedValueOnce(undefined);
+
+  state().setVibeReferenceStrength("vibe", 0.3);
+  await state().removeVibeReference("vibe");
+  saving.reject(new Error("removed reference failure"));
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(state().vibeReferences).toEqual([]);
+  expect(state().message).toBeNull();
+});
+
+describe("I2I reference file lifecycle", () => {
+  const original = {
+    uri: "file:///old.png",
+    storagePath: "i2i/old.png",
+    width: 832,
+    height: 1216,
+  };
+
+  beforeEach(() => {
+    jest.mocked(saveI2IReferenceImage).mockReset();
+    jest.mocked(deleteStoredI2IReference).mockReset();
+    useGenerationStore.setState({
+      i2iSourceImage: original,
+      i2iEnabled: true,
+      i2iStrength: 0.4,
+      i2iNoise: 0.2,
+    });
+  });
+
+  it("replaces state before deleting the previous file", async () => {
+    const replacement = { ...original, storagePath: "i2i/new.png" };
+    const saving = createDeferred<typeof replacement>();
+    jest.mocked(saveI2IReferenceImage).mockReturnValueOnce(saving.promise);
+    const imagesAtDeletion: unknown[] = [];
+    jest.mocked(deleteStoredI2IReference).mockImplementation(() => {
+      imagesAtDeletion.push(state().i2iSourceImage);
+    });
+
+    const request = state().setI2ISourceImage(replacement);
+    expect(state().i2iSourceImage).toBe(original);
+    expect(deleteStoredI2IReference).not.toHaveBeenCalled();
+    saving.resolve(replacement);
+
+    expect(await request).toBe(replacement);
+    expect(imagesAtDeletion).toEqual([replacement]);
+    expect(deleteStoredI2IReference).toHaveBeenCalledWith(original.storagePath);
+    expect(state().i2iEnabled).toBe(true);
+  });
+
+  it("keeps the original image and file when saving fails", async () => {
+    jest
+      .mocked(saveI2IReferenceImage)
+      .mockRejectedValueOnce(new Error("save failed"));
+
+    expect(await state().setI2ISourceImage(original)).toBeNull();
+    expect(state()).toMatchObject({
+      i2iSourceImage: original,
+      i2iEnabled: true,
+      message: "save failed",
+    });
+    expect(deleteStoredI2IReference).not.toHaveBeenCalled();
+  });
+
+  it("resets options before deleting a cleared image", () => {
+    const imagesAtDeletion: unknown[] = [];
+    jest.mocked(deleteStoredI2IReference).mockImplementation(() => {
+      imagesAtDeletion.push(state().i2iSourceImage);
+    });
+
+    state().clearI2I();
+
+    expect(state()).toMatchObject({
+      i2iSourceImage: null,
+      i2iEnabled: false,
+      i2iStrength: 0.7,
+      i2iNoise: 0,
+    });
+    expect(imagesAtDeletion).toEqual([null]);
+    expect(deleteStoredI2IReference).toHaveBeenCalledWith(original.storagePath);
+  });
 });
 
 describe("history selection actions", () => {

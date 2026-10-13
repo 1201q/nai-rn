@@ -1,8 +1,12 @@
-import { waitFor } from "@testing-library/react-native";
+import { renderHook, waitFor } from "@testing-library/react-native";
+import { AppState } from "react-native";
+
+import * as generationConstants from "../../constants/generation";
 
 import {
   startGenerationService,
   stopGenerationService,
+  updateGenerationProgress,
 } from "../../lib/foregroundService";
 import {
   deleteGenerations as deleteStoredGenerations,
@@ -17,15 +21,22 @@ import {
   getNovelAiAnlasBalance,
   NovelAiRequestError,
 } from "../../lib/novelai";
-import { renderI2IRequestImageBase64 } from "../../lib/i2iReference";
-import { saveNovelAiToken } from "../../lib/secureToken";
-import { readPreciseReferenceProcessedBase64 } from "../../lib/preciseReferences";
+import {
+  renderI2IRequestImageBase64,
+  resolveStoredI2IReference,
+} from "../../lib/i2iReference";
+import { getNovelAiToken, saveNovelAiToken } from "../../lib/secureToken";
+import {
+  listPreciseReferences,
+  readPreciseReferenceProcessedBase64,
+} from "../../lib/preciseReferences";
 import {
   canUseCachedVibeEncoding,
+  listVibeReferences,
   readVibeReferenceImageBase64,
   saveEncodedVibeReference,
 } from "../../lib/vibeReferences";
-import { useGenerationStore } from "../generationStore";
+import { useGenerationBootstrap, useGenerationStore } from "../generationStore";
 import { usePromptChunkStore } from "../promptChunkStore";
 import {
   acquireGenerationWakeLock,
@@ -437,9 +448,75 @@ describe("generation queue preparation", () => {
     expect(useGenerationStore.getState().isLoading).toBe(false);
     expect(useGenerationStore.getState().queueCancelRequested).toBe(false);
   });
+
+  test.each(["i2i", "precise"] as const)(
+    "can restart after cancelling %s preparation",
+    async (kind) => {
+      const preparation = createDeferred<string>();
+      if (kind === "i2i") {
+        mockRenderI2IRequestImageBase64.mockReturnValueOnce(
+          preparation.promise,
+        );
+        useGenerationStore.setState({
+          i2iEnabled: true,
+          i2iSourceImage: {
+            uri: "file:///source.png",
+            storagePath: "i2i/source.png",
+            width: 1024,
+            height: 1024,
+          },
+        });
+      } else {
+        mockReadPreciseReferenceProcessedBase64.mockReturnValueOnce(
+          preparation.promise,
+        );
+        useGenerationStore.setState({
+          preciseReferences: [
+            {
+              id: "precise-1",
+              imagePath: "image.jpg",
+              thumbnailPath: null,
+              processedPath: "processed.jpg",
+              enabled: true,
+              strength: 0.6,
+              fidelity: 0.6,
+              referenceType: "character&style",
+              sourceWidth: 1024,
+              sourceHeight: 1024,
+              processedWidth: 1024,
+              processedHeight: 1024,
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        });
+      }
+
+      const request = useGenerationStore.getState().generateImage();
+      useGenerationStore.getState().requestQueueCancel();
+      preparation.resolve("prepared-image");
+
+      expect(await request).toEqual({
+        status: "rejected",
+        reason: "cancelled",
+      });
+      expect(mockStartGenerationService).not.toHaveBeenCalled();
+      expect(useGenerationStore.getState()).toMatchObject({
+        isLoading: false,
+        queueCancelRequested: false,
+        message: null,
+      });
+
+      useGenerationStore.setState({ i2iEnabled: false, preciseReferences: [] });
+      expect(await useGenerationStore.getState().generateImage()).toEqual({
+        status: "started",
+      });
+    },
+  );
 });
 
 describe("generation queue execution", () => {
+  const originalAppState = AppState.currentState;
   const generation = {
     id: "generation-1",
     imagePath: "generation.png",
@@ -474,6 +551,8 @@ describe("generation queue execution", () => {
   afterEach(async () => {
     await cleanPendingQueue();
     useGenerationStore.setState(initialState, true);
+    AppState.currentState = originalAppState;
+    jest.restoreAllMocks();
   });
 
   test("hands the queue to the foreground service before execution", async () => {
@@ -758,6 +837,315 @@ describe("generation queue execution", () => {
       expect(useGenerationStore.getState().isLoading).toBe(false);
     });
   });
+
+  test("blocks another start and honours cancellation during service handoff", async () => {
+    const service = createDeferred<boolean>();
+    const onSuccess = jest.fn();
+    mockStartGenerationService.mockReturnValueOnce(service.promise);
+
+    const request = useGenerationStore.getState().generateImage(onSuccess);
+    expect(await useGenerationStore.getState().generateImage()).toEqual({
+      status: "rejected",
+      reason: "busy",
+    });
+    useGenerationStore.getState().requestQueueCancel();
+    service.resolve(true);
+
+    expect(await request).toEqual({ status: "started" });
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mockReleaseGenerationWakeLock).toHaveBeenCalledTimes(1);
+    expect(mockStopGenerationService).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().isLoading).toBe(false);
+    expect(await useGenerationStore.getState().generateImage()).toEqual({
+      status: "started",
+    });
+  });
+
+  test.each([true, false])(
+    "preserves per-image seed handling when seedLocked is %s",
+    async (seedLocked) => {
+      const randomSeed = jest
+        .spyOn(generationConstants, "generateRandomSeed")
+        .mockReturnValueOnce(202)
+        .mockReturnValueOnce(303);
+      useGenerationStore.setState({ seed: 101, seedLocked, batchCount: 2 });
+
+      await useGenerationStore.getState().generateImage();
+      await useGenerationStore.getState().runQueueTask();
+
+      expect(
+        mockGenerateNovelAiImageStream.mock.calls.map(([input]) => input.seed),
+      ).toEqual(seedLocked ? [101, 101] : [101, 202]);
+      expect(useGenerationStore.getState().seed).toBe(seedLocked ? 101 : 303);
+      expect(randomSeed).toHaveBeenCalledTimes(seedLocked ? 0 : 2);
+    },
+  );
+
+  test("resolves a zero seed for each image even while locked", async () => {
+    jest
+      .spyOn(generationConstants, "generateRandomSeed")
+      .mockReturnValueOnce(202)
+      .mockReturnValueOnce(303);
+    useGenerationStore.setState({ seed: 0, seedLocked: true, batchCount: 2 });
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(
+      mockGenerateNovelAiImageStream.mock.calls.map(([input]) => input.seed),
+    ).toEqual([202, 303]);
+    expect(useGenerationStore.getState().seed).toBe(0);
+  });
+
+  test("keeps captured options and overrides throughout a batch", async () => {
+    useGenerationStore.setState({ batchCount: 2, steps: 28 });
+    mockGenerateNovelAiImageStream.mockImplementation(async () => {
+      useGenerationStore.setState({
+        model: "nai-diffusion-5-full-medium",
+        prompt: "changed",
+        negativePrompt: "changed negative",
+        steps: 14,
+        batchCount: 1,
+      });
+      return { imageBase64: "generated-image", seed: 123 };
+    });
+
+    await useGenerationStore.getState().generateImage(undefined, {
+      prompt: "override prompt",
+      negativePrompt: "override negative",
+    });
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(mockGenerateNovelAiImageStream).toHaveBeenCalledTimes(2);
+    for (const [input] of mockGenerateNovelAiImageStream.mock.calls) {
+      expect(input).toMatchObject({
+        model: initialState.model,
+        steps: 28,
+        prompt: "override prompt",
+        negativePrompt: "override negative",
+      });
+    }
+  });
+
+  test("keeps completed batch records when the next image fails", async () => {
+    const onSuccess = jest.fn();
+    useGenerationStore.setState({ batchCount: 2 });
+    mockGenerateNovelAiImageStream
+      .mockResolvedValueOnce({ imageBase64: "first-image", seed: 123 })
+      .mockRejectedValueOnce(new Error("second image failed"));
+
+    await useGenerationStore.getState().generateImage(onSuccess);
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(useGenerationStore.getState()).toMatchObject({
+      generationHistory: [generation],
+      currentGeneration: generation,
+      message: "second image failed",
+      isLoading: false,
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(mockSaveGenerationImageBase64).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not replace a selected history image when generation completes", async () => {
+    const selected = { ...generation, id: "selected" };
+    mockGenerateNovelAiImageStream.mockImplementation(async () => {
+      useGenerationStore.getState().selectGeneration(selected);
+      return { imageBase64: "generated-image", seed: 123 };
+    });
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(useGenerationStore.getState()).toMatchObject({
+      currentGeneration: selected,
+      generationHistory: [generation],
+      isViewingActiveGeneration: false,
+    });
+  });
+
+  test("preserves foreground preview and notification throttles", async () => {
+    AppState.currentState = "active";
+    let now = 1000;
+    jest.spyOn(Date, "now").mockImplementation(() => now);
+    mockGenerateNovelAiImageStream.mockImplementation(
+      async (_input, onEvent) => {
+        const intermediate = (step: number) => {
+          onEvent?.({
+            type: "intermediate",
+            imageBase64: `preview-${step}`,
+            step,
+            generationId: 1,
+          });
+        };
+        intermediate(1);
+        now = 1349;
+        intermediate(2);
+        expect(useGenerationStore.getState().streamingStep).toBe(1);
+        now = 1350;
+        intermediate(3);
+        expect(useGenerationStore.getState().streamingPreviewUri).toBe(
+          "data:image/jpeg;base64,preview-3",
+        );
+        now = 1800;
+        intermediate(4);
+        expect(updateGenerationProgress).toHaveBeenCalledTimes(1);
+        now = 1801;
+        intermediate(5);
+        expect(updateGenerationProgress).toHaveBeenLastCalledWith(
+          1,
+          1,
+          5,
+          initialState.steps,
+        );
+        onEvent?.({
+          type: "final",
+          imageBase64: "final-image",
+          generationId: 2,
+        });
+        expect(useGenerationStore.getState()).toMatchObject({
+          streamingPreviewUri: "data:image/png;base64,final-image",
+          streamingGenerationId: 2,
+        });
+        return { imageBase64: "generated-image", seed: 123 };
+      },
+    );
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+
+    expect(updateGenerationProgress).toHaveBeenCalledTimes(2);
+    expect(useGenerationStore.getState().streamingPreviewUri).toBeNull();
+    expect(useGenerationStore.getState().message).toBeNull();
+    expect(useGenerationStore.getState().generationHistory).toEqual([
+      generation,
+    ]);
+  });
+
+  test("updates progress in the background without showing intermediate previews", async () => {
+    AppState.currentState = "background";
+    let now = 1000;
+    jest.spyOn(Date, "now").mockImplementation(() => now);
+    mockGenerateNovelAiImageStream.mockImplementation(
+      async (_input, onEvent) => {
+        now = 1801;
+        onEvent?.({
+          type: "intermediate",
+          imageBase64: "preview",
+          step: 6,
+          generationId: 1,
+        });
+        expect(useGenerationStore.getState()).toMatchObject({
+          streamingStep: 6,
+          streamingPreviewUri: null,
+          streamingGenerationId: null,
+        });
+        expect(updateGenerationProgress).toHaveBeenLastCalledWith(
+          1,
+          1,
+          6,
+          initialState.steps,
+        );
+        return { imageBase64: "generated-image", seed: 123 };
+      },
+    );
+
+    await useGenerationStore.getState().generateImage();
+    await useGenerationStore.getState().runQueueTask();
+    expect(useGenerationStore.getState().message).toBeNull();
+    expect(useGenerationStore.getState().generationHistory).toEqual([
+      generation,
+    ]);
+  });
+});
+
+describe("generation bootstrap during an active queue", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setReadyState();
+    mockStartGenerationService.mockResolvedValue(true);
+    jest.mocked(getNovelAiToken).mockResolvedValue("token");
+    jest.mocked(listGenerationPage).mockResolvedValue({
+      records: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+    jest.mocked(listVibeReferences).mockResolvedValue([]);
+    jest.mocked(listPreciseReferences).mockResolvedValue([]);
+    mockGetNovelAiAnlasBalance.mockResolvedValue({
+      fixed: 0,
+      purchased: 0,
+      total: 0,
+      tier: 1,
+      expiresAt: 0,
+    });
+  });
+
+  afterEach(async () => {
+    await cleanPendingQueue();
+    useGenerationStore.setState(initialState, true);
+    jest.restoreAllMocks();
+  });
+
+  test("stops a leftover service while idle", async () => {
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+
+    expect(mockStopGenerationService).toHaveBeenCalledTimes(1);
+    expect(useGenerationStore.getState().isLoading).toBe(false);
+    await unmount();
+  });
+
+  test("keeps the service while I2I preparation is pending", async () => {
+    const preparation = createDeferred<string>();
+    mockRenderI2IRequestImageBase64.mockReturnValueOnce(preparation.promise);
+    useGenerationStore.setState({
+      i2iEnabled: true,
+      i2iSourceImage: {
+        uri: "file:///source.png",
+        storagePath: "i2i/source.png",
+        width: 1024,
+        height: 1024,
+      },
+    });
+    const request = useGenerationStore.getState().generateImage();
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+
+    expect(mockStopGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().isLoading).toBe(true);
+    preparation.resolve("prepared-image");
+    await request;
+    await unmount();
+  });
+
+  test("keeps a queue waiting for its foreground service task", async () => {
+    await useGenerationStore.getState().generateImage();
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+
+    expect(mockStopGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState()).toMatchObject({
+      isLoading: true,
+      queueTotal: 1,
+    });
+    await unmount();
+  });
+
+  test("keeps a queue that already owns execution", async () => {
+    const wakeLock = createDeferred<boolean>();
+    mockAcquireGenerationWakeLock.mockReturnValueOnce(wakeLock.promise);
+    await useGenerationStore.getState().generateImage();
+    const task = useGenerationStore.getState().runQueueTask();
+    const { unmount } = await renderHook(() => useGenerationBootstrap());
+
+    expect(mockStopGenerationService).not.toHaveBeenCalled();
+    expect(useGenerationStore.getState().isLoading).toBe(true);
+    useGenerationStore.getState().requestQueueCancel();
+    wakeLock.resolve(true);
+    await task;
+    await unmount();
+  });
 });
 
 describe("History ID catalog and pagination mutations", () => {
@@ -934,6 +1322,150 @@ describe("persisted quality preset", () => {
 
   it("restores a saved Light preset", () => {
     expect(restore({ qualityPreset: "light" })).toBe("light");
+  });
+});
+
+describe("persisted generation option validation", () => {
+  function restore(json: string | undefined) {
+    let restoredState!: ReturnType<typeof useGenerationStore.getState>;
+    jest.isolateModules(() => {
+      const { storage } = require("../../lib/storage") as {
+        storage: { getString: jest.Mock };
+      };
+      storage.getString.mockImplementation((key: string) =>
+        key === "nai_generation_options_v1" ? json : undefined,
+      );
+      const { useGenerationStore: restored } =
+        require("../generationStore") as typeof import("../generationStore");
+      restoredState = restored.getInitialState();
+    });
+    return restoredState;
+  }
+
+  test.each([undefined, "", "{broken", "null"])(
+    "keeps defaults when storage contains %s",
+    (json) => {
+      const restored = restore(json);
+      expect(restored).toMatchObject({
+        prompt: initialState.prompt,
+        resolution: initialState.resolution,
+        characterPrompts: [],
+        i2iSourceImage: null,
+        seedLocked: false,
+      });
+      expect(restored.generateImage).toEqual(expect.any(Function));
+    },
+  );
+
+  test("ignores invalid fields while restoring valid fields synchronously", () => {
+    const restored = restore(
+      JSON.stringify({
+        prompt: "restored prompt",
+        negativePrompt: 123,
+        steps: "30",
+        noiseSchedule: "unknown",
+        resolution: { width: "832", height: 1216 },
+        imageFormat: "jpeg",
+        historyGridColumns: 99,
+        historyListEngine: "unknown",
+        batchCount: 4,
+        qualityPreset: "light",
+        qualityToggle: false,
+        setPrompt: "not an action",
+      }),
+    );
+
+    expect(restored).toMatchObject({
+      prompt: "restored prompt",
+      negativePrompt: initialState.negativePrompt,
+      steps: initialState.steps,
+      noiseSchedule: initialState.noiseSchedule,
+      resolution: initialState.resolution,
+      imageFormat: "png",
+      historyGridColumns: 3,
+      historyListEngine: "flat",
+      batchCount: 4,
+      qualityPreset: "light",
+    });
+    expect(restored.setPrompt).toEqual(expect.any(Function));
+  });
+
+  test("retains character defaults and coordinate normalization", () => {
+    const restored = restore(
+      JSON.stringify({
+        characterPrompts: [
+          null,
+          { prompt: "character", position: { x: -1, y: 2 } },
+          {
+            id: "named",
+            name: "Mage",
+            negativePrompt: "negative",
+            enabled: false,
+          },
+        ],
+        characterPromptExpandedIds: ["named", 123],
+      }),
+    );
+
+    expect(restored.characterPrompts).toEqual([
+      {
+        id: "stored-character-1",
+        prompt: "character",
+        negativePrompt: "",
+        enabled: true,
+        position: { x: 0, y: 1 },
+      },
+      {
+        id: "named",
+        name: "Mage",
+        prompt: "",
+        negativePrompt: "negative",
+        enabled: false,
+        position: { x: 0.5, y: 0.5 },
+      },
+    ]);
+    expect(restored.characterPromptExpandedIds).toEqual(["named"]);
+  });
+
+  test.each([true, false])(
+    "restores an existing I2I file with enabled=%s",
+    (enabled) => {
+      const storedImage = {
+        storagePath: "i2i/source.png",
+        width: 832,
+        height: 1216,
+      };
+      const image = {
+        ...storedImage,
+        uri: "file:///current-container/source.png",
+      };
+      jest.mocked(resolveStoredI2IReference).mockReturnValueOnce(image);
+
+      const restored = restore(
+        JSON.stringify({ i2iSourceImage: storedImage, i2iEnabled: enabled }),
+      );
+
+      expect(resolveStoredI2IReference).toHaveBeenLastCalledWith(storedImage);
+      expect(restored.i2iSourceImage).toEqual(image);
+      expect(restored.i2iEnabled).toBe(enabled);
+    },
+  );
+
+  test("does not enable I2I when the stored file is missing", () => {
+    jest.mocked(resolveStoredI2IReference).mockReturnValueOnce(null);
+    const restored = restore(
+      JSON.stringify({
+        i2iSourceImage: {
+          storagePath: "i2i/missing.png",
+          width: 832,
+          height: 1216,
+        },
+        i2iEnabled: true,
+      }),
+    );
+
+    expect(restored.i2iSourceImage).toBeNull();
+    expect(restored.i2iEnabled).toBe(false);
   });
 });
 

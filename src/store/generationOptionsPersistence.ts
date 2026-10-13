@@ -3,16 +3,10 @@ import type { ModelSettings } from "../constants/models";
 import type { QualityPreset, UcPresetIndex } from "../lib/naiPresets";
 import type { NovelAiImageFormat } from "../lib/novelai";
 
-export const GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS = 250;
+import type { CharacterPrompt } from "../types/generation";
 
-type StoredCharacterPrompt = {
-  id: string;
-  name?: string;
-  prompt: string;
-  negativePrompt: string;
-  enabled: boolean;
-  position: { x: number; y: number };
-};
+export const GENERATION_OPTIONS_STORAGE_KEY = "nai_generation_options_v1";
+export const GENERATION_OPTIONS_PERSIST_DEBOUNCE_MS = 250;
 
 type StoredGenerationOptions = {
   prompt: string;
@@ -22,7 +16,7 @@ type StoredGenerationOptions = {
   // 이전 버전의 저장값 (복원할 때만 읽는다)
   qualityToggle?: boolean;
   ucPreset: UcPresetIndex;
-  characterPrompts: StoredCharacterPrompt[];
+  characterPrompts: CharacterPrompt[];
   characterPromptExpandedIds: string[];
   characterPositionEnabled: boolean;
   model: string;
