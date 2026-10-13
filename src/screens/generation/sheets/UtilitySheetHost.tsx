@@ -20,6 +20,7 @@ import {
   type HistorySheetController,
   useHistorySheetController,
 } from "../../../components/generation/HistorySheetContent";
+import type { GenerationRecord } from "../../../lib/generationHistory";
 import type { MetadataSheetSource } from "./metadata/MetadataSheetContent";
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
@@ -103,12 +104,15 @@ export function UtilitySheetHost({
   predictiveBackProgress,
   onClose,
   onVisibilityChange,
+  onSelectGeneration,
   generation = null,
 }: {
   sheet: UtilitySheet | null;
   predictiveBackProgress: SharedValue<number>;
   onClose: () => void;
   onVisibilityChange?: (visible: boolean) => void;
+  // History 타일을 눌렀을 때의 동작을 바꾼다(업스케일 화면).
+  onSelectGeneration?: (item: GenerationRecord) => void;
   generation?: MetadataSheetSource | null;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
@@ -134,7 +138,10 @@ export function UtilitySheetHost({
   // Cached Settings must not keep the backdrop or back handler active.
   const contentSheet =
     renderedSheet ?? (transition.retainSettings ? "settings" : null);
-  const historyController = useHistorySheetController({ onClose });
+  const historyController = useHistorySheetController({
+    onClose,
+    onSelect: onSelectGeneration,
+  });
   const { height: windowHeight } = useWindowDimensions();
   const { utilitySheetTop } = useGenerationChromeMetrics();
   const snapPoints = useMemo(

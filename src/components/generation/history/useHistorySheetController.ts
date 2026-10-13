@@ -28,8 +28,11 @@ const HISTORY_SAVE_CONCURRENCY = 3;
 
 export function useHistorySheetController({
   onClose,
+  onSelect,
 }: {
   onClose: () => void;
+  // 주면 타일을 눌렀을 때 캔버스에 띄우고 닫는 대신 이 콜백만 부른다.
+  onSelect?: (item: GenerationRecord) => void;
 }) {
   const generationHistory = useGenerationStore(
     (state) => state.generationHistory,
@@ -264,10 +267,14 @@ export function useHistorySheetController({
         return;
       }
 
+      if (onSelect) {
+        onSelect(item);
+        return;
+      }
       useGenerationStore.getState().selectGeneration(item);
       onClose();
     },
-    [onClose, selectionMode, toggleSelection],
+    [onClose, onSelect, selectionMode, toggleSelection],
   );
 
   const handleActiveGenerationPress = useCallback(() => {
