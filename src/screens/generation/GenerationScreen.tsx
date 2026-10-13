@@ -12,13 +12,10 @@ import { PortalHost } from "@gorhom/portal";
 import { BlurTargetView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import Reanimated, {
+import {
   cancelAnimation,
-  Easing,
-  useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 
@@ -44,6 +41,11 @@ import {
 } from "../../store/generationStore";
 import { tokens } from "../../styles/tokens";
 import { CharacterPositionEditor } from "./CharacterPositionEditor";
+import {
+  ActionBar,
+  ActionIconButton,
+  ActionProgressButton,
+} from "./GenerationActionBar";
 import { GenerationCanvas } from "./GenerationCanvas";
 import {
   PromptSheetHost,
@@ -79,7 +81,6 @@ function GenerateAction({
   );
   const generateImage = useGenerationStore((s) => s.generateImage);
   const requestQueueCancel = useGenerationStore((s) => s.requestQueueCancel);
-  const progress = useSharedValue(0);
   const mountedRef = useRef(true);
 
   useEffect(
@@ -88,16 +89,6 @@ function GenerateAction({
     },
     [],
   );
-
-  useEffect(() => {
-    progress.value = isLoading
-      ? withTiming(percent, { duration: 300, easing: Easing.linear })
-      : 0;
-  }, [isLoading, percent, progress]);
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
-  }));
 
   const label = isLoading
     ? queueTotal > 1
@@ -112,9 +103,11 @@ function GenerateAction({
     showCost && anlasBalanceTotal !== null && anlasBalanceTotal < anlasCost;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
+    <ActionProgressButton
+      label={label}
+      icon={isLoading ? "stop" : "sparkles"}
+      loading={isLoading}
+      percent={percent}
       accessibilityHint={showCost ? `예상 ${anlasCost} Anlas 소모` : undefined}
       onPress={() => {
         if (isLoading) {
@@ -128,22 +121,7 @@ function GenerateAction({
           }
         });
       }}
-      style={({ pressed }) => [
-        styles.generateButton,
-        pressed && styles.actionPressed,
-      ]}
     >
-      {isLoading ? (
-        <Reanimated.View style={[styles.progressFill, progressStyle]} />
-      ) : null}
-      <View style={styles.generateButtonContent}>
-        <Ionicons
-          name={isLoading ? "stop" : "sparkles"}
-          size={16}
-          color={tokens.color.onAccent}
-        />
-        <Text style={styles.generateButtonLabel}>{label}</Text>
-      </View>
       {showCost ? (
         <View
           testID="generation-anlas-cost"
@@ -167,35 +145,7 @@ function GenerateAction({
           </Text>
         </View>
       ) : null}
-    </Pressable>
-  );
-}
-
-function ActionIconButton({
-  icon,
-  label,
-  active,
-  onPress,
-}: {
-  icon: "settings-sharp" | "time-outline";
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.actionIconButton,
-        active && styles.actionIconButtonActive,
-        pressed && styles.actionPressed,
-      ]}
-    >
-      <Ionicons name={icon} size={20} color={tokens.color.textPrimary} />
-    </Pressable>
+    </ActionProgressButton>
   );
 }
 
@@ -210,8 +160,7 @@ export function GenerationScreen() {
 }
 
 function GenerationScreenContent() {
-  const { topInset, bottomInset, actionBarHeight, promptCollapsedHeight } =
-    useGenerationChromeMetrics();
+  const { topInset, promptCollapsedHeight } = useGenerationChromeMetrics();
   const router = useRouter();
   const anlasBalance = useGenerationStore((s) => s.anlasBalance);
   // Opus 사용량 한도는 V5 생성에만 적용된다.
@@ -541,13 +490,7 @@ function GenerationScreenContent() {
         generation={extractedMetadata ?? currentGeneration}
       />
 
-      <View
-        testID="generation-action-bar"
-        style={[
-          styles.actionBar,
-          { height: actionBarHeight, paddingBottom: bottomInset },
-        ]}
-      >
+      <ActionBar testID="generation-action-bar">
         <ActionIconButton
           icon="settings-sharp"
           label={
@@ -566,7 +509,7 @@ function GenerationScreenContent() {
           active={utilitySheet === "history"}
           onPress={() => toggleUtilitySheet("history")}
         />
-      </View>
+      </ActionBar>
 
       <KeyboardStickyView
         style={styles.suggestionSticky}
@@ -690,57 +633,6 @@ const styles = StyleSheet.create({
     fontFamily: tokens.font.medium,
     fontSize: tokens.type.base,
   },
-  actionBar: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 90,
-    elevation: 90,
-    paddingTop: 12,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.color.borderSubtle,
-    backgroundColor: tokens.color.cardAlt,
-  },
-  actionIconButton: {
-    width: 48,
-    height: 48,
-    borderWidth: 2,
-    borderColor: "transparent",
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tokens.color.raised,
-  },
-  actionIconButtonActive: {
-    borderColor: tokens.color.accent,
-  },
-  generateButton: {
-    flex: 1,
-    height: 48,
-    overflow: "hidden",
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tokens.color.accent,
-  },
-  generateButtonContent: {
-    zIndex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  generateButtonLabel: {
-    color: tokens.color.onAccent,
-    fontFamily: tokens.font.bold,
-    fontSize: 16,
-    letterSpacing: -0.2,
-  },
   costBadge: {
     position: "absolute",
     right: 10,
@@ -763,16 +655,6 @@ const styles = StyleSheet.create({
   },
   costBadgeTextInsufficient: {
     color: tokens.color.negative,
-  },
-  actionPressed: {
-    opacity: tokens.opacity.pressed,
-  },
-  progressFill: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: tokens.color.accentActive,
   },
   suggestionSticky: {
     position: "absolute",
