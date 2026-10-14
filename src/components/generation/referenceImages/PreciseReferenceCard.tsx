@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 
 import { PRECISE_REFERENCE_COST } from "../../../lib/anlasCost";
 import {
@@ -6,6 +6,7 @@ import {
   resolvePreciseReferenceThumbnailUri,
   resolvePreciseReferenceImageUri,
   type PreciseReferenceType,
+  type PreciseReference,
 } from "../../../lib/preciseReferences";
 import { useGenerationStore } from "../../../store/generationStore";
 import { SheetSelect } from "../../forms/SheetSelect";
@@ -34,7 +35,9 @@ export const PreciseReferenceCard = memo(function PreciseReferenceCard({
   useEffect(() => {
     if (!active) setOpenModeId(null);
   }, [active]);
-  const state = useGenerationStore.getState;
+  const setModeOpen = useCallback((id: string, open: boolean) => {
+    setOpenModeId(open ? id : null);
+  }, []);
   return (
     <ReferenceSection
       group
@@ -48,60 +51,80 @@ export const PreciseReferenceCard = memo(function PreciseReferenceCard({
       onAdd={() => void pickImage()}
     >
       {references.map((reference, index) => (
-        <ReferenceItem
+        <PreciseReferenceRow
           key={reference.id}
-          first={index === 0}
-          name={`Precise ${index + 1}`}
-          uri={
-            resolvePreciseReferenceThumbnailUri(reference) ??
-            resolvePreciseReferenceImageUri(reference)
-          }
-          enabled={reference.enabled}
-          cost={reference.enabled ? `${PRECISE_REFERENCE_COST} Anlas` : "Off"}
-          onToggle={(value) =>
-            state().setPreciseReferenceEnabled(reference.id, value)
-          }
-          onRemove={() => void state().removePreciseReference(reference.id)}
-        >
-          <SheetSelect
-            accessibilityLabel={`Precise ${index + 1} Mode`}
-            value={
-              MODES.find((mode) => mode.value === reference.referenceType)!
-                .label
-            }
-            options={MODE_LABELS}
-            open={active && openModeId === reference.id}
-            onOpenChange={(open) => setOpenModeId(open ? reference.id : null)}
-            onChange={(label) => {
-              const mode = MODES.find((item) => item.label === label);
-              if (mode)
-                state().setPreciseReferenceType(reference.id, mode.value);
-            }}
-          />
-          <ReferenceSlider
-            label="Strength"
-            value={reference.strength}
-            min={0}
-            max={1}
-            step={0.05}
-            precision={2}
-            onChange={(value) =>
-              state().setPreciseReferenceStrength(reference.id, value)
-            }
-          />
-          <ReferenceSlider
-            label="Fidelity"
-            value={reference.fidelity}
-            min={0}
-            max={1}
-            step={0.05}
-            precision={2}
-            onChange={(value) =>
-              state().setPreciseReferenceFidelity(reference.id, value)
-            }
-          />
-        </ReferenceItem>
+          reference={reference}
+          index={index}
+          modeOpen={active && openModeId === reference.id}
+          onModeOpenChange={setModeOpen}
+        />
       ))}
     </ReferenceSection>
+  );
+});
+
+const PreciseReferenceRow = memo(function PreciseReferenceRow({
+  reference,
+  index,
+  modeOpen,
+  onModeOpenChange,
+}: {
+  reference: PreciseReference;
+  index: number;
+  modeOpen: boolean;
+  onModeOpenChange: (id: string, open: boolean) => void;
+}) {
+  const state = useGenerationStore.getState;
+  return (
+    <ReferenceItem
+      first={index === 0}
+      name={`Precise ${index + 1}`}
+      uri={
+        resolvePreciseReferenceThumbnailUri(reference) ??
+        resolvePreciseReferenceImageUri(reference)
+      }
+      enabled={reference.enabled}
+      cost={reference.enabled ? `${PRECISE_REFERENCE_COST} Anlas` : "Off"}
+      onToggle={(value) =>
+        state().setPreciseReferenceEnabled(reference.id, value)
+      }
+      onRemove={() => void state().removePreciseReference(reference.id)}
+    >
+      <SheetSelect
+        accessibilityLabel={`Precise ${index + 1} Mode`}
+        value={
+          MODES.find((mode) => mode.value === reference.referenceType)!.label
+        }
+        options={MODE_LABELS}
+        open={modeOpen}
+        onOpenChange={(open) => onModeOpenChange(reference.id, open)}
+        onChange={(label) => {
+          const mode = MODES.find((item) => item.label === label);
+          if (mode) state().setPreciseReferenceType(reference.id, mode.value);
+        }}
+      />
+      <ReferenceSlider
+        label="Strength"
+        value={reference.strength}
+        min={0}
+        max={1}
+        step={0.05}
+        precision={2}
+        onChange={(value) =>
+          state().setPreciseReferenceStrength(reference.id, value)
+        }
+      />
+      <ReferenceSlider
+        label="Fidelity"
+        value={reference.fidelity}
+        min={0}
+        max={1}
+        step={0.05}
+        precision={2}
+        onChange={(value) =>
+          state().setPreciseReferenceFidelity(reference.id, value)
+        }
+      />
+    </ReferenceItem>
   );
 });

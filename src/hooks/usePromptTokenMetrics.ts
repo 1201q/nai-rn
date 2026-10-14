@@ -50,6 +50,10 @@ export function usePromptTokenMetrics(
   const chunks = usePromptChunkStore((state) => state.chunks);
   const [metrics, setMetrics] = useState(() => createInitialMetrics(model));
   const requestIdRef = useRef(0);
+  const targetScope = target.scope;
+  const targetChannel = target.channel;
+  const targetCharacterId =
+    target.scope === "character" ? target.characterId : "";
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
@@ -76,7 +80,13 @@ export function usePromptTokenMetrics(
           characterPrompts,
           chunks,
         },
-        target,
+        targetScope === "base"
+          ? { scope: targetScope, channel: targetChannel }
+          : {
+              scope: targetScope,
+              channel: targetChannel,
+              characterId: targetCharacterId,
+            },
         draftText,
       )
         .then((next) => {
@@ -104,7 +114,9 @@ export function usePromptTokenMetrics(
     negativePrompt,
     prompt,
     qualityPreset,
-    target,
+    targetScope,
+    targetChannel,
+    targetCharacterId,
     transparentBackground,
     ucPreset,
   ]);

@@ -46,6 +46,9 @@ export function resolvePromptChunks(
   source: string,
   chunks: readonly PromptChunk[],
 ): PromptChunkResolution {
+  if (!source.includes("!macro:")) {
+    return { text: source, missing: [], circular: [] };
+  }
   const byName = new Map(chunks.map((chunk) => [chunk.name, chunk]));
   const missing = new Set<string>();
   const circular = new Set<string>();

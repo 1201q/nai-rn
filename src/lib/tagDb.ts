@@ -24,8 +24,11 @@ const DB_NAME = "tags-v4.db";
 const OLD_DB_NAME = "tags-v3.db";
 
 const MIN_PREFIX = 2;
+const SEARCH_CACHE_LIMIT = 32;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+// The bundled dictionary is immutable. Share repeated and in-flight searches.
+const searchCache = new Map<string, Promise<TagSuggestion[]>>();
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
@@ -71,6 +74,30 @@ export async function searchTags(
   const q = prefix.trim().toLowerCase();
   if (!type && q.length < MIN_PREFIX) return [];
 
+  const key = JSON.stringify([q, type, limit]);
+  const cached = searchCache.get(key);
+  if (cached) {
+    searchCache.delete(key);
+    searchCache.set(key, cached);
+    return cached;
+  }
+
+  const search = queryTags(q, type, limit).catch((error: unknown) => {
+    if (searchCache.get(key) === search) searchCache.delete(key);
+    throw error;
+  });
+  searchCache.set(key, search);
+  if (searchCache.size > SEARCH_CACHE_LIMIT) {
+    searchCache.delete(searchCache.keys().next().value!);
+  }
+  return search;
+}
+
+async function queryTags(
+  q: string,
+  type: TagType | null,
+  limit: number,
+): Promise<TagSuggestion[]> {
   const db = await getDb();
 
   let rows: TagRow[];

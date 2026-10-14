@@ -165,7 +165,7 @@ class GenerationImagePipelineModule : Module() {
       original.writeBytes(bytes)
       sendEvent("image", mapOf("requestId" to id, "type" to "final", "imageUri" to originalUri, "step" to null, "generationId" to finalGenerationId))
       val metadata = pngMetadata(bytes)
-      val hasThumbnail = withContext(Dispatchers.Default) { createThumbnail(original, thumbnail) }
+      val hasThumbnail = withContext(Dispatchers.Default) { createThumbnail(bytes, thumbnail) }
       succeeded = true
       return mapOf("originalUri" to originalUri, "thumbnailUri" to if (hasThumbnail) thumbnailUri else null, "metadata" to metadata)
     } catch (error: Exception) {
@@ -182,15 +182,22 @@ class GenerationImagePipelineModule : Module() {
     }
   }
 
-  private fun createThumbnail(original: File, target: File): Boolean {
+  private fun createThumbnail(bytes: ByteArray, target: File): Boolean {
     var source: Bitmap? = null
     var scaled: Bitmap? = null
     var flattened: Bitmap? = null
     return try {
-      source = BitmapFactory.decodeFile(original.path) ?: return false
+      val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+      BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+      val width = options.outWidth
+      val height = options.outHeight
+      if (width <= 0 || height <= 0) return false
+      options.inSampleSize = thumbnailSampleSize(width, height)
+      options.inJustDecodeBounds = false
+      source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return false
       // Aspect-fit: the long side becomes 512px and nothing is cropped.
-      val factor = 512.0 / maxOf(source.width, source.height)
-      scaled = Bitmap.createScaledBitmap(source, Math.round(source.width * factor).toInt(), Math.round(source.height * factor).toInt(), true)
+      val factor = THUMBNAIL_SIZE.toDouble() / maxOf(width, height)
+      scaled = Bitmap.createScaledBitmap(source, Math.round(width * factor).toInt(), Math.round(height * factor).toInt(), true)
       // JPEG has no alpha: transparent areas would turn black, so show them on a checkerboard.
       flattened = if (scaled.hasAlpha()) onCheckerboard(scaled) else scaled
       target.parentFile?.mkdirs()
@@ -224,6 +231,16 @@ class GenerationImagePipelineModule : Module() {
     return result
   }
 }
+
+// Keep enough decoded pixels for the aspect-fit thumbnail, without decoding the full image.
+internal fun thumbnailSampleSize(width: Int, height: Int): Int {
+  val longSide = maxOf(width, height)
+  var sampleSize = 1
+  while (longSide / sampleSize / 2 >= THUMBNAIL_SIZE) sampleSize *= 2
+  return sampleSize
+}
+
+private const val THUMBNAIL_SIZE = 512
 
 // Thumbnail checkerboard for transparent images (tile size in thumbnail pixels).
 private const val CHECKER_SIZE = 16

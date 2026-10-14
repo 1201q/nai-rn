@@ -58,18 +58,25 @@ export function decodeStealthAlpha(
 export function extractStealthMetadata(
   bytes: Uint8Array,
 ): Record<string, string> {
-  const image = Skia.Image.MakeImageFromEncoded(Skia.Data.fromBytes(bytes));
-  if (!image) return {};
+  const data = Skia.Data.fromBytes(bytes);
+  let image: ReturnType<typeof Skia.Image.MakeImageFromEncoded> = null;
+  try {
+    image = Skia.Image.MakeImageFromEncoded(data);
+    if (!image) return {};
 
-  const width = image.width();
-  const height = image.height();
-  const pixels = image.readPixels(0, 0, {
-    width,
-    height,
-    colorType: ColorType.RGBA_8888,
-    alphaType: AlphaType.Unpremul,
-  });
-  if (!(pixels instanceof Uint8Array)) return {};
+    const width = image.width();
+    const height = image.height();
+    const pixels = image.readPixels(0, 0, {
+      width,
+      height,
+      colorType: ColorType.RGBA_8888,
+      alphaType: AlphaType.Unpremul,
+    });
+    if (!(pixels instanceof Uint8Array)) return {};
 
-  return decodeStealthAlpha(pixels, width, height);
+    return decodeStealthAlpha(pixels, width, height);
+  } finally {
+    image?.dispose();
+    data.dispose();
+  }
 }

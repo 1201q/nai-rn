@@ -1,5 +1,11 @@
 import { File } from "expo-file-system";
-import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
+import {
+  ImageFormat,
+  Skia,
+  rect,
+  type SkImage,
+  type SkSurface,
+} from "@shopify/react-native-skia";
 
 import { createInitializeOnce } from "./initializeOnce";
 import {
@@ -144,57 +150,65 @@ async function createProcessedReferenceImage(
   sourceHeight: number,
   processedFileName: string,
 ) {
-  const sourceFile = new File(sourceUri);
-  const sourceBase64 = await sourceFile.base64();
-  const data = Skia.Data.fromBase64(sourceBase64);
-  const image = Skia.Image.MakeImageFromEncoded(data);
-  if (!image) {
-    throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
+  const data = Skia.Data.fromBytes(await new File(sourceUri).bytes());
+  let image: SkImage | null = null;
+  let surface: SkSurface | null = null;
+  let snapshot: SkImage | null = null;
+  try {
+    image = Skia.Image.MakeImageFromEncoded(data);
+    if (!image) {
+      throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
+    }
+
+    const target = getPreciseReferenceTargetSize(sourceWidth, sourceHeight);
+    surface = Skia.Surface.MakeOffscreen(target.width, target.height);
+    if (!surface) {
+      throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
+    }
+
+    const canvas = surface.getCanvas();
+    canvas.clear(Skia.Color("#000000"));
+    const destination = getContainRect(
+      image.width(),
+      image.height(),
+      target.width,
+      target.height,
+    );
+    canvas.drawImageRect(
+      image,
+      rect(0, 0, image.width(), image.height()),
+      rect(destination.x, destination.y, destination.width, destination.height),
+      Skia.Paint(),
+      false,
+    );
+    surface.flush();
+
+    snapshot = surface.makeImageSnapshot();
+    const processedBytes = snapshot.encodeToBytes(
+      ImageFormat.JPEG,
+      PROCESSED_JPEG_QUALITY,
+    );
+    if (!processedBytes?.length) {
+      throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
+    }
+
+    const processedFile = referenceFiles.file(
+      `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+    );
+    processedFile.create({ overwrite: true });
+    processedFile.write(processedBytes);
+
+    return {
+      path: `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
+      width: target.width,
+      height: target.height,
+    };
+  } finally {
+    snapshot?.dispose();
+    surface?.dispose();
+    image?.dispose();
+    data.dispose();
   }
-
-  const target = getPreciseReferenceTargetSize(sourceWidth, sourceHeight);
-  const surface = Skia.Surface.MakeOffscreen(target.width, target.height);
-  if (!surface) {
-    throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
-  }
-
-  const canvas = surface.getCanvas();
-  canvas.clear(Skia.Color("#000000"));
-  const destination = getContainRect(
-    image.width(),
-    image.height(),
-    target.width,
-    target.height,
-  );
-  canvas.drawImageRect(
-    image,
-    rect(0, 0, image.width(), image.height()),
-    rect(destination.x, destination.y, destination.width, destination.height),
-    Skia.Paint(),
-    false,
-  );
-  surface.flush();
-
-  const snapshot = surface.makeImageSnapshot();
-  const processedBase64 = snapshot.encodeToBase64(
-    ImageFormat.JPEG,
-    PROCESSED_JPEG_QUALITY,
-  );
-  if (!processedBase64) {
-    throw new Error("Precise Reference 이미지를 처리하지 못했습니다.");
-  }
-
-  const processedFile = referenceFiles.file(
-    `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
-  );
-  processedFile.create({ overwrite: true });
-  processedFile.write(processedBase64, { encoding: "base64" });
-
-  return {
-    path: `${PRECISE_DIR}/${PROCESSED_DIR}/${processedFileName}`,
-    width: target.width,
-    height: target.height,
-  };
 }
 
 async function initializePreciseReferenceStorage() {

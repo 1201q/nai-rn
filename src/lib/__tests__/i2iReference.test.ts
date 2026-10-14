@@ -1,5 +1,9 @@
+import { File } from "expo-file-system";
+import { ImageFormat, Skia } from "@shopify/react-native-skia";
+
 import {
   deleteStoredI2IReference,
+  renderI2IRequestImageBase64,
   resolveStoredI2IReference,
   saveI2IReferenceImage,
 } from "../i2iReference";
@@ -7,7 +11,22 @@ import {
 type TestGlobals = typeof globalThis & { __i2iTestFiles?: Map<string, string> };
 const testGlobals = globalThis as TestGlobals;
 
-jest.mock("@shopify/react-native-skia", () => ({}));
+jest.mock("@shopify/react-native-skia", () => ({
+  ImageFormat: { PNG: "png" },
+  rect: (x: number, y: number, width: number, height: number) => ({
+    x,
+    y,
+    width,
+    height,
+  }),
+  Skia: {
+    Data: { fromBytes: jest.fn() },
+    Image: { MakeImageFromEncoded: jest.fn() },
+    Surface: { MakeOffscreen: jest.fn() },
+    Color: jest.fn(() => 0),
+    Paint: () => ({}),
+  },
+}));
 jest.mock("expo-file-system", () => {
   const files = () => (globalThis as TestGlobals).__i2iTestFiles!;
   class Directory {
@@ -45,8 +64,87 @@ jest.mock("expo-file-system", () => {
       if (content === undefined) throw new Error(`missing ${this.path}`);
       return content;
     }
+    async bytes() {
+      const content = files().get(this.path);
+      if (content === undefined) throw new Error(`missing ${this.path}`);
+      return Uint8Array.from(content, (char) => char.charCodeAt(0));
+    }
   }
   return { Directory, File, Paths: { document: { path: "doc" } } };
+});
+
+describe("renderI2IRequestImageBase64", () => {
+  const disposalOrder: string[] = [];
+  const data = { dispose: jest.fn(() => disposalOrder.push("data")) };
+  const image = {
+    width: () => 832,
+    height: () => 1216,
+    dispose: jest.fn(() => disposalOrder.push("image")),
+  };
+  const canvas = { clear: jest.fn(), drawImageRect: jest.fn() };
+  const snapshot = {
+    encodeToBase64: jest.fn(),
+    dispose: jest.fn(() => disposalOrder.push("snapshot")),
+  };
+  const surface = {
+    getCanvas: () => canvas,
+    flush: jest.fn(),
+    makeImageSnapshot: jest.fn(() => snapshot),
+    dispose: jest.fn(() => disposalOrder.push("surface")),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    disposalOrder.length = 0;
+    jest.mocked(Skia.Data.fromBytes).mockReturnValue(data as never);
+    jest
+      .mocked(Skia.Image.MakeImageFromEncoded)
+      .mockReturnValue(image as never);
+    jest.mocked(Skia.Surface.MakeOffscreen).mockReturnValue(surface as never);
+    snapshot.encodeToBase64.mockReturnValue("request-png");
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test("reads source bytes, stretches on white, and releases resources after PNG encoding", async () => {
+    const base64Read = jest.spyOn(File.prototype, "base64");
+    const result = await renderI2IRequestImageBase64("picked", 1024, 1536);
+
+    expect(result).toBe("request-png");
+    expect(base64Read).not.toHaveBeenCalled();
+    expect(Skia.Data.fromBytes).toHaveBeenCalledWith(
+      Uint8Array.from("source-image", (char) => char.charCodeAt(0)),
+    );
+    expect(Skia.Color).toHaveBeenCalledWith("#FFFFFF");
+    expect(canvas.drawImageRect).toHaveBeenCalledWith(
+      image,
+      { x: 0, y: 0, width: 832, height: 1216 },
+      { x: 0, y: 0, width: 1024, height: 1536 },
+      {},
+      false,
+    );
+    expect(snapshot.encodeToBase64).toHaveBeenCalledWith(ImageFormat.PNG);
+    expect(disposalOrder).toEqual(["snapshot", "surface", "image", "data"]);
+  });
+
+  test("releases every allocated resource when encoding fails", async () => {
+    snapshot.encodeToBase64.mockImplementationOnce(() => {
+      throw new Error("encode failed");
+    });
+    await expect(
+      renderI2IRequestImageBase64("picked", 1024, 1536),
+    ).rejects.toThrow("encode failed");
+    expect(disposalOrder).toEqual(["snapshot", "surface", "image", "data"]);
+  });
+
+  test("does not allocate a surface for an undecodable source", async () => {
+    jest.mocked(Skia.Image.MakeImageFromEncoded).mockReturnValue(null);
+    await expect(
+      renderI2IRequestImageBase64("picked", 1024, 1536),
+    ).rejects.toThrow("I2I");
+    expect(Skia.Surface.MakeOffscreen).not.toHaveBeenCalled();
+    expect(disposalOrder).toEqual(["data"]);
+  });
 });
 
 const ROOT = "doc/nai-references";

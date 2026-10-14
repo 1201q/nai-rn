@@ -20,11 +20,14 @@ function chunk(name: string, content: string, id = name): PromptChunk {
 
 describe("resolvePromptChunks", () => {
   it("returns text without references unchanged", () => {
-    expect(resolvePromptChunks("1girl, {smile}", [])).toEqual({
+    const chunks = [chunk("Style", "oil painting")];
+    const scanChunks = jest.spyOn(chunks, "map");
+    expect(resolvePromptChunks("1girl, {smile}", chunks)).toEqual({
       text: "1girl, {smile}",
       missing: [],
       circular: [],
     });
+    expect(scanChunks).not.toHaveBeenCalled();
   });
 
   it("expands direct, repeated and nested references", () => {

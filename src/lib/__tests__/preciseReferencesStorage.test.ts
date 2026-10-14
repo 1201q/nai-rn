@@ -16,6 +16,8 @@ type TestGlobals = typeof globalThis & {
   __preciseTestDecodeFails?: boolean;
   __preciseTestThumbnailFails?: boolean;
   __preciseTestInsertFails?: boolean;
+  __preciseTestEncodingFails?: boolean;
+  __preciseTestDisposals?: string[];
 };
 const testGlobals = globalThis as TestGlobals;
 
@@ -69,8 +71,11 @@ jest.mock("expo-file-system", () => {
     create() {
       files().set(this.path, "");
     }
-    write(content: string) {
-      files().set(this.path, content);
+    write(content: string | Uint8Array) {
+      files().set(
+        this.path,
+        typeof content === "string" ? content : String.fromCharCode(...content),
+      );
     }
     delete() {
       files().delete(this.path);
@@ -79,6 +84,11 @@ jest.mock("expo-file-system", () => {
       const content = files().get(this.path);
       if (content === undefined) throw new Error(`missing ${this.path}`);
       return content;
+    }
+    async bytes() {
+      const content = files().get(this.path);
+      if (content === undefined) throw new Error(`missing ${this.path}`);
+      return Uint8Array.from(content, (char) => char.charCodeAt(0));
     }
   }
   return { Directory, File, Paths: { document: { path: "doc" } } };
@@ -98,18 +108,42 @@ jest.mock("@shopify/react-native-skia", () => ({
   ImageFormat: { JPEG: "jpeg", PNG: "png" },
   rect: () => ({}),
   Skia: {
-    Data: { fromBase64: () => ({}) },
+    Data: {
+      fromBytes: () => ({
+        dispose: () =>
+          (globalThis as TestGlobals).__preciseTestDisposals!.push("data"),
+      }),
+    },
     Image: {
       MakeImageFromEncoded: () =>
         (globalThis as TestGlobals).__preciseTestDecodeFails
           ? null
-          : { width: () => 832, height: () => 1216 },
+          : {
+              width: () => 832,
+              height: () => 1216,
+              dispose: () =>
+                (globalThis as TestGlobals).__preciseTestDisposals!.push(
+                  "image",
+                ),
+            },
     },
     Surface: {
       MakeOffscreen: () => ({
         getCanvas: () => ({ clear: () => {}, drawImageRect: () => {} }),
         flush: () => {},
-        makeImageSnapshot: () => ({ encodeToBase64: () => "processed" }),
+        makeImageSnapshot: () => ({
+          encodeToBytes: () => {
+            if ((globalThis as TestGlobals).__preciseTestEncodingFails)
+              throw new Error("encode failed");
+            return Uint8Array.from("processed", (char) => char.charCodeAt(0));
+          },
+          dispose: () =>
+            (globalThis as TestGlobals).__preciseTestDisposals!.push(
+              "snapshot",
+            ),
+        }),
+        dispose: () =>
+          (globalThis as TestGlobals).__preciseTestDisposals!.push("surface"),
       }),
     },
     Color: () => 0,
@@ -154,6 +188,8 @@ beforeEach(() => {
   testGlobals.__preciseTestDecodeFails = false;
   testGlobals.__preciseTestThumbnailFails = false;
   testGlobals.__preciseTestInsertFails = false;
+  testGlobals.__preciseTestEncodingFails = false;
+  testGlobals.__preciseTestDisposals = [];
 });
 
 afterEach(() => {
@@ -183,6 +219,12 @@ test("adds a reference with original, thumbnail and processed files", async () =
     `${ROOT}/thumbnails/${added.id}.jpg`,
   ]);
   expect(testGlobals.__preciseTestFiles!.has("tmp/thumbnail.jpg")).toBe(false);
+  expect(testGlobals.__preciseTestDisposals).toEqual([
+    "snapshot",
+    "surface",
+    "image",
+    "data",
+  ]);
   await expect(module.listPreciseReferences()).resolves.toEqual([added]);
   await expect(module.readPreciseReferenceProcessedBase64(added)).resolves.toBe(
     "processed",
@@ -211,6 +253,24 @@ test("removes every new file when processing fails", async () => {
     "Precise Reference 이미지를 처리하지 못했습니다.",
   );
 
+  expect(storedFiles()).toEqual([]);
+  expect(testGlobals.__preciseTestDisposals).toEqual(["data"]);
+  await expect(module.listPreciseReferences()).resolves.toEqual([]);
+});
+
+test("releases native resources and removes new files when JPEG encoding fails", async () => {
+  testGlobals.__preciseTestEncodingFails = true;
+  const module = loadModule();
+
+  await expect(module.addPreciseReferenceFromImage(INPUT)).rejects.toThrow(
+    "encode failed",
+  );
+  expect(testGlobals.__preciseTestDisposals).toEqual([
+    "snapshot",
+    "surface",
+    "image",
+    "data",
+  ]);
   expect(storedFiles()).toEqual([]);
   await expect(module.listPreciseReferences()).resolves.toEqual([]);
 });

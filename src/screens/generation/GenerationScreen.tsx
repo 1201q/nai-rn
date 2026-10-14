@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
@@ -197,6 +203,13 @@ export function GenerationScreen() {
   );
 }
 
+function PromptSheetWithPreview(
+  props: Omit<ComponentProps<typeof PromptSheetHost>, "promptPreview">,
+) {
+  const prompt = useGenerationStore((s) => s.prompt);
+  return <PromptSheetHost {...props} promptPreview={prompt} />;
+}
+
 function GenerationScreenContent() {
   const { topInset, bottomInset, actionBarHeight, promptCollapsedHeight } =
     useGenerationChromeMetrics();
@@ -206,7 +219,6 @@ function GenerationScreenContent() {
   const isV5 = useGenerationStore(
     (s) => getModelCapabilities(s.model).v5Request,
   );
-  const prompt = useGenerationStore((s) => s.prompt);
   const currentGeneration = useGenerationStore((s) => s.currentGeneration);
   const [utilitySheet, setUtilitySheet] = useState<UtilitySheet | null>(null);
   const [extractedMetadata, setExtractedMetadata] = useState<{
@@ -473,10 +485,9 @@ function GenerationScreenContent() {
         </Pressable>
       </View>
 
-      <PromptSheetHost
+      <PromptSheetWithPreview
         onEditCharacterPositions={openPositionEditor}
         positionEditing={isPositionEditing}
-        promptPreview={prompt}
         promptStage={promptStage}
         predictiveBackProgress={promptBackProgress}
         onPromptStageChange={handlePromptStageChange}

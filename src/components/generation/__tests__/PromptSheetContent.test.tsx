@@ -9,6 +9,8 @@ import {
 import { useGenerationStore } from "../../../store/generationStore";
 import { PromptComposerCard, PromptSheetContent } from "../PromptSheetContent";
 
+const mockDraftInputRender = jest.fn();
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: jest.fn(() => ({ top: 0, right: 0, bottom: 0, left: 0 })),
 }));
@@ -81,6 +83,7 @@ jest.mock("../../forms/PromptHighlightTextInput", () => {
       props: import("react-native").TextInputProps,
       ref: import("react").ForwardedRef<import("react-native").TextInput>,
     ) {
+      mockDraftInputRender(props.accessibilityLabel);
       return React.createElement(TextInput, { ...props, ref });
     }),
   };
@@ -153,11 +156,44 @@ jest.mock("../../../hooks/usePromptAutocomplete", () => ({
 
 describe("PromptComposerCard", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     const state = useGenerationStore.getState();
     state.setPrompt("base");
     state.setNegativePrompt("negative");
     state.setQualityPreset("standard");
     state.setUcPreset(0);
+  });
+
+  it("updates only the edited input in split mode and still commits both drafts", async () => {
+    const screen = await render(
+      <GenerationInputCommitProvider>
+        <PromptComposerCard active />
+      </GenerationInputCommitProvider>,
+    );
+    await fireEvent.press(screen.getByLabelText("Undesired Content"));
+    await fireEvent.press(screen.getByLabelText("Split prompt로 전환"));
+    mockDraftInputRender.mockClear();
+
+    await fireEvent.changeText(
+      screen.getByLabelText("Base prompt"),
+      "base edit",
+    );
+    expect(mockDraftInputRender.mock.calls).toEqual([["Base prompt"]]);
+    expect(screen.getByLabelText("Negative prompt").props.value).toBe(
+      "negative",
+    );
+    mockDraftInputRender.mockClear();
+
+    await fireEvent.changeText(
+      screen.getByLabelText("Negative prompt"),
+      "UC edit",
+    );
+    expect(mockDraftInputRender.mock.calls).toEqual([["Negative prompt"]]);
+    expect(screen.getByLabelText("Base prompt").props.value).toBe("base edit");
+
+    await fireEvent.press(screen.getByLabelText("Merged prompt로 전환"));
+    expect(useGenerationStore.getState().prompt).toBe("base edit");
+    expect(useGenerationStore.getState().negativePrompt).toBe("UC edit");
   });
 
   test.each([0, 24, 34])(

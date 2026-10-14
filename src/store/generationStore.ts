@@ -119,13 +119,22 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setCharacterPromptPosition: (id, x, y) => {
     const clampedX = Math.max(0, Math.min(1, x));
     const clampedY = Math.max(0, Math.min(1, y));
-    set((state) => ({
-      characterPrompts: state.characterPrompts.map((item) =>
-        item.id === id
-          ? { ...item, position: { x: clampedX, y: clampedY } }
-          : item,
-      ),
-    }));
+    set((state) => {
+      const character = state.characterPrompts.find((item) => item.id === id);
+      if (
+        !character ||
+        (character.position.x === clampedX && character.position.y === clampedY)
+      ) {
+        return state;
+      }
+      return {
+        characterPrompts: state.characterPrompts.map((item) =>
+          item.id === id
+            ? { ...item, position: { x: clampedX, y: clampedY } }
+            : item,
+        ),
+      };
+    });
   },
 
   model: DEFAULT_MODEL,

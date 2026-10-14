@@ -48,7 +48,7 @@ const DIVIDER_DASHES = Array.from({ length: 64 }, (_, index) => index);
 const BASE_POSITIVE = { scope: "base", channel: "positive" } as const;
 const BASE_NEGATIVE = { scope: "base", channel: "negative" } as const;
 
-function PromptDraftInput({
+const PromptDraftInput = memo(function PromptDraftInput({
   channel,
   value,
   height,
@@ -117,7 +117,7 @@ function PromptDraftInput({
       />
     </View>
   );
-}
+});
 
 export const PromptComposerCard = memo(function PromptComposerCard({
   active,

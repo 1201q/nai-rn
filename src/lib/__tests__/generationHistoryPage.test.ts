@@ -2,7 +2,20 @@ import {
   buildGenerationHistoryPageQuery,
   createGenerationHistoryPage,
   mergeGenerationHistoryRecords,
+  type GenerationHistoryCursor,
 } from "../generationHistoryPage";
+
+type SqliteDatabase = {
+  exec(sql: string): void;
+  prepare(sql: string): {
+    run(...params: (string | number)[]): unknown;
+    all(...params: (string | number)[]): Record<string, unknown>[];
+  };
+  close(): void;
+};
+const { DatabaseSync } = require("node:sqlite") as {
+  DatabaseSync: new (path: string) => SqliteDatabase;
+};
 
 function createRecord(createdAt: number, id: string) {
   return { createdAt, id };
@@ -23,9 +36,8 @@ describe("generation history page", () => {
       3,
     );
 
-    expect(query.sql).toContain("created_at < ?");
-    expect(query.sql).toContain("created_at = ? AND id < ?");
-    expect(query.params).toEqual([100, 100, "gen_b", 4]);
+    expect(query.sql).toContain("(created_at, id) < (?, ?)");
+    expect(query.params).toEqual([100, "gen_b", 4]);
   });
 
   test("returns a cursor and hasMore from the lookahead record", () => {
@@ -75,5 +87,92 @@ describe("generation history page", () => {
       "gen_b",
       "gen_a",
     ]);
+  });
+});
+
+describe("generation history SQLite pagination", () => {
+  let db: SqliteDatabase;
+
+  beforeEach(() => {
+    db = new DatabaseSync(":memory:");
+    db.exec(`
+      CREATE TABLE generations (
+        id TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        prompt TEXT NOT NULL
+      );
+      CREATE INDEX generations_created_at_id_idx
+        ON generations (created_at DESC, id DESC);
+    `);
+    const insert = db.prepare("INSERT INTO generations VALUES (?, ?, ?)");
+    for (let i = 0; i < 20; i += 1) {
+      insert.run(
+        `gen_${String(i).padStart(2, "0")}`,
+        Math.floor(i / 4),
+        "prompt",
+      );
+    }
+  });
+
+  afterEach(() => db.close());
+
+  test("reads every record once across timestamp ties", () => {
+    const ids: string[] = [];
+    let cursor: GenerationHistoryCursor | null = null;
+    let hasMore = true;
+    for (let pageIndex = 0; pageIndex < 20 && hasMore; pageIndex += 1) {
+      const query = buildGenerationHistoryPageQuery(cursor, 3);
+      const rows = db.prepare(query.sql).all(...query.params);
+      const page = createGenerationHistoryPage(
+        rows.map((row) => ({
+          createdAt: row.created_at as number,
+          id: row.id as string,
+        })),
+        3,
+      );
+      ids.push(...page.records.map((record) => record.id));
+      cursor = page.nextCursor;
+      hasMore = page.hasMore;
+    }
+
+    expect(hasMore).toBe(false);
+    expect(ids).toEqual(
+      Array.from(
+        { length: 20 },
+        (_, i) => `gen_${String(19 - i).padStart(2, "0")}`,
+      ),
+    );
+  });
+
+  test("continues below a deleted cursor record", () => {
+    db.prepare("DELETE FROM generations WHERE id = ?").run("gen_18");
+    const query = buildGenerationHistoryPageQuery(
+      { createdAt: 4, id: "gen_18" },
+      3,
+    );
+
+    expect(
+      db
+        .prepare(query.sql)
+        .all(...query.params)
+        .map((row) => row.id),
+    ).toEqual(["gen_17", "gen_16", "gen_15", "gen_14"]);
+  });
+
+  test("seeks the cursor through the composite index without sorting", () => {
+    const query = buildGenerationHistoryPageQuery({
+      createdAt: 1,
+      id: "gen_05",
+    });
+    const plan = db
+      .prepare(`EXPLAIN QUERY PLAN ${query.sql}`)
+      .all(...query.params);
+    const details = plan.map((row) => row.detail as string).join("\n");
+
+    expect(details).toContain(
+      "SEARCH generations USING INDEX generations_created_at_id_idx",
+    );
+    expect(details).not.toContain("SCAN generations");
+    expect(details).not.toContain("TEMP B-TREE");
   });
 });

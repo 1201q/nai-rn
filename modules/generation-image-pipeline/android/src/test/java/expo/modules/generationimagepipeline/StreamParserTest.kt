@@ -9,6 +9,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class StreamParserTest {
+  @Test fun thumbnailDecodeKeepsEnoughPixelsAtBothOrientations() {
+    assertEquals(1, thumbnailSampleSize(256, 128))
+    assertEquals(1, thumbnailSampleSize(512, 512))
+    assertEquals(1, thumbnailSampleSize(1023, 832))
+    assertEquals(2, thumbnailSampleSize(1216, 832))
+    assertEquals(2, thumbnailSampleSize(832, 1216))
+    assertEquals(8, thumbnailSampleSize(4096, 3072))
+    assertEquals(8, thumbnailSampleSize(3072, 4096))
+    for (longSide in 512..8192) {
+      val sample = thumbnailSampleSize(longSide, 256)
+      assertEquals(0, sample and (sample - 1))
+      assertTrue(longSide / sample >= 512)
+      assertTrue(longSide / sample / 2 < 512)
+    }
+  }
+
   @Test fun fragmentedUtf8AndMultipleEvents() {
     val text = ": keepalive\r\nevent: message\r\ndata: {\"event_type\":\"intermediate\",\r\ndata: \"message\":\"한글\",\"samp_ix\":0}\r\n\r\n" +
       "data: {\"samp_ix\":1}\n\ndata: [DONE]\n\ndata: {\"event_type\":\"final\"}"

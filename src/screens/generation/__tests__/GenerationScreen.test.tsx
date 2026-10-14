@@ -15,6 +15,7 @@ import type { SharedValue } from "react-native-reanimated";
 const mockUtilityVisibility = jest.fn<void, [(visible: boolean) => void]>();
 const mockBackHandlers = jest.fn<void, [boolean, PredictiveBackHandlers]>();
 const mockUtilityProgress = jest.fn<void, [SharedValue<number>]>();
+const mockCanvasRender = jest.fn();
 
 type MockGenerationState = {
   model?: string;
@@ -162,6 +163,7 @@ jest.mock("../../../native/predictiveBack", () => ({
 
 jest.mock("../GenerationCanvas", () => ({
   GenerationCanvas: ({ onOpenMetadata }: { onOpenMetadata: () => void }) => {
+    mockCanvasRender();
     const React = require("react") as typeof import("react");
     const { Pressable } =
       require("react-native") as typeof import("react-native");
@@ -200,11 +202,13 @@ jest.mock("../GenerationSheetScaffold", () => {
 
   return {
     PromptSheetHost: ({
+      promptPreview,
       promptStage,
       onPromptStageChange,
       onEditCharacterPositions,
       positionEditing,
     }: {
+      promptPreview: string;
       promptStage: "collapsed" | "half" | "full";
       onPromptStageChange: (stage: "collapsed" | "half" | "full") => void;
       onEditCharacterPositions: (characterId: string | null) => void;
@@ -213,6 +217,7 @@ jest.mock("../GenerationSheetScaffold", () => {
       React.createElement(
         View,
         null,
+        React.createElement(Text, { testID: "prompt-preview" }, promptPreview),
         React.createElement(Text, { testID: "prompt-stage" }, promptStage),
         React.createElement(Pressable, {
           accessibilityLabel: "Prompt 테스트 열기",
@@ -288,6 +293,20 @@ describe("GenerationScreen generation acceptance", () => {
     jest.clearAllMocks();
     mockInsets.mockReturnValue({ top: 0, right: 0, bottom: 0, left: 0 });
     useGenerationStore.setState(initialState, true);
+  });
+
+  test("prompt edits update the preview without rerendering canvas or utility sheets", async () => {
+    const screen = await render(<GenerationScreen />);
+    const canvasRenders = mockCanvasRender.mock.calls.length;
+    const utilityRenders = mockUtilityVisibility.mock.calls.length;
+
+    for (const prompt of ["updated prompt", "updated prompt, detailed"]) {
+      await act(() => useGenerationStore.setState({ prompt }));
+      expect(screen.getByTestId("prompt-preview").props.children).toBe(prompt);
+    }
+
+    expect(mockCanvasRender).toHaveBeenCalledTimes(canvasRenders);
+    expect(mockUtilityVisibility).toHaveBeenCalledTimes(utilityRenders);
   });
 
   test("predictive back commit preserves the released scale while cancel restores it", async () => {

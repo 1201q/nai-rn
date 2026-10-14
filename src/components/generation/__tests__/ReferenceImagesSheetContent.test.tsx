@@ -14,6 +14,19 @@ import {
   VibeReferenceCard,
 } from "../ReferenceImagesSheetContent";
 
+const mockReferenceImageRender = jest.fn();
+
+jest.mock("expo-image", () => {
+  const React = require("react") as typeof import("react");
+  const { View } = require("react-native") as typeof import("react-native");
+  return {
+    Image: (props: import("react-native").ViewProps) => {
+      mockReferenceImageRender(props.accessibilityLabel);
+      return React.createElement(View, props);
+    },
+  };
+});
+
 jest.mock("expo-file-system", () => ({ File: jest.fn() }));
 jest.mock("sonner-native", () => ({
   toast: { info: jest.fn(), error: jest.fn() },
@@ -144,6 +157,7 @@ beforeEach(() => {
     removeVibeReference: jest.fn(),
     setNormalizeVibeStrengths: jest.fn(),
     setPreciseReferenceType: jest.fn(),
+    setPreciseReferenceEnabled: jest.fn(),
     setPreciseReferenceFidelity: jest.fn(),
   });
   jest
@@ -247,6 +261,67 @@ describe("Metadata Extract", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(onExtract).not.toHaveBeenCalled();
   });
+});
+
+it.each(["vibe", "precise"] as const)(
+  "rerenders only the changed %s row and updates its index after removal",
+  async (kind) => {
+    const key = kind === "vibe" ? "vibeReferences" : "preciseReferences";
+    const title = kind === "vibe" ? "Vibe" : "Precise";
+    const references = [1, 2].map((id) => ({
+      id: `ref-${id}`,
+      enabled: true,
+      strength: 0.6,
+      informationExtracted: 1,
+      referenceType: "character&style",
+      fidelity: 1,
+    }));
+    useGenerationStore.setState({ [key]: references } as never);
+    const screen = await render(
+      kind === "vibe" ? <VibeReferenceCard /> : <PreciseReferenceCard active />,
+    );
+    mockReferenceImageRender.mockClear();
+
+    await act(() =>
+      useGenerationStore.setState({
+        [key]: [{ ...references[0], strength: 0.75 }, references[1]],
+      } as never),
+    );
+    expect(mockReferenceImageRender.mock.calls).toEqual([[`${title} 1`]]);
+    mockReferenceImageRender.mockClear();
+
+    await act(() =>
+      useGenerationStore.setState({ [key]: [references[1]] } as never),
+    );
+    expect(mockReferenceImageRender.mock.calls).toEqual([[`${title} 1`]]);
+    await fireEvent.press(screen.getByLabelText(`${title} 1 사용`));
+    const state = useGenerationStore.getState();
+    expect(
+      kind === "vibe"
+        ? state.setVibeReferenceEnabled
+        : state.setPreciseReferenceEnabled,
+    ).toHaveBeenCalledWith("ref-2", false);
+  },
+);
+
+it("rerenders Vibe rows on model changes but skips them for normalization changes", async () => {
+  useGenerationStore.setState({
+    vibeReferences: [
+      { id: "v1", enabled: true, strength: 0.6, informationExtracted: 1 },
+      { id: "v2", enabled: true, strength: 0.6, informationExtracted: 1 },
+    ] as never,
+  });
+  await render(<VibeReferenceCard />);
+  mockReferenceImageRender.mockClear();
+  await act(() =>
+    useGenerationStore.setState({ normalizeVibeStrengths: true }),
+  );
+  expect(mockReferenceImageRender).not.toHaveBeenCalled();
+
+  await act(() =>
+    useGenerationStore.setState({ model: "nai-diffusion-5-full" }),
+  );
+  expect(mockReferenceImageRender.mock.calls).toEqual([["Vibe 1"], ["Vibe 2"]]);
 });
 
 it.each(["vibe", "precise"] as const)(

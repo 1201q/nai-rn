@@ -127,4 +127,56 @@ describe("NovelAI prompt tokenizers", () => {
       t5.encode("1girl, blue eyes"),
     );
   });
+
+  it("reuses T5 segmentation for repeated pieces without exposing cached arrays", async () => {
+    const tokenizer = await NovelAiT5Tokenizer.create({
+      model: {
+        type: "Unigram",
+        unk_id: 0,
+        vocab: [
+          ["<unk>", -10],
+          ["</s>", 0],
+          ["▁", -1],
+          ["a", -1],
+        ],
+      },
+    });
+    const root = (
+      tokenizer as unknown as {
+        root: { children: Map<string, unknown> };
+      }
+    ).root;
+    const getChild = jest.spyOn(root.children, "get");
+    const first = tokenizer.encode("a");
+    expect(first).toEqual([2, 3, 1]);
+    expect(getChild).toHaveBeenCalled();
+    getChild.mockClear();
+    first[0] = 999;
+
+    expect(tokenizer.encode("a a a")).toEqual([2, 3, 2, 3, 2, 3, 1]);
+    expect(getChild).not.toHaveBeenCalled();
+    getChild.mockRestore();
+  });
+
+  it.each(["T5", "CLIP", "Qwen"])(
+    "bounds the %s piece cache while preserving counts after eviction",
+    (name) => {
+      const tokenizer = name === "T5" ? t5 : name === "CLIP" ? clip : qwen;
+      const text = "1girl, blue eyes";
+      const expected = tokenizer.countTokens(text);
+      for (let index = 0; index < 2_100; index += 1) {
+        const suffix = String.fromCharCode(
+          97 + Math.floor(index / (26 * 26)),
+          97 + (Math.floor(index / 26) % 26),
+          97 + (index % 26),
+        );
+        tokenizer.countTokens(`cache${suffix}`);
+      }
+
+      expect(
+        (tokenizer as unknown as { cache: Map<string, unknown> }).cache.size,
+      ).toBeLessThanOrEqual(2_048);
+      expect(tokenizer.countTokens(text)).toBe(expected);
+    },
+  );
 });

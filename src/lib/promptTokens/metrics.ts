@@ -161,7 +161,9 @@ export async function calculatePromptTokenMetrics(
         : (character?.negativePrompt.trim() ?? draftText.trim());
   const fieldTokens = tokenizer.countTokens(fieldCaption);
   const totalTokens = [baseCaption, ...characterCaptions].reduce(
-    (total, caption) => total + tokenizer.countTokens(caption),
+    (total, caption) =>
+      total +
+      (caption === fieldCaption ? fieldTokens : tokenizer.countTokens(caption)),
     0,
   );
 

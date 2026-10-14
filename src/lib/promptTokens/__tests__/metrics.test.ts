@@ -1,8 +1,12 @@
 import { calculatePromptTokenMetrics } from "../metrics";
 
+const mockCountTokens = jest.fn(
+  (text: string, type: "t5" | "clip") => text.length + (type === "t5" ? 1 : 0),
+);
+
 jest.mock("../loader", () => ({
   getPromptTokenizer: async (type: "t5" | "clip") => ({
-    countTokens: (text: string) => text.length + (type === "t5" ? 1 : 0),
+    countTokens: (text: string) => mockCountTokens(text, type),
   }),
 }));
 
@@ -48,6 +52,24 @@ const snapshot = {
 };
 
 describe("prompt token metrics", () => {
+  beforeEach(() => {
+    mockCountTokens.mockClear();
+  });
+
+  it("counts the field caption only once when it is included in the total", async () => {
+    const metrics = await calculatePromptTokenMetrics(
+      snapshot,
+      { scope: "base", channel: "positive" },
+      "base",
+    );
+
+    expect(metrics).toMatchObject({ fieldTokens: 5, totalTokens: 10 });
+    expect(mockCountTokens.mock.calls.map(([text]) => text)).toEqual([
+      "base",
+      "hero",
+    ]);
+  });
+
   it("shares the V4 positive budget with all active characters", async () => {
     await expect(
       calculatePromptTokenMetrics(

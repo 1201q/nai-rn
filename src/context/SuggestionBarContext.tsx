@@ -53,7 +53,7 @@ export function SuggestionBarProvider({ children }: { children: ReactNode }) {
   );
 
   const resetSuggestions = useCallback(() => {
-    setSuggestionsState([]);
+    setSuggestionsState((current) => (current.length === 0 ? current : []));
     pickRef.current = null;
   }, []);
 

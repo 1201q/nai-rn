@@ -148,6 +148,49 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 const initialState = useGenerationStore.getInitialState();
+
+describe("character position updates", () => {
+  afterEach(() => {
+    useGenerationStore.setState(initialState, true);
+  });
+
+  test("does not notify subscribers for unchanged clamped coordinates or missing characters", () => {
+    useGenerationStore.setState({
+      characterPrompts: [
+        {
+          id: "character",
+          prompt: "test",
+          negativePrompt: "",
+          enabled: true,
+          position: { x: 0, y: 1 },
+        },
+      ],
+    });
+    const state = useGenerationStore.getState();
+    const listener = jest.fn();
+    const unsubscribe = useGenerationStore.subscribe(listener);
+    try {
+      state.setCharacterPromptPosition("character", 0, 1);
+      state.setCharacterPromptPosition("character", -1, 2);
+      state.setCharacterPromptPosition("missing", 0.5, 0.5);
+
+      expect(useGenerationStore.getState()).toBe(state);
+      expect(listener).not.toHaveBeenCalled();
+
+      state.setCharacterPromptPosition("character", 0.4, 2);
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(
+        useGenerationStore.getState().characterPrompts[0].position,
+      ).toEqual({
+        x: 0.4,
+        y: 1,
+      });
+    } finally {
+      unsubscribe();
+    }
+  });
+});
+
 const mockRenderI2IRequestImageBase64 = jest.mocked(
   renderI2IRequestImageBase64,
 );

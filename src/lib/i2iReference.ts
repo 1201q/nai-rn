@@ -1,5 +1,11 @@
 import { File } from "expo-file-system";
-import { ImageFormat, Skia, rect } from "@shopify/react-native-skia";
+import {
+  ImageFormat,
+  Skia,
+  rect,
+  type SkImage,
+  type SkSurface,
+} from "@shopify/react-native-skia";
 
 import { copyImageToFile, getImageExtension } from "./localData/imageFiles";
 import { createManagedDirectory } from "./localData/managedFiles";
@@ -64,31 +70,39 @@ export async function renderI2IRequestImageBase64(
   width: number,
   height: number,
 ): Promise<string> {
-  const sourceBase64 = await new File(sourceUri).base64();
-  const image = Skia.Image.MakeImageFromEncoded(
-    Skia.Data.fromBase64(sourceBase64),
-  );
-  const surface = Skia.Surface.MakeOffscreen(width, height);
-  if (!image || !surface) {
-    throw new Error("I2I 이미지를 처리하지 못했습니다.");
-  }
+  const data = Skia.Data.fromBytes(await new File(sourceUri).bytes());
+  let image: SkImage | null = null;
+  let surface: SkSurface | null = null;
+  let snapshot: SkImage | null = null;
+  try {
+    image = Skia.Image.MakeImageFromEncoded(data);
+    if (!image) throw new Error("I2I 이미지를 처리하지 못했습니다.");
+    surface = Skia.Surface.MakeOffscreen(width, height);
+    if (!surface) throw new Error("I2I 이미지를 처리하지 못했습니다.");
 
-  const canvas = surface.getCanvas();
-  canvas.clear(Skia.Color("#FFFFFF"));
-  canvas.drawImageRect(
-    image,
-    rect(0, 0, image.width(), image.height()),
-    rect(0, 0, width, height),
-    Skia.Paint(),
-    false,
-  );
-  surface.flush();
+    const canvas = surface.getCanvas();
+    canvas.clear(Skia.Color("#FFFFFF"));
+    canvas.drawImageRect(
+      image,
+      rect(0, 0, image.width(), image.height()),
+      rect(0, 0, width, height),
+      Skia.Paint(),
+      false,
+    );
+    surface.flush();
 
-  const base64 = surface.makeImageSnapshot().encodeToBase64(ImageFormat.PNG);
-  if (!base64) {
-    throw new Error("I2I 이미지를 처리하지 못했습니다.");
+    snapshot = surface.makeImageSnapshot();
+    const base64 = snapshot.encodeToBase64(ImageFormat.PNG);
+    if (!base64) {
+      throw new Error("I2I 이미지를 처리하지 못했습니다.");
+    }
+    return base64;
+  } finally {
+    snapshot?.dispose();
+    surface?.dispose();
+    image?.dispose();
+    data.dispose();
   }
-  return base64;
 }
 
 export async function saveI2IReferenceImage(

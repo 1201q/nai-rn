@@ -4,6 +4,17 @@ export interface PromptTokenizer {
   countTokens(text: string): number;
 }
 
+// Tokenizers live for the app session; bound pieces accumulated while typing.
+const TOKEN_PIECE_CACHE_LIMIT = 2_048;
+
+function cacheTokenPiece<T>(cache: Map<string, T>, piece: string, value: T): T {
+  if (cache.size >= TOKEN_PIECE_CACHE_LIMIT) {
+    cache.delete(cache.keys().next().value!);
+  }
+  cache.set(piece, value);
+  return value;
+}
+
 type UnigramConfig = {
   model: {
     type: "Unigram";
@@ -53,6 +64,7 @@ async function forEachYielding<T>(
 
 export class NovelAiT5Tokenizer implements PromptTokenizer {
   private readonly root = createTrieNode();
+  private readonly cache = new Map<string, number[]>();
   private readonly unknownId: number;
   private readonly unknownScore: number;
   private readonly eosId: number;
@@ -123,6 +135,9 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
   }
 
   private encodePiece(piece: string): number[] {
+    const cached = this.cache.get(piece);
+    if (cached) return cached;
+
     const characters = Array.from(piece);
     const bestScores = Array<number>(characters.length + 1).fill(
       Number.NEGATIVE_INFINITY,
@@ -165,7 +180,7 @@ export class NovelAiT5Tokenizer implements PromptTokenizer {
       result.push(tokenAt[cursor]);
       cursor = previous[cursor];
     }
-    return result.reverse();
+    return cacheTokenPiece(this.cache, piece, result.reverse());
   }
 }
 
@@ -298,8 +313,7 @@ export class NovelAiClipTokenizer implements PromptTokenizer {
     }
 
     const result = word.join(" ");
-    this.cache.set(token, result);
-    return result;
+    return cacheTokenPiece(this.cache, token, result);
   }
 }
 
@@ -376,7 +390,6 @@ export class NovelAiQwenTokenizer implements PromptTokenizer {
       word = merged;
     }
 
-    this.cache.set(piece, word.length);
-    return word.length;
+    return cacheTokenPiece(this.cache, piece, word.length);
   }
 }

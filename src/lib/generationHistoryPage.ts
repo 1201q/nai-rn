@@ -27,13 +27,10 @@ export function buildGenerationHistoryPageQuery(
 
   return {
     sql: `SELECT * FROM generations
-          WHERE created_at < ?
-             OR (created_at = ? AND id < ?)
+          WHERE (created_at, id) < (?, ?)
           ORDER BY created_at DESC, id DESC
           LIMIT ?`,
-    params: [cursor.createdAt, cursor.createdAt, cursor.id, fetchLimit] as (
-      string | number
-    )[],
+    params: [cursor.createdAt, cursor.id, fetchLimit] as (string | number)[],
   };
 }
 

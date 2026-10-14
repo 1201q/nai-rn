@@ -87,4 +87,70 @@ describe("usePromptTokenMetrics", () => {
     expect(result.current).toEqual(secondMetrics);
     expect(mockCalculate.mock.calls[1][2]).toBe("base plus");
   });
+
+  it("does not restart or repeat counting when an equivalent target is recreated", async () => {
+    mockCalculate.mockImplementation(async () => ({ ...firstMetrics }));
+    const { rerender } = await renderHook(
+      ({ draftText }: { draftText: string }) =>
+        usePromptTokenMetrics(
+          { scope: "base", channel: "positive" },
+          draftText,
+        ),
+      { initialProps: { draftText: "base" } },
+    );
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(200);
+    });
+    await rerender({ draftText: "base" });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(50);
+    });
+    expect(mockCalculate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(750);
+    });
+    expect(mockCalculate).toHaveBeenCalledTimes(1);
+  });
+
+  it("recounts when the target channel or character changes", async () => {
+    mockCalculate.mockResolvedValue(firstMetrics);
+    const { rerender } = await renderHook(
+      ({
+        channel,
+        characterId,
+      }: {
+        channel: "positive" | "negative";
+        characterId: string;
+      }) =>
+        usePromptTokenMetrics(
+          { scope: "character", channel, characterId },
+          "hero",
+        ),
+      {
+        initialProps: {
+          channel: "positive" as "positive" | "negative",
+          characterId: "first",
+        },
+      },
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(250);
+    });
+    await rerender({ channel: "negative", characterId: "first" });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(250);
+    });
+    await rerender({ channel: "negative", characterId: "second" });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(250);
+    });
+
+    expect(mockCalculate.mock.calls.map((call) => call[1])).toEqual([
+      { scope: "character", channel: "positive", characterId: "first" },
+      { scope: "character", channel: "negative", characterId: "first" },
+      { scope: "character", channel: "negative", characterId: "second" },
+    ]);
+  });
 });

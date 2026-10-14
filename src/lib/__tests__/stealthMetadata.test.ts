@@ -1,8 +1,16 @@
 import { gzipSync, strToU8 } from "fflate";
+import { Skia } from "@shopify/react-native-skia";
 
-import { decodeStealthAlpha } from "../stealthMetadata";
+import { decodeStealthAlpha, extractStealthMetadata } from "../stealthMetadata";
 
-jest.mock("@shopify/react-native-skia", () => ({}));
+jest.mock("@shopify/react-native-skia", () => ({
+  AlphaType: { Unpremul: 0 },
+  ColorType: { RGBA_8888: 0 },
+  Skia: {
+    Data: { fromBytes: jest.fn() },
+    Image: { MakeImageFromEncoded: jest.fn() },
+  },
+}));
 
 function encodeStealth(
   magic: string,
@@ -33,6 +41,51 @@ const json = JSON.stringify({
   Description: "1girl, 한글",
   Comment: '{"seed":42}',
   Software: "NovelAI",
+});
+
+describe("extractStealthMetadata resource lifetime", () => {
+  const data = { dispose: jest.fn() };
+  const image = {
+    width: () => 60,
+    height: () => 50,
+    readPixels: jest.fn(),
+    dispose: jest.fn(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(Skia.Data.fromBytes).mockReturnValue(data as never);
+    jest
+      .mocked(Skia.Image.MakeImageFromEncoded)
+      .mockReturnValue(image as never);
+    image.readPixels.mockReturnValue(
+      encodeStealth("stealth_pnginfo", strToU8(json), 60, 50),
+    );
+  });
+
+  test("releases decoded resources after reading metadata", () => {
+    expect(extractStealthMetadata(new Uint8Array([1]))).toEqual(
+      JSON.parse(json),
+    );
+    expect(image.dispose).toHaveBeenCalledTimes(1);
+    expect(data.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  test("releases encoded data when decoding fails", () => {
+    jest.mocked(Skia.Image.MakeImageFromEncoded).mockReturnValue(null);
+    expect(extractStealthMetadata(new Uint8Array([1]))).toEqual({});
+    expect(image.dispose).not.toHaveBeenCalled();
+    expect(data.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  test("releases decoded resources when metadata parsing throws", () => {
+    image.readPixels.mockReturnValue(
+      encodeStealth("stealth_pnginfo", strToU8("{"), 60, 50),
+    );
+    expect(() => extractStealthMetadata(new Uint8Array([1]))).toThrow();
+    expect(image.dispose).toHaveBeenCalledTimes(1);
+    expect(data.dispose).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("decodeStealthAlpha", () => {
