@@ -60,6 +60,21 @@ export function getAutocompleteEdit(
       end: selection.start + addedLength,
     };
   }
+  const deletionStart = selection.start + addedLength;
+  if (
+    addedLength < 0 &&
+    selection.start === selection.end &&
+    deletionStart >= 0 &&
+    text.slice(0, deletionStart) === previous.slice(0, deletionStart) &&
+    text.slice(deletionStart) === previous.slice(selection.end)
+  ) {
+    // Backspace deletes before the caret, even when the suffix starts identically.
+    return {
+      start: deletionStart,
+      previousEnd: selection.end,
+      end: deletionStart,
+    };
+  }
   let start = 0;
   while (
     start < previous.length &&

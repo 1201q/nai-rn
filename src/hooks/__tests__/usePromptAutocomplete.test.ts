@@ -248,6 +248,63 @@ describe("usePromptAutocomplete", () => {
     expect(result.current.value).toBe("simple background, smile");
   });
 
+  it.each([
+    ["red hair, smile", 0, false],
+    ["red hair, smile", 0, true],
+    ["smile, red hair", 7, false],
+    ["smile, red hair", 7, true],
+    ["-1::red hair::, smile", 4, false],
+    ["-1::red hair::, smile", 4, true],
+  ])(
+    "preserves %j after Backspace at %i (selection first: %s)",
+    async (initial, caret, selectionFirst) => {
+      const picked = { ...suggestion, label: "1girl", value: "1girl" };
+      jest.mocked(searchTags).mockResolvedValue([picked]);
+      const { result } = await setup(initial);
+      await act(() =>
+        result.current.handleSelectionChange(selectionEvent(caret)),
+      );
+      for (const query of ["g", "gi", "gir"]) {
+        await act(() =>
+          result.current.handleChangeText(
+            initial.slice(0, caret) + query + initial.slice(caret),
+          ),
+        );
+        await act(() =>
+          result.current.handleSelectionChange(
+            selectionEvent(caret + query.length),
+          ),
+        );
+      }
+
+      if (selectionFirst) {
+        await act(() =>
+          result.current.handleSelectionChange(selectionEvent(caret + 2)),
+        );
+      }
+      await act(() =>
+        result.current.handleChangeText(
+          initial.slice(0, caret) + "gi" + initial.slice(caret),
+        ),
+      );
+      await act(() =>
+        result.current.handleSelectionChange(selectionEvent(caret + 2)),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(150);
+      });
+      expect(searchTags).toHaveBeenLastCalledWith("gi", null);
+      await act(() => mockActions.setSuggestions.mock.calls.at(-1)![2](picked));
+      expect(result.current.value).toBe(
+        initial.slice(0, caret) + "1girl, " + initial.slice(caret),
+      );
+      expect(result.current.selection).toEqual({
+        start: caret + 7,
+        end: caret + 7,
+      });
+    },
+  );
+
   it("ends a previous typing range when the user moves to insert between tags", async () => {
     jest
       .mocked(searchTags)

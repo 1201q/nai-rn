@@ -286,7 +286,7 @@ export function usePromptAutocomplete({
         if (
           selectionRef.current.start === selectionRef.current.end &&
           precedingEdit.end === selectionRef.current.start &&
-          precedingEdit.start === beforeSelection.selection.start &&
+          precedingEdit.start <= beforeSelection.selection.start &&
           precedingEdit.previousEnd === beforeSelection.selection.end
         ) {
           // A native selection event can describe the edit before its text arrives.

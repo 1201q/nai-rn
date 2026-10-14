@@ -87,4 +87,28 @@ describe("insertTag", () => {
       end: 1,
     });
   });
+
+  it.each([
+    ["girred hair, smile", "gired hair, smile", 3, 2],
+    ["girrrred hair, smile", "gired hair, smile", 5, 2],
+    ["smile, girred hair", "smile, gired hair", 10, 9],
+  ])(
+    "uses the caret to locate Backspace in %j",
+    (previous, text, caret, start) => {
+      expect(
+        getAutocompleteEdit(previous, text, { start: caret, end: caret }),
+      ).toEqual({ start, previousEnd: caret, end: start });
+    },
+  );
+
+  it("keeps selected deletions and forward deletions at their original locations", () => {
+    expect(
+      getAutocompleteEdit("girred hair", "gired hair", { start: 2, end: 3 }),
+    ).toEqual({ start: 2, previousEnd: 3, end: 2 });
+    expect(getAutocompleteEdit("abc", "ac", { start: 1, end: 1 })).toEqual({
+      start: 1,
+      previousEnd: 2,
+      end: 1,
+    });
+  });
 });
