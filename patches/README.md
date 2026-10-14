@@ -11,7 +11,7 @@
 | `html-entities+2.5.3` | `lib/index.js`에 `"worklet"` 지시어 추가. 프롬프트 파서를 live-markdown worklet에서 실행하기 위함 | live-markdown 파서에서 `html-entities`를 쓰지 않게 되면 제거 | `8514efa` |
 | `react-native-notify-kit+10.4.4` | `compileSdk` 36, `androidx.core` 1.18.0으로 올림. Android 16(API 36) 이상에서 생성 진행 알림을 세그먼트 `ProgressStyle`과 promoted ongoing(Now Bar)으로 표시(`nairn.liveUpdate*` data 키 사용) | 라이브러리가 `ProgressStyle`/live update를 지원하면 JS 쪽 옵션으로 옮기고 제거 | `154160d` |
 | `sonner-native+0.26.4` | 토스트 래퍼 `Animated.View`에 `pointerEvents="box-none"` 추가. 토스트 바깥 영역의 터치를 막지 않도록 함 | 업스트림에 같은 수정이 들어간 버전으로 올리면 제거 | `25afee9` |
-| `react-native+0.86.0` | Android `TextInput`의 커서만 갱신할 때 `setTextAndSelection`에 문자열 대신 `null` 전달. 같은 문자열을 다시 쓰면서 줄 높이와 프롬프트 강조 span이 손상되는 문제 방지. JavaScript 패치라 dev client 재빌드 불필요 | 업스트림이 커서만 갱신할 때 문자열을 다시 전달하지 않도록 수정하면 제거 | 미커밋 |
+| `react-native+0.86.0` | Android `TextInput`의 커서만 갱신할 때 `setTextAndSelection`에 문자열 대신 `null` 전달. 외부 값 변경은 서식을 포함한 Fabric prop 갱신으로 처리하고 중복 문자열 교체 명령을 생략. 같은 문자열을 다시 쓰면서 줄 높이와 프롬프트 강조 span이 손상되는 문제 방지. JavaScript 패치라 dev client 재빌드 불필요 | 업스트림이 커서만 갱신할 때 문자열을 다시 전달하지 않도록 수정하면 제거 | 미커밋 |
 
 ## 패치 갱신
 

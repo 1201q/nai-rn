@@ -1,8 +1,32 @@
 diff --git a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
-index adca4e3..204e8d6 100644
+index adca4e3..aa54b26 100644
 --- a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
 +++ b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
-@@ -223,7 +223,8 @@ function useTextInputStateSynchronization({
+@@ -193,15 +193,22 @@ function useTextInputStateSynchronization({
+     });
+
+   const lastNativeSelection = lastNativeSelectionState.selection;
++  const lastValueRef = useRef(props.value);
+
+   // This is necessary in case native updates the text and JS decides
+   // that the update should be ignored and we should stick with the value
+   // that we have in JS.
+   useLayoutEffect(() => {
+     const nativeUpdate: {text?: string, selection?: Selection} = {};
++    const valueChanged = lastValueRef.current !== props.value;
++    lastValueRef.current = props.value;
+
+     if (lastNativeText !== props.value && typeof props.value === 'string') {
+-      nativeUpdate.text = props.value;
++      // Android's Fabric prop update already carries text and its styling spans.
++      // Only issue a text command to revert a native edit rejected by JS.
++      if (Platform.OS !== 'android' || !valueChanged) {
++        nativeUpdate.text = props.value;
++      }
+       setLastNativeText(props.value);
+     }
+
+@@ -223,7 +230,8 @@ function useTextInputStateSynchronization({
        viewCommands.setTextAndSelection(
          inputRef.current,
          mostRecentEventCount,

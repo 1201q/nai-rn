@@ -52,20 +52,54 @@ it("moves the caret without replacing unchanged text and its native spans", asyn
 });
 
 it.each(["simple foreground, sitting, ", ""])(
-  "still sends changed text %j to native",
+  "updates native text props to %j without an unstyled text command",
   async (nextValue) => {
-    const { rerender } = await render(
+    const { getByTestId, rerender } = await render(
       <ActualTextInput testID="prompt" value={value} multiline />,
     );
     await rerender(
       <ActualTextInput testID="prompt" value={nextValue} multiline />,
     );
-    expect(setTextAndSelection).toHaveBeenLastCalledWith(
-      expect.anything(),
-      0,
-      nextValue,
-      -1,
-      -1,
-    );
+    expect(getByTestId("prompt").props.text).toBe(nextValue);
+    expect(setTextAndSelection).not.toHaveBeenCalled();
   },
 );
+
+it("still restores text when JS rejects a native edit", async () => {
+  const { getByTestId } = await render(
+    <ActualTextInput testID="prompt" value={value} multiline />,
+  );
+  await fireEvent(getByTestId("prompt"), "change", {
+    nativeEvent: { text: value + "x", eventCount: 1 },
+  });
+  expect(setTextAndSelection).toHaveBeenLastCalledWith(
+    expect.anything(),
+    1,
+    value,
+    -1,
+    -1,
+  );
+});
+
+it("moves the caret alongside a new value without replacing its styled text", async () => {
+  const nextValue = "1.5::simple background::, sitting, ";
+  const { getByTestId, rerender } = await render(
+    <ActualTextInput testID="prompt" value={value} multiline />,
+  );
+  await rerender(
+    <ActualTextInput
+      testID="prompt"
+      value={nextValue}
+      multiline
+      selection={{ start: 21, end: 21 }}
+    />,
+  );
+  expect(getByTestId("prompt").props.text).toBe(nextValue);
+  expect(setTextAndSelection).toHaveBeenLastCalledWith(
+    expect.anything(),
+    0,
+    null,
+    21,
+    21,
+  );
+});
