@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+index adca4e3..204e8d6 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+@@ -223,7 +223,8 @@ function useTextInputStateSynchronization({
+       viewCommands.setTextAndSelection(
+         inputRef.current,
+         mostRecentEventCount,
+-        text,
++        // Android replaces native spans when text is supplied, even if unchanged.
++        Platform.OS === 'android' ? (nativeUpdate.text ?? null) : text,
+         selection?.start ?? -1,
+         selection?.end ?? -1,
+       );
