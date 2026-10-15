@@ -75,6 +75,7 @@ export function usePromptAutocomplete({
   const pendingSelectionRef = useRef<{
     target: AutocompleteRange;
     previous: AutocompleteRange | null;
+    nativePositions?: number[];
   } | null>(null);
   const selectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,9 +153,23 @@ export function usePromptAutocomplete({
     );
     const previous = selectionRef.current;
     const target = { start: cursor, end: cursor };
+    const delta = text.length - textRef.current.length;
+    const commandCaret = Math.min(cursor, textRef.current.length);
+    // Fabric can run the selection command before mounting the new text. Android
+    // then shifts that caret by the text length delta to preserve its end gap.
+    const nativePositions =
+      Platform.OS === "android" && delta !== 0 && cursor < text.length
+        ? [commandCaret, commandCaret + delta, previous.start + delta]
+            .map((offset) => Math.max(0, Math.min(offset, text.length)))
+            .filter((offset) => offset !== cursor && offset !== previous.start)
+        : [];
     releaseSelection();
-    if (previous.start !== cursor || previous.end !== cursor) {
-      pendingSelectionRef.current = { target, previous };
+    if (
+      previous.start !== cursor ||
+      previous.end !== cursor ||
+      nativePositions.length > 0
+    ) {
+      pendingSelectionRef.current = { target, previous, nativePositions };
       setSelection(target);
       // Native acknowledgement is not guaranteed; never hold the caret indefinitely.
       selectionTimerRef.current = setTimeout(
@@ -384,7 +399,18 @@ export function usePromptAutocomplete({
         ) {
           selectionRef.current = sel;
           syncInsertTarget(sel.start);
-          releaseSelection();
+          // An early command acknowledgement can precede Android's text shift.
+          if (!pending.nativePositions?.length) releaseSelection();
+          return;
+        }
+        if (
+          sel.start === sel.end &&
+          pending.nativePositions?.includes(sel.start)
+        ) {
+          pending.nativePositions = pending.nativePositions.filter(
+            (offset) => offset !== sel.start,
+          );
+          setSelection({ ...pending.target });
           return;
         }
         if (
