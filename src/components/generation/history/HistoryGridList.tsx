@@ -11,6 +11,7 @@ import { FlashList } from "@shopify/flash-list";
 import type { GenerationRecord } from "../../../lib/generationHistory";
 import type { HistoryListEngine } from "../../../store/generationOptionsPersistence";
 import { GRID_GAP } from "./HistoryTiles";
+import { useHistoryScrollEventsHandlers } from "./useHistoryScrollEventsHandlers";
 
 type HistoryGridItem = GenerationRecord | null;
 // LegendList는 null 아이템을 렌더하지 않아 생성 중 타일을 문자열로 표시한다.
@@ -28,6 +29,7 @@ type HistoryGridListProps = {
   gridWidth: number;
   padding: number;
   initialRow: number;
+  initialScrollOffset: number;
   contentContainerStyle: StyleProp<ViewStyle>;
   ListEmptyComponent: ReactElement;
   ListFooterComponent: ReactElement | null;
@@ -35,6 +37,8 @@ type HistoryGridListProps = {
   onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void;
   onContentSizeChange: (width: number, height: number) => void;
   onEndReached: () => void;
+  onReady: () => void;
+  onScrollBeginDrag: () => void;
 };
 
 type RecyclerGridProps = Omit<HistoryGridListProps, "engine">;
@@ -55,8 +59,11 @@ function FlatGrid({
   tileSize,
   padding,
   initialRow,
+  initialScrollOffset,
   renderTile,
   onScroll,
+  onReady,
+  onContentSizeChange,
   gridWidth: _gridWidth,
   ...listProps
 }: RecyclerGridProps) {
@@ -66,8 +73,13 @@ function FlatGrid({
     <BottomSheetFlatList
       {...listProps}
       ref={listRef}
+      scrollEventsHandlersHook={useHistoryScrollEventsHandlers}
       // 타입에는 빠져 있지만 BottomSheetFlatList가 JS 스레드에서 호출해 준다.
       {...{ onScroll }}
+      onContentSizeChange={(width, height) => {
+        onContentSizeChange(width, height);
+        onReady();
+      }}
       data={data}
       keyExtractor={keyOf}
       numColumns={columns}
@@ -78,6 +90,7 @@ function FlatGrid({
         index,
       })}
       initialScrollIndex={initialRow}
+      contentOffset={{ x: 0, y: initialScrollOffset }}
       showsVerticalScrollIndicator={false}
       initialNumToRender={15}
       // 한 번에 그리는 타일 수를 열 수와 상관없이 비슷하게 유지한다.
@@ -94,14 +107,18 @@ function FlashGrid(props: RecyclerGridProps) {
     listRef,
     data,
     columns,
-    initialRow,
+    initialRow: _initialRow,
+    initialScrollOffset,
     renderTile,
     tileSize: _tileSize,
     gridWidth: _gridWidth,
     padding: _padding,
+    onReady,
     ...listProps
   } = props;
-  const renderScrollComponent = useBottomSheetScrollableCreator();
+  const renderScrollComponent = useBottomSheetScrollableCreator({
+    scrollEventsHandlersHook: useHistoryScrollEventsHandlers,
+  });
   const shift = columnShift(props);
 
   return (
@@ -114,7 +131,9 @@ function FlashGrid(props: RecyclerGridProps) {
       // 생성 중 타일과 일반 타일이 서로 재활용되지 않게 한다.
       getItemType={(item) => (item === null ? "active" : "tile")}
       numColumns={columns}
-      initialScrollIndex={initialRow > 0 ? initialRow * columns : undefined}
+      // initialScrollIndex의 내부 재시도가 세부 오프셋을 덮어쓰므로 사용하지 않는다.
+      contentOffset={{ x: 0, y: initialScrollOffset }}
+      onLoad={onReady}
       showsVerticalScrollIndicator={false}
       onEndReachedThreshold={0.4}
       renderItem={({ item, index }) => (
@@ -132,13 +151,17 @@ function LegendGrid(props: RecyclerGridProps) {
     data,
     columns,
     tileSize,
-    initialRow,
+    initialRow: _initialRow,
+    initialScrollOffset,
     renderTile,
     gridWidth: _gridWidth,
     padding: _padding,
+    onReady,
     ...listProps
   } = props;
-  const renderScrollComponent = useBottomSheetScrollableCreator();
+  const renderScrollComponent = useBottomSheetScrollableCreator({
+    scrollEventsHandlersHook: useHistoryScrollEventsHandlers,
+  });
   const shift = columnShift(props);
   const legendData = useMemo(
     () => data.map((item) => item ?? ACTIVE_GENERATION_ITEM),
@@ -156,7 +179,8 @@ function LegendGrid(props: RecyclerGridProps) {
       getFixedItemSize={() => tileSize + GRID_GAP}
       recycleItems
       numColumns={columns}
-      initialScrollIndex={initialRow > 0 ? initialRow * columns : undefined}
+      initialScrollOffset={initialScrollOffset}
+      onLoad={onReady}
       showsVerticalScrollIndicator={false}
       // LegendList는 끝 도달을 한 번 알리면, 시작과 끝 양쪽에서 임계값의 1.3배 넘게
       // 벗어나야 다시 알린다. 불러온 페이지가 짧으면 그만큼 벗어날 수 없어

@@ -9,6 +9,8 @@ import BottomSheet, {
 import { Ionicons } from "@expo/vector-icons";
 import {
   cancelAnimation,
+  runOnJS,
+  useAnimatedReaction,
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
@@ -46,16 +48,23 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   active,
   onClose,
   historyController,
+  historySheetOpen,
   generation,
 }: {
   sheet: UtilitySheet;
   active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
+  historySheetOpen: boolean;
   generation: MetadataSheetSource | null;
 }) {
   if (sheet === "history") {
-    return <HistorySheetContent controller={historyController} />;
+    return (
+      <HistorySheetContent
+        controller={historyController}
+        sheetOpen={historySheetOpen}
+      />
+    );
   }
 
   if (sheet === "metadata") {
@@ -113,6 +122,15 @@ export function UtilitySheetHost({
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);
+  const [historySheetOpen, setHistorySheetOpen] = useState(sheet === "history");
+  // index prop 변경이나 레이아웃 보정으로 완료 콜백이 생략되어도 실제 위치를 따른다.
+  useAnimatedReaction(
+    () => animatedIndex.value === 0,
+    (open, previous) => {
+      if (open !== previous) runOnJS(setHistorySheetOpen)(open);
+    },
+    [animatedIndex],
+  );
   const [transition, setTransition] = useState(() => ({
     sheet,
     content: sheet,
@@ -148,6 +166,7 @@ export function UtilitySheetHost({
   const handleSheetClosed = useCallback(() => {
     // Native completion callbacks can arrive after a new open/close request.
     if (latestTransition.current !== transition) return;
+    setHistorySheetOpen(false);
     cancelAnimation(predictiveBackProgress);
     predictiveBackProgress.value = 0;
     setTransition((current) =>
@@ -159,6 +178,7 @@ export function UtilitySheetHost({
     (index: number) => {
       // Reconcile a reversal that arrived before the native animation moved.
       const latest = latestTransition.current;
+      setHistorySheetOpen(index === 0 && latest.sheet === "history");
       if (index === 0 && latest.sheet === null) sheetRef.current?.close();
       if (index === -1 && latest.sheet !== null && latest !== transition) {
         sheetRef.current?.snapToIndex(0);
@@ -166,6 +186,10 @@ export function UtilitySheetHost({
     },
     [transition],
   );
+  const handleSheetAnimate = useCallback(() => {
+    // 전환 중 BottomSheet의 스크롤 잠금이 보내는 0을 저장하지 않는다.
+    setHistorySheetOpen(false);
+  }, []);
   const renderHistoryFooter = useCallback(
     (props: BottomSheetFooterProps) => (
       <HistorySheetFooter {...props} controller={historyController} />
@@ -268,6 +292,7 @@ export function UtilitySheetHost({
           backgroundStyle={sheetChromeStyles.sheetBackground}
           onClose={handleSheetClosed}
           onChange={handleSheetChanged}
+          onAnimate={handleSheetAnimate}
         >
           {contentSheet === null ? (
             <BottomSheetView style={sheetChromeStyles.sheetBody}>
@@ -280,6 +305,7 @@ export function UtilitySheetHost({
               active={visible}
               onClose={onClose}
               historyController={historyController}
+              historySheetOpen={sheet === "history" && historySheetOpen}
               generation={generation}
             />
           )}

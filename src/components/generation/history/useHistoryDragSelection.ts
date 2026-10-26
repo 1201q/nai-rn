@@ -156,6 +156,8 @@ export function useHistoryDragSelection(options: DragSelectionOptions) {
         Math.min(maxScrollY, scrollY.value + speed * elapsed),
       );
       if (next === scrollY.value) return;
+      // native ref가 붙기 전에는 이동이나 선택 범위를 앞서 갱신하지 않는다.
+      if (!listRef()) return;
       scrollY.value = next;
       scrollTo(listRef, 0, next, false);
       selectUnderFinger();
@@ -261,7 +263,8 @@ export function useHistoryDragSelection(options: DragSelectionOptions) {
 
   return {
     gesture,
-    listRef: listRef as unknown as React.Ref<BottomSheetFlatListMethods>,
+    listRef:
+      listRef as unknown as React.RefObject<BottomSheetFlatListMethods | null>,
     onScroll,
     onContentSizeChange,
     onLayout,

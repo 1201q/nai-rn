@@ -29,6 +29,8 @@ const mockSheetSnap = jest.fn();
 const mockSettingsMounted = jest.fn();
 const mockSettingsUnmounted = jest.fn();
 const mockSettingsScrollTo = jest.fn();
+const mockHistorySheetProps = jest.fn();
+const mockAnimatedReaction = jest.fn();
 
 jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react") as typeof import("react");
@@ -191,7 +193,10 @@ jest.mock("../../../components/generation/PromptSheetContent", () => {
 });
 jest.mock("../../../components/generation/HistorySheetContent", () => ({
   useHistorySheetController: () => ({ exitSelectionMode: jest.fn() }),
-  HistorySheetContent: () => null,
+  HistorySheetContent: (props: { sheetOpen: boolean }) => {
+    mockHistorySheetProps(props);
+    return null;
+  },
   HistorySheetFooter: () => null,
   HistorySheetHandle: () => null,
 }));
@@ -275,7 +280,7 @@ jest.mock("react-native-reanimated", () => {
     Extrapolation: { CLAMP: "clamp" },
     interpolate: () => 0,
     useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
-    useAnimatedReaction: () => {},
+    useAnimatedReaction: (...args: unknown[]) => mockAnimatedReaction(...args),
     useAnimatedStyle: (factory: () => object) => factory(),
     useAnimatedProps: (factory: () => object) => ({ read: factory }),
     cancelAnimation: jest.fn(),
@@ -341,6 +346,54 @@ describe("Utility sheet transitions", () => {
     jest
       .mocked(useSafeAreaInsets)
       .mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  });
+
+  test("allows history restoration only after opening and stops saving when closing starts", async () => {
+    const content = (sheet: "history" | null) => (
+      <UtilitySheetHost
+        sheet={sheet}
+        predictiveBackProgress={backProgress}
+        onClose={jest.fn()}
+      />
+    );
+    const screen = await render(content(null));
+    await screen.rerender(content("history"));
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(false);
+    await act(() => mockSheetProps.mock.calls.at(-1)![0].onChange!(0, 100, 0));
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(true);
+    // Gesture close starts before the parent sheet prop changes.
+    await act(() =>
+      mockSheetProps.mock.calls.at(-1)![0].onAnimate!(0, -1, 100, 844),
+    );
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(false);
+  });
+
+  test("observes the actual sheet index when native completion callbacks are skipped", async () => {
+    const content = (sheet: "history" | null) => (
+      <UtilitySheetHost
+        sheet={sheet}
+        predictiveBackProgress={backProgress}
+        onClose={jest.fn()}
+      />
+    );
+    const screen = await render(content(null));
+    await screen.rerender(content("history"));
+    const index = mockSheetProps.mock.calls.at(-1)![0].animatedIndex!;
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(false);
+    const [prepare, react] = mockAnimatedReaction.mock.calls.at(-1)! as [
+      () => boolean,
+      (next: boolean, previous: boolean | null) => void,
+    ];
+    await act(() => {
+      index.value = 0;
+      react(prepare(), false);
+    });
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(true);
+    await act(() => {
+      index.value = -0.1;
+      react(prepare(), true);
+    });
+    expect(mockHistorySheetProps.mock.calls.at(-1)![0].sheetOpen).toBe(false);
   });
 
   test.each([true, false])(

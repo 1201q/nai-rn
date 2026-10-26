@@ -64,10 +64,13 @@ export function useHistorySheetController({
     (state) => state.isViewingActiveGeneration,
   );
   const gridColumns = useGenerationStore((state) => state.historyGridColumns);
-  // 열 수를 바꾸면 그리드를 다시 마운트하므로, 보고 있던 항목에서 다시 시작하게 한다.
-  const [gridInitialIndex, setGridInitialIndex] = useState(0);
   const listEngine = useGenerationStore((state) => state.historyListEngine);
-  const gridFirstVisibleIndexRef = useRef(0);
+  // 시트 본문이 해제돼도 유지하며, 스크롤 중에는 React 상태를 갱신하지 않는다.
+  const gridPositionRef = useRef<{
+    id: string;
+    index: number;
+    offset: number;
+  } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selection] = useState(createHistorySelectionStore);
   const [selectingAll, setSelectingAll] = useState(false);
@@ -114,14 +117,36 @@ export function useHistorySheetController({
     [generationHistory],
   );
 
-  const setGridFirstVisibleIndex = useCallback((index: number) => {
-    gridFirstVisibleIndexRef.current = index;
-  }, []);
+  const saveGridPosition = useCallback(
+    (id: string | null, index: number, offset: number) => {
+      gridPositionRef.current = id === null ? null : { id, index, offset };
+    },
+    [],
+  );
 
-  const resetGridPosition = useCallback(() => {
-    gridFirstVisibleIndexRef.current = 0;
-    setGridInitialIndex(0);
-  }, []);
+  const getGridPosition = useCallback(
+    (
+      data: (GenerationRecord | null)[],
+      columns: number,
+      rowHeight: number,
+      padding: number,
+    ) => {
+      const saved = gridPositionRef.current;
+      if (!saved || data.length === 0) return { row: 0, offset: 0 };
+      const found = data.findIndex((item) => item?.id === saved.id);
+      // 삭제된 항목은 기존 인덱스의 이웃으로, 목록이 짧아지면 마지막 행으로 복원한다.
+      const index = found >= 0 ? found : Math.min(saved.index, data.length - 1);
+      const row = Math.floor(index / columns);
+      return {
+        row,
+        offset: Math.max(
+          0,
+          padding + row * rowHeight + Math.min(saved.offset, rowHeight - 1),
+        ),
+      };
+    },
+    [],
+  );
 
   const cycleGridColumns = useCallback(() => {
     const { historyGridColumns, setHistoryGridColumns } =
@@ -132,14 +157,12 @@ export function useHistorySheetController({
           HISTORY_GRID_COLUMN_OPTIONS.length
       ];
     Haptics.selectionAsync().catch(() => {});
-    setGridInitialIndex(gridFirstVisibleIndexRef.current);
     setHistoryGridColumns(next);
   }, []);
 
   const cycleListEngine = useCallback(() => {
     const { historyListEngine, setHistoryListEngine } =
       useGenerationStore.getState();
-    setGridInitialIndex(gridFirstVisibleIndexRef.current);
     setHistoryListEngine(
       HISTORY_LIST_ENGINES[
         (HISTORY_LIST_ENGINES.indexOf(historyListEngine) + 1) %
@@ -452,9 +475,8 @@ export function useHistorySheetController({
       historyLoadingMore,
       loadMoreHistory,
       gridColumns,
-      gridInitialIndex,
-      setGridFirstVisibleIndex,
-      resetGridPosition,
+      getGridPosition,
+      saveGridPosition,
       cycleGridColumns,
       listEngine,
       cycleListEngine,
@@ -504,9 +526,8 @@ export function useHistorySheetController({
       cycleListEngine,
       listEngine,
       gridColumns,
-      gridInitialIndex,
-      resetGridPosition,
-      setGridFirstVisibleIndex,
+      getGridPosition,
+      saveGridPosition,
       endDragSelection,
       updateDragSelection,
     ],

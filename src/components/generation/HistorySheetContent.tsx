@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -173,8 +173,26 @@ export const HistorySheetHandle = memo(function HistorySheetHandle({
 
 export const HistorySheetContent = memo(function HistorySheetContent({
   controller,
+  sheetOpen = true,
 }: {
   controller: HistorySheetController;
+  sheetOpen?: boolean;
+}) {
+  return (
+    <HistorySheetGrid
+      key={`${controller.listEngine}-${controller.gridColumns}`}
+      controller={controller}
+      sheetOpen={sheetOpen}
+    />
+  );
+});
+
+const HistorySheetGrid = memo(function HistorySheetGrid({
+  controller,
+  sheetOpen,
+}: {
+  controller: HistorySheetController;
+  sheetOpen: boolean;
 }) {
   const { actionBarHeight } = useGenerationChromeMetrics();
   const { width } = useWindowDimensions();
@@ -189,9 +207,8 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     loadMoreHistory,
     gridColumns: columns,
     listEngine,
-    gridInitialIndex,
-    setGridFirstVisibleIndex,
-    resetGridPosition,
+    getGridPosition,
+    saveGridPosition,
     selectionMode,
     selection,
     busy,
@@ -211,37 +228,78 @@ export const HistorySheetContent = memo(function HistorySheetContent({
     [generationHistory, isLoading],
   );
   const activeGenerationSelected = isLoading && isViewingActiveGeneration;
-  const initialRow = Math.max(
-    0,
-    Math.min(
-      Math.floor(gridInitialIndex / columns),
-      Math.ceil(listData.length / columns) - 1,
-    ),
+  // 초기 위치는 마운트(재오픈/열 수/엔진 변경) 때만 읽는다.
+  const [initialPosition] = useState(() =>
+    getGridPosition(listData, columns, rowHeight, GRID_PADDING),
   );
+  const [listReady, setListReady] = useState(false);
+  const restored = useRef(false);
+  const restorationPending = useRef(true);
+  const restoreTarget = useRef(initialPosition.offset);
+  const handleListReady = useCallback(() => setListReady(true), []);
   const dragSelection = useHistoryDragSelection({
     listData,
     tileSize,
     columns,
     padding: GRID_PADDING,
     bottomInset: actionBarHeight + HISTORY_SELECTION_ACTIONS_HEIGHT,
-    initialScrollY: initialRow > 0 ? GRID_PADDING + initialRow * rowHeight : 0,
+    initialScrollY: initialPosition.offset,
     beginDragSelection,
     updateDragSelection,
     endDragSelection,
   });
 
+  useEffect(() => {
+    if (!sheetOpen) {
+      restored.current = false;
+      restorationPending.current = true;
+      return;
+    }
+    if (!listReady || !restorationPending.current) return;
+    // 초기 props는 시트의 잠금 중 덮어써질 수 있어, 완전히 열린 뒤 복원한다.
+    const list = dragSelection.listRef.current;
+    if (!list) return;
+    restorationPending.current = false;
+    // 닫기 애니메이션을 취소해 본문이 해제되지 않은 경우에도 마지막 위치를 쓴다.
+    const { offset } = getGridPosition(
+      listData,
+      columns,
+      rowHeight,
+      GRID_PADDING,
+    );
+    restoreTarget.current = offset;
+    restored.current = offset === 0;
+    list.scrollToOffset({ offset, animated: false });
+  }, [
+    columns,
+    dragSelection.listRef,
+    getGridPosition,
+    listData,
+    listReady,
+    rowHeight,
+    sheetOpen,
+  ]);
+
   const handleScroll = (event: {
     nativeEvent: { contentOffset: { y: number } };
   }) => {
     dragSelection.onScroll(event);
-    const row = Math.floor(
-      Math.max(0, event.nativeEvent.contentOffset.y - GRID_PADDING) / rowHeight,
+    const y = Math.max(0, event.nativeEvent.contentOffset.y);
+    if (!sheetOpen) return;
+    // 복원 전에 도착한 초기 위치(0) 이벤트로 저장된 위치를 지우지 않는다.
+    if (!restored.current) {
+      if (!listReady || Math.abs(y - restoreTarget.current) > 1) return;
+      restored.current = true;
+    }
+    const row = Math.floor(Math.max(0, y - GRID_PADDING) / rowHeight);
+    const index = row * columns;
+    const anchor = listData[index] ?? listData[index + 1];
+    saveGridPosition(
+      y === 0 ? null : (anchor?.id ?? null),
+      listData[index] === null ? index + 1 : index,
+      y - GRID_PADDING - row * rowHeight,
     );
-    setGridFirstVisibleIndex(row * columns);
   };
-
-  // 시트를 닫았다 열면 맨 위에서 시작한다.
-  useEffect(() => resetGridPosition, [resetGridPosition]);
 
   return (
     <GestureDetector gesture={dragSelection.gesture}>
@@ -251,8 +309,6 @@ export const HistorySheetContent = memo(function HistorySheetContent({
         onLayout={dragSelection.onLayout}
       >
         <HistoryGridList
-          // 리스트는 numColumns를 바꿀 수 없어 열 수마다 다시 마운트한다.
-          key={`${listEngine}-${columns}`}
           engine={listEngine}
           listRef={dragSelection.listRef}
           data={listData}
@@ -261,7 +317,13 @@ export const HistorySheetContent = memo(function HistorySheetContent({
           tileSize={tileSize}
           gridWidth={width - GRID_PADDING * 2}
           padding={GRID_PADDING}
-          initialRow={initialRow}
+          initialRow={initialPosition.row}
+          initialScrollOffset={initialPosition.offset}
+          onReady={handleListReady}
+          onScrollBeginDrag={() => {
+            // 삭제로 내용이 짧아져 복원 위치가 네이티브에서 제한된 경우에도 조작을 재개한다.
+            restored.current = true;
+          }}
           onScroll={handleScroll}
           onContentSizeChange={dragSelection.onContentSizeChange}
           onEndReached={() => {

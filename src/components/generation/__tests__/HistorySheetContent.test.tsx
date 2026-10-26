@@ -81,19 +81,50 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: () => null,
 }));
 
+const mockListScrollToOffset = jest.fn();
 jest.mock("@gorhom/bottom-sheet", () => ({
-  BottomSheetFlatList: jest.fn(() => null),
+  BottomSheetFlatList: jest.fn((props) => {
+    const React = require("react") as typeof import("react");
+    React.useImperativeHandle(props.ref, () => ({
+      scrollToOffset: mockListScrollToOffset,
+    }));
+    const onContentSizeChange = React.useRef(props.onContentSizeChange).current;
+    React.useEffect(() => {
+      onContentSizeChange?.(390, 20000);
+    }, [onContentSizeChange]);
+    return null;
+  }),
   BottomSheetFooter: jest.fn(() => null),
   TouchableOpacity: require("react-native").Pressable,
   useBottomSheetScrollableCreator: () => () => null,
 }));
 
 jest.mock("@shopify/flash-list", () => ({
-  FlashList: jest.fn(() => null),
+  FlashList: jest.fn((props) => {
+    const React = require("react") as typeof import("react");
+    React.useImperativeHandle(props.ref, () => ({
+      scrollToOffset: mockListScrollToOffset,
+    }));
+    const onLoad = props.onLoad;
+    React.useEffect(() => {
+      onLoad?.();
+    }, [onLoad]);
+    return null;
+  }),
 }));
 
 jest.mock("@legendapp/list/react-native", () => ({
-  LegendList: jest.fn(() => null),
+  LegendList: jest.fn((props) => {
+    const React = require("react") as typeof import("react");
+    React.useImperativeHandle(props.ref, () => ({
+      scrollToOffset: mockListScrollToOffset,
+    }));
+    const onLoad = props.onLoad;
+    React.useEffect(() => {
+      onLoad?.();
+    }, [onLoad]);
+    return null;
+  }),
 }));
 
 jest.mock("expo-haptics", () => ({
@@ -123,6 +154,7 @@ jest.mock("react-native-gesture-handler", () => ({
 }));
 
 const mockScrollTo = jest.fn();
+let mockNativeRefAvailable = true;
 const mockFrame: {
   callback?: (info: { timeSincePreviousFrame: number | null }) => void;
 } = {};
@@ -131,7 +163,17 @@ jest.mock("react-native-reanimated", () => {
   return {
     runOnJS: (callback: unknown) => callback,
     scrollTo: (...args: unknown[]) => mockScrollTo(...args),
-    useAnimatedRef: () => React.useRef(null),
+    useAnimatedRef: () =>
+      React.useState(() => {
+        const animatedRef = Object.assign(
+          (instance?: unknown) => {
+            if (instance !== undefined) animatedRef.current = instance;
+            return mockNativeRefAvailable ? animatedRef.current : null;
+          },
+          { current: null as unknown },
+        );
+        return animatedRef;
+      })[0],
     useFrameCallback: (callback: typeof mockFrame.callback) => {
       mockFrame.callback = callback;
       return React.useRef({ setActive: jest.fn() }).current;
@@ -1165,15 +1207,50 @@ describe("history drag selection", () => {
       ids(0, 1, 2, 3, 4, 5, 6),
     );
   });
+
+  test("waits for the native ref before advancing edge scrolling", async () => {
+    const { point, ids } = await renderGrid(60);
+    await act(() => {
+      mockPan.onStart?.(point(0));
+      mockPan.onUpdate?.(point(3));
+    });
+    mockNativeRefAvailable = false;
+    try {
+      await act(() => {
+        for (let frame = 0; frame < 5; frame += 1) {
+          mockFrame.callback?.({ timeSincePreviousFrame: 50 });
+        }
+      });
+      expect(mockScrollTo).not.toHaveBeenCalled();
+      expect(controller.selection.getState().ids).toEqual(ids(0, 1, 2, 3));
+    } finally {
+      mockNativeRefAvailable = true;
+    }
+    await act(() => mockFrame.callback?.({ timeSincePreviousFrame: 50 }));
+    expect(mockScrollTo).toHaveBeenLastCalledWith(
+      expect.anything(),
+      0,
+      55,
+      false,
+    );
+  });
 });
 
 describe("history grid columns", () => {
-  function Harness() {
+  function Harness({
+    open = true,
+    sheetOpen = true,
+  }: {
+    open?: boolean;
+    sheetOpen?: boolean;
+  }) {
     const controller = useHistorySheetController({ onClose: jest.fn() });
     return (
       <>
         <HistorySheetHandle controller={controller} />
-        <HistorySheetContent controller={controller} />
+        {open ? (
+          <HistorySheetContent controller={controller} sheetOpen={sheetOpen} />
+        ) : null}
       </>
     );
   }
@@ -1189,6 +1266,7 @@ describe("history grid columns", () => {
       .mock.calls.at(-1)![0] as unknown as {
       numColumns: number;
       initialScrollIndex: number;
+      contentOffset: { x: number; y: number };
       onScroll: (event: {
         nativeEvent: { contentOffset: { y: number } };
       }) => void;
@@ -1235,6 +1313,182 @@ describe("history grid columns", () => {
     // 4열에서 12번 이미지는 네 번째 줄에 있다.
     expect(latestListProps().numColumns).toBe(4);
     expect(latestListProps().initialScrollIndex).toBe(3);
+  });
+
+  test.each([false, true])(
+    "ignores BottomSheet's zero offsets during transitions and restores after opening (unmount=%s)",
+    async (unmount) => {
+      useGenerationStore.setState({ generationHistory: historyRecords(90) });
+      const screen = await render(<Harness />);
+      await act(() =>
+        latestListProps().onScroll({
+          nativeEvent: { contentOffset: { y: 763.5 } },
+        }),
+      );
+      await screen.rerender(<Harness sheetOpen={false} />);
+      // BottomSheet locks the scrollable at zero while closing.
+      await act(() =>
+        latestListProps().onScroll({
+          nativeEvent: { contentOffset: { y: 0 } },
+        }),
+      );
+      if (unmount)
+        await screen.rerender(<Harness open={false} sheetOpen={false} />);
+      await screen.rerender(<Harness sheetOpen={false} />);
+      mockListScrollToOffset.mockClear();
+      // Mount-time contentOffset is also overwritten while the sheet is opening.
+      await act(() =>
+        latestListProps().onScroll({
+          nativeEvent: { contentOffset: { y: 0 } },
+        }),
+      );
+      expect(mockListScrollToOffset).not.toHaveBeenCalled();
+      await screen.rerender(<Harness sheetOpen />);
+      expect(mockListScrollToOffset).toHaveBeenCalledWith({
+        offset: 763.5,
+        animated: false,
+      });
+      // Ignore a queued zero event, then acknowledge restoration.
+      await act(() =>
+        latestListProps().onScroll({
+          nativeEvent: { contentOffset: { y: 0 } },
+        }),
+      );
+      await act(() =>
+        latestListProps().onScroll({
+          nativeEvent: { contentOffset: { y: 763.5 } },
+        }),
+      );
+      await screen.rerender(<Harness open={false} />);
+      await screen.rerender(<Harness />);
+      expect(latestListProps().contentOffset.y).toBe(763.5);
+    },
+  );
+
+  test.each(["flat", "flash", "legend"] as const)(
+    "restores the exact offset after closing and reopening with %s",
+    async (engine) => {
+      useGenerationStore.setState({
+        generationHistory: historyRecords(90),
+        historyListEngine: engine,
+      });
+      const screen = await render(<Harness />);
+      const listMock =
+        engine === "flat"
+          ? jest.mocked(BottomSheetFlatList)
+          : engine === "flash"
+            ? jest.mocked(FlashList)
+            : jest.mocked(LegendList);
+      const latest = () =>
+        listMock.mock.calls.at(-1)![0] as unknown as {
+          onScroll: (event: {
+            nativeEvent: { contentOffset: { y: number } };
+          }) => void;
+          contentOffset?: { y: number };
+          initialScrollOffset?: number;
+        };
+      const offset = 763.5;
+      const rendersBeforeScroll = listMock.mock.calls.length;
+      await act(async () => {
+        latest().onScroll({ nativeEvent: { contentOffset: { y: offset } } });
+      });
+      expect(listMock.mock.calls.length).toBe(rendersBeforeScroll);
+      await screen.rerender(<Harness open={false} />);
+      await screen.rerender(<Harness />);
+      expect(latest().initialScrollOffset ?? latest().contentOffset?.y).toBe(
+        offset,
+      );
+    },
+  );
+
+  test("keeps the anchor when the active generation tile disappears while closed", async () => {
+    useGenerationStore.setState({
+      generationHistory: historyRecords(60),
+      isLoading: true,
+    });
+    const screen = await render(<Harness />);
+    const layout = latestListProps().getItemLayout(null, 4);
+    await act(async () => {
+      latestListProps().onScroll({
+        nativeEvent: { contentOffset: { y: layout.offset + 17 } },
+      });
+    });
+    await screen.rerender(<Harness open={false} />);
+    await act(async () => {
+      useGenerationStore.setState({ isLoading: false });
+    });
+    await screen.rerender(<Harness />);
+    // 생성 중 타일이 빠져 기존 12번 항목은 11번이 된다(이전 행).
+    expect(latestListProps().initialScrollIndex).toBe(3);
+    expect(latestListProps().contentOffset.y).toBe(
+      layout.offset - layout.length + 17,
+    );
+  });
+
+  test("keeps the same image and within-row offset when new records are prepended while closed", async () => {
+    const records = historyRecords(60);
+    useGenerationStore.setState({ generationHistory: records });
+    const screen = await render(<Harness />);
+    const layout = latestListProps().getItemLayout(null, 4);
+    await act(async () => {
+      latestListProps().onScroll({
+        nativeEvent: { contentOffset: { y: layout.offset + 25 } },
+      });
+    });
+    await screen.rerender(<Harness open={false} />);
+    await act(async () => {
+      useGenerationStore.setState({
+        generationHistory: [
+          ...records
+            .slice(0, 3)
+            .map((record) => ({ ...record, id: `new-${record.id}` })),
+          ...records,
+        ],
+      });
+    });
+    await screen.rerender(<Harness />);
+    expect(latestListProps().initialScrollIndex).toBe(5);
+    expect(latestListProps().contentOffset.y).toBe(
+      layout.offset + layout.length + 25,
+    );
+  });
+
+  test("falls back to the last remaining row when the saved image is deleted", async () => {
+    const records = historyRecords(60);
+    useGenerationStore.setState({ generationHistory: records });
+    const screen = await render(<Harness />);
+    const layout = latestListProps().getItemLayout(null, 12);
+    await act(async () => {
+      latestListProps().onScroll({
+        nativeEvent: { contentOffset: { y: layout.offset + 9 } },
+      });
+    });
+    await screen.rerender(<Harness open={false} />);
+    await act(async () => {
+      useGenerationStore.setState({ generationHistory: records.slice(0, 6) });
+    });
+    await screen.rerender(<Harness />);
+    expect(latestListProps().initialScrollIndex).toBe(1);
+    expect(latestListProps().contentOffset.y).toBe(
+      latestListProps().getItemLayout(null, 1).offset + 9,
+    );
+  });
+
+  test("reopens at the top after all records are deleted", async () => {
+    useGenerationStore.setState({ generationHistory: historyRecords(60) });
+    const screen = await render(<Harness />);
+    await act(async () => {
+      latestListProps().onScroll({
+        nativeEvent: { contentOffset: { y: 500 } },
+      });
+    });
+    await screen.rerender(<Harness open={false} />);
+    await act(async () => {
+      useGenerationStore.setState({ generationHistory: [] });
+    });
+    await screen.rerender(<Harness />);
+    expect(latestListProps().initialScrollIndex).toBe(0);
+    expect(latestListProps().contentOffset.y).toBe(0);
   });
 
   test("switches the list implementation from the header button", async () => {
