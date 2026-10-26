@@ -23,6 +23,7 @@ const SLIDE_DURATION_MS = 220;
 // 숨길 때는 왼쪽(Anlas 표시 뒤)으로 밀려 들어간다. slideDistance는 Anlas 표시와의 간격을 포함한다.
 export const OpusUsageRing = memo(function OpusUsageRing({
   percent,
+  purchasedPercent = 0,
   exhausted,
   nextPercentAt,
   visible,
@@ -30,6 +31,7 @@ export const OpusUsageRing = memo(function OpusUsageRing({
   blurTarget,
 }: {
   percent: number;
+  purchasedPercent?: number;
   exhausted: boolean;
   nextPercentAt?: number;
   visible: boolean;
@@ -37,7 +39,19 @@ export const OpusUsageRing = memo(function OpusUsageRing({
   blurTarget: RefObject<View | null>;
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-  const color = exhausted ? tokens.color.negative : tokens.color.accent;
+  const extra = Math.max(0, Math.min(400, Math.round(purchasedPercent)));
+  const total = clamped + extra;
+  // 100% 초과 시 같은 링 안에서 기본/추가 잔량의 비율로 나눈다.
+  const capacity = Math.max(100, total);
+  const basicArc = (RING_CIRCUMFERENCE * clamped) / capacity;
+  const extraArc = (RING_CIRCUMFERENCE * extra) / capacity;
+  const color =
+    extra > 0 && clamped === 0
+      ? tokens.color.badge3
+      : exhausted && extra === 0
+        ? tokens.color.negative
+        : tokens.color.accent;
+  const extraLabel = extra > 0 ? ` · Extra Usage ${extra}% 남음` : "";
   const shown = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
@@ -57,10 +71,12 @@ export const OpusUsageRing = memo(function OpusUsageRing({
       <Pressable
         testID="generation-opus-usage"
         accessibilityRole="button"
-        accessibilityLabel={`Opus 사용량 ${clamped}% 남음`}
+        accessibilityLabel={`Opus 사용량 ${clamped}% 남음${extraLabel}`}
         accessibilityElementsHidden={!visible}
         importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
-        onPress={() => toast(formatUsageMessage(clamped, nextPercentAt))}
+        onPress={() =>
+          toast(formatUsageMessage(clamped, nextPercentAt) + extraLabel)
+        }
         style={({ pressed }) => [styles.badge, pressed && styles.pressed]}
       >
         <GlassBackground blurTarget={blurTarget} />
@@ -84,16 +100,30 @@ export const OpusUsageRing = memo(function OpusUsageRing({
               cy={RING_SIZE / 2}
               r={RING_RADIUS}
               fill="none"
-              stroke={color}
+              stroke={tokens.color.accent}
               strokeWidth={RING_STROKE_WIDTH}
-              strokeLinecap="round"
-              strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-              strokeDashoffset={RING_CIRCUMFERENCE * (1 - clamped / 100)}
+              strokeLinecap={extra > 0 ? "butt" : "round"}
+              strokeDasharray={`${basicArc} ${RING_CIRCUMFERENCE}`}
+              transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+            />
+          ) : null}
+          {extra > 0 ? (
+            <Circle
+              testID="generation-opus-extra-usage-arc"
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RING_RADIUS}
+              fill="none"
+              stroke={tokens.color.badge3}
+              strokeWidth={RING_STROKE_WIDTH}
+              strokeLinecap="butt"
+              strokeDasharray={`${extraArc} ${RING_CIRCUMFERENCE}`}
+              strokeDashoffset={-basicArc}
               transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
             />
           ) : null}
         </Svg>
-        <Text style={[styles.text, { color }]}>{clamped}</Text>
+        <Text style={[styles.text, { color }]}>{total}</Text>
       </Pressable>
     </Reanimated.View>
   );

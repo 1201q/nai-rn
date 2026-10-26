@@ -618,6 +618,33 @@ describe("GenerationScreen Opus usage ring", () => {
     );
   });
 
+  test.each([0, 42])(
+    "shows extra usage in the same ring with %s basic usage",
+    async (percent) => {
+      setMockState({
+        model: "nai-diffusion-5-full",
+        anlasBalance: {
+          ...usageBalance(),
+          usagePercent: percent,
+          usagePurchasedPercent: 200,
+        },
+      });
+      const screen = await render(<GenerationScreen />);
+      const badge = screen.getByLabelText(
+        `Opus 사용량 ${percent}% 남음 · Extra Usage 200% 남음`,
+      );
+      expect(screen.getAllByTestId("generation-opus-usage")).toHaveLength(1);
+      expect(badge).toHaveTextContent(String(percent + 200));
+      expect(
+        screen.getByTestId("generation-opus-extra-usage-arc"),
+      ).toBeTruthy();
+      await fireEvent.press(badge);
+      expect(toast).toHaveBeenLastCalledWith(
+        expect.stringContaining("Extra Usage 200% 남음"),
+      );
+    },
+  );
+
   test("tucks the ring away on other models", async () => {
     setMockState({
       model: "nai-diffusion-4-5-full",

@@ -457,6 +457,7 @@ function GenerationScreenContent() {
           {anlasBalance?.usagePercent !== undefined ? (
             <OpusUsageRing
               percent={anlasBalance.usagePercent}
+              purchasedPercent={anlasBalance.usagePurchasedPercent}
               exhausted={anlasBalance.usageNegative === true}
               nextPercentAt={anlasBalance.usageNextPercentAt}
               visible={isV5}

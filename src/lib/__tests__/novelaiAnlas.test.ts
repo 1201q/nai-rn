@@ -33,13 +33,19 @@ describe("getNovelAiAnlasBalance", () => {
       json: async () => ({
         tier: 3,
         expiresAt: 1_800_000_000,
-        usage: { percent: 0, isNegative: true, timeUntilNextPercent: 7888 },
+        usage: {
+          percent: 0,
+          purchasedPercent: 200,
+          isNegative: false,
+          timeUntilNextPercent: 7888,
+        },
       }),
     } as Response);
 
     await expect(getNovelAiAnlasBalance("token")).resolves.toMatchObject({
-      usageNegative: true,
+      usageNegative: false,
       usagePercent: 0,
+      usagePurchasedPercent: 200,
     });
   });
 

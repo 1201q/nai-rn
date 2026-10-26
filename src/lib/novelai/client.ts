@@ -34,6 +34,8 @@ export type NovelAiAnlasBalance = {
   usageNegative?: boolean;
   // Opus 사용량 한도의 남은 비율 (0~100). 응답에 usage가 없으면 undefined
   usagePercent?: number;
+  // 활성화된 Extra Usage 잔여 비율 (0~400)
+  usagePurchasedPercent?: number;
   // 다음 1% 회복 시각 (epoch ms). 응답의 timeUntilNextPercent(초)를 받은 시각 기준으로 바꾼 값
   usageNextPercentAt?: number;
 };
@@ -66,6 +68,7 @@ export async function getNovelAiAnlasBalance(
     };
     usage?: {
       percent?: number;
+      purchasedPercent?: number;
       isNegative?: boolean;
       timeUntilNextPercent?: number;
     };
@@ -81,6 +84,7 @@ export async function getNovelAiAnlasBalance(
     expiresAt: data.expiresAt ?? 0,
     usageNegative: data.usage?.isNegative,
     usagePercent: data.usage?.percent,
+    usagePurchasedPercent: data.usage?.purchasedPercent,
     usageNextPercentAt:
       data.usage?.timeUntilNextPercent === undefined
         ? undefined
