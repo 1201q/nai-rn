@@ -31,6 +31,7 @@ type StoredGenerationOptions = {
   seedLocked: boolean;
   batchCount: number;
   imageFormat: NovelAiImageFormat;
+  imageSaveDirectory: string | null;
   varietyPlus: boolean;
   normalizeVibeStrengths: boolean;
   i2iSourceImage: {
@@ -85,6 +86,7 @@ const PERSISTED_OPTION_KEYS = [
   "seedLocked",
   "batchCount",
   "imageFormat",
+  "imageSaveDirectory",
   "varietyPlus",
   "normalizeVibeStrengths",
   "i2iSourceImage",
@@ -124,6 +126,7 @@ export function selectPersistedOptions(
     seedLocked: state.seedLocked,
     batchCount: state.batchCount,
     imageFormat: state.imageFormat,
+    imageSaveDirectory: state.imageSaveDirectory,
     varietyPlus: state.varietyPlus,
     normalizeVibeStrengths: state.normalizeVibeStrengths,
     ...(state.i2iSourceImage

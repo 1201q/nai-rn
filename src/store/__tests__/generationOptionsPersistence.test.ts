@@ -29,6 +29,7 @@ function createState(
     seedLocked: false,
     batchCount: 1,
     imageFormat: "png",
+    imageSaveDirectory: null,
     varietyPlus: false,
     normalizeVibeStrengths: true,
     i2iSourceImage: null,
@@ -47,6 +48,26 @@ function createState(
 }
 
 describe("generation options persistence", () => {
+  test("persists changes to the selected image directory and a reset", () => {
+    const initial = createState();
+    const selected = createState({
+      imageSaveDirectory: "content://images/tree/primary%3APictures",
+    });
+    const write = jest.fn();
+    const persistence = createGenerationOptionsPersistence({
+      initialJson: JSON.stringify(selectPersistedOptions(initial)),
+      write,
+    });
+    persistence.handleStateChange(selected, initial);
+    persistence.flush();
+    expect(JSON.parse(write.mock.calls[0][0]).imageSaveDirectory).toBe(
+      selected.imageSaveDirectory,
+    );
+    persistence.handleStateChange(initial, selected);
+    persistence.flush();
+    expect(JSON.parse(write.mock.calls[1][0]).imageSaveDirectory).toBeNull();
+  });
+
   beforeEach(() => {
     jest.useFakeTimers();
   });

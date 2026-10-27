@@ -1654,6 +1654,23 @@ describe("persisted generation option validation", () => {
     return restoredState;
   }
 
+  test.each([
+    [
+      "content://com.android.externalstorage.documents/tree/primary%3APictures",
+      "content://com.android.externalstorage.documents/tree/primary%3APictures",
+    ],
+    ["file:///selected/images", "file:///selected/images"],
+    [null, null],
+    ["", null],
+    [123, null],
+    ["https://example.com/images", null],
+  ])("restores only valid image directory URIs: %s", (stored, expected) => {
+    expect(
+      restore(JSON.stringify({ imageSaveDirectory: stored }))
+        .imageSaveDirectory,
+    ).toBe(expected);
+  });
+
   test.each([undefined, "", "{broken", "null"])(
     "keeps defaults when storage contains %s",
     (json) => {

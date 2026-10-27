@@ -176,6 +176,13 @@ export function loadPersistedOptions(): Partial<GenerationState> {
     if (parsed.imageFormat === "png" || parsed.imageFormat === "webp") {
       next.imageFormat = parsed.imageFormat;
     }
+    if (
+      parsed.imageSaveDirectory === null ||
+      (isString(parsed.imageSaveDirectory) &&
+        /^(content|file):\/\//.test(parsed.imageSaveDirectory))
+    ) {
+      next.imageSaveDirectory = parsed.imageSaveDirectory;
+    }
     if (isBoolean(parsed.varietyPlus)) next.varietyPlus = parsed.varietyPlus;
     if (isBoolean(parsed.normalizeVibeStrengths)) {
       next.normalizeVibeStrengths = parsed.normalizeVibeStrengths;

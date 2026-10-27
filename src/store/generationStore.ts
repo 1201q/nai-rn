@@ -160,6 +160,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setBatchCount: (v) => set({ batchCount: v }),
   imageFormat: "png",
   setImageFormat: (v) => set({ imageFormat: v }),
+  imageSaveDirectory: null,
+  setImageSaveDirectory: (v) => set({ imageSaveDirectory: v }),
   setVarietyPlus: (v) => set({ varietyPlus: v }),
   applyMetadataImport: (parsed, selection) =>
     set((state) => {

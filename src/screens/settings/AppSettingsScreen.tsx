@@ -26,6 +26,10 @@ import { Toggle } from "../../components/forms/FormControls";
 import { SheetSelect } from "../../components/forms/SheetSelect";
 import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
 import { seedDevHistory } from "../../lib/devHistorySeed";
+import {
+  chooseImageSaveDirectory,
+  getImageSaveDirectoryLabel,
+} from "../../lib/gallery";
 import { useGenerationStore } from "../../store/generationStore";
 import { monoFont, tokens } from "../../styles/tokens";
 import {
@@ -85,6 +89,9 @@ export function AppSettingsScreen() {
   const setBatchCount = useGenerationStore((state) => state.setBatchCount);
   const imageFormat = useGenerationStore((state) => state.imageFormat);
   const setImageFormat = useGenerationStore((state) => state.setImageFormat);
+  const imageSaveDirectory = useGenerationStore(
+    (state) => state.imageSaveDirectory,
+  );
   const mainImageLocked = useGenerationStore((state) => state.mainImageLocked);
   const setMainImageLocked = useGenerationStore(
     (state) => state.setMainImageLocked,
@@ -120,11 +127,27 @@ export function AppSettingsScreen() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [helpKey, setHelpKey] = useState<SettingsHelpKey | null>(null);
   const [isSeedingHistory, setIsSeedingHistory] = useState(false);
+  const [isChoosingDirectory, setIsChoosingDirectory] = useState(false);
+  const choosingDirectoryRef = useRef(false);
 
   const showEditor = !storedToken || isEditing;
 
   function toggleHelp(next: SettingsHelpKey) {
     setHelpKey((current) => (current === next ? null : next));
+  }
+
+  async function handleChooseDirectory() {
+    if (choosingDirectoryRef.current) return;
+    choosingDirectoryRef.current = true;
+    setIsChoosingDirectory(true);
+    try {
+      await chooseImageSaveDirectory();
+    } catch {
+      toast.error("저장 폴더를 선택하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      choosingDirectoryRef.current = false;
+      setIsChoosingDirectory(false);
+    }
   }
 
   async function handleSeedHistory() {
@@ -426,6 +449,38 @@ export function AppSettingsScreen() {
                 portalHostName={SELECT_PORTAL_HOST}
                 style={styles.formatSelect}
               />
+            </View>
+
+            <View style={[styles.option, styles.optionRow]}>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>이미지 저장 위치</Text>
+                <Text selectable style={styles.optionDescription}>
+                  {getImageSaveDirectoryLabel(imageSaveDirectory)}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="이미지 저장 폴더 변경"
+                accessibilityState={{
+                  disabled: isChoosingDirectory,
+                  busy: isChoosingDirectory,
+                }}
+                disabled={isChoosingDirectory}
+                onPress={() => void handleChooseDirectory()}
+                style={({ pressed }) => [
+                  styles.changeDirectoryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {isChoosingDirectory ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={tokens.color.textPrimary}
+                  />
+                ) : (
+                  <Text style={styles.changeDirectoryText}>변경</Text>
+                )}
+              </Pressable>
             </View>
 
             <View style={[styles.option, styles.optionRow]}>
@@ -753,6 +808,20 @@ const styles = StyleSheet.create({
   },
   formatSelect: {
     width: 112,
+  },
+  changeDirectoryButton: {
+    minHeight: 36,
+    minWidth: 48,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: tokens.radius.sm,
+    backgroundColor: tokens.color.raised,
+  },
+  changeDirectoryText: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.xs,
   },
   selectPortalLayer: {
     position: "absolute",

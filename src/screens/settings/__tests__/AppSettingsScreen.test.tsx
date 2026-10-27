@@ -5,6 +5,11 @@ import {
   useGenerationStore,
 } from "../../../store/generationStore";
 import { AppSettingsScreen } from "../AppSettingsScreen";
+import {
+  chooseImageSaveDirectory,
+  getImageSaveDirectoryLabel,
+} from "../../../lib/gallery";
+import { toast } from "sonner-native";
 
 const mockSliderControlsProps = jest.fn();
 const mockSelectProps = jest.fn();
@@ -14,6 +19,8 @@ type MockSettingsState = {
   setBatchCount: jest.Mock<void, [number]>;
   imageFormat: "png" | "webp";
   setImageFormat: jest.Mock<void, ["png" | "webp"]>;
+  imageSaveDirectory: string | null;
+  setImageSaveDirectory: jest.Mock<void, [string | null]>;
   mainImageLocked: boolean;
   setMainImageLocked: jest.Mock<void, [boolean]>;
   closeSheetsOnGenerate: boolean;
@@ -38,6 +45,8 @@ jest.mock("../../../store/generationStore", () => {
       setBatchCount: jest.fn(),
       imageFormat: "png",
       setImageFormat: jest.fn(),
+      imageSaveDirectory: null,
+      setImageSaveDirectory: jest.fn(),
       mainImageLocked: false,
       setMainImageLocked: jest.fn(),
       closeSheetsOnGenerate: true,
@@ -64,6 +73,16 @@ jest.mock("sonner-native", () => ({
 
 jest.mock("../../../lib/devHistorySeed", () => ({
   seedDevHistory: jest.fn(),
+}));
+
+jest.mock("../../../lib/gallery", () => ({
+  ...jest.requireActual("../../../lib/gallery"),
+  chooseImageSaveDirectory: jest.fn(),
+}));
+
+jest.mock("expo-media-library", () => ({
+  Asset: { create: jest.fn() },
+  requestPermissionsAsync: jest.fn(),
 }));
 
 jest.mock("../../../components/forms/SheetSliderControls", () => ({
@@ -161,6 +180,37 @@ describe("AppSettingsScreen token verification feedback", () => {
     expect(select.options).toEqual(["PNG", "WebP"]);
     select.onChange("WebP");
     expect(initialState.setImageFormat).toHaveBeenCalledWith("webp");
+    await screen.unmount();
+  });
+
+  test("opens the folder picker and displays the selected storage path", async () => {
+    useGenerationStore.setState({
+      imageSaveDirectory:
+        "content://com.android.externalstorage.documents/tree/primary%3APictures%2FNaiRN",
+    });
+    jest.mocked(chooseImageSaveDirectory).mockResolvedValue(true);
+    const screen = await render(<AppSettingsScreen />);
+    expect(screen.getByText("Pictures/NaiRN")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("이미지 저장 폴더 변경"));
+    await waitFor(() =>
+      expect(chooseImageSaveDirectory).toHaveBeenCalledTimes(1),
+    );
+    await screen.unmount();
+  });
+
+  test("keeps the current path and reports a picker error", async () => {
+    jest
+      .mocked(chooseImageSaveDirectory)
+      .mockRejectedValue(new Error("unavailable"));
+    const screen = await render(<AppSettingsScreen />);
+    await fireEvent.press(screen.getByLabelText("이미지 저장 폴더 변경"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "저장 폴더를 선택하지 못했습니다. 다시 시도해 주세요.",
+      ),
+    );
+    expect(screen.getByText(getImageSaveDirectoryLabel(null))).toBeTruthy();
+    expect(initialState.setImageSaveDirectory).not.toHaveBeenCalled();
     await screen.unmount();
   });
 

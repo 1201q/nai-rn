@@ -87,6 +87,8 @@ export type GenerationState = {
   setBatchCount: (v: number) => void;
   imageFormat: NovelAiImageFormat;
   setImageFormat: (v: NovelAiImageFormat) => void;
+  imageSaveDirectory: string | null;
+  setImageSaveDirectory: (v: string | null) => void;
   varietyPlus: boolean;
   setVarietyPlus: (v: boolean) => void;
   applyMetadataImport: (
