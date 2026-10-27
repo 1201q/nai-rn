@@ -7,6 +7,7 @@ import {
 } from "../../modules/generation-wake-lock";
 import {
   imageUpscaler,
+  type UpscaleAdvancedOptions,
   type UpscaleFormat,
   type UpscaleModel,
   type UpscaleResult,
@@ -16,17 +17,19 @@ import {
   stopUpscaleService,
   updateUpscaleProgress,
 } from "../lib/foregroundService";
-import {
-  requestGallerySavePermission,
-  saveImageToGallery,
-} from "../lib/gallery";
+import { requestGallerySavePermission } from "../lib/gallery";
+import { saveUpscaledImage } from "../lib/upscaleStorage";
 
-export type UpscaleSettings = {
+export type UpscaleSettings = UpscaleAdvancedOptions & {
   model: UpscaleModel;
   scale: number;
   noise: number;
   tileSize: number;
   format: UpscaleFormat;
+  jpgQuality: number;
+  webpQuality: number;
+  keepOriginalFilename: boolean;
+  albumName: string;
 };
 
 export type UpscaleQueueItem = {
@@ -34,6 +37,7 @@ export type UpscaleQueueItem = {
   uri: string;
   width: number;
   height: number;
+  originalFilename?: string | null;
   status: "pending" | "running" | "done" | "failed";
   // 갤러리에 저장한 뒤의 결과 정보. 임시 파일은 지우므로 uri는 남기지 않는다.
   result?: Omit<UpscaleResult, "uri">;
@@ -48,7 +52,14 @@ type UpscaleQueueState = {
   stopRequested: boolean;
   // 처리 중인 장의 진행률 (0~1)
   progress: number;
-  addImages: (images: { uri: string; width: number; height: number }[]) => void;
+  addImages: (
+    images: {
+      uri: string;
+      width: number;
+      height: number;
+      originalFilename?: string | null;
+    }[],
+  ) => void;
   removeItem: (id: string) => void;
   clear: () => void;
   // 대기 / 실패 항목을 순서대로 처리하고 결과를 갤러리에 저장한다.
@@ -163,9 +174,25 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
               settings.noise,
               settings.tileSize,
               settings.format,
+              settings.format === "webp"
+                ? settings.webpQuality
+                : settings.jpgQuality,
+              {
+                ttaMode: settings.ttaMode,
+                syncGap: settings.syncGap,
+                limitGpuPerformance: settings.limitGpuPerformance,
+                useGpu: settings.useGpu,
+                cpuThreads: settings.cpuThreads,
+                cpuPolicy: settings.cpuPolicy,
+              },
             );
             try {
-              await saveImageToGallery(uri);
+              await saveUpscaledImage(uri, {
+                format: settings.format,
+                originalFilename: item.originalFilename,
+                keepOriginalFilename: settings.keepOriginalFilename,
+                albumName: settings.albumName,
+              });
             } finally {
               new File(uri).delete();
             }

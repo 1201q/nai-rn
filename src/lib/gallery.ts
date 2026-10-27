@@ -8,6 +8,15 @@ export async function requestGallerySavePermission(): Promise<boolean> {
   return permission.granted;
 }
 
-export async function saveImageToGallery(uri: string): Promise<void> {
-  await MediaLibrary.Asset.create(uri);
+export async function saveImageToGallery(
+  uri: string,
+  albumName?: string,
+): Promise<void> {
+  if (albumName) {
+    // Import directly into the named album so no duplicate default-gallery asset
+    // or permission to move an existing asset is needed.
+    await MediaLibrary.Album.create(albumName, [uri]);
+  } else {
+    await MediaLibrary.Asset.create(uri);
+  }
 }

@@ -10,6 +10,7 @@ import BottomSheet, {
   BottomSheetScrollView,
   type BottomSheetScrollViewMethods,
   BottomSheetView,
+  BottomSheetTextInput,
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,8 @@ import Reanimated, {
 } from "react-native-reanimated";
 
 import { SheetSelect } from "../../components/forms/SheetSelect";
+import { Toggle } from "../../components/forms/FormControls";
+import { Slider } from "../../components/forms/Slider";
 import { SteppedSeekbar } from "../../components/forms/SteppedSeekbar";
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
@@ -46,8 +49,11 @@ import {
   normalizeUpscaleSettings,
   scaleOptions,
   TILE_SIZES,
+  SYNC_GAPS,
   upscaleSettingsSummary,
 } from "./upscaleOptions";
+import { UpscaleGpuMemory } from "./UpscaleGpuMemory";
+import { UpscaleCpuSettings } from "./UpscaleCpuSettings";
 
 export const UPSCALE_SELECT_PORTAL_HOST = "upscale-select-overlay";
 
@@ -167,6 +173,7 @@ export function UpscaleSettingsSheetHost({
     useGenerationChromeMetrics();
   const animatedIndex = useSharedValue(0);
   const [openSelect, setOpenSelect] = useState<SelectKey | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const animationConfigs = useBottomSheetTimingConfigs({
     duration: 300,
     easing: SHEET_EASING,
@@ -309,6 +316,12 @@ export function UpscaleSettingsSheetHost({
                     value={settings.tileSize}
                     onChange={(tileSize) => change({ tileSize })}
                   />
+                  {settings.limitGpuPerformance ? (
+                    <Text style={styles.hint}>
+                      GPU 성능 제한이 켜져 있어 GPU 타일은 최대 100으로
+                      적용됩니다. 자동 계산값이 더 작으면 그 값을 사용합니다.
+                    </Text>
+                  ) : null}
                 </View>
 
                 <SheetSelect
@@ -325,6 +338,166 @@ export function UpscaleSettingsSheetHost({
                   onOpenChange={(next) => setOpenSelect(next ? "format" : null)}
                   portalHostName={UPSCALE_SELECT_PORTAL_HOST}
                 />
+                <View
+                  pointerEvents={settings.format === "png" ? "none" : "auto"}
+                  accessibilityElementsHidden={settings.format === "png"}
+                  importantForAccessibility={
+                    settings.format === "png" ? "no-hide-descendants" : "auto"
+                  }
+                  style={[
+                    styles.section,
+                    settings.format === "png" && styles.disabled,
+                  ]}
+                >
+                  <View style={styles.qualityHeader}>
+                    <Text style={styles.qualityLabel}>Image quality</Text>
+                    <Text style={styles.qualityValue}>
+                      {settings.format === "png"
+                        ? "무손실"
+                        : `${settings.format === "jpg" ? settings.jpgQuality : settings.webpQuality}%`}
+                    </Text>
+                  </View>
+                  <Slider
+                    accessibilityLabel="Image quality"
+                    value={
+                      settings.format === "webp"
+                        ? settings.webpQuality
+                        : settings.jpgQuality
+                    }
+                    min={1}
+                    max={100}
+                    step={1}
+                    precision={0}
+                    pill
+                    jumpOnTap
+                    trackBg={tokens.color.sunken}
+                    thumbBorderWidth={0}
+                    onValueChange={(quality) =>
+                      change(
+                        settings.format === "webp"
+                          ? { webpQuality: quality }
+                          : { jpgQuality: quality },
+                      )
+                    }
+                    onSlidingComplete={(quality) =>
+                      change(
+                        settings.format === "webp"
+                          ? { webpQuality: quality }
+                          : { jpgQuality: quality },
+                      )
+                    }
+                  />
+                </View>
+                <View style={styles.section}>
+                  <Text style={styles.eyebrow}>SAVE SETTINGS</Text>
+                  <View style={styles.qualityHeader}>
+                    <Text style={styles.qualityLabel}>원본 파일명 유지</Text>
+                    <Toggle
+                      label="원본 파일명 유지"
+                      value={settings.keepOriginalFilename}
+                      disabled={disabled}
+                      onChange={(keepOriginalFilename) =>
+                        change({ keepOriginalFilename })
+                      }
+                    />
+                  </View>
+                  <Text style={styles.hint}>
+                    원본 이름이 없으면 자동 이름을 사용합니다. 확장자는 출력
+                    형식에 맞추며 같은 이름은 덮어쓰지 않습니다.
+                  </Text>
+                  <Text style={styles.qualityLabel}>저장 앨범</Text>
+                  <BottomSheetTextInput
+                    accessibilityLabel="저장 앨범"
+                    placeholder="기본 갤러리 위치"
+                    placeholderTextColor={tokens.color.textTertiary}
+                    value={settings.albumName}
+                    editable={!disabled}
+                    maxLength={80}
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onChangeText={(albumName) => change({ albumName })}
+                    style={styles.albumInput}
+                  />
+                  <Text style={styles.hint}>
+                    앨범 이름을 입력하면 그 앨범에 저장하고, 없으면 만듭니다.
+                    비워 두면 기본 위치에 저장합니다.
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="고급 옵션"
+                  accessibilityState={{ expanded: advancedOpen, disabled }}
+                  disabled={disabled}
+                  onPress={() => setAdvancedOpen((current) => !current)}
+                  style={styles.qualityHeader}
+                >
+                  <Text style={styles.qualityLabel}>고급 옵션</Text>
+                  <Ionicons
+                    name={advancedOpen ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color={tokens.color.textSecondary}
+                  />
+                </Pressable>
+                {advancedOpen ? (
+                  <View style={styles.section}>
+                    <UpscaleCpuSettings
+                      active={open && !disabled}
+                      disabled={disabled}
+                      settings={settings}
+                      onChange={change}
+                    />
+                    <View style={styles.qualityHeader}>
+                      <Text style={styles.qualityLabel}>
+                        Limit GPU Performance
+                      </Text>
+                      <Toggle
+                        label="Limit GPU Performance"
+                        value={settings.limitGpuPerformance}
+                        disabled={disabled}
+                        onChange={(limitGpuPerformance) =>
+                          change({ limitGpuPerformance })
+                        }
+                      />
+                    </View>
+                    <Text style={styles.hint}>
+                      자동·수동 타일 모두 GPU에서는 최대 100으로 제한합니다.
+                      CPU에는 적용되지 않습니다. 실제 적용 타일은 완료 목록에
+                      표시됩니다.
+                    </Text>
+                    <View style={styles.qualityHeader}>
+                      <Text style={styles.qualityLabel}>TTA mode</Text>
+                      <Toggle
+                        label="TTA mode"
+                        value={settings.ttaMode}
+                        disabled={disabled}
+                        onChange={(ttaMode) => change({ ttaMode })}
+                      />
+                    </View>
+                    <Text style={styles.hint}>
+                      8가지 방향으로 추론한 결과를 합칩니다. 처리 시간과 메모리
+                      사용량이 늘어납니다.
+                    </Text>
+                    {settings.model !== "waifu2x-cunet" ? (
+                      <View style={styles.section}>
+                        <SteppedSeekbar
+                          label="Real-CUGAN Sync Gap"
+                          stops={[...SYNC_GAPS]}
+                          value={settings.syncGap}
+                          onChange={(syncGap) =>
+                            change({
+                              syncGap: syncGap as UpscaleSettings["syncGap"],
+                            })
+                          }
+                        />
+                        <Text style={styles.hint}>
+                          타일을 나눠 처리할 때 적용됩니다. 0은 비활성화,
+                          기본값은 3입니다.
+                        </Text>
+                      </View>
+                    ) : null}
+                    <UpscaleGpuMemory active={open && !disabled} />
+                  </View>
+                ) : null}
               </View>
             </BottomSheetScrollView>
           </BottomSheetView>
@@ -335,6 +508,38 @@ export function UpscaleSettingsSheetHost({
 }
 
 const styles = StyleSheet.create({
+  albumInput: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.regular,
+    fontSize: 15,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.sunken,
+  },
+  hint: {
+    color: tokens.color.textTertiary,
+    fontFamily: tokens.font.regular,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  qualityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  qualityLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
+  },
+  qualityValue: {
+    color: tokens.color.textSecondary,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
+    fontVariant: ["tabular-nums"],
+  },
   sheetContainer: {
     zIndex: 80,
     elevation: 80,

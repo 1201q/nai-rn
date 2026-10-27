@@ -1,9 +1,15 @@
 import { useCallback, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
 import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -37,7 +43,11 @@ import {
   ActionProgressButton,
 } from "../generation/GenerationActionBar";
 import { UtilitySheetHost } from "../generation/GenerationSheetScaffold";
-import { DEFAULT_UPSCALE_SETTINGS } from "./upscaleOptions";
+import { useUpscaleSettingsStore } from "../../store/upscaleSettingsStore";
+import {
+  pickUpscaleFiles,
+  pickUpscaleGalleryImages,
+} from "../../lib/upscaleInput";
 import {
   UPSCALE_SELECT_PORTAL_HOST,
   UpscaleSettingsSheetHost,
@@ -51,6 +61,9 @@ function statusText(item: UpscaleQueueItem, progress: number) {
     return `업스케일 중… ${Math.round(progress * 100)}%`;
   }
   if (item.status === "failed") {
+    if (item.error?.includes("CPU_POLICY_UNAVAILABLE")) {
+      return "실패: 선택한 CPU 코어 정책을 적용할 수 없습니다.";
+    }
     return item.error?.includes("IMAGE_TOO_LARGE")
       ? "실패: 이미지가 너무 큽니다 (결과 최대 4096×4096 상당)"
       : `실패: ${item.error}`;
@@ -59,8 +72,10 @@ function statusText(item: UpscaleQueueItem, progress: number) {
   return [
     `${result.width} × ${result.height}`,
     `${(result.elapsedMs / 1000).toFixed(1)}초`,
-    result.usedGpu ? "GPU" : "CPU",
-    `tile ${result.tileSize}`,
+    result.usedGpu
+      ? "GPU"
+      : `CPU ${result.cpuThreads}스레드 · ${["전체", "리틀", "빅"][result.cpuPolicy]}`,
+    `적용 타일 ${result.tileSize}`,
     `${(result.bytes / 1024 / 1024).toFixed(2)}MB`,
   ].join(" · ");
 }
@@ -84,6 +99,11 @@ function QueueRow({
         style={styles.thumbnail}
       />
       <View style={styles.rowText}>
+        {item.originalFilename ? (
+          <Text numberOfLines={1} style={styles.rowTitle}>
+            {item.originalFilename}
+          </Text>
+        ) : null}
         <Text style={styles.rowTitle}>
           {item.width} × {item.height}
         </Text>
@@ -164,7 +184,8 @@ export function UpscaleScreen() {
   const addImages = useUpscaleQueueStore((state) => state.addImages);
   const removeItem = useUpscaleQueueStore((state) => state.removeItem);
   const clear = useUpscaleQueueStore((state) => state.clear);
-  const [settings, setSettings] = useState(DEFAULT_UPSCALE_SETTINGS);
+  const settings = useUpscaleSettingsStore((state) => state.settings);
+  const setSettings = useUpscaleSettingsStore((state) => state.setSettings);
   const [sheet, setSheet] = useState<UpscaleSheet | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const settingsBackProgress = useSharedValue(0);
@@ -190,6 +211,8 @@ export function UpscaleScreen() {
           uri: resolveGenerationImageUri(item),
           width: item.width,
           height: item.height,
+          originalFilename:
+            resolveGenerationImageUri(item).split("/").pop() ?? null,
         },
       ]);
       toast("업스케일 목록에 추가했습니다.");
@@ -220,21 +243,41 @@ export function UpscaleScreen() {
     onCancel: cancelPredictiveBack,
   });
 
-  async function pickImages() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      toast.error("이미지를 선택하려면 사진 접근 권한이 필요합니다.");
-      return;
+  const picking = useRef(false);
+  async function pickImages(source: "gallery" | "files") {
+    if (picking.current) return;
+    picking.current = true;
+    try {
+      if (source === "gallery") {
+        addImages(await pickUpscaleGalleryImages());
+      } else {
+        const { images, rejected } = await pickUpscaleFiles();
+        addImages(images);
+        if (rejected > 0)
+          toast.error(
+            `${rejected}개 파일은 읽을 수 있는 이미지가 아니어서 제외했습니다.`,
+          );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(
+        message.includes("PHOTO_PERMISSION_DENIED")
+          ? "이미지를 선택하려면 사진 접근 권한이 필요합니다."
+          : message.includes("UPSCALE_MODULE_UNAVAILABLE")
+            ? "이 빌드에는 업스케일 모듈이 없습니다."
+            : "이미지를 불러오지 못했습니다.",
+      );
+    } finally {
+      picking.current = false;
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      quality: 1,
-    });
-    if (picked.canceled) return;
-    addImages(
-      picked.assets.map(({ uri, width, height }) => ({ uri, width, height })),
-    );
+  }
+
+  function chooseImageSource() {
+    Alert.alert("이미지 추가", "이미지를 가져올 위치를 선택하세요.", [
+      { text: "갤러리", onPress: () => void pickImages("gallery") },
+      { text: "파일 탐색기", onPress: () => void pickImages("files") },
+      { text: "취소", style: "cancel" },
+    ]);
   }
 
   return (
@@ -261,7 +304,7 @@ export function UpscaleScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="업스케일할 이미지 추가"
-            onPress={() => void pickImages()}
+            onPress={chooseImageSource}
             style={({ pressed }) => [
               styles.picker,
               styles.emptyPicker,
@@ -294,7 +337,7 @@ export function UpscaleScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="업스케일할 이미지 더 추가"
-            onPress={() => void pickImages()}
+            onPress={chooseImageSource}
             style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
           >
             <View style={styles.pickerIcon}>
@@ -341,7 +384,9 @@ export function UpscaleScreen() {
         ) : null}
 
         <Text style={styles.meta}>
-          결과는 한 장이 끝날 때마다 갤러리에 저장됩니다.
+          {settings.albumName.trim()
+            ? `결과는 한 장이 끝날 때마다 갤러리의 '${settings.albumName.trim()}' 앨범에 저장됩니다.`
+            : "결과는 한 장이 끝날 때마다 갤러리에 저장됩니다."}
         </Text>
       </Animated.ScrollView>
 
