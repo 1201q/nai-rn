@@ -26,6 +26,18 @@ beforeEach(() => {
   mockSavedJson = undefined;
 });
 
+test("applies consecutive patches without losing a just-committed quality value", () => {
+  const store = loadStore();
+  store.getState().setSettings({ jpgQuality: 73 });
+  store.getState().setSettings({ format: "webp" });
+  store.getState().setSettings({ webpQuality: 81 });
+  expect(loadStore().getState().settings).toMatchObject({
+    format: "webp",
+    jpgQuality: 73,
+    webpQuality: 81,
+  });
+});
+
 test("restores all options and separate format qualities after a fresh store load", () => {
   const settings = {
     ...DEFAULT_UPSCALE_SETTINGS,

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
+  Keyboard,
+  Platform,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
 import BottomSheet, {
-  BottomSheetScrollView,
   type BottomSheetScrollViewMethods,
   BottomSheetView,
   BottomSheetTextInput,
@@ -25,8 +26,8 @@ import Reanimated, {
 
 import { SheetSelect } from "../../components/forms/SheetSelect";
 import { Toggle } from "../../components/forms/FormControls";
-import { Slider } from "../../components/forms/Slider";
 import { SteppedSeekbar } from "../../components/forms/SteppedSeekbar";
+import { BottomSheetKeyboardAwareScrollView } from "../../components/generation/BottomSheetKeyboardAwareScrollView";
 import {
   GENERATION_SHEET_HEADER_HEIGHT,
   useGenerationChromeMetrics,
@@ -46,19 +47,28 @@ import {
   FORMATS,
   MODELS,
   noiseOptions,
-  normalizeUpscaleSettings,
   scaleOptions,
   TILE_SIZES,
   SYNC_GAPS,
   upscaleSettingsSummary,
+  UPSCALE_SELECT_PORTAL_HOST,
 } from "./upscaleOptions";
 import { UpscaleGpuMemory } from "./UpscaleGpuMemory";
 import { UpscaleCpuSettings } from "./UpscaleCpuSettings";
+import { UpscaleQualityControl } from "./UpscaleQualityControl";
+import { UpscaleHelpButton, UpscaleOptionLabel } from "./UpscaleOptionLabel";
+import { useGenerationInputCommit } from "../../context/GenerationInputCommitContext";
 
-export const UPSCALE_SELECT_PORTAL_HOST = "upscale-select-overlay";
+export { UPSCALE_SELECT_PORTAL_HOST } from "./upscaleOptions";
 
 const SETTINGS_BACKDROP_Z_INDEX = 70;
 const SETTINGS_SHEET_Z_INDEX = 80;
+// Match the generation Settings sheet: keep the sheet at its highest detent
+// and scroll the focused input above the keyboard and action bar.
+const SETTINGS_ACTION_BAR_HEIGHT = 96;
+const SETTINGS_KEYBOARD_GAP = 12;
+const SETTINGS_KEYBOARD_SCROLL_MODE =
+  Platform.OS === "android" ? "layout" : "insets";
 
 const MODEL_LABELS = MODELS.map((option) => option.label);
 const FORMAT_LABELS = FORMATS.map((option) => option.label);
@@ -164,9 +174,10 @@ export function UpscaleSettingsSheetHost({
   disabled: boolean;
   predictiveBackProgress: SharedValue<number>;
   onOpenChange: (open: boolean) => void;
-  onChange: (settings: UpscaleSettings) => void;
+  onChange: (patch: Partial<UpscaleSettings>) => void;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
+  const { commitPendingInput } = useGenerationInputCommit();
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   const { height: windowHeight } = useWindowDimensions();
   const { promptCollapsedHeight, utilitySheetTop, sheetContentPaddingBottom } =
@@ -212,7 +223,15 @@ export function UpscaleSettingsSheetHost({
   const closeSheet = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   function change(patch: Partial<UpscaleSettings>) {
-    onChange(normalizeUpscaleSettings({ ...settings, ...patch }));
+    onChange(patch);
+  }
+
+  function selectOpenChange(key: SelectKey, next: boolean) {
+    if (next) {
+      commitPendingInput();
+      Keyboard.dismiss();
+    }
+    setOpenSelect(next ? key : null);
   }
 
   const modelLabel = MODELS.find(
@@ -248,6 +267,10 @@ export function UpscaleSettingsSheetHost({
           enableDynamicSizing={false}
           enableOverDrag={false}
           enablePanDownToClose={false}
+          enableBlurKeyboardOnGesture
+          keyboardBehavior="extend"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
           handleStyle={sheetChromeStyles.handleArea}
           handleIndicatorStyle={sheetChromeStyles.handleIndicator}
           containerStyle={styles.sheetContainer}
@@ -263,14 +286,20 @@ export function UpscaleSettingsSheetHost({
               onOpen={openSheet}
               onClose={closeSheet}
             />
-            <BottomSheetScrollView
+            <BottomSheetKeyboardAwareScrollView
               ref={scrollRef}
+              active={open}
+              enabled={open && !disabled}
               style={styles.scroll}
               contentContainerStyle={[
                 styles.scrollContent,
                 { paddingBottom: sheetContentPaddingBottom },
               ]}
               showsVerticalScrollIndicator={false}
+              bottomOffset={SETTINGS_ACTION_BAR_HEIGHT + SETTINGS_KEYBOARD_GAP}
+              extraKeyboardSpace={SETTINGS_ACTION_BAR_HEIGHT}
+              mode={SETTINGS_KEYBOARD_SCROLL_MODE}
+              keyboardShouldPersistTaps="handled"
               scrollEnabled={openSelect === null}
             >
               <View
@@ -292,7 +321,7 @@ export function UpscaleSettingsSheetHost({
                     })
                   }
                   open={openSelect === "model"}
-                  onOpenChange={(next) => setOpenSelect(next ? "model" : null)}
+                  onOpenChange={(next) => selectOpenChange("model", next)}
                   portalHostName={UPSCALE_SELECT_PORTAL_HOST}
                 />
 
@@ -312,16 +341,17 @@ export function UpscaleSettingsSheetHost({
                   />
                   <SteppedSeekbar
                     label="Tile size"
+                    labelAccessory={
+                      <UpscaleHelpButton
+                        label="Tile size"
+                        active={open && !disabled}
+                        description="이미지를 나누어 처리하는 타일 크기입니다. 자동은 GPU 메모리 예산을 기준으로 계산합니다. GPU 성능 제한이 켜져 있으면 최대 100을 적용하며 더 작은 자동 계산값은 유지합니다."
+                      />
+                    }
                     stops={TILE_SIZES}
                     value={settings.tileSize}
                     onChange={(tileSize) => change({ tileSize })}
                   />
-                  {settings.limitGpuPerformance ? (
-                    <Text style={styles.hint}>
-                      GPU 성능 제한이 켜져 있어 GPU 타일은 최대 100으로
-                      적용됩니다. 자동 계산값이 더 작으면 그 값을 사용합니다.
-                    </Text>
-                  ) : null}
                 </View>
 
                 <SheetSelect
@@ -335,63 +365,22 @@ export function UpscaleSettingsSheetHost({
                     })
                   }
                   open={openSelect === "format"}
-                  onOpenChange={(next) => setOpenSelect(next ? "format" : null)}
+                  onOpenChange={(next) => selectOpenChange("format", next)}
                   portalHostName={UPSCALE_SELECT_PORTAL_HOST}
                 />
-                <View
-                  pointerEvents={settings.format === "png" ? "none" : "auto"}
-                  accessibilityElementsHidden={settings.format === "png"}
-                  importantForAccessibility={
-                    settings.format === "png" ? "no-hide-descendants" : "auto"
-                  }
-                  style={[
-                    styles.section,
-                    settings.format === "png" && styles.disabled,
-                  ]}
-                >
-                  <View style={styles.qualityHeader}>
-                    <Text style={styles.qualityLabel}>Image quality</Text>
-                    <Text style={styles.qualityValue}>
-                      {settings.format === "png"
-                        ? "무손실"
-                        : `${settings.format === "jpg" ? settings.jpgQuality : settings.webpQuality}%`}
-                    </Text>
-                  </View>
-                  <Slider
-                    accessibilityLabel="Image quality"
-                    value={
-                      settings.format === "webp"
-                        ? settings.webpQuality
-                        : settings.jpgQuality
-                    }
-                    min={1}
-                    max={100}
-                    step={1}
-                    precision={0}
-                    pill
-                    jumpOnTap
-                    trackBg={tokens.color.sunken}
-                    thumbBorderWidth={0}
-                    onValueChange={(quality) =>
-                      change(
-                        settings.format === "webp"
-                          ? { webpQuality: quality }
-                          : { jpgQuality: quality },
-                      )
-                    }
-                    onSlidingComplete={(quality) =>
-                      change(
-                        settings.format === "webp"
-                          ? { webpQuality: quality }
-                          : { jpgQuality: quality },
-                      )
-                    }
-                  />
-                </View>
+                <UpscaleQualityControl
+                  settings={settings}
+                  active={open && !disabled}
+                  onChange={change}
+                />
                 <View style={styles.section}>
                   <Text style={styles.eyebrow}>SAVE SETTINGS</Text>
                   <View style={styles.qualityHeader}>
-                    <Text style={styles.qualityLabel}>원본 파일명 유지</Text>
+                    <UpscaleOptionLabel
+                      label="원본 파일명 유지"
+                      active={open && !disabled}
+                      description="원본 이름이 없으면 자동 이름을 사용합니다. 확장자는 출력 형식에 맞추며 같은 이름은 덮어쓰지 않습니다."
+                    />
                     <Toggle
                       label="원본 파일명 유지"
                       value={settings.keepOriginalFilename}
@@ -401,11 +390,11 @@ export function UpscaleSettingsSheetHost({
                       }
                     />
                   </View>
-                  <Text style={styles.hint}>
-                    원본 이름이 없으면 자동 이름을 사용합니다. 확장자는 출력
-                    형식에 맞추며 같은 이름은 덮어쓰지 않습니다.
-                  </Text>
-                  <Text style={styles.qualityLabel}>저장 앨범</Text>
+                  <UpscaleOptionLabel
+                    label="저장 앨범"
+                    active={open && !disabled}
+                    description="앨범 이름을 입력하면 그 앨범에 저장하고, 없으면 만듭니다. 비워 두면 기본 갤러리 위치에 저장합니다."
+                  />
                   <BottomSheetTextInput
                     accessibilityLabel="저장 앨범"
                     placeholder="기본 갤러리 위치"
@@ -418,88 +407,89 @@ export function UpscaleSettingsSheetHost({
                     onChangeText={(albumName) => change({ albumName })}
                     style={styles.albumInput}
                   />
-                  <Text style={styles.hint}>
-                    앨범 이름을 입력하면 그 앨범에 저장하고, 없으면 만듭니다.
-                    비워 두면 기본 위치에 저장합니다.
-                  </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="고급 옵션"
-                  accessibilityState={{ expanded: advancedOpen, disabled }}
-                  disabled={disabled}
-                  onPress={() => setAdvancedOpen((current) => !current)}
-                  style={styles.qualityHeader}
-                >
-                  <Text style={styles.qualityLabel}>고급 옵션</Text>
-                  <Ionicons
-                    name={advancedOpen ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color={tokens.color.textSecondary}
-                  />
-                </Pressable>
-                {advancedOpen ? (
-                  <View style={styles.section}>
-                    <UpscaleCpuSettings
-                      active={open && !disabled}
-                      disabled={disabled}
-                      settings={settings}
-                      onChange={change}
+                <View style={styles.section}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Advanced Settings"
+                    accessibilityState={{ expanded: advancedOpen, disabled }}
+                    disabled={disabled}
+                    onPress={() => setAdvancedOpen((current) => !current)}
+                    style={({ pressed }) => [
+                      styles.advancedHeader,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.eyebrow}>ADVANCED SETTINGS</Text>
+                    <Ionicons
+                      name={advancedOpen ? "chevron-up" : "chevron-down"}
+                      size={15}
+                      color={tokens.color.textTertiary}
                     />
-                    <View style={styles.qualityHeader}>
-                      <Text style={styles.qualityLabel}>
-                        Limit GPU Performance
-                      </Text>
-                      <Toggle
-                        label="Limit GPU Performance"
-                        value={settings.limitGpuPerformance}
+                  </Pressable>
+                  {advancedOpen ? (
+                    <View style={styles.section}>
+                      <UpscaleCpuSettings
+                        active={open && !disabled}
                         disabled={disabled}
-                        onChange={(limitGpuPerformance) =>
-                          change({ limitGpuPerformance })
-                        }
+                        settings={settings}
+                        onChange={change}
                       />
-                    </View>
-                    <Text style={styles.hint}>
-                      자동·수동 타일 모두 GPU에서는 최대 100으로 제한합니다.
-                      CPU에는 적용되지 않습니다. 실제 적용 타일은 완료 목록에
-                      표시됩니다.
-                    </Text>
-                    <View style={styles.qualityHeader}>
-                      <Text style={styles.qualityLabel}>TTA mode</Text>
-                      <Toggle
-                        label="TTA mode"
-                        value={settings.ttaMode}
-                        disabled={disabled}
-                        onChange={(ttaMode) => change({ ttaMode })}
-                      />
-                    </View>
-                    <Text style={styles.hint}>
-                      8가지 방향으로 추론한 결과를 합칩니다. 처리 시간과 메모리
-                      사용량이 늘어납니다.
-                    </Text>
-                    {settings.model !== "waifu2x-cunet" ? (
-                      <View style={styles.section}>
-                        <SteppedSeekbar
-                          label="Real-CUGAN Sync Gap"
-                          stops={[...SYNC_GAPS]}
-                          value={settings.syncGap}
-                          onChange={(syncGap) =>
-                            change({
-                              syncGap: syncGap as UpscaleSettings["syncGap"],
-                            })
+                      <View style={styles.qualityHeader}>
+                        <UpscaleOptionLabel
+                          label="Limit GPU Performance"
+                          active={open && !disabled}
+                          description="자동·수동 타일 모두 GPU에서는 최대 100으로 제한합니다. 더 작은 자동 계산값은 유지하고 CPU에는 적용하지 않습니다. 실제 적용 타일은 완료 목록에 표시됩니다."
+                        />
+                        <Toggle
+                          label="Limit GPU Performance"
+                          value={settings.limitGpuPerformance}
+                          disabled={disabled}
+                          onChange={(limitGpuPerformance) =>
+                            change({ limitGpuPerformance })
                           }
                         />
-                        <Text style={styles.hint}>
-                          타일을 나눠 처리할 때 적용됩니다. 0은 비활성화,
-                          기본값은 3입니다.
-                        </Text>
                       </View>
-                    ) : null}
-                    <UpscaleGpuMemory active={open && !disabled} />
-                  </View>
-                ) : null}
+                      <View style={styles.qualityHeader}>
+                        <UpscaleOptionLabel
+                          label="TTA mode"
+                          active={open && !disabled}
+                          description="8가지 방향으로 추론한 결과를 합칩니다. 처리 시간과 메모리 사용량이 늘어납니다."
+                        />
+                        <Toggle
+                          label="TTA mode"
+                          value={settings.ttaMode}
+                          disabled={disabled}
+                          onChange={(ttaMode) => change({ ttaMode })}
+                        />
+                      </View>
+                      {settings.model !== "waifu2x-cunet" ? (
+                        <View style={styles.section}>
+                          <SteppedSeekbar
+                            label="Real-CUGAN Sync Gap"
+                            labelAccessory={
+                              <UpscaleHelpButton
+                                label="Real-CUGAN Sync Gap"
+                                active={open && !disabled}
+                                description="타일을 나눠 처리할 때 적용됩니다. 0은 비활성화, 기본값은 3입니다."
+                              />
+                            }
+                            stops={[...SYNC_GAPS]}
+                            value={settings.syncGap}
+                            onChange={(syncGap) =>
+                              change({
+                                syncGap: syncGap as UpscaleSettings["syncGap"],
+                              })
+                            }
+                          />
+                        </View>
+                      ) : null}
+                      <UpscaleGpuMemory active={open && !disabled} />
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            </BottomSheetScrollView>
+            </BottomSheetKeyboardAwareScrollView>
           </BottomSheetView>
         </BottomSheet>
       </PredictiveBackSheetLayer>
@@ -508,6 +498,11 @@ export function UpscaleSettingsSheetHost({
 }
 
 const styles = StyleSheet.create({
+  advancedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   albumInput: {
     color: tokens.color.textPrimary,
     fontFamily: tokens.font.regular,
@@ -518,27 +513,10 @@ const styles = StyleSheet.create({
     borderColor: tokens.color.borderSubtle,
     backgroundColor: tokens.color.sunken,
   },
-  hint: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.regular,
-    fontSize: 12,
-    lineHeight: 18,
-  },
   qualityHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  qualityLabel: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
-  },
-  qualityValue: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
-    fontVariant: ["tabular-nums"],
   },
   sheetContainer: {
     zIndex: 80,

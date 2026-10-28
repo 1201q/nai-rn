@@ -6,6 +6,8 @@ import type {
 import type { UpscaleSettings } from "../../store/upscaleQueueStore";
 import { normalizeUpscaleAlbumName } from "../../lib/upscaleFilenames";
 
+export const UPSCALE_SELECT_PORTAL_HOST = "upscale-select-overlay";
+
 export const MODELS: { value: UpscaleModel; label: string }[] = [
   { value: "realcugan-se", label: "CUGAN Standard" },
   { value: "realcugan-pro", label: "CUGAN Pro" },

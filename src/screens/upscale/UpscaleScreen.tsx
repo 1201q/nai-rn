@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   Animated,
   Pressable,
   StyleSheet,
@@ -34,7 +35,6 @@ import { useBackHandler } from "../../native/useBackHandler";
 import {
   useUpscaleQueueStore,
   type UpscaleQueueItem,
-  type UpscaleSettings,
 } from "../../store/upscaleQueueStore";
 import { tokens } from "../../styles/tokens";
 import {
@@ -44,6 +44,10 @@ import {
 } from "../generation/GenerationActionBar";
 import { UtilitySheetHost } from "../generation/GenerationSheetScaffold";
 import { useUpscaleSettingsStore } from "../../store/upscaleSettingsStore";
+import {
+  GenerationInputCommitProvider,
+  useGenerationInputCommit,
+} from "../../context/GenerationInputCommitContext";
 import {
   pickUpscaleFiles,
   pickUpscaleGalleryImages,
@@ -132,7 +136,8 @@ function QueueRow({
   );
 }
 
-function UpscaleAction({ settings }: { settings: UpscaleSettings }) {
+function UpscaleAction() {
+  const { commitPendingInput } = useGenerationInputCommit();
   const items = useUpscaleQueueStore((state) => state.items);
   const busy = useUpscaleQueueStore((state) => state.running);
   const stopRequested = useUpscaleQueueStore((state) => state.stopRequested);
@@ -147,7 +152,9 @@ function UpscaleAction({ settings }: { settings: UpscaleSettings }) {
   ).length;
 
   async function runUpscale() {
-    const started = await start(settings);
+    commitPendingInput();
+    Keyboard.dismiss();
+    const started = await start(useUpscaleSettingsStore.getState().settings);
     if (started === "no-module") {
       toast.error("이 빌드에는 업스케일 모듈이 없습니다.");
     } else if (started === "no-permission") {
@@ -176,6 +183,19 @@ function UpscaleAction({ settings }: { settings: UpscaleSettings }) {
 }
 
 export function UpscaleScreen() {
+  return (
+    <GenerationInputCommitProvider>
+      <UpscaleScreenContent />
+    </GenerationInputCommitProvider>
+  );
+}
+
+function UpscaleScreenContent() {
+  const { commitPendingInput } = useGenerationInputCommit();
+  const finishInputEditing = useCallback(() => {
+    commitPendingInput();
+    Keyboard.dismiss();
+  }, [commitPendingInput]);
   const { topInset, promptCollapsedHeight } = useGenerationChromeMetrics();
   const router = useRouter();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -192,14 +212,22 @@ export function UpscaleScreen() {
   const historyBackProgress = useSharedValue(0);
   const finished = items.filter((item) => item.status === "done").length;
 
-  const toggleSheet = useCallback((next: UpscaleSheet) => {
-    setSheet((current) => (current === next ? null : next));
-  }, []);
-  const handleSettingsOpenChange = useCallback((open: boolean) => {
-    setSheet((current) =>
-      open ? "settings" : current === "settings" ? null : current,
-    );
-  }, []);
+  const toggleSheet = useCallback(
+    (next: UpscaleSheet) => {
+      finishInputEditing();
+      setSheet((current) => (current === next ? null : next));
+    },
+    [finishInputEditing],
+  );
+  const handleSettingsOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) finishInputEditing();
+      setSheet((current) =>
+        open ? "settings" : current === "settings" ? null : current,
+      );
+    },
+    [finishInputEditing],
+  );
   const closeHistory = useCallback(() => {
     setSheet((current) => (current === "history" ? null : current));
   }, []);
@@ -237,7 +265,10 @@ export function UpscaleScreen() {
   }, [historyBackProgress, settingsBackProgress]);
 
   useBackHandler(sheet !== null || historyVisible, {
-    onBack: () => setSheet(null),
+    onBack: () => {
+      finishInputEditing();
+      setSheet(null);
+    },
     onStart: trackPredictiveBack,
     onProgress: trackPredictiveBack,
     onCancel: cancelPredictiveBack,
@@ -423,7 +454,7 @@ export function UpscaleScreen() {
           active={sheet === "settings"}
           onPress={() => toggleSheet("settings")}
         />
-        <UpscaleAction settings={settings} />
+        <UpscaleAction />
         <ActionIconButton
           icon="time-outline"
           label={sheet === "history" ? "History 닫기" : "History 열기"}

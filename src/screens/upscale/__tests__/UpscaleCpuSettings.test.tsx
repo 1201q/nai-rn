@@ -1,8 +1,29 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { imageUpscaler } from "../../../../modules/image-upscaler";
 import { DEFAULT_UPSCALE_SETTINGS } from "../upscaleOptions";
 import { UpscaleCpuSettings } from "../UpscaleCpuSettings";
+
+jest.mock("../../../store/generationStore", () => ({
+  useGenerationStore: (selector: (state: object) => unknown) =>
+    selector({ sliderHandleOnly: true }),
+}));
+jest.mock("@gorhom/bottom-sheet", () => ({
+  BottomSheetTextInput: require("react-native").TextInput,
+}));
+jest.mock("react-native-reanimated", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    default: { createAnimatedComponent: (component: unknown) => component },
+    useSharedValue: (value: number) => React.useRef({ value }).current,
+    useAnimatedProps: () => ({}),
+  };
+});
+
+jest.mock("../../../components/forms/HelpButton", () => ({
+  HelpButton: () => null,
+}));
 
 jest.mock("../../../../modules/image-upscaler", () => ({
   imageUpscaler: { getCpuInfo: jest.fn(), getGpuInfo: jest.fn() },
@@ -200,4 +221,59 @@ test("does not query hardware while inactive", async () => {
     />,
   );
   expect(imageUpscaler!.getCpuInfo).not.toHaveBeenCalled();
+});
+
+test("uses the shared seekbar for manual input and bounds typed threads to the selected cluster", async () => {
+  const onChange = jest.fn();
+  const view = await render(
+    <UpscaleCpuSettings
+      active
+      disabled={false}
+      settings={{
+        ...DEFAULT_UPSCALE_SETTINGS,
+        useGpu: false,
+        cpuThreads: 2,
+        cpuPolicy: 2,
+      }}
+      onChange={onChange}
+    />,
+  );
+  await view.findByText("CPU로 처리합니다.");
+  expect(view.getByTestId("cpu-slider").props).toMatchObject({
+    min: 1,
+    max: 2,
+    step: 1,
+    handleOnly: true,
+  });
+  const input = view.getByLabelText("Number of CPU Threads 값");
+  await fireEvent(input, "focus");
+  await fireEvent.changeText(input, "8");
+  await fireEvent(input, "blur");
+  expect(onChange).toHaveBeenLastCalledWith({ cpuThreads: 2 });
+});
+
+test("commits a manual thread drag at release using the shared seekbar", async () => {
+  const onChange = jest.fn();
+  const view = await render(
+    <UpscaleCpuSettings
+      active
+      disabled={false}
+      settings={{
+        ...DEFAULT_UPSCALE_SETTINGS,
+        useGpu: false,
+        cpuThreads: 2,
+        cpuPolicy: 2,
+      }}
+      onChange={onChange}
+    />,
+  );
+  await view.findByText("CPU로 처리합니다.");
+  const slider = view.getByTestId("cpu-slider").props;
+  expect(slider.onValueChange).toBeUndefined();
+  await act(async () => {
+    slider.onSlidingStart();
+    slider.display.value = 1;
+    slider.onSlidingComplete(1);
+  });
+  expect(onChange).toHaveBeenLastCalledWith({ cpuThreads: 1 });
 });

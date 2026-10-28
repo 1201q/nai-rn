@@ -6,6 +6,10 @@ import {
 } from "../../../../modules/image-upscaler";
 import { UpscaleGpuMemory } from "../UpscaleGpuMemory";
 
+jest.mock("../../../components/forms/HelpButton", () => ({
+  HelpButton: () => null,
+}));
+
 jest.mock("../../../../modules/image-upscaler", () => ({
   imageUpscaler: { getGpuInfo: jest.fn() },
 }));

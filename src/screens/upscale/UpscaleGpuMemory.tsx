@@ -6,6 +6,7 @@ import {
   type UpscaleGpuInfo,
 } from "../../../modules/image-upscaler";
 import { tokens } from "../../styles/tokens";
+import { UpscaleOptionLabel } from "./UpscaleOptionLabel";
 
 export function UpscaleGpuMemory({ active }: { active: boolean }) {
   const [info, setInfo] = useState<UpscaleGpuInfo | null>(null);
@@ -43,13 +44,13 @@ export function UpscaleGpuMemory({ active }: { active: boolean }) {
   return (
     <View style={styles.field}>
       <View style={styles.row}>
-        <Text style={styles.label}>GPU 메모리 예산</Text>
+        <UpscaleOptionLabel
+          label="GPU 메모리 예산"
+          active={active}
+          description="자동 타일 계산에 쓰는 조회 시점의 메모리 예산입니다. 기기에 따라 추정값일 수 있습니다."
+        />
         <Text style={styles.value}>{value}</Text>
       </View>
-      <Text style={styles.hint}>
-        자동 타일 계산에 쓰는 조회 시점의 메모리 예산입니다. 기기에 따라
-        추정값일 수 있습니다.
-      </Text>
     </View>
   );
 }
@@ -63,21 +64,10 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
-  label: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
-  },
   value: {
     color: tokens.color.textSecondary,
     fontFamily: tokens.font.medium,
     fontSize: 14,
     fontVariant: ["tabular-nums"],
-  },
-  hint: {
-    color: tokens.color.textTertiary,
-    fontFamily: tokens.font.regular,
-    fontSize: 12,
-    lineHeight: 18,
   },
 });

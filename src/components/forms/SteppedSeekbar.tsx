@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { ReactNode } from "react";
 
 import { Slider } from "./Slider";
 import { useGenerationStore } from "../../store/generationStore";
@@ -11,11 +12,13 @@ const STOP_LABEL_WIDTH = 32;
 // 몇 개의 정해진 값 중 하나를 고르는 슬라이더. 단계마다 점과 라벨이 붙는다.
 export function SteppedSeekbar({
   label,
+  labelAccessory,
   stops,
   value,
   onChange,
 }: {
   label: string;
+  labelAccessory?: ReactNode;
   stops: { value: number; label: string }[];
   value: number;
   onChange: (value: number) => void;
@@ -34,7 +37,10 @@ export function SteppedSeekbar({
   return (
     <View style={styles.field}>
       <View style={styles.header}>
-        <Text style={styles.label}>{label}</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          {labelAccessory}
+        </View>
         <View style={styles.valueBox}>
           <Text style={styles.value}>{stops[index].label}</Text>
         </View>
@@ -102,6 +108,7 @@ export function SteppedSeekbar({
 }
 
 const styles = StyleSheet.create({
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   field: {
     gap: 10,
   },

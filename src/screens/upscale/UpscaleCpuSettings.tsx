@@ -7,11 +7,12 @@ import {
   type UpscaleGpuInfo,
 } from "../../../modules/image-upscaler";
 import { Toggle } from "../../components/forms/FormControls";
-import { Slider } from "../../components/forms/Slider";
+import { SheetSliderControls } from "../../components/forms/SheetSliderControls";
 import { SteppedSeekbar } from "../../components/forms/SteppedSeekbar";
 import type { UpscaleSettings } from "../../store/upscaleQueueStore";
 import { tokens } from "../../styles/tokens";
 import { cpuPolicyOptions, cpuThreadLimit } from "./upscaleOptions";
+import { UpscaleOptionLabel, UpscaleHelpButton } from "./UpscaleOptionLabel";
 
 export function UpscaleCpuSettings({
   active,
@@ -66,7 +67,11 @@ export function UpscaleCpuSettings({
   return (
     <View style={styles.section}>
       <View style={styles.row}>
-        <Text style={styles.label}>Use GPU</Text>
+        <UpscaleOptionLabel
+          label="Use GPU"
+          active={active}
+          description="켜면 GPU를 사용하고 GPU가 없으면 CPU로 처리합니다. 끄면 CPU를 사용합니다. CPU 설정은 CPU 처리에만 적용됩니다."
+        />
         <Toggle
           label="Use GPU"
           value={settings.useGpu}
@@ -96,6 +101,13 @@ export function UpscaleCpuSettings({
         {policies.length > 1 ? (
           <SteppedSeekbar
             label="CPU Policy"
+            labelAccessory={
+              <UpscaleHelpButton
+                label="CPU Policy"
+                active={active && cpuEnabled}
+                description={`전체·리틀·빅코어 중 처리에 사용할 코어를 선택합니다. 현재 선택은 최대 ${limit}개 코어를 사용합니다. 지원하지 않는 코어 정책은 전체 코어로 대체합니다.`}
+              />
+            }
             stops={policies}
             value={effectivePolicy}
             onChange={(value) => {
@@ -111,14 +123,18 @@ export function UpscaleCpuSettings({
             }}
           />
         ) : (
-          <Text style={styles.label}>CPU Policy · 전체 코어</Text>
+          <UpscaleOptionLabel
+            label="CPU Policy · 전체 코어"
+            active={active && cpuEnabled}
+            description={`이 기기는 구분 가능한 클러스터가 없어 전체 코어를 사용합니다. 최대 ${limit}개 코어를 사용할 수 있습니다.`}
+          />
         )}
-        <Text style={styles.hint}>
-          선택한 코어: 최대 {limit}개. 지원하지 않는 코어 정책은 전체 코어로
-          대체합니다.
-        </Text>
         <View style={styles.row}>
-          <Text style={styles.label}>CPU Threads 자동</Text>
+          <UpscaleOptionLabel
+            label="CPU Threads 자동"
+            active={active && cpuEnabled}
+            description="켜면 선택한 코어 정책의 코어 수에 맞춰 스레드 수를 자동 지정합니다. 끄면 직접 지정할 수 있습니다."
+          />
           <Toggle
             label="CPU Threads 자동"
             value={settings.cpuThreads === 0}
@@ -128,28 +144,30 @@ export function UpscaleCpuSettings({
             }
           />
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Number of CPU Threads</Text>
-          <Text style={styles.hint}>
-            {settings.cpuThreads === 0 ? `자동 · ${threads}` : threads}
-          </Text>
-        </View>
-        {settings.cpuThreads > 0 && limit > 1 ? (
-          <Slider
-            accessibilityLabel="Number of CPU Threads"
-            value={threads}
-            min={1}
-            max={limit}
-            step={1}
-            precision={0}
-            pill
-            jumpOnTap
-            trackBg={tokens.color.sunken}
-            thumbBorderWidth={0}
-            onValueChange={(cpuThreads) => onChange({ cpuThreads })}
-            onSlidingComplete={(cpuThreads) => onChange({ cpuThreads })}
+        <View style={styles.threadField}>
+          <UpscaleOptionLabel
+            label="Number of CPU Threads"
+            active={active && cpuEnabled}
+            description={`CPU 추론에 사용할 스레드 수입니다. 선택한 코어 정책에 맞춰 최대 ${limit}개로 제한합니다.`}
           />
-        ) : null}
+          {settings.cpuThreads > 0 && limit > 1 ? (
+            <SheetSliderControls
+              key={effectivePolicy}
+              label="Number of CPU Threads"
+              active={active && cpuEnabled}
+              value={threads}
+              min={1}
+              max={limit}
+              step={1}
+              precision={0}
+              onChange={(cpuThreads) => onChange({ cpuThreads })}
+            />
+          ) : (
+            <Text style={styles.hint}>
+              {settings.cpuThreads === 0 ? `자동 · ${threads}` : threads}
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -157,16 +175,12 @@ export function UpscaleCpuSettings({
 
 const styles = StyleSheet.create({
   section: { gap: 18 },
+  threadField: { gap: 14 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 8,
-  },
-  label: {
-    color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
   },
   hint: {
     color: tokens.color.textTertiary,

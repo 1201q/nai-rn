@@ -17,11 +17,11 @@ function loadSettings(): UpscaleSettings {
 
 export const useUpscaleSettingsStore = create<{
   settings: UpscaleSettings;
-  setSettings: (settings: UpscaleSettings) => void;
-}>((set) => ({
+  setSettings: (settings: Partial<UpscaleSettings>) => void;
+}>((set, get) => ({
   settings: loadSettings(),
   setSettings: (input) => {
-    const settings = normalizeUpscaleSettings(input);
+    const settings = normalizeUpscaleSettings({ ...get().settings, ...input });
     storage.set(STORAGE_KEY, JSON.stringify(settings));
     set({ settings });
   },
