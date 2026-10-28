@@ -41,66 +41,68 @@ export function SteppedSeekbar({
           <Text style={styles.label}>{label}</Text>
           {labelAccessory}
         </View>
+      </View>
+      <View style={styles.controls}>
         <View style={styles.valueBox}>
           <Text style={styles.value}>{stops[index].label}</Text>
         </View>
-      </View>
-      <View>
-        <Slider
-          accessibilityLabel={label}
-          value={index}
-          min={0}
-          max={last}
-          step={1}
-          precision={0}
-          trackHeight={6}
-          thumbSize={24}
-          pill
-          jumpOnTap
-          handleOnly={sliderHandleOnly}
-          trackBg={tokens.color.sunken}
-          thumbBorderWidth={0}
-          onValueChange={selectIndex}
-          onSlidingComplete={selectIndex}
-        >
-          <View style={styles.points}>
-            {stops.map((stop, i) =>
-              i === index ? null : (
-                <View
-                  key={stop.value}
-                  style={[
-                    styles.point,
-                    { left: `${(i / last) * 100}%` },
-                    i < index && styles.pointFilled,
-                  ]}
-                />
-              ),
-            )}
-          </View>
-        </Slider>
-        <View style={styles.stopLabels}>
-          {stops.map((stop, i) => (
-            <Pressable
-              key={stop.value}
-              accessibilityRole="button"
-              accessibilityLabel={`${label}: ${stop.label}`}
-              accessibilityState={{ selected: i === index }}
-              onPress={() => selectIndex(i)}
-              style={({ pressed }) => [
-                styles.stopLabelButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.stopLabel,
-                  i === index && styles.stopLabelSelected,
+        <View style={styles.track}>
+          <Slider
+            accessibilityLabel={label}
+            value={index}
+            min={0}
+            max={last}
+            step={1}
+            precision={0}
+            trackHeight={6}
+            thumbSize={24}
+            pill
+            jumpOnTap
+            handleOnly={sliderHandleOnly}
+            trackBg={tokens.color.sunken}
+            thumbBorderWidth={0}
+            onValueChange={selectIndex}
+            onSlidingComplete={selectIndex}
+          >
+            <View style={styles.points}>
+              {stops.map((stop, i) =>
+                i === index ? null : (
+                  <View
+                    key={stop.value}
+                    style={[
+                      styles.point,
+                      { left: `${(i / last) * 100}%` },
+                      i < index && styles.pointFilled,
+                    ]}
+                  />
+                ),
+              )}
+            </View>
+          </Slider>
+          <View style={styles.stopLabels}>
+            {stops.map((stop, i) => (
+              <Pressable
+                key={stop.value}
+                accessibilityRole="button"
+                accessibilityLabel={`${label}: ${stop.label}`}
+                accessibilityState={{ selected: i === index }}
+                onPress={() => selectIndex(i)}
+                style={({ pressed }) => [
+                  styles.stopLabelButton,
+                  pressed && styles.pressed,
                 ]}
               >
-                {stop.label}
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  style={[
+                    styles.stopLabel,
+                    i === index && styles.stopLabelSelected,
+                  ]}
+                >
+                  {stop.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       </View>
     </View>
@@ -112,6 +114,8 @@ const styles = StyleSheet.create({
   field: {
     gap: 10,
   },
+  controls: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  track: { flex: 1, minWidth: 0 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -124,9 +128,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   valueBox: {
-    minWidth: 64,
+    width: 64,
     height: 38,
-    paddingHorizontal: 12,
+    marginTop: 1,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

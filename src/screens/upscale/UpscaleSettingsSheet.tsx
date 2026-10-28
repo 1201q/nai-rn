@@ -11,9 +11,11 @@ import {
 import BottomSheet, {
   type BottomSheetScrollViewMethods,
   BottomSheetView,
+  useBottomSheetGestureHandlers,
   useBottomSheetTimingConfigs,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   Extrapolation,
   interpolate,
@@ -50,13 +52,12 @@ import {
   UPSCALE_SELECT_PORTAL_HOST,
 } from "./upscaleOptions";
 import { useGenerationInputCommit } from "../../context/GenerationInputCommitContext";
+import { UpscaleHelpButton } from "./UpscaleOptionLabel";
 
 export { UPSCALE_SELECT_PORTAL_HOST } from "./upscaleOptions";
 
 const SETTINGS_BACKDROP_Z_INDEX = 70;
 const SETTINGS_SHEET_Z_INDEX = 80;
-// Match the generation Settings sheet: keep the sheet at its highest detent
-// and scroll the focused input above the keyboard and action bar.
 const SETTINGS_ACTION_BAR_HEIGHT = 96;
 const SETTINGS_KEYBOARD_GAP = 12;
 const SETTINGS_KEYBOARD_SCROLL_MODE =
@@ -79,6 +80,19 @@ function SettingsHeader({
   onOpen: () => void;
   onClose: () => void;
 }) {
+  const { handlePanGestureHandler } = useBottomSheetGestureHandlers();
+  const dragGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-10, 10])
+        .failOffsetX([-18, 18])
+        .shouldCancelWhenOutside(false)
+        .onStart(handlePanGestureHandler.handleOnStart)
+        .onChange(handlePanGestureHandler.handleOnChange)
+        .onEnd(handlePanGestureHandler.handleOnEnd)
+        .onFinalize(handlePanGestureHandler.handleOnFinalize),
+    [handlePanGestureHandler],
+  );
   const summaryStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       animatedIndex.value,
@@ -97,60 +111,62 @@ function SettingsHeader({
   }));
 
   return (
-    <View style={styles.header}>
-      <Reanimated.View
-        pointerEvents={open ? "none" : "auto"}
-        accessibilityElementsHidden={open}
-        importantForAccessibility={open ? "no-hide-descendants" : "auto"}
-        style={[styles.headerLayer, summaryStyle]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings 펼치기"
-          onPress={onOpen}
-          style={({ pressed }) => [
-            styles.summaryButton,
-            pressed && styles.pressed,
-          ]}
+    <GestureDetector gesture={dragGesture}>
+      <View style={styles.header}>
+        <Reanimated.View
+          pointerEvents={open ? "none" : "auto"}
+          accessibilityElementsHidden={open}
+          importantForAccessibility={open ? "no-hide-descendants" : "auto"}
+          style={[styles.headerLayer, summaryStyle]}
         >
-          <Text numberOfLines={1} style={styles.summaryText}>
-            {summary}
-          </Text>
-          <Ionicons
-            name="chevron-up"
-            size={17}
-            color={tokens.color.textSecondary}
-          />
-        </Pressable>
-      </Reanimated.View>
-
-      <Reanimated.View
-        pointerEvents={open ? "auto" : "none"}
-        accessibilityElementsHidden={!open}
-        importantForAccessibility={open ? "auto" : "no-hide-descendants"}
-        style={[styles.headerLayer, styles.titleLayer, titleStyle]}
-      >
-        <View style={styles.headerSide}>
-          <PressableSurface
-            accessibilityLabel="Settings 닫기"
-            onPress={onClose}
-            style={styles.closeButton}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Settings 펼치기"
+            onPress={onOpen}
+            style={({ pressed }) => [
+              styles.summaryButton,
+              pressed && styles.pressed,
+            ]}
           >
+            <Text numberOfLines={1} style={styles.summaryText}>
+              {summary}
+            </Text>
             <Ionicons
-              name="close-outline"
-              size={22}
-              color={tokens.color.textPrimary}
+              name="chevron-up"
+              size={17}
+              color={tokens.color.textSecondary}
             />
-          </PressableSurface>
-        </View>
-        <Text style={styles.title}>Settings</Text>
-        <View style={styles.headerSide} />
-      </Reanimated.View>
-    </View>
+          </Pressable>
+        </Reanimated.View>
+
+        <Reanimated.View
+          pointerEvents={open ? "auto" : "none"}
+          accessibilityElementsHidden={!open}
+          importantForAccessibility={open ? "auto" : "no-hide-descendants"}
+          style={[styles.headerLayer, styles.titleLayer, titleStyle]}
+        >
+          <View style={styles.headerSide}>
+            <PressableSurface
+              accessibilityLabel="Settings 닫기"
+              onPress={onClose}
+              style={styles.closeButton}
+            >
+              <Ionicons
+                name="close-outline"
+                size={22}
+                color={tokens.color.textPrimary}
+              />
+            </PressableSurface>
+          </View>
+          <Text style={styles.title}>Settings</Text>
+          <View style={styles.headerSide} />
+        </Reanimated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
-// 접으면 현재 설정 요약만 보이고, 펼치면 설정 전체가 나오는 2단계 시트.
+// 접힌 요약 상태와 전체 펼침 상태를 사용하는 시트.
 export function UpscaleSettingsSheetHost({
   open,
   settings,
@@ -186,16 +202,19 @@ export function UpscaleSettingsSheetHost({
     ],
     [promptCollapsedHeight, utilitySheetTop, windowHeight],
   );
+  const stageIndex = open ? 1 : 0;
 
   useEffect(() => {
-    sheetRef.current?.snapToIndex(open ? 1 : 0);
+    sheetRef.current?.snapToIndex(stageIndex);
     if (!open) scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [open]);
+  }, [open, stageIndex]);
 
   const handleSheetAnimate = useCallback(
     (_fromIndex: number, toIndex: number) => {
       // Keep back handling in sync before the opening animation finishes.
-      if (toIndex > 0) onOpenChange(true);
+      if (toIndex > 0) {
+        onOpenChange(true);
+      }
     },
     [onOpenChange],
   );
@@ -246,12 +265,14 @@ export function UpscaleSettingsSheetHost({
       >
         <BottomSheet
           ref={sheetRef}
-          index={open ? 1 : 0}
+          index={stageIndex}
           snapPoints={snapPoints}
           animatedIndex={animatedIndex}
           animationConfigs={animationConfigs}
           animateOnMount={false}
           enableDynamicSizing={false}
+          enableContentPanningGesture={false}
+          enableHandlePanningGesture
           enableOverDrag={false}
           enablePanDownToClose={false}
           enableBlurKeyboardOnGesture
@@ -328,7 +349,14 @@ export function UpscaleSettingsSheetHost({
                   />
                 </View>
                 <View style={styles.qualityHeader}>
-                  <Text style={styles.optionTitle}>Use GPU</Text>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.optionTitle}>Use GPU</Text>
+                    <UpscaleHelpButton
+                      label="Use GPU"
+                      active={open && !disabled}
+                      description="켜면 GPU를 사용하고, GPU가 없으면 CPU로 처리합니다. 끄면 CPU를 사용합니다."
+                    />
+                  </View>
                   <Toggle
                     label="Use GPU"
                     value={settings.useGpu}
@@ -336,10 +364,6 @@ export function UpscaleSettingsSheetHost({
                     onChange={(useGpu) => change({ useGpu })}
                   />
                 </View>
-                <Text style={styles.description}>
-                  켜면 GPU를 사용하고, GPU가 없으면 CPU로 처리합니다. 끄면 CPU를
-                  사용합니다.
-                </Text>
               </View>
             </BottomSheetKeyboardAwareScrollView>
           </BottomSheetView>
@@ -350,17 +374,11 @@ export function UpscaleSettingsSheetHost({
 }
 
 const styles = StyleSheet.create({
+  labelRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   optionTitle: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.semibold,
-    fontSize: tokens.type.md,
-  },
-  description: {
-    color: tokens.color.textMuted,
-    fontFamily: tokens.font.regular,
-    fontSize: tokens.type.xs,
-    lineHeight: 19,
-    marginTop: -16,
+    fontFamily: tokens.font.medium,
+    fontSize: 15,
   },
   qualityHeader: {
     flexDirection: "row",
