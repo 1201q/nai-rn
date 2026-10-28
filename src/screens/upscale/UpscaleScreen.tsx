@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import {
   Alert,
+  Modal,
   Keyboard,
   Animated,
   Pressable,
@@ -198,7 +199,7 @@ function UpscaleScreenContent() {
   }, [commitPendingInput]);
   const { topInset, promptCollapsedHeight } = useGenerationChromeMetrics();
   const router = useRouter();
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const [scrollY] = useState(() => new Animated.Value(0));
   const items = useUpscaleQueueStore((state) => state.items);
   const busy = useUpscaleQueueStore((state) => state.running);
   const addImages = useUpscaleQueueStore((state) => state.addImages);
@@ -206,6 +207,7 @@ function UpscaleScreenContent() {
   const clear = useUpscaleQueueStore((state) => state.clear);
   const settings = useUpscaleSettingsStore((state) => state.settings);
   const setSettings = useUpscaleSettingsStore((state) => state.setSettings);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [sheet, setSheet] = useState<UpscaleSheet | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const settingsBackProgress = useSharedValue(0);
@@ -217,7 +219,7 @@ function UpscaleScreenContent() {
       finishInputEditing();
       setSheet((current) => (current === next ? null : next));
     },
-    [finishInputEditing],
+    [finishInputEditing, setSheet],
   );
   const handleSettingsOpenChange = useCallback(
     (open: boolean) => {
@@ -226,11 +228,11 @@ function UpscaleScreenContent() {
         open ? "settings" : current === "settings" ? null : current,
       );
     },
-    [finishInputEditing],
+    [finishInputEditing, setSheet],
   );
   const closeHistory = useCallback(() => {
     setSheet((current) => (current === "history" ? null : current));
-  }, []);
+  }, [setSheet]);
   // History에서는 이미지를 캔버스에 띄우는 대신 업스케일 목록에 넣는다.
   const addHistoryImage = useCallback(
     (item: GenerationRecord) => {
@@ -426,9 +428,47 @@ function UpscaleScreenContent() {
         scrollY={scrollY}
         topInset={topInset}
         onBack={() => router.back()}
-        showMore={false}
+        onMore={() => {
+          finishInputEditing();
+          setSheet(null);
+          setMoreMenuOpen(true);
+        }}
         hideCompactTitleOnScroll
       />
+
+      <Modal
+        transparent
+        statusBarTranslucent
+        animationType="fade"
+        visible={moreMenuOpen}
+        onRequestClose={() => setMoreMenuOpen(false)}
+      >
+        <Pressable
+          accessibilityLabel="메뉴 닫기"
+          style={StyleSheet.absoluteFill}
+          onPress={() => setMoreMenuOpen(false)}
+        />
+        <View style={[styles.moreMenu, { top: topInset + 54 }]}>
+          <Pressable
+            accessibilityRole="menuitem"
+            onPress={() => {
+              setMoreMenuOpen(false);
+              router.navigate("/upscale-settings");
+            }}
+            style={({ pressed }) => [
+              styles.moreMenuItem,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={18}
+              color={tokens.color.textSecondary}
+            />
+            <Text style={styles.moreMenuLabel}>업스케일링 설정</Text>
+          </Pressable>
+        </View>
+      </Modal>
 
       <UpscaleSettingsSheetHost
         open={sheet === "settings"}
@@ -471,6 +511,29 @@ function UpscaleScreenContent() {
 }
 
 const styles = StyleSheet.create({
+  moreMenu: {
+    position: "absolute",
+    right: tokens.space[8],
+    minWidth: 180,
+    paddingVertical: tokens.space[3],
+    borderRadius: tokens.radius.lg,
+    borderWidth: 1,
+    borderColor: tokens.color.borderSubtle,
+    backgroundColor: tokens.color.raised,
+    ...tokens.shadow.floatMd,
+  },
+  moreMenuItem: {
+    height: 44,
+    paddingHorizontal: tokens.space[7],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.space[5],
+  },
+  moreMenuLabel: {
+    color: tokens.color.textPrimary,
+    fontFamily: tokens.font.medium,
+    fontSize: tokens.type.base,
+  },
   screen: {
     flex: 1,
     backgroundColor: tokens.color.app,

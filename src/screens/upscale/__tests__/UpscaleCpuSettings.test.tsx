@@ -57,22 +57,25 @@ jest.mock("../../../components/forms/Slider", () => ({
     return <View {...props} testID="cpu-slider" />;
   },
 }));
-jest.mock("../../../components/forms/SteppedSeekbar", () => ({
-  SteppedSeekbar: ({
-    stops,
+jest.mock("../../../components/forms/SheetSelect", () => ({
+  SheetSelect: ({
+    options,
     onChange,
+    value,
   }: {
-    stops: { value: number }[];
-    onChange: (value: number) => void;
+    options: string[];
+    onChange: (value: string) => void;
+    value: string;
   }) => {
-    const { View, Pressable } = require("react-native");
+    const { View, Pressable, Text } = require("react-native");
     return (
       <View>
-        {stops.map(({ value }) => (
+        <Text>{value}</Text>
+        {options.map((option) => (
           <Pressable
-            key={value}
-            accessibilityLabel={`CPU Policy: ${value}`}
-            onPress={() => onChange(value)}
+            key={option}
+            accessibilityLabel={`CPU Policy: ${option}`}
+            onPress={() => onChange(option)}
           />
         ))}
       </View>
@@ -90,7 +93,7 @@ beforeEach(() => {
     .mockResolvedValue({ available: true, heapBudgetMiB: 512 });
 });
 
-test("CPU controls are disabled with GPU enabled and become available after forcing CPU", async () => {
+test("CPU controls stay editable with Use GPU both on and off", async () => {
   const onChange = jest.fn();
   const view = await render(
     <UpscaleCpuSettings
@@ -100,13 +103,19 @@ test("CPU controls are disabled with GPU enabled and become available after forc
       onChange={onChange}
     />,
   );
-  await view.findByText("GPU 처리 중에는 CPU 설정을 사용하지 않습니다.");
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
   expect(
     view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
       .props.accessibilityState.disabled,
-  ).toBe(true);
-  await fireEvent.press(view.getByLabelText("Use GPU"));
-  expect(onChange).toHaveBeenCalledWith({ useGpu: false });
+  ).toBe(false);
+  await fireEvent.press(view.getByLabelText("CPU Threads 자동"));
+  expect(onChange).toHaveBeenCalledWith({ cpuThreads: 8 });
+  expect(view.queryByLabelText("Use GPU")).toBeNull();
   await view.rerender(
     <UpscaleCpuSettings
       active
@@ -115,16 +124,21 @@ test("CPU controls are disabled with GPU enabled and become available after forc
       onChange={onChange}
     />,
   );
-  await view.findByText("CPU로 처리합니다.");
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
   expect(
     view.getByLabelText("CPU Threads 자동").props.accessibilityState.disabled,
   ).toBe(false);
 });
 
-test("GPU absence enables CPU controls even with Use GPU on", async () => {
+test("GPU information is not queried to edit CPU settings", async () => {
   jest
     .mocked(imageUpscaler!.getGpuInfo)
-    .mockResolvedValue({ available: false, heapBudgetMiB: null });
+    .mockRejectedValue(new Error("GPU unavailable"));
   const view = await render(
     <UpscaleCpuSettings
       active
@@ -133,7 +147,13 @@ test("GPU absence enables CPU controls even with Use GPU on", async () => {
       onChange={jest.fn()}
     />,
   );
-  await view.findByText("GPU가 없어 CPU로 처리합니다.");
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
+  expect(imageUpscaler!.getGpuInfo).not.toHaveBeenCalled();
   expect(
     view.getByLabelText("CPU Threads 자동").props.accessibilityState.disabled,
   ).toBe(false);
@@ -154,8 +174,13 @@ test("switching to big cores clamps explicit threads and the slider range", asyn
       onChange={onChange}
     />,
   );
-  await view.findByText("CPU로 처리합니다.");
-  await fireEvent.press(view.getByLabelText("CPU Policy: 2"));
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
+  await fireEvent.press(view.getByLabelText("CPU Policy: 빅"));
   expect(onChange).toHaveBeenCalledWith({ cpuPolicy: 2, cpuThreads: 2 });
   await view.rerender(
     <UpscaleCpuSettings
@@ -180,8 +205,13 @@ test("unavailable cluster falls back to all cores and query failure disables CPU
       onChange={jest.fn()}
     />,
   );
-  await view.findByText("CPU로 처리합니다.");
-  expect(view.getByText("CPU Policy · 전체 코어")).toBeTruthy();
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
+  expect(view.getByText("전체")).toBeTruthy();
   expect(view.getByText("자동 · 4")).toBeTruthy();
   await view.rerender(
     <UpscaleCpuSettings
@@ -238,7 +268,12 @@ test("uses the shared seekbar for manual input and bounds typed threads to the s
       onChange={onChange}
     />,
   );
-  await view.findByText("CPU로 처리합니다.");
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
   expect(view.getByTestId("cpu-slider").props).toMatchObject({
     min: 1,
     max: 2,
@@ -267,7 +302,12 @@ test("commits a manual thread drag at release using the shared seekbar", async (
       onChange={onChange}
     />,
   );
-  await view.findByText("CPU로 처리합니다.");
+  await waitFor(() =>
+    expect(
+      view.getByLabelText("CPU Threads 자동", { includeHiddenElements: true })
+        .props.accessibilityState.disabled,
+    ).toBe(false),
+  );
   const slider = view.getByTestId("cpu-slider").props;
   expect(slider.onValueChange).toBeUndefined();
   await act(async () => {

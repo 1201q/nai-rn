@@ -5,7 +5,12 @@ import { HelpButton } from "../../components/forms/HelpButton";
 import { tokens } from "../../styles/tokens";
 import { UPSCALE_SELECT_PORTAL_HOST } from "./upscaleOptions";
 
-type Props = { label: string; description: string; active?: boolean };
+type Props = {
+  label: string;
+  description: string;
+  active?: boolean;
+  portalHostName?: string;
+};
 
 export function UpscaleHelpButton(props: Props) {
   return (
@@ -16,7 +21,12 @@ export function UpscaleHelpButton(props: Props) {
   );
 }
 
-function StatefulHelpButton({ label, description, active = true }: Props) {
+function StatefulHelpButton({
+  label,
+  description,
+  active = true,
+  portalHostName = UPSCALE_SELECT_PORTAL_HOST,
+}: Props) {
   const [open, setOpen] = useState(false);
   return (
     <HelpButton
@@ -26,7 +36,7 @@ function StatefulHelpButton({ label, description, active = true }: Props) {
       onToggle={() => {
         if (active) setOpen((current) => !current);
       }}
-      portalHostName={UPSCALE_SELECT_PORTAL_HOST}
+      portalHostName={portalHostName}
     />
   );
 }
@@ -50,8 +60,8 @@ const styles = StyleSheet.create({
   },
   label: {
     color: tokens.color.textPrimary,
-    fontFamily: tokens.font.medium,
-    fontSize: 15,
+    fontFamily: tokens.font.semibold,
+    fontSize: tokens.type.md,
     flexShrink: 1,
   },
 });
