@@ -11,6 +11,10 @@ import {
 } from "../../../lib/gallery";
 import { toast } from "sonner-native";
 
+jest.mock("react-native-keyboard-controller", () => ({
+  KeyboardAwareScrollView: require("react-native").ScrollView,
+}));
+
 const mockSliderControlsProps = jest.fn();
 const mockSelectProps = jest.fn();
 
@@ -125,6 +129,7 @@ jest.mock("@gorhom/portal", () => ({
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn() }),
+  useIsFocused: () => true,
 }));
 
 jest.mock("expo-status-bar", () => ({

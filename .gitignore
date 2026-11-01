@@ -57,3 +57,5 @@ assets/tags.json
 /artifacts/perfetto/
 
 .tmp-danbooru-tag-web
+# Native module CMake staging
+/modules/*/android/.cxx/

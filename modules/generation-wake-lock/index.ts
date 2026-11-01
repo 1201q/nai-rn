@@ -17,8 +17,12 @@ const nativeModule =
       )
     : null;
 
+// 생성과 업스케일이 같은 wake lock을 쓴다. 마지막 사용자가 놓을 때만 해제한다.
+let holders = 0;
+
 export async function acquireGenerationWakeLock(): Promise<boolean> {
   if (!nativeModule) return false;
+  holders += 1;
 
   try {
     return await nativeModule.acquire(GENERATION_WAKE_LOCK_TIMEOUT_MS);
@@ -29,6 +33,8 @@ export async function acquireGenerationWakeLock(): Promise<boolean> {
 
 export async function releaseGenerationWakeLock(): Promise<boolean> {
   if (!nativeModule) return false;
+  holders = Math.max(0, holders - 1);
+  if (holders > 0) return true;
 
   try {
     return await nativeModule.release();

@@ -67,14 +67,21 @@ export async function requestGallerySavePermission(): Promise<boolean> {
   return permission.granted;
 }
 
-export async function saveImageToGallery(uri: string): Promise<void> {
+export async function saveImageToGallery(
+  uri: string,
+  albumName?: string,
+): Promise<void> {
   const directoryUri = useGenerationStore.getState().imageSaveDirectory;
   if (directoryUri) {
     const source = new File(uri);
     const extension = source.extension.toLowerCase();
     const destination = new Directory(directoryUri).createFile(
       `NaiRN-${Date.now()}-${++saveSequence}${extension}`,
-      extension === ".webp" ? "image/webp" : "image/png",
+      extension === ".webp"
+        ? "image/webp"
+        : extension === ".jpg" || extension === ".jpeg"
+          ? "image/jpeg"
+          : "image/png",
     );
     try {
       // Write into the document created by the provider. File.copy(overwrite)
@@ -95,5 +102,9 @@ export async function saveImageToGallery(uri: string): Promise<void> {
     }
     return;
   }
-  await MediaLibrary.Asset.create(uri);
+  if (albumName) {
+    await MediaLibrary.Album.create(albumName, [uri]);
+  } else {
+    await MediaLibrary.Asset.create(uri);
+  }
 }

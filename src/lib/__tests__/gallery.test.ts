@@ -24,7 +24,7 @@ jest.mock("expo-file-system", () => ({
     },
   ),
   File: jest.fn((uri: string) => ({
-    extension: uri.endsWith(".webp") ? ".webp" : ".png",
+    extension: uri.slice(uri.lastIndexOf(".")),
     bytes: mockBytes,
     copy: mockCopy,
   })),
@@ -32,6 +32,7 @@ jest.mock("expo-file-system", () => ({
 
 jest.mock("expo-media-library", () => ({
   Asset: { create: jest.fn() },
+  Album: { create: jest.fn() },
   requestPermissionsAsync: jest.fn(),
 }));
 
@@ -104,6 +105,7 @@ test.each(["ERR_PICKER_CANCELLED", "ERR_FILE_PICKING_CANCELLED"])(
 test.each([
   ["png", "image/png"],
   ["webp", "image/webp"],
+  ["jpg", "image/jpeg"],
 ])(
   "saves original %s bytes to the selected folder with distinct names",
   async (extension, mimeType) => {
@@ -147,5 +149,24 @@ test("renews iOS folder access once before saving a batch after a restart", asyn
   expect(Directory.pickDirectoryAsync).toHaveBeenCalledTimes(1);
   await saveImageToGallery("file:///image.png");
   expect(mockCopy).toHaveBeenCalledWith(expect.anything(), { overwrite: true });
+  expect(MediaLibrary.Asset.create).not.toHaveBeenCalled();
+});
+
+test("imports directly into an album when the default save location is used", async () => {
+  await saveImageToGallery("file:///result.png", "Upscaled");
+  expect(MediaLibrary.Album.create).toHaveBeenCalledWith("Upscaled", [
+    "file:///result.png",
+  ]);
+  expect(MediaLibrary.Asset.create).not.toHaveBeenCalled();
+});
+
+test("keeps the selected save folder as the destination when an album is also provided", async () => {
+  useGenerationStore.setState({ imageSaveDirectory: directoryUri });
+  await saveImageToGallery("file:///result.jpg", "Upscaled");
+  expect(mockCreateFile).toHaveBeenCalledWith(
+    expect.stringMatching(/\.jpg$/),
+    "image/jpeg",
+  );
+  expect(MediaLibrary.Album.create).not.toHaveBeenCalled();
   expect(MediaLibrary.Asset.create).not.toHaveBeenCalled();
 });

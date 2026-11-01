@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   AppState,
   View,
@@ -55,6 +61,7 @@ export function Slider({
   jumpOnTap = false,
   handleOnly = false,
   style,
+  children,
 }: {
   accessibilityLabel: string;
   value: number;
@@ -79,6 +86,8 @@ export function Slider({
   // 핸들을 잡고 끌 때만 값이 바뀐다. 바를 탭/드래그하면 안내만 띄운다.
   handleOnly?: boolean;
   style?: StyleProp<ViewStyle>;
+  // 트랙 위, 핸들 아래에 그릴 장식(단계 점 등).
+  children?: ReactNode;
 }) {
   const [width, setWidth] = useState(0);
   // thumbSize = 높이. pill이면 폭을 좁혀 세로 캡슐. 이동/정렬은 폭 기준.
@@ -287,6 +296,7 @@ export function Slider({
             fillStyle,
           ]}
         />
+        {children}
         <Reanimated.View
           style={[
             {
