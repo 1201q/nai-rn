@@ -253,6 +253,7 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
         for (int xi = 0; xi < xtiles; xi++)
         {
+            if (!observer.tile(xi, yi, xtiles, ytiles, TILE_SIZE_X, TILE_SIZE_Y, w, h)) break;
             const int tile_w_nopad = std::min((xi + 1) * TILE_SIZE_X, w) - xi * TILE_SIZE_X;
 
             int prepadding_right = prepadding;
@@ -532,6 +533,7 @@ int Waifu2x::process(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 }
             }
         }
+        observer.row(outimage, std::min((yi + 1) * TILE_SIZE_Y, h) * scale);
     }
 
     vkdev->reclaim_blob_allocator(blob_vkallocator);
@@ -582,6 +584,7 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
 
         for (int xi = 0; xi < xtiles; xi++)
         {
+            if (!observer.tile(xi, yi, xtiles, ytiles, TILE_SIZE_X, TILE_SIZE_Y, w, h)) break;
             const int tile_w_nopad = std::min((xi + 1) * TILE_SIZE_X, w) - xi * TILE_SIZE_X;
 
             int prepadding_right = prepadding;
@@ -879,6 +882,7 @@ int Waifu2x::process_cpu(const ncnn::Mat& inimage, ncnn::Mat& outimage) const
                 }
             }
         }
+        observer.row(outimage, std::min((yi + 1) * TILE_SIZE_Y, h) * scale);
     }
 
     return 0;

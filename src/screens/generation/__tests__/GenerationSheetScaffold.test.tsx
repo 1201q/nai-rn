@@ -1321,3 +1321,69 @@ describe("upscale management uses the main tabbed sheet", () => {
     expect(onAddImages).toHaveBeenCalledTimes(1);
   });
 });
+
+test("the completed upscale tab saves selected results and also supports individual saving", async () => {
+  jest
+    .mocked(useSafeAreaInsets)
+    .mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  const result = {
+    uri: "file:///result.png",
+    width: 200,
+    height: 200,
+    bytes: 100,
+    elapsedMs: 20,
+    usedGpu: false,
+    cpuThreads: 1,
+    cpuPolicy: 0 as const,
+    tileSize: 32,
+  };
+  const saveItems = jest.fn(async (ids: string[]) => {
+    useUpscaleQueueStore.setState((state) => ({
+      items: state.items.map((item) =>
+        ids.includes(item.id) ? { ...item, saved: true } : item,
+      ),
+    }));
+    return { saved: ids.length, failed: 0, denied: false };
+  });
+  useUpscaleQueueStore.setState({
+    running: false,
+    activeBatchIds: [],
+    saveItems,
+    items: [
+      {
+        id: "one",
+        uri: "file:///one.png",
+        originalFilename: "one.png",
+        width: 100,
+        height: 100,
+        status: "done",
+        result,
+      },
+      {
+        id: "two",
+        uri: "file:///two.png",
+        originalFilename: "two.png",
+        width: 100,
+        height: 100,
+        status: "done",
+        result,
+      },
+    ],
+  });
+  const screen = await render(
+    <UpscaleQueueSheet
+      stage="full"
+      onStageChange={jest.fn()}
+      predictiveBackProgress={backProgress}
+      onAddImages={jest.fn()}
+    />,
+  );
+  await fireEvent.press(screen.getByRole("tab", { name: /진행 완료/ }));
+  await fireEvent.press(screen.getByLabelText("one.png 선택"));
+  await fireEvent.press(screen.getByLabelText("선택한 결과 저장"));
+  expect(saveItems).toHaveBeenNthCalledWith(1, ["one"]);
+  expect(screen.queryByLabelText("결과 저장 one.png")).toBeNull();
+  await fireEvent.press(screen.getByLabelText("결과 저장 two.png"));
+  expect(saveItems).toHaveBeenNthCalledWith(2, ["two"]);
+  expect(screen.getAllByText("갤러리에 저장됨")).toHaveLength(2);
+});

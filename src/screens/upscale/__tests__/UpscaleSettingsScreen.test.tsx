@@ -176,3 +176,16 @@ test("Sync Gap is selected from a dropdown and GPU memory is not displayed", asy
   await fireEvent.press(view.getByLabelText("Real-CUGAN Sync Gap: 1"));
   expect(useUpscaleSettingsStore.getState().settings.syncGap).toBe(1);
 });
+
+test("toggles auto-save and locks the preference while a batch is running", async () => {
+  const screen = await render(<UpscaleSettingsScreen />);
+  expect(useUpscaleSettingsStore.getState().settings.autoSave).toBe(true);
+  await fireEvent.press(screen.getByLabelText("자동 저장"));
+  expect(useUpscaleSettingsStore.getState().settings.autoSave).toBe(false);
+  mockRunning = true;
+  await screen.rerender(<UpscaleSettingsScreen />);
+  expect(
+    screen.getByLabelText("자동 저장", { includeHiddenElements: true }).props
+      .accessibilityState.disabled,
+  ).toBe(true);
+});

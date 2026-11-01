@@ -13,12 +13,14 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class UpscaleAdvancedOptions : Record {
+  @Field var requestId: String = ""
   @Field var ttaMode: Boolean = false
   @Field var syncGap: Int = 3
   @Field var limitGpuPerformance: Boolean = false
@@ -34,36 +36,63 @@ internal object NativeUpscaler {
     realcugan: Boolean, paramPath: String, modelPath: String,
     scale: Int, noise: Int, tileSize: Int, ttaMode: Boolean, syncGap: Int, limitGpuPerformance: Boolean,
     useGpu: Boolean, cpuThreads: Int, cpuPolicy: Int,
-    input: Bitmap, output: Bitmap,
+    input: Bitmap, output: Bitmap, preview: Bitmap?,
   ): IntArray?
 
   // MiB, or -1 when no Vulkan GPU is available.
   @JvmStatic external fun gpuHeapBudget(): Long
   @JvmStatic external fun cpuInfo(): IntArray
 
-  // Stops the running job at the next tile row; a no-op when idle.
+  // Stops the final pass at the next tile boundary; a no-op when idle.
   @JvmStatic external fun cancel()
 
-  @Volatile var progressListener: ((Int, Int) -> Unit)? = null
+  @Volatile var tileListener: ((Int, Int, Int, Int, Int, Int) -> Unit)? = null
+  @Volatile var previewNeededListener: ((Int, Int) -> Boolean)? = null
+  @Volatile var previewListener: (() -> Unit)? = null
+  @DoNotStrip @JvmStatic fun onTile(x: Int, y: Int, w: Int, h: Int, done: Int, total: Int) { tileListener?.invoke(x, y, w, h, done, total) }
+  @DoNotStrip @JvmStatic fun needsPreview(completed: Int, height: Int): Boolean = previewNeededListener?.invoke(completed, height) ?: false
+  @DoNotStrip @JvmStatic fun onPreview() { previewListener?.invoke() }
 
-  // Called from native code before each tile row of the final pass.
-  @DoNotStrip @JvmStatic fun onProgress(done: Int, total: Int) { progressListener?.invoke(done, total) }
 }
 
 class ImageUpscalerModule : Module() {
   // One job at a time: the GPU is shared.
   private val mutex = Mutex()
+  private val sessions = ConcurrentHashMap<String, UpscalePreviewSession>()
+  @Volatile private var foreground = true
+
+  private fun previewRoot() = File(requireNotNull(appContext.reactContext).cacheDir, "upscale-previews")
 
   override fun definition() = ModuleDefinition {
     Name("ImageUpscaler")
-    Events("progress")
+    Events("progress", "preview")
 
     Function("cancel") { NativeUpscaler.cancel() }
 
+    Function("prepare") { id: String, enabled: Boolean ->
+      require(id.matches(Regex("upscale_[a-zA-Z0-9_]+")))
+      val session = UpscalePreviewSession(id, previewRoot()) { event, payload -> sendEvent(event, payload) }
+      session.enabled = enabled
+      check(sessions.putIfAbsent(id, session) == null) { "Duplicate upscale request" }
+    }
+    Function("setPreviewEnabled") { id: String, enabled: Boolean ->
+      sessions[id]?.let { it.enabled = enabled; if (enabled) it.released = false }
+      Unit
+    }
+    Function("acknowledgePreview") { id: String, sequence: Int -> sessions[id]?.acknowledge(sequence); Unit }
+    Function("releasePreviews") { id: String ->
+      sessions[id]?.let { it.release(); if (it.finished) sessions.remove(id, it) }
+      Unit
+    }
+    OnActivityEntersBackground { foreground = false }
+    OnActivityEntersForeground { foreground = true }
     OnCreate {
-      NativeUpscaler.progressListener = { done, total ->
-        sendEvent("progress", mapOf("fraction" to done.toDouble() / total))
-      }
+      // Cache belongs to the previous runtime; no result images live here.
+      runCatching { previewRoot().deleteRecursively() }
+    }
+    OnDestroy {
+      NativeUpscaler.cancel()
+      sessions.values.forEach { it.release() }
     }
 
     AsyncFunction("getGpuInfo") Coroutine { ->
@@ -101,7 +130,27 @@ class ImageUpscalerModule : Module() {
     }
 
     AsyncFunction("upscale") Coroutine { inputUri: String, model: String, scale: Int, noise: Int, tileSize: Int, format: String, quality: Int, advanced: UpscaleAdvancedOptions ->
-      withContext(Dispatchers.Default) { mutex.withLock { upscale(inputUri, model, scale, noise, tileSize, format, quality, advanced) } }
+      withContext(Dispatchers.Default) {
+        mutex.withLock {
+          val session = sessions[advanced.requestId]
+          try {
+            session?.phase("preparing")
+            upscale(inputUri, model, scale, noise, tileSize, format, quality, advanced, session)
+          } finally {
+            NativeUpscaler.tileListener = null
+            NativeUpscaler.previewNeededListener = null
+            NativeUpscaler.previewListener = null
+            session?.let {
+              it.bitmap?.recycle()
+              it.bitmap = null
+              it.finished = true
+              // Fast jobs may finish before React ever renders their request.
+              // Only a frame acknowledged by the canvas needs a display lease.
+              if (it.released || !it.hasAcknowledgedFrame()) { it.release(); sessions.remove(it.id, it) }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -143,7 +192,7 @@ class ImageUpscalerModule : Module() {
     return file
   }
 
-  private fun upscale(inputUri: String, model: String, scale: Int, noise: Int, tileSize: Int, format: String, quality: Int, advanced: UpscaleAdvancedOptions): Map<String, Any> {
+  private fun upscale(inputUri: String, model: String, scale: Int, noise: Int, tileSize: Int, format: String, quality: Int, advanced: UpscaleAdvancedOptions, session: UpscalePreviewSession?): Map<String, Any> {
     val context = appContext.reactContext ?: error("Application context unavailable")
     val realcugan = model != "waifu2x-cunet"
     require(noise in -1..3 && if (realcugan) scale in 2..4 else scale in 1..2 && (scale == 2 || noise != -1)) { "Unknown model" }
@@ -168,12 +217,22 @@ class ImageUpscalerModule : Module() {
     try {
       val param = modelFile(context, model, "$name.param")
       val bin = modelFile(context, model, "$name.bin")
+      // Allocation/encoding are optional; inference must survive preview failures.
+      session?.bitmap = runCatching {
+        val factor = minOf(1.0, 768.0 / maxOf(input.width, input.height))
+        val scaled = Bitmap.createScaledBitmap(input, maxOf(1, (input.width * factor).toInt()), maxOf(1, (input.height * factor).toInt()), true)
+        try { scaled.copy(Bitmap.Config.ARGB_8888, true) } finally { if (scaled !== input) scaled.recycle() }
+      }.getOrNull()
+      NativeUpscaler.tileListener = { x, y, w, h, done, total -> session?.tile(x, y, w, h, done, total) }
+      NativeUpscaler.previewNeededListener = { completed, height -> foreground && (session?.needsPreview(completed, height) ?: false) }
+      NativeUpscaler.previewListener = { session?.publish() }
       val startedAt = SystemClock.elapsedRealtime()
-      val result = NativeUpscaler.upscale(realcugan, param.path, bin.path, scale, noise, tileSize, advanced.ttaMode, advanced.syncGap, advanced.limitGpuPerformance, advanced.useGpu, advanced.cpuThreads, advanced.cpuPolicy, input, output)
+      val result = NativeUpscaler.upscale(realcugan, param.path, bin.path, scale, noise, tileSize, advanced.ttaMode, advanced.syncGap, advanced.limitGpuPerformance, advanced.useGpu, advanced.cpuThreads, advanced.cpuPolicy, input, output, session?.bitmap)
         ?: error("Upscale failed")
       check(result.isNotEmpty()) { "UPSCALE_CANCELLED" }
       val elapsedMs = SystemClock.elapsedRealtime() - startedAt
 
+      session?.phase("saving")
       // The caller deletes the file once it has saved the result elsewhere.
       val directory = File(context.cacheDir, "upscaled")
       directory.mkdirs()

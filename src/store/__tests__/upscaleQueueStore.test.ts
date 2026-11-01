@@ -1,3 +1,5 @@
+import { storage } from "../../lib/storage";
+import { AppState, type AppStateStatus } from "react-native";
 import {
   imageUpscaler,
   type UpscaleResult,
@@ -9,8 +11,13 @@ import {
 import { DEFAULT_UPSCALE_SETTINGS } from "../../screens/upscale/upscaleOptions";
 import { useUpscaleQueueStore } from "../upscaleQueueStore";
 
+const mockNativeListeners = new Map<string, (event: any) => void>();
+
+jest.mock("../../lib/storage", () => ({
+  storage: { getString: jest.fn(), set: jest.fn() },
+}));
 jest.mock("expo-file-system", () => ({
-  Paths: { cache: "file:///cache" },
+  Paths: { cache: "file:///cache", document: "file:///documents" },
   Directory: jest.fn((root: string, name: string) => ({
     uri: `${root}/${name}`,
     create: jest.fn(),
@@ -22,12 +29,17 @@ jest.mock("expo-file-system", () => ({
       : root,
     delete: jest.fn(),
     copy: jest.fn(),
+    move: jest.fn(),
+    exists: true,
   })),
 }));
 jest.mock("../../../modules/image-upscaler", () => ({
   imageUpscaler: {
     upscale: jest.fn(),
-    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    addListener: jest.fn((name, listener) => {
+      mockNativeListeners.set(name, listener);
+      return { remove: jest.fn() };
+    }),
     cancel: jest.fn(),
   },
 }));
@@ -59,6 +71,15 @@ const defaultResult: UpscaleResult = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .spyOn(AppState, "addEventListener")
+    .mockReturnValue({ remove: jest.fn() });
+  mockNativeListeners.clear();
+  delete imageUpscaler!.prepare;
+  delete imageUpscaler!.setPreviewEnabled;
+  delete imageUpscaler!.releasePreviews;
+  jest.mocked(requestGallerySavePermission).mockResolvedValue(true);
+  jest.mocked(saveImageToGallery).mockResolvedValue();
   useUpscaleQueueStore.setState({
     items: [],
     running: false,
@@ -67,6 +88,9 @@ beforeEach(() => {
     batchCompleted: 0,
     currentItemId: null,
     progress: 0,
+    persistenceError: null,
+    preview: null,
+    previewVisible: false,
   });
   jest.mocked(imageUpscaler!.upscale).mockResolvedValue(defaultResult);
 });
@@ -176,7 +200,9 @@ test.each([
         cpuPolicy: 0,
       },
     );
-    expect(saveImageToGallery).toHaveBeenCalledWith("file:///output.jpg");
+    expect(saveImageToGallery).toHaveBeenCalledWith(
+      expect.stringContaining("file:///documents/upscale-results/upscale_"),
+    );
     expect(useUpscaleQueueStore.getState().items[0].status).toBe("done");
     expect(useUpscaleQueueStore.getState().running).toBe(false);
   },
@@ -334,4 +360,253 @@ test("returns cancelled batch items to the planned queue without starting later 
   await store.start(DEFAULT_UPSCALE_SETTINGS);
   await store.runQueueTask();
   expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(5);
+});
+
+test("auto-save off retains the result without asking for gallery permission", async () => {
+  jest.mocked(requestGallerySavePermission).mockResolvedValue(false);
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("manual"));
+  await store.start({ ...DEFAULT_UPSCALE_SETTINGS, autoSave: false });
+  await store.runQueueTask();
+  expect(requestGallerySavePermission).not.toHaveBeenCalled();
+  expect(saveImageToGallery).not.toHaveBeenCalled();
+  expect(useUpscaleQueueStore.getState().items[0]).toMatchObject({
+    status: "done",
+    saved: false,
+    result: { uri: expect.stringContaining("/upscale-results/") },
+  });
+});
+
+test("a gallery failure keeps the completed result and retries saving without running inference again", async () => {
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("retry"));
+  jest
+    .mocked(saveImageToGallery)
+    .mockRejectedValueOnce(new Error("gallery unavailable"));
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  await store.runQueueTask();
+  const item = useUpscaleQueueStore.getState().items[0];
+  expect(item).toMatchObject({
+    status: "done",
+    saved: false,
+    saving: false,
+    saveError: "gallery unavailable",
+  });
+  expect(await store.saveItems([item.id])).toEqual({
+    saved: 1,
+    failed: 0,
+    denied: false,
+  });
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(1);
+  expect(useUpscaleQueueStore.getState().items[0]).toMatchObject({
+    saved: true,
+    saveError: undefined,
+  });
+  expect(await store.saveItems([item.id])).toEqual({
+    saved: 0,
+    failed: 0,
+    denied: false,
+  });
+  expect(saveImageToGallery).toHaveBeenCalledTimes(2);
+});
+
+test("manual selected saves claim results before permission and block duplicate saves and deletion", async () => {
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("first", "second"));
+  await store.start({ ...DEFAULT_UPSCALE_SETTINGS, autoSave: false });
+  await store.runQueueTask();
+  const [first, second] = useUpscaleQueueStore.getState().items;
+  let grant!: (value: boolean) => void;
+  jest.mocked(requestGallerySavePermission).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        grant = resolve;
+      }),
+  );
+  const saving = store.saveItems([second.id]);
+  expect(await store.saveItems([second.id])).toEqual({
+    saved: 0,
+    failed: 0,
+    denied: false,
+  });
+  store.removeItem(second.id);
+  store.clear();
+  expect(useUpscaleQueueStore.getState().items).toHaveLength(2);
+  grant(true);
+  expect(await saving).toEqual({ saved: 1, failed: 0, denied: false });
+  expect(saveImageToGallery).toHaveBeenCalledWith(second.result!.uri);
+  expect(
+    useUpscaleQueueStore.getState().items.find((item) => item.id === first.id)
+      ?.saved,
+  ).toBe(false);
+});
+
+test("denied manual saving preserves results for a later permission retry", async () => {
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("denied"));
+  await store.start({ ...DEFAULT_UPSCALE_SETTINGS, autoSave: false });
+  await store.runQueueTask();
+  const id = useUpscaleQueueStore.getState().items[0].id;
+  jest.mocked(requestGallerySavePermission).mockResolvedValueOnce(false);
+  expect(await store.saveItems([id])).toEqual({
+    saved: 0,
+    failed: 1,
+    denied: true,
+  });
+  expect(useUpscaleQueueStore.getState().items[0]).toMatchObject({
+    status: "done",
+    saved: false,
+    saving: false,
+  });
+  expect(await store.saveItems([id])).toEqual({
+    saved: 1,
+    failed: 0,
+    denied: false,
+  });
+});
+
+test("auto-save permission failure leaves the queue idle", async () => {
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("permission"));
+  jest.mocked(requestGallerySavePermission).mockResolvedValueOnce(false);
+  expect(await store.start(DEFAULT_UPSCALE_SETTINGS)).toBe("no-permission");
+  expect(useUpscaleQueueStore.getState().running).toBe(false);
+  expect(imageUpscaler!.upscale).not.toHaveBeenCalled();
+});
+
+test("the auto-save preference is fixed when the batch starts", async () => {
+  const settings = { ...DEFAULT_UPSCALE_SETTINGS, autoSave: false };
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("snapshot"));
+  await store.start(settings);
+  settings.autoSave = true;
+  await store.runQueueTask();
+  expect(saveImageToGallery).not.toHaveBeenCalled();
+});
+
+test("scopes previews to the current request and gates background frames without stopping inference", async () => {
+  const originalState = AppState.currentState;
+  AppState.currentState = "active";
+  let changeState!: (state: AppStateStatus) => void;
+  const appState = jest
+    .spyOn(AppState, "addEventListener")
+    .mockImplementation((_name, callback) => {
+      changeState = callback;
+      return { remove: jest.fn() };
+    });
+  imageUpscaler!.prepare = jest.fn();
+  imageUpscaler!.setPreviewEnabled = jest.fn();
+  imageUpscaler!.releasePreviews = jest.fn();
+  let complete!: (result: UpscaleResult) => void;
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  jest.mocked(imageUpscaler!.upscale).mockImplementationOnce(() => {
+    entered();
+    return new Promise((resolve) => {
+      complete = resolve;
+    });
+  });
+  const store = useUpscaleQueueStore.getState();
+  try {
+    store.setPreviewVisible(true);
+    store.addImages(inputs("live"));
+    await store.start({ ...DEFAULT_UPSCALE_SETTINGS, autoSave: false });
+    const task = store.runQueueTask();
+    await started;
+    const id = useUpscaleQueueStore.getState().preview!.requestId;
+    expect(imageUpscaler!.prepare).toHaveBeenCalledWith(id, true);
+    mockNativeListeners.get("progress")!({ requestId: "old", fraction: 0.9 });
+    expect(useUpscaleQueueStore.getState().progress).toBe(0);
+    mockNativeListeners.get("progress")!({
+      requestId: id,
+      phase: "upscaling",
+      fraction: 0.5,
+      tile: { x: 32, y: 0, width: 32, height: 32 },
+    });
+    mockNativeListeners.get("preview")!({
+      requestId: id,
+      sequence: 1,
+      imageUri: "file:///frame1.jpg",
+    });
+    expect(useUpscaleQueueStore.getState().preview).toMatchObject({
+      uri: "file:///frame1.jpg",
+      tile: { x: 32 },
+    });
+    mockNativeListeners.get("preview")!({
+      requestId: id,
+      sequence: 0,
+      imageUri: "file:///old.jpg",
+    });
+    expect(useUpscaleQueueStore.getState().preview!.uri).toBe(
+      "file:///frame1.jpg",
+    );
+    AppState.currentState = "background";
+    changeState("background");
+    expect(imageUpscaler!.setPreviewEnabled).toHaveBeenLastCalledWith(
+      id,
+      false,
+    );
+    mockNativeListeners.get("preview")!({
+      requestId: id,
+      sequence: 2,
+      imageUri: "file:///background.jpg",
+    });
+    expect(useUpscaleQueueStore.getState().preview!.uri).toBe(
+      "file:///frame1.jpg",
+    );
+    expect(useUpscaleQueueStore.getState().running).toBe(true);
+    AppState.currentState = "active";
+    changeState("active");
+    expect(imageUpscaler!.setPreviewEnabled).toHaveBeenLastCalledWith(id, true);
+    mockNativeListeners.get("preview")!({ requestId: id, failed: true });
+    expect(useUpscaleQueueStore.getState().preview!.failed).toBe(true);
+    mockNativeListeners.get("preview")!({
+      requestId: id,
+      sequence: 3,
+      imageUri: "file:///resumed.jpg",
+    });
+    expect(useUpscaleQueueStore.getState().preview).toMatchObject({
+      uri: "file:///resumed.jpg",
+      failed: false,
+    });
+    complete(defaultResult);
+    await task;
+    expect(useUpscaleQueueStore.getState().items[0].status).toBe("done");
+    mockNativeListeners.get("preview")!({
+      requestId: id,
+      sequence: 4,
+      imageUri: "file:///late.jpg",
+    });
+    expect(useUpscaleQueueStore.getState().preview!.uri).toBe(
+      "file:///resumed.jpg",
+    );
+  } finally {
+    appState.mockRestore();
+    AppState.currentState = originalState;
+  }
+});
+
+test("a result-list persistence error preserves inference output and allows manual gallery saving", async () => {
+  jest.mocked(storage.set).mockImplementation(() => {
+    throw new Error("metadata unavailable");
+  });
+  try {
+    const store = useUpscaleQueueStore.getState();
+    store.addImages(inputs("metadata-error"));
+    await store.start({ ...DEFAULT_UPSCALE_SETTINGS, autoSave: false });
+    await store.runQueueTask();
+    const state = useUpscaleQueueStore.getState();
+    expect(state.items[0]).toMatchObject({ status: "done", saved: false });
+    expect(state.persistenceError).toContain("앱을 닫기 전에");
+    expect(await store.saveItems([state.items[0].id])).toEqual({
+      saved: 1,
+      failed: 0,
+      denied: false,
+    });
+    expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.mocked(storage.set).mockImplementation(() => {});
+  }
 });

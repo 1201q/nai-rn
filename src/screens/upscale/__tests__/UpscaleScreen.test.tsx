@@ -12,7 +12,11 @@ const mockQueueProps = jest.fn();
 const mockActionProps = jest.fn();
 
 jest.mock("expo-router", () => ({
+  useIsFocused: () => true,
   useRouter: () => ({ back: jest.fn(), navigate: mockNavigate }),
+}));
+jest.mock("../../../../modules/image-upscaler", () => ({
+  imageUpscaler: { releasePreviews: jest.fn() },
 }));
 jest.mock("expo-status-bar", () => ({ StatusBar: () => null }));
 jest.mock("expo-image", () => ({ Image: require("react-native").View }));
@@ -53,6 +57,7 @@ jest.mock("../../../store/upscaleQueueStore", () => {
       activeBatchIds: [],
       batchCompleted: 0,
       currentItemId: null,
+      setPreviewVisible: jest.fn(),
       addImages: jest.fn(),
       clear: jest.fn(),
       removeItem: jest.fn(),

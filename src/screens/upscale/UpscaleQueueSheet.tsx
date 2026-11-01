@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { toast } from "sonner-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetKeyboardAwareScrollView } from "../../components/generation/BottomSheetKeyboardAwareScrollView";
 import { useGenerationChromeMetrics } from "../../hooks/useGenerationChromeMetrics";
@@ -44,10 +46,16 @@ function QueueRow({
   removable,
   item,
   onRemove,
+  selected,
+  onSelect,
+  onSave,
 }: {
   item: UpscaleQueueItem;
   removable: boolean;
   onRemove: () => void;
+  selected: boolean;
+  onSelect: () => void;
+  onSave: () => void;
 }) {
   // 진행 중인 행만 진행률을 구독한다.
   const progress = useUpscaleQueueStore((state) =>
@@ -55,8 +63,24 @@ function QueueRow({
   );
   return (
     <View style={styles.row}>
+      {item.status === "done" && !item.saved && item.result?.uri ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={`${item.originalFilename ?? item.id} 선택`}
+          accessibilityState={{ checked: selected, disabled: item.saving }}
+          disabled={item.saving}
+          onPress={onSelect}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={selected ? "checkbox" : "square-outline"}
+            size={22}
+            color={tokens.color.accent}
+          />
+        </Pressable>
+      ) : null}
       <Image
-        source={{ uri: item.uri }}
+        source={{ uri: item.result?.uri ?? item.uri }}
         contentFit="cover"
         style={styles.thumbnail}
       />
@@ -79,7 +103,40 @@ function QueueRow({
         >
           {statusText(item, progress)}
         </Text>
+        {item.status === "done" ? (
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.rowStatus,
+              item.saveError ? styles.rowStatusFailed : null,
+            ]}
+          >
+            {item.saving
+              ? "저장 중…"
+              : item.saved
+                ? "갤러리에 저장됨"
+                : item.saveError
+                  ? `저장 실패: ${item.saveError}`
+                  : "앱에 보관됨 · 저장 가능"}
+          </Text>
+        ) : null}
       </View>
+      {item.status === "done" && item.result?.uri && !item.saved ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`결과 저장 ${item.originalFilename ?? item.id}`}
+          disabled={item.saving}
+          accessibilityState={{ disabled: item.saving }}
+          onPress={onSave}
+          hitSlop={8}
+        >
+          <Ionicons
+            name="download-outline"
+            size={22}
+            color={item.saving ? tokens.color.textMuted : tokens.color.accent}
+          />
+        </Pressable>
+      ) : null}
       {removable ? (
         <Pressable
           accessibilityRole="button"
@@ -112,6 +169,75 @@ function QueuePage({
   chooseImageSource: () => void;
 }) {
   const { sheetContentPaddingBottom } = useGenerationChromeMetrics();
+  const [selected, setSelected] = useState<string[]>([]);
+  const saveItems = useUpscaleQueueStore((state) => state.saveItems);
+  const persistenceError = useUpscaleQueueStore(
+    (state) => state.persistenceError,
+  );
+  const saving = useUpscaleQueueStore((state) =>
+    state.items.some((item) => item.saving),
+  );
+  const autoSave = useUpscaleSettingsStore((state) => state.settings.autoSave);
+  const eligible = items
+    .filter(
+      (item) =>
+        item.status === "done" &&
+        item.result?.uri &&
+        !item.saved &&
+        !item.saving,
+    )
+    .map((item) => item.id);
+  const selectedIds = selected.filter((id) => eligible.includes(id));
+  async function save(ids: string[]) {
+    const result = await saveItems(ids);
+    if (result.saved)
+      toast.success(`${result.saved}장을 갤러리에 저장했습니다.`);
+    if (result.failed)
+      toast.error(
+        result.denied
+          ? "사진 저장 권한이 필요합니다."
+          : `${result.failed}장을 저장하지 못했습니다. 다시 시도할 수 있습니다.`,
+      );
+    setSelected((current) =>
+      current.filter(
+        (id) =>
+          !useUpscaleQueueStore.getState().items.find((item) => item.id === id)
+            ?.saved,
+      ),
+    );
+  }
+  function confirmRemove(item: UpscaleQueueItem) {
+    if (item.status === "done" && !item.saved)
+      Alert.alert(
+        "결과 삭제",
+        "아직 갤러리에 저장하지 않은 결과를 삭제할까요?",
+        [
+          { text: "취소", style: "cancel" },
+          {
+            text: "삭제",
+            style: "destructive",
+            onPress: () => removeItem(item.id),
+          },
+        ],
+      );
+    else removeItem(item.id);
+  }
+  function confirmClear() {
+    if (
+      useUpscaleQueueStore
+        .getState()
+        .items.some((item) => item.status === "done" && !item.saved)
+    )
+      Alert.alert(
+        "전체 목록 비우기",
+        "저장하지 않은 결과도 함께 삭제됩니다. 계속할까요?",
+        [
+          { text: "취소", style: "cancel" },
+          { text: "삭제", style: "destructive", onPress: clear },
+        ],
+      );
+    else clear();
+  }
   const removeItem = useUpscaleQueueStore((state) => state.removeItem);
   const busy = useUpscaleQueueStore((state) => state.running);
   const clear = useUpscaleQueueStore((state) => state.clear);
@@ -206,32 +332,77 @@ function QueuePage({
               : "예정 이미지와 실패한 이미지는 업스케일 버튼을 누르면 처리합니다."}
           </Text>
           <Text style={styles.meta}>
-            {albumName
-              ? `결과는 한 장이 끝날 때마다 갤러리의 '${albumName}' 앨범에 저장됩니다.`
-              : "결과는 한 장이 끝날 때마다 갤러리에 저장됩니다."}
+            {!autoSave
+              ? "결과를 앱에 보관합니다. 완료 탭에서 갤러리에 저장할 수 있습니다."
+              : albumName
+                ? `결과는 한 장이 끝날 때마다 갤러리의 '${albumName}' 앨범에 저장됩니다.`
+                : "결과는 한 장이 끝날 때마다 갤러리에 저장됩니다."}
           </Text>
         </>
       ) : null}
       <View style={styles.queue}>
+        {tab === "completed" && persistenceError ? (
+          <Text style={styles.rowStatusFailed}>{persistenceError}</Text>
+        ) : null}
         <View style={styles.queueHeader}>
           <Text style={styles.queueTitle}>{items.length}장</Text>
-          {!busy && items.length > 0 ? (
+          {!busy && !saving && items.length > 0 ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="업스케일 목록 비우기"
               hitSlop={8}
-              onPress={clear}
+              onPress={confirmClear}
             >
               <Text style={styles.queueClear}>전체 목록 비우기</Text>
             </Pressable>
           ) : null}
         </View>
+        {tab === "completed" && eligible.length > 0 ? (
+          <View style={styles.queueHeader}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                setSelected(
+                  selectedIds.length === eligible.length ? [] : eligible,
+                )
+              }
+            >
+              <Text style={styles.queueClear}>
+                {selectedIds.length === eligible.length
+                  ? "선택 해제"
+                  : "전체 선택"}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="선택한 결과 저장"
+              disabled={selectedIds.length === 0}
+              onPress={() => void save(selectedIds)}
+            >
+              <Text
+                style={[
+                  styles.queueClear,
+                  selectedIds.length === 0 && { opacity: 0.4 },
+                ]}
+              >{`선택 저장 (${selectedIds.length})`}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {items.map((item) => (
           <QueueRow
             key={item.id}
             item={item}
-            removable={!activeBatchIds.includes(item.id)}
-            onRemove={() => removeItem(item.id)}
+            removable={!activeBatchIds.includes(item.id) && !item.saving}
+            selected={selectedIds.includes(item.id)}
+            onSelect={() =>
+              setSelected((current) =>
+                current.includes(item.id)
+                  ? current.filter((id) => id !== item.id)
+                  : [...current, item.id],
+              )
+            }
+            onSave={() => void save([item.id])}
+            onRemove={() => confirmRemove(item)}
           />
         ))}
         {items.length === 0 && tab !== "planned" ? (

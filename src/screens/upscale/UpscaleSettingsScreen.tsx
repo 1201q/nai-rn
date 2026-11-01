@@ -169,6 +169,19 @@ function SettingsContent() {
             </View>
             <View style={rows.option}>
               <UpscaleSettingsRow
+                title="자동 저장"
+                description="완료한 이미지를 갤러리에 자동으로 저장합니다. 끄면 완료 탭에서 직접 저장할 수 있습니다."
+              >
+                <Toggle
+                  label="자동 저장"
+                  value={settings.autoSave}
+                  disabled={disabled}
+                  onChange={(autoSave) => change({ autoSave })}
+                />
+              </UpscaleSettingsRow>
+            </View>
+            <View style={rows.option}>
+              <UpscaleSettingsRow
                 title="원본 파일명 유지"
                 description="원본 이름이 없으면 자동 이름을 사용합니다. 확장자는 출력 형식에 맞추며 같은 이름은 덮어쓰지 않습니다."
               >

@@ -39,6 +39,11 @@ export async function saveUpscaledImage(
     await new File(uri).copy(file);
     await save(file.uri);
   } finally {
-    directory.delete();
+    // A cleanup failure must not turn a successful gallery save into a retry.
+    try {
+      directory.delete();
+    } catch {
+      /* Clean up cached exports later. */
+    }
   }
 }

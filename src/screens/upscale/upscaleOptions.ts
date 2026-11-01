@@ -69,6 +69,7 @@ export const DEFAULT_UPSCALE_SETTINGS: UpscaleSettings = {
   useGpu: true,
   cpuThreads: 0,
   cpuPolicy: 0,
+  autoSave: true,
   keepOriginalFilename: false,
   albumName: "",
 };
@@ -132,6 +133,7 @@ export function normalizeUpscaleSettings(input: unknown): UpscaleSettings {
       settings.cpuPolicy === 1 || settings.cpuPolicy === 2
         ? settings.cpuPolicy
         : 0,
+    autoSave: typeof settings.autoSave === "boolean" ? settings.autoSave : true,
     keepOriginalFilename:
       typeof settings.keepOriginalFilename === "boolean"
         ? settings.keepOriginalFilename

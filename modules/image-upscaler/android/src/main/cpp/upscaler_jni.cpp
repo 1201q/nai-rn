@@ -94,15 +94,55 @@ std::atomic<bool> cancelled(false);
 struct ProgressTarget {
     JNIEnv* env;
     jclass clazz;
-    jmethodID method;
+    jobject preview;
+    jmethodID tile_method;
+    jmethodID preview_needed_method;
+    jmethodID preview_method;
 };
 
 // The engines run their tile loops on the calling thread, so env is valid here.
 bool report_progress(void* userdata, int done, int total) {
+    return !cancelled;
+}
+
+bool report_tile(void* userdata, int x, int y, int w, int h, int done, int total) {
     if (cancelled) return false;
     auto* target = (ProgressTarget*) userdata;
-    target->env->CallStaticVoidMethod(target->clazz, target->method, done, total);
-    return true;
+    target->env->CallStaticVoidMethod(target->clazz, target->tile_method, x, y, w, h, done, total);
+    // UI observers must never abort inference.
+    if (target->env->ExceptionCheck()) target->env->ExceptionClear();
+    return !cancelled;
+}
+
+void report_preview(void* userdata, const ncnn::Mat& output, int completed_y) {
+    auto* target = (ProgressTarget*) userdata;
+    if (cancelled || !target->preview) return;
+    const auto needed = target->env->CallStaticBooleanMethod(
+        target->clazz, target->preview_needed_method, completed_y, output.h);
+    if (target->env->ExceptionCheck()) { target->env->ExceptionClear(); return; }
+    if (!needed) return;
+    AndroidBitmapInfo info;
+    void* pixels = nullptr;
+    if (AndroidBitmap_getInfo(target->env, target->preview, &info) < 0 ||
+        AndroidBitmap_lockPixels(target->env, target->preview, &pixels) < 0) return;
+    // The rest of this small bitmap retains the resized original. Never read
+    // unfinished output, and never introduce a per-tile GPU readback.
+    for (uint32_t y = 0; y < info.height; ++y) {
+        const int sy = (int) ((int64_t) y * output.h / info.height);
+        if (sy >= completed_y) break;
+        auto* dst = (unsigned char*) pixels + y * info.stride;
+        const auto* src = (const unsigned char*) output.data + (size_t) sy * output.w * 3;
+        for (uint32_t x = 0; x < info.width; ++x) {
+            const int sx = (int) ((int64_t) x * output.w / info.width);
+            dst[x * 4] = src[sx * 3];
+            dst[x * 4 + 1] = src[sx * 3 + 1];
+            dst[x * 4 + 2] = src[sx * 3 + 2];
+            dst[x * 4 + 3] = 255;
+        }
+    }
+    AndroidBitmap_unlockPixels(target->env, target->preview);
+    target->env->CallStaticVoidMethod(target->clazz, target->preview_method);
+    if (target->env->ExceptionCheck()) target->env->ExceptionClear();
 }
 
 }  // namespace
@@ -137,7 +177,7 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
         jint scale, jint noise, jint tileSize, jboolean ttaMode, jint syncGap,
         jboolean limitGpuPerformance,
         jboolean useGpu, jint cpuThreads, jint cpuPolicy,
-        jobject inBitmap, jobject outBitmap) {
+        jobject inBitmap, jobject outBitmap, jobject previewBitmap) {
     cancelled = false;
 
     const std::string param = to_string(env, paramPath);
@@ -180,7 +220,10 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
     }
     AndroidBitmap_unlockPixels(env, inBitmap);
 
-    ProgressTarget target = {env, clazz, env->GetStaticMethodID(clazz, "onProgress", "(II)V")};
+    ProgressTarget target = {env, clazz, previewBitmap,
+        env->GetStaticMethodID(clazz, "onTile", "(IIIIII)V"),
+        env->GetStaticMethodID(clazz, "needsPreview", "(II)Z"),
+        env->GetStaticMethodID(clazz, "onPreview", "()V")};
 
     ncnn::Mat in(w, h, (void*) rgb.data(), (size_t) 3, 3);
     ncnn::Mat out(w * scale, h * scale, (size_t) 3, 3);
@@ -195,6 +238,7 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
         upscaler.syncgap = syncGap;
         upscaler.progress = report_progress;
         upscaler.progress_userdata = &target;
+        upscaler.observer = {&target, report_tile, report_preview};
         upscaler.process(in, out);
     } else {
         Waifu2x upscaler(gpuid, ttaMode == JNI_TRUE, threads);
@@ -205,6 +249,7 @@ Java_expo_modules_imageupscaler_NativeUpscaler_upscale(
         upscaler.prepadding = prepadding(realcugan, scale, noise);
         upscaler.progress = report_progress;
         upscaler.progress_userdata = &target;
+        upscaler.observer = {&target, report_tile, report_preview};
         upscaler.process(in, out);
     }
 

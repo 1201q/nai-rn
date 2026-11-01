@@ -9,6 +9,28 @@
 #include "../../main/cpp/realcugan/realcugan.h"
 #include "../../main/cpp/waifu2x/waifu2x.h"
 
+struct ObserverProbe {
+    int width, height, tile, scale;
+    int tiles = 0, rows = 0;
+    bool valid = true;
+    static bool on_tile(void* data, int x, int y, int w, int h, int done, int total) {
+        auto& probe = *(ObserverProbe*)data;
+        const int columns = (probe.width + probe.tile - 1) / probe.tile;
+        const int rows = (probe.height + probe.tile - 1) / probe.tile;
+        probe.valid &= done == probe.tiles && total == columns * rows;
+        probe.valid &= x == (done % columns) * probe.tile && y == (done / columns) * probe.tile;
+        probe.valid &= w == std::min(probe.tile, probe.width - x) && h == std::min(probe.tile, probe.height - y);
+        probe.tiles++;
+        return true;
+    }
+    static void on_row(void* data, const ncnn::Mat& output, int completed_y) {
+        auto& probe = *(ObserverProbe*)data;
+        probe.rows++;
+        probe.valid &= completed_y == std::min(probe.rows * probe.tile, probe.height) * probe.scale;
+        probe.valid &= output.w == probe.width * probe.scale && output.h == probe.height * probe.scale;
+    }
+};
+
 int main(int argc, char** argv) {
     if (argc < 4) return 2;
     const std::string directory = argv[1];
@@ -48,6 +70,7 @@ int main(int argc, char** argv) {
     ncnn::Mat output(width * scale, height * scale, (size_t)3, 3);
     if (output.empty()) return 4;
     int result;
+    ObserverProbe probe{width, height, tile, scale};
     // Intentionally never create a Vulkan instance: CPU load must work alone.
     if (realcugan) {
         RealCUGAN engine(-1, tta, 1);
@@ -55,6 +78,7 @@ int main(int argc, char** argv) {
         engine.scale = scale;
         engine.noise = noise;
         engine.tilesize = tile;
+        engine.observer = {&probe, ObserverProbe::on_tile, ObserverProbe::on_row};
         engine.prepadding = scale == 2 ? 18 : scale == 3 ? 14 : 19;
         engine.syncgap = syncgap;
         result = engine.process(input, output);
@@ -69,6 +93,8 @@ int main(int argc, char** argv) {
     }
     if (result != 0 || output.empty() || output.w != width * scale ||
         output.h != height * scale) return 6;
+    if (!probe.valid || probe.tiles != ((width + tile - 1) / tile) * ((height + tile - 1) / tile) ||
+        probe.rows != (height + tile - 1) / tile) return 8;
     unsigned long long checksum = 0;
     const auto* data = (const unsigned char*)output.data;
     for (size_t i = 0; i < (size_t)output.w * output.h * 3; ++i) checksum += data[i];

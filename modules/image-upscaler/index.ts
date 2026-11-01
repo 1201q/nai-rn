@@ -46,6 +46,27 @@ export type UpscaleResult = {
   cpuPolicy: 0 | 1 | 2;
 };
 
+export type UpscaleTile = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+export type UpscaleProgressEvent = {
+  requestId?: string;
+  phase?: "preparing" | "upscaling" | "saving";
+  fraction?: number;
+  tile?: UpscaleTile;
+  completed?: number;
+  total?: number;
+};
+export type UpscalePreviewEvent = {
+  requestId: string;
+  imageUri?: string;
+  sequence?: number;
+  failed?: boolean;
+};
+
 export const imageUpscaler =
   Platform.OS === "android"
     ? requireOptionalNativeModule<{
@@ -60,17 +81,26 @@ export const imageUpscaler =
           format: UpscaleFormat,
           // 1~100. PNG에서는 무시된다.
           quality: number,
-          advanced: UpscaleAdvancedOptions,
+          advanced: UpscaleAdvancedOptions & { requestId?: string },
         ): Promise<UpscaleResult>;
         getGpuInfo(): Promise<UpscaleGpuInfo>;
         getCpuInfo(): Promise<UpscaleCpuInfo>;
         getInputInfo(uri: string): Promise<UpscaleInputInfo>;
-        // 처리 중인 작업을 다음 타일 줄에서 멈춘다. upscale은 UPSCALE_CANCELLED로 거부된다.
+        // 최종 패스의 다음 타일 경계에서 멈춘다. upscale은 UPSCALE_CANCELLED로 거부된다.
         cancel(): void;
+        // Optional so an existing development APK can still run without previews.
+        prepare?: (requestId: string, enabled: boolean) => void;
+        setPreviewEnabled?: (requestId: string, enabled: boolean) => void;
+        acknowledgePreview?: (requestId: string, sequence: number) => void;
+        releasePreviews?: (requestId: string) => void;
         // 처리 중인 장의 진행률 (0~1). Real-CUGAN의 사전 패스는 포함하지 않는다.
         addListener(
           name: "progress",
-          listener: (event: { fraction: number }) => void,
+          listener: (event: UpscaleProgressEvent) => void,
+        ): { remove(): void };
+        addListener(
+          name: "preview",
+          listener: (event: UpscalePreviewEvent) => void,
         ): { remove(): void };
       }>("ImageUpscaler")
     : null;

@@ -192,3 +192,15 @@ test("bounds quality and normalizes unsupported model combinations", () => {
     normalizeUpscaleSettings({ jpgQuality: NaN, webpQuality: "80" }),
   ).toEqual(DEFAULT_UPSCALE_SETTINGS);
 });
+
+test("defaults auto-save to on for existing settings and persists an explicit off preference", () => {
+  expect(normalizeUpscaleSettings({})).toMatchObject({ autoSave: true });
+  expect(normalizeUpscaleSettings({ autoSave: "false" })).toMatchObject({
+    autoSave: true,
+  });
+  expect(normalizeUpscaleSettings({ autoSave: false })).toMatchObject({
+    autoSave: false,
+  });
+  loadStore().getState().setSettings({ autoSave: false });
+  expect(loadStore().getState().settings.autoSave).toBe(false);
+});

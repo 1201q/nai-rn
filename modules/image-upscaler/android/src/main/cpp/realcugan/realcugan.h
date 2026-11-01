@@ -4,6 +4,7 @@
 #define REALCUGAN_H
 
 #include <string>
+#include "../upscale_observer.h"
 
 // ncnn
 #include "net.h"
@@ -66,6 +67,7 @@ public:
     // Returning false stops the pass and leaves the rest of the output unwritten.
     bool (*progress)(void* userdata, int done, int total) = 0;
     void* progress_userdata = 0;
+    upscaler::Observer observer;
 
 private:
     ncnn::VulkanDevice* vkdev;

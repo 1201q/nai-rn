@@ -109,3 +109,18 @@ test("ignores the source name when filename preservation is disabled", async () 
   );
   expect(Directory).not.toHaveBeenCalled();
 });
+
+test("does not retry a successful gallery save when temporary export cleanup fails", async () => {
+  mockDelete.mockImplementationOnce(() => {
+    throw new Error("cleanup failed");
+  });
+  await expect(
+    saveUpscaledImage("file:///output.png", {
+      format: "png",
+      originalFilename: "drawing.png",
+      keepOriginalFilename: true,
+      albumName: "",
+    }),
+  ).resolves.toBeUndefined();
+  expect(saveImageToGallery).toHaveBeenCalledTimes(1);
+});

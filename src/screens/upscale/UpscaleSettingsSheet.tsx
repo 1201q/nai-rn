@@ -129,6 +129,22 @@ export function UpscaleSettingsSheetContent({
             onChange={(useGpu) => change({ useGpu })}
           />
         </View>
+        <View style={styles.qualityHeader}>
+          <View style={styles.labelRow}>
+            <Text style={styles.optionTitle}>자동 저장</Text>
+            <UpscaleHelpButton
+              label="자동 저장"
+              active={active && !disabled}
+              description="끄면 결과를 앱에 보관하고 완료 탭에서 직접 갤러리에 저장할 수 있습니다."
+            />
+          </View>
+          <Toggle
+            label="자동 저장"
+            value={settings.autoSave}
+            disabled={disabled}
+            onChange={(autoSave) => change({ autoSave })}
+          />
+        </View>
       </View>
     </BottomSheetKeyboardAwareScrollView>
   );

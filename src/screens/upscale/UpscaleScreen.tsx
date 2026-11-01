@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PortalHost } from "@gorhom/portal";
-import { Image } from "expo-image";
+import { UpscaleCanvas } from "./UpscaleCanvas";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -58,77 +58,6 @@ import { UpscaleQueueSheet } from "./UpscaleQueueSheet";
 import type { TabbedSheetStage } from "../generation/sheets/TabbedSheetHost";
 
 type UpscaleSheet = "settings" | "history";
-
-function UpscaleCanvas({ onOpenQueue }: { onOpenQueue: () => void }) {
-  const [imageBounds, setImageBounds] = useState({ width: 0, height: 0 });
-  const item = useUpscaleQueueStore((state) =>
-    state.items.find((entry) => entry.id === state.currentItemId),
-  );
-  const progress = useUpscaleQueueStore((state) => state.progress);
-  const imageScale = item
-    ? Math.min(
-        imageBounds.width / Math.max(1, item.width),
-        imageBounds.height / Math.max(1, item.height),
-      )
-    : 0;
-  return (
-    <View style={styles.canvas}>
-      {item ? (
-        <>
-          <View
-            style={styles.canvasImageViewport}
-            onLayout={({ nativeEvent: { layout } }) => {
-              setImageBounds((current) =>
-                current.width === layout.width &&
-                current.height === layout.height
-                  ? current
-                  : { width: layout.width, height: layout.height },
-              );
-            }}
-          >
-            <Image
-              accessibilityLabel="현재 업스케일 이미지"
-              source={{ uri: item.uri }}
-              contentFit="contain"
-              style={[
-                styles.canvasImage,
-                {
-                  width: item.width * imageScale,
-                  height: item.height * imageScale,
-                },
-              ]}
-            />
-          </View>
-          <Text style={styles.canvasCaption}>
-            {item.status === "running"
-              ? `업스케일 중… ${Math.round(progress * 100)}%`
-              : item.status === "done"
-                ? "업스케일 완료 · 결과를 갤러리에 저장했습니다."
-                : item.status === "failed"
-                  ? "업스케일 실패 · 진행 완료 탭을 확인하세요."
-                  : "중단됨 · 다음 시작을 기다리는 이미지"}
-          </Text>
-        </>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="업스케일 이미지 관리 열기"
-          onPress={onOpenQueue}
-          style={styles.canvasEmpty}
-        >
-          <Ionicons
-            name="expand-outline"
-            size={40}
-            color={tokens.color.textTertiary}
-          />
-          <Text style={styles.canvasCaption}>
-            업스케일할 이미지를 아래 시트에서 추가하세요.
-          </Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
 
 function UpscaleAction() {
   const { commitPendingInput } = useGenerationInputCommit();
@@ -441,27 +370,6 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: tokens.space[8],
-  },
-  canvas: { flex: 1, minHeight: 280, gap: 16, paddingBottom: 16 },
-  canvasImageViewport: {
-    flex: 1,
-    minHeight: 240,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  canvasImage: { borderRadius: tokens.radius.lg, overflow: "hidden" },
-  canvasEmpty: {
-    flex: 1,
-    minHeight: 280,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-  },
-  canvasCaption: {
-    color: tokens.color.textSecondary,
-    fontFamily: tokens.font.regular,
-    fontSize: 14,
-    textAlign: "center",
   },
   pressed: { opacity: tokens.opacity.pressed },
   selectPortalLayer: {
