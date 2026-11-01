@@ -3,6 +3,7 @@ import { type StyleProp, View, type ViewStyle } from "react-native";
 import {
   BottomSheetFlatList,
   type BottomSheetFlatListMethods,
+  type ScrollEventsHandlersHookType,
   useBottomSheetScrollableCreator,
 } from "@gorhom/bottom-sheet";
 import { LegendList } from "@legendapp/list/react-native";
@@ -11,7 +12,6 @@ import { FlashList } from "@shopify/flash-list";
 import type { GenerationRecord } from "../../../lib/generationHistory";
 import type { HistoryListEngine } from "../../../store/generationOptionsPersistence";
 import { GRID_GAP } from "./HistoryTiles";
-import { useHistoryScrollEventsHandlers } from "./useHistoryScrollEventsHandlers";
 
 type HistoryGridItem = GenerationRecord | null;
 // LegendList는 null 아이템을 렌더하지 않아 생성 중 타일을 문자열로 표시한다.
@@ -20,6 +20,7 @@ const ACTIVE_GENERATION_ITEM = "active-generation";
 type HistoryGridListProps = {
   engine: HistoryListEngine;
   listRef: Ref<BottomSheetFlatListMethods>;
+  scrollEventsHandlersHook: ScrollEventsHandlersHookType;
   data: HistoryGridItem[];
   // renderTile이 의존하는 값이 바뀌면 재활용 리스트가 보이는 타일을 다시 그리게 한다.
   extraData: unknown;
@@ -54,6 +55,7 @@ function columnShift({ tileSize, gridWidth, columns }: RecyclerGridProps) {
 
 function FlatGrid({
   listRef,
+  scrollEventsHandlersHook,
   data,
   columns,
   tileSize,
@@ -73,7 +75,7 @@ function FlatGrid({
     <BottomSheetFlatList
       {...listProps}
       ref={listRef}
-      scrollEventsHandlersHook={useHistoryScrollEventsHandlers}
+      scrollEventsHandlersHook={scrollEventsHandlersHook}
       // 타입에는 빠져 있지만 BottomSheetFlatList가 JS 스레드에서 호출해 준다.
       {...{ onScroll }}
       onContentSizeChange={(width, height) => {
@@ -105,6 +107,7 @@ function FlatGrid({
 function FlashGrid(props: RecyclerGridProps) {
   const {
     listRef,
+    scrollEventsHandlersHook,
     data,
     columns,
     initialRow: _initialRow,
@@ -117,7 +120,7 @@ function FlashGrid(props: RecyclerGridProps) {
     ...listProps
   } = props;
   const renderScrollComponent = useBottomSheetScrollableCreator({
-    scrollEventsHandlersHook: useHistoryScrollEventsHandlers,
+    scrollEventsHandlersHook,
   });
   const shift = columnShift(props);
 
@@ -148,6 +151,7 @@ function FlashGrid(props: RecyclerGridProps) {
 function LegendGrid(props: RecyclerGridProps) {
   const {
     listRef,
+    scrollEventsHandlersHook,
     data,
     columns,
     tileSize,
@@ -160,7 +164,7 @@ function LegendGrid(props: RecyclerGridProps) {
     ...listProps
   } = props;
   const renderScrollComponent = useBottomSheetScrollableCreator({
-    scrollEventsHandlersHook: useHistoryScrollEventsHandlers,
+    scrollEventsHandlersHook,
   });
   const shift = columnShift(props);
   const legendData = useMemo(

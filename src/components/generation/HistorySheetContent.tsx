@@ -32,6 +32,7 @@ import {
 import { HistoryGridList } from "./history/HistoryGridList";
 import { isAllSelected } from "./history/historySelection";
 import { useHistoryDragSelection } from "./history/useHistoryDragSelection";
+import { useHistoryScrollLock } from "./history/useHistoryScrollEventsHandlers";
 import { type HistorySheetController } from "./history/useHistorySheetController";
 
 export {
@@ -237,6 +238,8 @@ const HistorySheetGrid = memo(function HistorySheetGrid({
   const restorationPending = useRef(true);
   const restoreTarget = useRef(initialPosition.offset);
   const handleListReady = useCallback(() => setListReady(true), []);
+  // 열리는 동안 BottomSheet가 스크롤을 잠가도 복원 위치를 유지한다.
+  const scrollLock = useHistoryScrollLock(initialPosition.offset);
   const dragSelection = useHistoryDragSelection({
     listData,
     tileSize,
@@ -269,6 +272,7 @@ const HistorySheetGrid = memo(function HistorySheetGrid({
     );
     restoreTarget.current = offset;
     restored.current = offset === 0;
+    scrollLock.restingOffset.value = offset;
     list.scrollToOffset({ offset, animated: false });
   }, [
     columns,
@@ -277,6 +281,7 @@ const HistorySheetGrid = memo(function HistorySheetGrid({
     listData,
     listReady,
     rowHeight,
+    scrollLock.restingOffset,
     sheetOpen,
   ]);
 
@@ -311,6 +316,7 @@ const HistorySheetGrid = memo(function HistorySheetGrid({
         <HistoryGridList
           engine={listEngine}
           listRef={dragSelection.listRef}
+          scrollEventsHandlersHook={scrollLock.scrollEventsHandlersHook}
           data={listData}
           extraData={controller}
           columns={columns}
