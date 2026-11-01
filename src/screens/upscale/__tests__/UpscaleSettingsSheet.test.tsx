@@ -1,57 +1,10 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import type { BottomSheetProps } from "@gorhom/bottom-sheet";
-import { UpscaleSettingsSheetHost } from "../UpscaleSettingsSheet";
+import { UpscaleSettingsSheetContent } from "../UpscaleSettingsSheet";
 import { DEFAULT_UPSCALE_SETTINGS } from "../upscaleOptions";
 
-const mockSheetProps = jest.fn();
-const mockSnap = jest.fn();
 const mockScrollProps = jest.fn();
+const mockSelectProps = jest.fn();
 
-jest.mock("@gorhom/bottom-sheet", () => {
-  const React = require("react");
-  const { View } = require("react-native");
-  return {
-    __esModule: true,
-    default: React.forwardRef(function MockSheet(
-      props: BottomSheetProps,
-      ref: unknown,
-    ) {
-      mockSheetProps(props);
-      React.useImperativeHandle(ref, () => ({ snapToIndex: mockSnap }));
-      return <View>{props.children}</View>;
-    }),
-    BottomSheetView: View,
-    useBottomSheetTimingConfigs: () => ({}),
-    useBottomSheetGestureHandlers: () => ({ handlePanGestureHandler: {} }),
-  };
-});
-jest.mock("react-native-gesture-handler", () => {
-  const gesture: Record<string, unknown> = {};
-  for (const name of [
-    "activeOffsetY",
-    "failOffsetX",
-    "shouldCancelWhenOutside",
-    "onStart",
-    "onChange",
-    "onEnd",
-    "onFinalize",
-  ])
-    gesture[name] = () => gesture;
-  return {
-    Gesture: { Pan: () => gesture },
-    GestureDetector: ({ children }: { children: React.ReactNode }) => children,
-  };
-});
-jest.mock("react-native-reanimated", () => ({
-  __esModule: true,
-  default: { View: require("react-native").View },
-  Extrapolation: { CLAMP: "clamp" },
-  Easing: { bezier: () => (value: number) => value },
-  interpolate: () => 1,
-  useAnimatedStyle: (factory: () => object) => factory(),
-  useSharedValue: (value: number) => ({ value }),
-  withTiming: (value: number) => value,
-}));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
 jest.mock("../../../hooks/useGenerationChromeMetrics", () => ({
   GENERATION_SHEET_HEADER_HEIGHT: 44,
@@ -88,7 +41,10 @@ jest.mock("../../generation/sheets/SheetLayers", () => ({
   PressableSurface: require("react-native").Pressable,
 }));
 jest.mock("../../../components/forms/SheetSelect", () => ({
-  SheetSelect: () => null,
+  SheetSelect: (props: object) => {
+    mockSelectProps(props);
+    return null;
+  },
 }));
 jest.mock("../../../components/forms/FormControls", () => ({
   Toggle: () => null,
@@ -132,47 +88,48 @@ jest.mock("../../../components/forms/HelpButton", () => ({
 
 beforeEach(() => jest.clearAllMocks());
 
-function props() {
-  return mockSheetProps.mock.calls.at(-1)![0] as BottomSheetProps;
-}
-
-test("only uses collapsed and fully expanded positions", async () => {
-  const onOpenChange = jest.fn();
+test("uses keyboard-aware scrolling only while active and editable", async () => {
   const sharedProps = {
     settings: DEFAULT_UPSCALE_SETTINGS,
     disabled: false,
-    predictiveBackProgress: { value: 0 } as never,
-    onOpenChange,
     onChange: jest.fn(),
   };
-  const view = await render(<UpscaleSettingsSheetHost open {...sharedProps} />);
-  expect(props().snapPoints).toEqual([200, 788]);
-  expect(props().index).toBe(1);
-  expect(mockSnap).toHaveBeenLastCalledWith(1);
+  const view = await render(
+    <UpscaleSettingsSheetContent active {...sharedProps} />,
+  );
+  expect(mockScrollProps.mock.calls.at(-1)![0]).toMatchObject({
+    active: true,
+    enabled: true,
+    bottomOffset: 108,
+    extraKeyboardSpace: 96,
+  });
   expect(
     mockScrollProps.mock.calls.at(-1)![0].contentContainerStyle.at(-1)
       .paddingBottom,
   ).toBe(200);
-  await act(async () => {
-    props().onChange?.(0, 200, 0);
-  });
-  expect(onOpenChange).toHaveBeenCalledWith(false);
   await view.rerender(
-    <UpscaleSettingsSheetHost open={false} {...sharedProps} />,
+    <UpscaleSettingsSheetContent active={false} {...sharedProps} />,
   );
-  expect(props().index).toBe(0);
-  expect(mockSnap).toHaveBeenLastCalledWith(0);
+  expect(mockScrollProps.mock.calls.at(-1)![0]).toMatchObject({
+    active: false,
+    enabled: false,
+  });
+  await view.rerender(
+    <UpscaleSettingsSheetContent active {...sharedProps} disabled />,
+  );
+  expect(mockScrollProps.mock.calls.at(-1)![0]).toMatchObject({
+    active: true,
+    enabled: false,
+  });
 });
 
 test("keeps stepped labels and checkpoint decorations, and shows GPU help only on demand", async () => {
   const onChange = jest.fn();
   const view = await render(
-    <UpscaleSettingsSheetHost
-      open
+    <UpscaleSettingsSheetContent
+      active
       settings={DEFAULT_UPSCALE_SETTINGS}
       disabled={false}
-      predictiveBackProgress={{ value: 0 } as never}
-      onOpenChange={jest.fn()}
       onChange={onChange}
     />,
   );
@@ -184,4 +141,22 @@ test("keeps stepped labels and checkpoint decorations, and shows GPU help only o
   expect(view.queryByText(description)).toBeNull();
   await fireEvent.press(view.getByLabelText("Use GPU 도움말"));
   expect(view.getByText(description)).toBeTruthy();
+});
+
+test("closes the model selector when the settings sheet becomes inactive", async () => {
+  const shared = {
+    settings: DEFAULT_UPSCALE_SETTINGS,
+    disabled: false,
+    onChange: jest.fn(),
+  };
+  const view = await render(<UpscaleSettingsSheetContent active {...shared} />);
+  await act(() => {
+    mockSelectProps.mock.calls.at(-1)![0].onOpenChange(true);
+  });
+  expect(mockSelectProps.mock.calls.at(-1)![0].open).toBe(true);
+  await view.rerender(
+    <UpscaleSettingsSheetContent active={false} {...shared} />,
+  );
+  await view.rerender(<UpscaleSettingsSheetContent active {...shared} />);
+  expect(mockSelectProps.mock.calls.at(-1)![0].open).toBe(false);
 });

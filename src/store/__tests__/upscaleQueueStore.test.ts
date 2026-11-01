@@ -1,5 +1,11 @@
-import { imageUpscaler } from "../../../modules/image-upscaler";
-import { saveImageToGallery } from "../../lib/gallery";
+import {
+  imageUpscaler,
+  type UpscaleResult,
+} from "../../../modules/image-upscaler";
+import {
+  requestGallerySavePermission,
+  saveImageToGallery,
+} from "../../lib/gallery";
 import { DEFAULT_UPSCALE_SETTINGS } from "../../screens/upscale/upscaleOptions";
 import { useUpscaleQueueStore } from "../upscaleQueueStore";
 
@@ -39,24 +45,30 @@ jest.mock("../../lib/gallery", () => ({
   saveImageToGallery: jest.fn(),
 }));
 
+const defaultResult: UpscaleResult = {
+  uri: "file:///output.jpg",
+  width: 200,
+  height: 200,
+  bytes: 100,
+  elapsedMs: 20,
+  usedGpu: true,
+  tileSize: 100,
+  cpuThreads: 0,
+  cpuPolicy: 0,
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   useUpscaleQueueStore.setState({
     items: [],
     running: false,
     stopRequested: false,
+    activeBatchIds: [],
+    batchCompleted: 0,
+    currentItemId: null,
+    progress: 0,
   });
-  jest.mocked(imageUpscaler!.upscale).mockResolvedValue({
-    uri: "file:///output.jpg",
-    width: 200,
-    height: 200,
-    bytes: 100,
-    elapsedMs: 20,
-    usedGpu: true,
-    tileSize: 100,
-    cpuThreads: 0,
-    cpuPolicy: 0,
-  });
+  jest.mocked(imageUpscaler!.upscale).mockResolvedValue(defaultResult);
 });
 
 test("saves a queued image with its source name and album without changing the selected output extension", async () => {
@@ -228,3 +240,98 @@ test.each([0, 400])(
     expect(useUpscaleQueueStore.getState().items[0].result?.tileSize).toBe(100);
   },
 );
+
+function inputs(...names: string[]) {
+  return names.map((name) => ({
+    uri: `file:///${name}.png`,
+    width: 100,
+    height: 100,
+  }));
+}
+
+test("fixes the three-image batch at start and leaves later additions for another explicit start", async () => {
+  const store = useUpscaleQueueStore.getState();
+  store.addImages(inputs("first", "second", "third"));
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  const batchIds = [...useUpscaleQueueStore.getState().activeBatchIds];
+  store.addImages(inputs("before-service"));
+  const result = defaultResult;
+  jest.mocked(imageUpscaler!.upscale).mockImplementationOnce(async () => {
+    expect(useUpscaleQueueStore.getState().currentItemId).toBe(batchIds[0]);
+    store.addImages(inputs("during-upscale"));
+    // An active batch item cannot disappear while the total is fixed.
+    store.removeItem(batchIds[1]);
+    return result;
+  });
+  await store.runQueueTask();
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(3);
+  expect(useUpscaleQueueStore.getState()).toMatchObject({
+    running: false,
+    batchCompleted: 3,
+    activeBatchIds: [],
+  });
+  expect(
+    useUpscaleQueueStore.getState().items.map((item) => item.status),
+  ).toEqual(["done", "done", "done", "pending", "pending"]);
+  await store.runQueueTask();
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(3);
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  await store.runQueueTask();
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(5);
+  expect(useUpscaleQueueStore.getState().batchCompleted).toBe(2);
+});
+
+test("keeps images added during the permission prompt out of the batch and prevents duplicate starts", async () => {
+  const store = useUpscaleQueueStore.getState();
+  let grant!: (value: boolean) => void;
+  jest.mocked(requestGallerySavePermission).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        grant = resolve;
+      }),
+  );
+  store.addImages(inputs("first"));
+  const starting = store.start(DEFAULT_UPSCALE_SETTINGS);
+  store.addImages(inputs("later"));
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  expect(requestGallerySavePermission).toHaveBeenCalledTimes(1);
+  grant(true);
+  await starting;
+  await store.runQueueTask();
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(1);
+  expect(useUpscaleQueueStore.getState().items[1].status).toBe("pending");
+});
+
+test("returns cancelled batch items to the planned queue without starting later images", async () => {
+  const store = useUpscaleQueueStore.getState();
+  let cancel!: (error: Error) => void;
+  let entered!: () => void;
+  const nativeStarted = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  jest.mocked(imageUpscaler!.upscale).mockImplementationOnce(() => {
+    entered();
+    return new Promise((_resolve, reject) => {
+      cancel = reject;
+    });
+  });
+  store.addImages(inputs("first", "second", "third"));
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  const running = store.runQueueTask();
+  await nativeStarted;
+  store.addImages(inputs("later"));
+  store.requestStop();
+  cancel(new Error("UPSCALE_CANCELLED"));
+  await running;
+  expect(imageUpscaler!.cancel).toHaveBeenCalledTimes(1);
+  expect(
+    useUpscaleQueueStore
+      .getState()
+      .items.every((item) => item.status === "pending"),
+  ).toBe(true);
+  expect(useUpscaleQueueStore.getState().activeBatchIds).toEqual([]);
+  expect(useUpscaleQueueStore.getState().running).toBe(false);
+  await store.start(DEFAULT_UPSCALE_SETTINGS);
+  await store.runQueueTask();
+  expect(imageUpscaler!.upscale).toHaveBeenCalledTimes(5);
+});

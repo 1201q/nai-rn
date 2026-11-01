@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, within } from "@testing-library/react-native";
 import { Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import type { BottomSheetProps } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,8 @@ import {
   useGenerationInputCommit,
 } from "../../../context/GenerationInputCommitContext";
 import type { GenerationRecord } from "../../../lib/generationHistory";
+import { UpscaleQueueSheet } from "../../upscale/UpscaleQueueSheet";
+import { useUpscaleQueueStore } from "../../../store/upscaleQueueStore";
 import { useGenerationStore } from "../../../store/generationStore";
 
 import {
@@ -86,6 +88,24 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
   default: jest.fn(() => ({ width: 390, height: 844, scale: 1, fontScale: 1 })),
 }));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: () => null }));
+jest.mock("expo-image", () => ({ Image: require("react-native").View }));
+jest.mock("../../../store/upscaleSettingsStore", () => ({
+  useUpscaleSettingsStore: (selector: (state: object) => unknown) =>
+    selector({ settings: { albumName: "" } }),
+}));
+jest.mock("../../../store/upscaleQueueStore", () => {
+  const { create } = require("zustand");
+  return {
+    useUpscaleQueueStore: create(() => ({
+      items: [],
+      activeBatchIds: [],
+      running: false,
+      progress: 0,
+      clear: jest.fn(),
+      removeItem: jest.fn(),
+    })),
+  };
+});
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("sonner-native", () => ({ toast: { success: jest.fn() } }));
@@ -1188,5 +1208,116 @@ describe("generation sheet safe area", () => {
     expect(props?.activeOffsetY).toBeUndefined();
     expect(props?.failOffsetX).toBeUndefined();
     expect(props?.waitFor).toBeUndefined();
+  });
+});
+
+describe("upscale management uses the main tabbed sheet", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest
+      .mocked(useWindowDimensions)
+      .mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+    jest
+      .mocked(useSafeAreaInsets)
+      .mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+    useUpscaleQueueStore.setState({
+      running: true,
+      activeBatchIds: ["active", "next"],
+      items: [
+        {
+          id: "active",
+          uri: "file:///active.png",
+          originalFilename: "active.png",
+          width: 100,
+          height: 100,
+          status: "running",
+        },
+        {
+          id: "next",
+          uri: "file:///next.png",
+          originalFilename: "next.png",
+          width: 100,
+          height: 100,
+          status: "pending",
+        },
+        {
+          id: "later",
+          uri: "file:///later.png",
+          originalFilename: "later.png",
+          width: 100,
+          height: 100,
+          status: "pending",
+        },
+        {
+          id: "failed",
+          uri: "file:///failed.png",
+          originalFilename: "failed.png",
+          width: 100,
+          height: 100,
+          status: "failed",
+          error: "test",
+        },
+      ],
+    });
+  });
+
+  test("splits planned, active batch and completed images and supports tab presses and horizontal swipes", async () => {
+    const screen = await render(
+      <UpscaleQueueSheet
+        stage="half"
+        onStageChange={jest.fn()}
+        predictiveBackProgress={backProgress}
+        onAddImages={jest.fn()}
+      />,
+    );
+    const sheet = mockSheetProps.mock.calls.at(-1)![0];
+    expect(sheet.snapPoints).toEqual([expect.any(Number), 444, 788]);
+    expect(sheet.enableContentPanningGesture).toBe(false);
+    expect(sheet.waitFor).toBeTruthy();
+    expect(screen.getByText("later.png")).toBeTruthy();
+    expect(screen.queryByText("active.png")).toBeNull();
+    await fireEvent.press(screen.getByRole("tab", { name: /진행 중/ }));
+    expect(screen.getByText("active.png")).toBeTruthy();
+    expect(screen.getByText("next.png")).toBeTruthy();
+    expect(screen.queryByText("later.png")).toBeNull();
+    expect(
+      within(screen.getByTestId("upscale-page-running")).queryByLabelText(
+        "목록에서 제거",
+      ),
+    ).toBeNull();
+    await act(() => {
+      mockPanCallbacks.onEnd({ translationX: -200, velocityX: 0 });
+    });
+    expect(screen.getByText("failed.png")).toBeTruthy();
+    expect(
+      screen.getByRole("tab", { name: /진행 완료/ }).props.accessibilityState,
+    ).toEqual({ selected: true });
+  });
+
+  test("keeps only the preview accessible when collapsed and opens the half position", async () => {
+    const onAddImages = jest.fn();
+    const screen = await render(
+      <UpscaleQueueSheet
+        stage="collapsed"
+        onStageChange={jest.fn()}
+        predictiveBackProgress={backProgress}
+        onAddImages={onAddImages}
+      />,
+    );
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.queryByText("later.png")).toBeNull();
+    expect(screen.getByText("예정 1 · 진행 중 2 · 진행 완료 1")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("업스케일 이미지 펼치기"));
+    expect(mockSheetSnap).toHaveBeenLastCalledWith(1);
+    await screen.rerender(
+      <UpscaleQueueSheet
+        stage="half"
+        onStageChange={jest.fn()}
+        predictiveBackProgress={backProgress}
+        onAddImages={onAddImages}
+      />,
+    );
+    await fireEvent.press(screen.getByLabelText("업스케일할 이미지 더 추가"));
+    expect(onAddImages).toHaveBeenCalledTimes(1);
   });
 });

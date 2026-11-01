@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import BottomSheet, {
   type BottomSheetFooterProps,
@@ -48,12 +56,14 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
   onClose,
   historyController,
   generation,
+  renderSettings,
 }: {
   sheet: UtilitySheet;
   active: boolean;
   onClose: () => void;
   historyController: HistorySheetController;
   generation: MetadataSheetSource | null;
+  renderSettings?: (active: boolean) => ReactNode;
 }) {
   if (sheet === "history") {
     return <HistorySheetContent controller={historyController} />;
@@ -94,7 +104,11 @@ const UtilitySheetContent = memo(function UtilitySheetContent({
         <View style={styles.headerSide} />
       </View>
       <View style={styles.divider} />
-      <SettingsSheetContent active={active} />
+      {renderSettings ? (
+        renderSettings(active)
+      ) : (
+        <SettingsSheetContent active={active} />
+      )}
     </BottomSheetView>
   );
 });
@@ -106,6 +120,7 @@ export function UtilitySheetHost({
   onVisibilityChange,
   onSelectGeneration,
   generation = null,
+  renderSettings,
 }: {
   sheet: UtilitySheet | null;
   predictiveBackProgress: SharedValue<number>;
@@ -114,6 +129,7 @@ export function UtilitySheetHost({
   // History 타일을 눌렀을 때의 동작을 바꾼다(업스케일 화면).
   onSelectGeneration?: (item: GenerationRecord) => void;
   generation?: MetadataSheetSource | null;
+  renderSettings?: (active: boolean) => ReactNode;
 }) {
   const sheetRef = useRef<BottomSheet>(null);
   const animatedIndex = useSharedValue(-1);
@@ -288,6 +304,7 @@ export function UtilitySheetHost({
               onClose={onClose}
               historyController={historyController}
               generation={generation}
+              renderSettings={renderSettings}
             />
           )}
         </BottomSheet>

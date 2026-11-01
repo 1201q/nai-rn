@@ -52,6 +52,10 @@ type UpscaleQueueState = {
   stopRequested: boolean;
   // 처리 중인 장의 진행률 (0~1)
   progress: number;
+  // 시작 시 확정한 배치. 실행 도중 추가된 항목은 포함하지 않는다.
+  activeBatchIds: string[];
+  batchCompleted: number;
+  currentItemId: string | null;
   addImages: (
     images: {
       uri: string;
@@ -62,7 +66,7 @@ type UpscaleQueueState = {
   ) => void;
   removeItem: (id: string) => void;
   clear: () => void;
-  // 대기 / 실패 항목을 순서대로 처리하고 결과를 갤러리에 저장한다.
+  // 시작 시점의 대기 / 실패 항목만 순서대로 처리하고 갤러리에 저장한다.
   start: (settings: UpscaleSettings) => Promise<UpscaleStartResult>;
   // 처리 중인 장을 취소하고 멈춘다. 취소된 장은 대기로 돌아간다.
   requestStop: () => void;
@@ -73,6 +77,7 @@ type UpscaleQueueState = {
 let nextItemId = 0;
 let pendingSettings: UpscaleSettings | null = null;
 let queueRunning = false;
+let startPending = false;
 
 export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
   function updateItem(id: string, patch: Partial<UpscaleQueueItem>) {
@@ -88,6 +93,9 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
     running: false,
     stopRequested: false,
     progress: 0,
+    activeBatchIds: [],
+    batchCompleted: 0,
+    currentItemId: null,
 
     addImages: (images) =>
       set((state) => ({
@@ -104,34 +112,51 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
     removeItem: (id) =>
       set((state) => ({
         items: state.items.filter(
-          (item) => item.id !== id || item.status === "running",
+          (item) =>
+            item.id !== id ||
+            (state.running && state.activeBatchIds.includes(item.id)),
         ),
       })),
 
     clear: () => {
-      if (!get().running) set({ items: [] });
+      if (!get().running) set({ items: [], currentItemId: null });
     },
 
     start: async (settings) => {
-      if (get().running) return "started";
+      if (get().running || startPending) return "started";
       if (!imageUpscaler) return "no-module";
-      if (!(await requestGallerySavePermission())) return "no-permission";
-
-      pendingSettings = settings;
+      const candidates = get()
+        .items.filter(
+          (item) => item.status === "pending" || item.status === "failed",
+        )
+        .map((item) => item.id);
+      if (candidates.length === 0) return "started";
+      startPending = true;
+      try {
+        if (!(await requestGallerySavePermission())) return "no-permission";
+      } finally {
+        startPending = false;
+      }
+      const activeBatchIds = candidates.filter((id) =>
+        get().items.some((item) => item.id === id),
+      );
+      if (activeBatchIds.length === 0) return "started";
+      pendingSettings = { ...settings };
       set((state) => ({
         running: true,
         stopRequested: false,
+        progress: 0,
+        activeBatchIds,
+        batchCompleted: 0,
+        currentItemId: null,
         items: state.items.map((item) =>
-          item.status === "failed"
+          activeBatchIds.includes(item.id) && item.status === "failed"
             ? { ...item, status: "pending", error: undefined }
             : item,
         ),
       }));
 
-      const total = get().items.filter(
-        (item) => item.status === "pending",
-      ).length;
-      const serviceStarted = await startUpscaleService(total);
+      const serviceStarted = await startUpscaleService(activeBatchIds.length);
       if (!serviceStarted) void get().runQueueTask();
       return "started";
     },
@@ -148,9 +173,8 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
       pendingSettings = null;
       queueRunning = true;
 
-      const total = get().items.filter(
-        (item) => item.status === "pending",
-      ).length;
+      const batchIds = new Set(get().activeBatchIds);
+      const total = batchIds.size;
       let done = 0;
       const progressSubscription = imageUpscaler.addListener(
         "progress",
@@ -161,10 +185,12 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
         await acquireGenerationWakeLock();
 
         while (!get().stopRequested) {
-          const item = get().items.find((entry) => entry.status === "pending");
+          const item = get().items.find(
+            (entry) => batchIds.has(entry.id) && entry.status === "pending",
+          );
           if (!item) break;
 
-          set({ progress: 0 });
+          set({ progress: 0, currentItemId: item.id });
           updateItem(item.id, { status: "running" });
           try {
             const { uri, ...result } = await imageUpscaler.upscale(
@@ -206,8 +232,10 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
                 ? { status: "pending" }
                 : { status: "failed", error: message },
             );
+            if (message.includes("UPSCALE_CANCELLED")) break;
           }
           done += 1;
+          set({ batchCompleted: done, progress: 0 });
           void updateUpscaleProgress(done, total);
         }
       } finally {
@@ -215,7 +243,12 @@ export const useUpscaleQueueStore = create<UpscaleQueueState>((set, get) => {
         queueRunning = false;
         await releaseGenerationWakeLock();
         await stopUpscaleService();
-        set({ running: false, stopRequested: false });
+        set({
+          running: false,
+          stopRequested: false,
+          activeBatchIds: [],
+          progress: 0,
+        });
       }
     },
   };
